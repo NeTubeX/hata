@@ -23,9 +23,6 @@ input:focus{outline:none;border-color:#2c6e9e;}
 .btn:hover{opacity:0.85;}
 .btn-secondary{background:#ffffff;color:#1c4e6f;border:1px solid #e2e8f0;}
 .btn-retrait{background:#9e2c1c;color:#fff;margin-left:10px;}
-.btn-pdf{background:#8b5cf6;color:#fff;margin-left:10px;}
-.btn-pdf:hover{background:#7c3aed;}
-.btn-danger{background:#dc2626;color:#fff;}
 .btn-filter{background:#eef2f8;color:#1c4e6f;padding:6px 14px;margin-right:6px;border-radius:30px;font-size:0.7rem;font-weight:600;border:none;cursor:pointer;}
 .btn-filter.active{background:#1c4e6f;color:white;}
 .error-message{color:#c0392b;font-size:0.75rem;margin-top:12px;text-align:center;}
@@ -43,16 +40,17 @@ input:focus{outline:none;border-color:#2c6e9e;}
 .scan-table td{padding:12px 16px;border-bottom:1px solid #f1f5f9;color:#334155;}
 .scan-table tr:hover td{background:#fafcff;}
 .observation-cell{max-width:250px;white-space:normal;word-break:break-word;font-size:0.75rem;color:#475569;line-height:1.4;}
-.btn-preview-scan{background:#eef2f8;border:none;color:#1c4e6f;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:0.1s;}
+.btn-preview-scan{background:#eef2f8;border:none;color:#1c4e6f;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:0.1s;}
 .btn-preview-scan:hover{background:#e2e8f0;}
-.btn-delete-scan{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;margin-left:8px;transition:0.1s;}
+.btn-delete-scan{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:0.1s;}
 .btn-delete-scan:hover{background:#fee2e2;}
-.btn-download-pdf{background:#8b5cf6;border:none;color:#fff;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;margin-left:8px;transition:0.1s;}
+.btn-download-pdf{background:#8b5cf6;border:none;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;transition:0.1s;margin-right:6px;}
 .btn-download-pdf:hover{background:#7c3aed;}
 .btn-delete-bulk{background:#dc2626;color:white;border:none;padding:8px 18px;border-radius:40px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;}
 .btn-delete-bulk:hover{opacity:0.85;}
 .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:40px;font-size:0.7rem;font-weight:600;background:#ecfdf5;color:#059669;}
 .status-badge i{font-size:0.65rem;}
+.actions-cell{display:flex;gap:8px;flex-wrap:wrap;}
 footer{text-align:center;font-size:0.7rem;color:#94a3b8;margin-top:32px;padding:20px;border-top:1px solid #eef2f6;}
 .toast-container{position:fixed;bottom:24px;right:24px;z-index:10000;display:flex;flex-direction:column;gap:10px;}
 .toast{background:#1e293b;color:#fff;padding:14px 20px;border-radius:16px;font-size:0.8rem;display:flex;align-items:center;gap:12px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.1);border-left:4px solid;animation:slideIn 0.2s ease;max-width:360px;}
@@ -294,19 +292,16 @@ async function downloadAsPDF(scan) {
             const doc = documents[i];
             if (!doc.data) continue;
             
-            // Titre du document
             pdf.setFontSize(12);
             pdf.setFont("helvetica", "bold");
             pdf.text(`${i+1}. ${doc.name}`, margin, yPos);
             yPos += 6;
             
-            // Chargement et ajout de l'image
-            const imgData = doc.data;
             const img = new Image();
             await new Promise((resolve, reject) => {
                 img.onload = resolve;
                 img.onerror = reject;
-                img.src = imgData;
+                img.src = doc.data;
             });
             
             const imgWidth = img.width;
@@ -321,17 +316,15 @@ async function downloadAsPDF(scan) {
             }
             
             const xPos = margin + (contentWidth - finalWidth) / 2;
-            pdf.addImage(imgData, 'JPEG', xPos, yPos, finalWidth, finalHeight);
+            pdf.addImage(doc.data, 'JPEG', xPos, yPos, finalWidth, finalHeight);
             yPos += finalHeight + 10;
             
-            // Nouvelle page si besoin
             if (yPos > pageHeight - 20 && i < documents.length - 1) {
                 pdf.addPage();
                 yPos = 20;
             }
         }
         
-        // Pied de page
         const pageCount = pdf.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             pdf.setPage(i);
@@ -354,7 +347,7 @@ async function downloadAsPDF(scan) {
 function afficherScans(scans) {
     const tbody = document.getElementById('scansBody');
     if (scans.length === 0) {
-        tbody.innerHTML = '</table><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-folder-open"></i> Aucun rapport trouvé pour cette période</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-folder-open"></i> Aucun rapport trouvé pour cette période</td></tr>';
         return;
     }
     
@@ -368,6 +361,11 @@ function afficherScans(scans) {
         const expediteur = scan.expediteur || 'Blandine Kazembe';
         const fonction = scan.fonction || 'FEN';
         
+        // Encodage des données pour les boutons
+        const doc0 = (scan.documents?.feuillePresence || '').replace(/"/g, '&quot;');
+        const doc1 = (scan.documents?.pvTransmission || '').replace(/"/g, '&quot;');
+        const doc2 = (scan.documents?.pvArchivage || '').replace(/"/g, '&quot;');
+        
         html += `<tr data-id="${scan.id}">
             <td style="text-align:center;"><input type="checkbox" class="scan-checkbox" value="${scan.id}"></td>
             <td><strong>${formatDate(scan.timestamp)}</strong></td>
@@ -377,10 +375,10 @@ function afficherScans(scans) {
             </td>
             <td class="observation-cell">${escapeHtml(observation)}</td>
             <td>${docsList.join('<br>')}</td>
-            <td><button class="btn-preview-scan" data-doc0="${scan.documents?.feuillePresence || ''}" data-doc1="${scan.documents?.pvTransmission || ''}" data-doc2="${scan.documents?.pvArchivage || ''}"><i class="fas fa-eye"></i> Aperçu</button></td>
+            <td><button class="btn-preview-scan" data-doc0="${doc0}" data-doc1="${doc1}" data-doc2="${doc2}"><i class="fas fa-eye"></i> Aperçu</button></td>
             <td><span class="status-badge"><i class="fas fa-check-circle"></i> Réceptionné</span></td>
-            <td>
-                <button class="btn-download-pdf" data-id="${scan.id}" data-doc0="${scan.documents?.feuillePresence || ''}" data-doc1="${scan.documents?.pvTransmission || ''}" data-doc2="${scan.documents?.pvArchivage || ''}" data-expediteur="${escapeHtml(expediteur)}" data-date="${scan.timestamp}" data-observation="${escapeHtml(observation)}"><i class="fas fa-file-pdf"></i> PDF</button>
+            <td class="actions-cell">
+                <button class="btn-download-pdf" data-doc0="${doc0}" data-doc1="${doc1}" data-doc2="${doc2}" data-expediteur="${escapeHtml(expediteur)}" data-date="${scan.timestamp}" data-observation="${escapeHtml(observation)}"><i class="fas fa-file-pdf"></i> PDF</button>
                 <button class="btn-delete-scan" data-id="${scan.id}"><i class="fas fa-trash-alt"></i> Supprimer</button>
             </td>
         </tr>`;
@@ -411,7 +409,7 @@ function afficherScans(scans) {
         });
     });
     
-    // Téléchargement PDF individuel
+    // Téléchargement PDF
     document.querySelectorAll('.btn-download-pdf').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
