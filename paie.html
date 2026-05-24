@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>NeTubeX | Scan FEN</title>
+<title>NeTubeX | Scan FEN - Téléchargement PDF</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a2c3e;padding:24px;min-height:100vh;}
@@ -22,6 +23,8 @@ input:focus{outline:none;border-color:#2c6e9e;}
 .btn:hover{opacity:0.85;}
 .btn-secondary{background:#ffffff;color:#1c4e6f;border:1px solid #e2e8f0;}
 .btn-retrait{background:#9e2c1c;color:#fff;margin-left:10px;}
+.btn-pdf{background:#8b5cf6;color:#fff;margin-left:10px;}
+.btn-pdf:hover{background:#7c3aed;}
 .btn-danger{background:#dc2626;color:#fff;}
 .btn-filter{background:#eef2f8;color:#1c4e6f;padding:6px 14px;margin-right:6px;border-radius:30px;font-size:0.7rem;font-weight:600;border:none;cursor:pointer;}
 .btn-filter.active{background:#1c4e6f;color:white;}
@@ -44,6 +47,8 @@ input:focus{outline:none;border-color:#2c6e9e;}
 .btn-preview-scan:hover{background:#e2e8f0;}
 .btn-delete-scan{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;margin-left:8px;transition:0.1s;}
 .btn-delete-scan:hover{background:#fee2e2;}
+.btn-download-pdf{background:#8b5cf6;border:none;color:#fff;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:0.7rem;font-weight:600;margin-left:8px;transition:0.1s;}
+.btn-download-pdf:hover{background:#7c3aed;}
 .btn-delete-bulk{background:#dc2626;color:white;border:none;padding:8px 18px;border-radius:40px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:opacity 0.2s;}
 .btn-delete-bulk:hover{opacity:0.85;}
 .status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:40px;font-size:0.7rem;font-weight:600;background:#ecfdf5;color:#059669;}
@@ -67,6 +72,10 @@ footer{text-align:center;font-size:0.7rem;color:#94a3b8;margin-top:32px;padding:
 .modal-confirm-buttons button:hover{opacity:0.85;}
 .btn-confirm-yes{background:#10b981;color:#fff;}
 .btn-confirm-no{background:#e2e8f0;color:#1e293b;}
+.loading-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:30000;display:flex;align-items:center;justify-content:center;visibility:hidden;}
+.loading-overlay.active{visibility:visible;}
+.loading-spinner{background:#fff;border-radius:20px;padding:30px 40px;text-align:center;}
+.loading-spinner i{font-size:40px;color:#1c4e6f;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -116,12 +125,11 @@ footer{text-align:center;font-size:0.7rem;color:#94a3b8;margin-top:32px;padding:
                             <th>Documents joints</th>
                             <th>Aperçu</th>
                             <th>Statut</th>
-                            <th>Action</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="scansBody"><tr><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-spinner fa-pulse"></i> Chargement des rapports...</td></tr>
-                </tbody>
-            </table>
+                    <tbody id="scansBody"><tr><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-spinner fa-pulse"></i> Chargement des rapports...您</tbody>
+                </table>
             </div>
         </div>
         <footer>© NeTubeX 2026 · Plateforme de réception des rapports FEN</footer>
@@ -137,6 +145,12 @@ footer{text-align:center;font-size:0.7rem;color:#94a3b8;margin-top:32px;padding:
             <button class="btn-confirm-no" id="confirmNoBtn">Annuler</button>
             <button class="btn-confirm-yes" id="confirmYesBtn">Confirmer</button>
         </div>
+    </div>
+</div>
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner">
+        <i class="fas fa-spinner fa-pulse"></i>
+        <p>Génération du PDF en cours...</p>
     </div>
 </div>
 
@@ -196,6 +210,12 @@ function showConfirm(message, onConfirm) {
     document.getElementById('confirmNoBtn').addEventListener('click', confirmNo, { once: true });
 }
 
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (show) overlay.classList.add('active');
+    else overlay.classList.remove('active');
+}
+
 async function chargerScansFEN() {
     const tbody = document.getElementById('scansBody');
     try {
@@ -238,10 +258,103 @@ function formatDate(timestamp) {
     } catch(e) { return '—'; }
 }
 
+async function downloadAsPDF(scan) {
+    showLoading(true);
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 15;
+        const contentWidth = pageWidth - (margin * 2);
+        
+        // En-tête
+        pdf.setFontSize(18);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("RAPPORT FEN - DOCUMENTS SCANNÉS", pageWidth / 2, 20, { align: "center" });
+        
+        pdf.setFontSize(10);
+        pdf.setFont("helvetica", "normal");
+        pdf.text(`Date d'envoi: ${formatDate(scan.timestamp)}`, margin, 35);
+        pdf.text(`Expéditeur: ${scan.expediteur || 'Blandine Kazembe'} (${scan.fonction || 'FEN'})`, margin, 42);
+        pdf.text(`Observation: ${scan.observation || 'Aucune observation'}`, margin, 49);
+        
+        // Ligne séparatrice
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, 55, pageWidth - margin, 55);
+        
+        let yPos = 65;
+        const documents = [
+            { name: "Feuille de présence", data: scan.documents?.feuillePresence },
+            { name: "Procès verbal de transmission de rapport", data: scan.documents?.pvTransmission },
+            { name: "Procès verbal d'archivage", data: scan.documents?.pvArchivage }
+        ];
+        
+        for (let i = 0; i < documents.length; i++) {
+            const doc = documents[i];
+            if (!doc.data) continue;
+            
+            // Titre du document
+            pdf.setFontSize(12);
+            pdf.setFont("helvetica", "bold");
+            pdf.text(`${i+1}. ${doc.name}`, margin, yPos);
+            yPos += 6;
+            
+            // Chargement et ajout de l'image
+            const imgData = doc.data;
+            const img = new Image();
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = imgData;
+            });
+            
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+            const ratio = imgHeight / imgWidth;
+            let finalWidth = contentWidth;
+            let finalHeight = contentWidth * ratio;
+            
+            if (finalHeight > pageHeight - yPos - 20) {
+                finalHeight = pageHeight - yPos - 20;
+                finalWidth = finalHeight / ratio;
+            }
+            
+            const xPos = margin + (contentWidth - finalWidth) / 2;
+            pdf.addImage(imgData, 'JPEG', xPos, yPos, finalWidth, finalHeight);
+            yPos += finalHeight + 10;
+            
+            // Nouvelle page si besoin
+            if (yPos > pageHeight - 20 && i < documents.length - 1) {
+                pdf.addPage();
+                yPos = 20;
+            }
+        }
+        
+        // Pied de page
+        const pageCount = pdf.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setFont("helvetica", "normal");
+            pdf.text(`NeTubeX · Document généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+        }
+        
+        const fileName = `RAPPORT_FEN_${new Date(scan.timestamp).toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`;
+        pdf.save(fileName);
+        showToast("PDF téléchargé avec succès", "success");
+    } catch (err) {
+        console.error(err);
+        showToast("Erreur lors de la génération du PDF", "error");
+    } finally {
+        showLoading(false);
+    }
+}
+
 function afficherScans(scans) {
     const tbody = document.getElementById('scansBody');
     if (scans.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-folder-open"></i> Aucun rapport trouvé pour cette période</td></tr>';
+        tbody.innerHTML = '</table><td colspan="8" style="text-align:center;padding:48px;"><i class="fas fa-folder-open"></i> Aucun rapport trouvé pour cette période</td></tr>';
         return;
     }
     
@@ -266,7 +379,10 @@ function afficherScans(scans) {
             <td>${docsList.join('<br>')}</td>
             <td><button class="btn-preview-scan" data-doc0="${scan.documents?.feuillePresence || ''}" data-doc1="${scan.documents?.pvTransmission || ''}" data-doc2="${scan.documents?.pvArchivage || ''}"><i class="fas fa-eye"></i> Aperçu</button></td>
             <td><span class="status-badge"><i class="fas fa-check-circle"></i> Réceptionné</span></td>
-            <td><button class="btn-delete-scan" data-id="${scan.id}"><i class="fas fa-trash-alt"></i> Supprimer</button></td>
+            <td>
+                <button class="btn-download-pdf" data-id="${scan.id}" data-doc0="${scan.documents?.feuillePresence || ''}" data-doc1="${scan.documents?.pvTransmission || ''}" data-doc2="${scan.documents?.pvArchivage || ''}" data-expediteur="${escapeHtml(expediteur)}" data-date="${scan.timestamp}" data-observation="${escapeHtml(observation)}"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn-delete-scan" data-id="${scan.id}"><i class="fas fa-trash-alt"></i> Supprimer</button>
+            </td>
         </tr>`;
     }
     tbody.innerHTML = html;
@@ -292,6 +408,25 @@ function afficherScans(scans) {
             modalDiv.innerHTML = modalHtml;
             document.body.appendChild(modalDiv);
             modalDiv.querySelector('#closeModalBtn').onclick = () => modalDiv.remove();
+        });
+    });
+    
+    // Téléchargement PDF individuel
+    document.querySelectorAll('.btn-download-pdf').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const scanData = {
+                documents: {
+                    feuillePresence: btn.getAttribute('data-doc0'),
+                    pvTransmission: btn.getAttribute('data-doc1'),
+                    pvArchivage: btn.getAttribute('data-doc2')
+                },
+                expediteur: btn.getAttribute('data-expediteur'),
+                fonction: 'FEN',
+                observation: btn.getAttribute('data-observation'),
+                timestamp: btn.getAttribute('data-date')
+            };
+            await downloadAsPDF(scanData);
         });
     });
     
