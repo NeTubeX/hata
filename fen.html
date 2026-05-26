@@ -127,8 +127,63 @@ document.addEventListener('dblclick',function(e){e.preventDefault();});
 // Désactivation console
 (function(){const noop=function(){};if(window.console){window.console.log=noop;window.console.info=noop;window.console.warn=noop;window.console.debug=noop;window.console.error=noop;}})();
 
-// Déconnexion
-document.getElementById('logoutBtn').addEventListener('click',function(e){e.preventDefault();window.location.href='https://www.netubex.com/hat/login.html';});
+// Popup générique
+function showPopup(title, message, icon, leftText, rightText, onRightClick, isDanger=false, onLeftClick=null) {
+    const popup = document.getElementById('popupOverlay');
+    const titleDiv = document.getElementById('popupTitle');
+    const msgDiv = document.getElementById('popupMessage');
+    const leftBtn = document.getElementById('popupBtnLeft');
+    const rightBtn = document.getElementById('popupBtnRight');
+    
+    titleDiv.innerHTML = `<i class="${icon}"></i> ${title}`;
+    msgDiv.innerHTML = message;
+    leftBtn.innerHTML = leftText ? `<i class="fas fa-times"></i> ${leftText}` : '<i class="fas fa-times"></i> Annuler';
+    rightBtn.innerHTML = rightText ? `<i class="fas fa-check"></i> ${rightText}` : '';
+    rightBtn.style.display = rightText ? 'block' : 'none';
+    
+    if(isDanger){
+        rightBtn.classList.add('danger');
+    }else{
+        rightBtn.classList.remove('danger');
+    }
+    
+    leftBtn.onclick = () => {
+        popup.classList.remove('active');
+        if(onLeftClick) onLeftClick();
+    };
+    
+    if(onRightClick){
+        rightBtn.onclick = () => {
+            popup.classList.remove('active');
+            onRightClick();
+        };
+    }else{
+        rightBtn.onclick = () => popup.classList.remove('active');
+    }
+    
+    popup.classList.add('active');
+}
+
+// Popup de confirmation déconnexion
+function showLogoutConfirmation() {
+    const message = `
+        <div style="text-align:center;">
+            <i class="fas fa-sign-out-alt" style="font-size:2rem;color:#F39C12;margin-bottom:12px;display:block;"></i>
+            <strong>Voulez-vous vraiment vous déconnecter ?</strong>
+            <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Vous serez redirigé vers la page de connexion.</p>
+        </div>
+    `;
+    
+    showPopup('Déconnexion', message, 'fas fa-question-circle', 'Annuler', 'Se déconnecter', () => {
+        window.location.href = 'https://www.netubex.com/hat/login.html';
+    }, true);
+}
+
+// Événement déconnexion
+document.getElementById('logoutBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    showLogoutConfirmation();
+});
 
 // Conversion
 const DOLLAR_TO_POINTS=10000;
@@ -161,40 +216,6 @@ let capturedImages=[null,null,null];
 let currentPage=0;
 let captureLock=false;
 let pendingCameraRequest = null;
-
-// Popup générique
-function showPopup(title, message, icon, leftText, rightText, onRightClick, isDanger=false) {
-    const popup = document.getElementById('popupOverlay');
-    const titleDiv = document.getElementById('popupTitle');
-    const msgDiv = document.getElementById('popupMessage');
-    const leftBtn = document.getElementById('popupBtnLeft');
-    const rightBtn = document.getElementById('popupBtnRight');
-    
-    titleDiv.innerHTML = `<i class="${icon}"></i> ${title}`;
-    msgDiv.innerHTML = message;
-    leftBtn.innerHTML = leftText ? `<i class="fas fa-times"></i> ${leftText}` : '<i class="fas fa-times"></i> Annuler';
-    rightBtn.innerHTML = rightText ? `<i class="fas fa-check"></i> ${rightText}` : '';
-    rightBtn.style.display = rightText ? 'block' : 'none';
-    
-    if(isDanger){
-        rightBtn.classList.add('danger');
-    }else{
-        rightBtn.classList.remove('danger');
-    }
-    
-    leftBtn.onclick = () => popup.classList.remove('active');
-    
-    if(onRightClick){
-        rightBtn.onclick = () => {
-            popup.classList.remove('active');
-            onRightClick();
-        };
-    }else{
-        rightBtn.onclick = () => popup.classList.remove('active');
-    }
-    
-    popup.classList.add('active');
-}
 
 // Popup demande caméra
 function showCameraRequestPopup(onAllow, onDeny) {
