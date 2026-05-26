@@ -6,6 +6,9 @@
 <title>NeTubeX - Conversion & Scan</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;}
 html,body{width:100%;min-height:100vh;background:#0a0e1a;touch-action:pan-y pinch-zoom;}
@@ -16,8 +19,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0e1a;color:#EAEAEA;o
 .logo{display:flex;align-items:center;gap:10px;}
 .logo-img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(243,156,18,0.4);}
 .logo-text{font-size:1.2rem;font-weight:800;background:linear-gradient(135deg,#E67E22,#F39C12);-webkit-background-clip:text;background-clip:text;color:transparent;}
-.logout-btn{background:rgba(239,68,68,0.85);border:none;color:white;padding:8px 16px;border-radius:40px;font-weight:600;font-size:0.8rem;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.15s;font-family:'Inter',sans-serif;}
-.logout-btn:active{transform:scale(0.96);background:#dc2626;}
 .tabs-container{position:fixed;top:64px;left:0;right:0;background:rgba(10,14,26,0.95);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.05);z-index:999;display:flex;justify-content:center;gap:8px;padding:8px 16px;}
 .tab-btn{flex:1;max-width:200px;padding:10px 16px;border:none;background:transparent;color:#9ca3af;font-weight:600;font-size:0.85rem;border-radius:40px;cursor:pointer;transition:all 0.2s;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;}
 .tab-btn.active{background:linear-gradient(135deg,#F39C12,#E67E22);color:white;box-shadow:0 4px 12px rgba(243,156,18,0.3);}
@@ -83,49 +84,105 @@ footer{text-align:center;font-size:0.65rem;color:#4b556b;margin-top:32px;padding
 .request-details p{margin:4px 0;color:#cbd5e1;}
 .request-details i{color:#F39C12;width:20px;}
 .security-note{font-size:0.7rem;color:#9ca3af;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;gap:6px;}
+.observation-textarea{width:100%;padding:12px;border-radius:16px;background:rgba(10,14,26,0.8);border:1px solid rgba(243,156,18,0.3);color:white;font-family:'Inter',sans-serif;font-size:0.85rem;resize:vertical;margin-top:8px;}
+.observation-textarea:focus{outline:none;border-color:#F39C12;box-shadow:0 0 0 3px rgba(243,156,18,0.2);}
 
-@media (max-width:560px){.app-container{padding:120px 16px 30px;}.tab-btn{font-size:0.75rem;padding:8px 12px;}.logout-btn{padding:6px 12px;font-size:0.7rem;}.logo-text{font-size:1rem;}}
+@media (max-width:560px){.app-container{padding:120px 16px 30px;}.tab-btn{font-size:0.75rem;padding:8px 12px;}.logo-text{font-size:1rem;}}
 </style>
 </head>
 <body>
 <div class="bg-fixed"></div>
 <div class="bg-overlay"></div>
-<div class="navbar"><div class="logo"><img src="https://www.netubex.com/favicon.png.png" alt="NeTubeX" class="logo-img" onerror="this.src='https://netubex.github.io/hata/favicon.png.png'"><span class="logo-text">NeTubeX</span></div><button id="logoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Déconnexion</button></div>
-<div class="tabs-container"><button class="tab-btn active" data-tab="converter"><i class="fas fa-exchange-alt"></i> Conversion</button><button class="tab-btn" data-tab="scanner"><i class="fas fa-camera"></i> Scan documents</button></div>
-<div class="app-container">
-<div id="converter-tab" class="tab-page active-page"><div class="converter-card"><div class="converter-title"><i class="fas fa-dollar-sign"></i> → <i class="fas fa-coins"></i><span>Convertisseur</span></div><div class="input-group"><div class="input-label"><span>Montant en Dollars</span><span>$ USD</span></div><div class="input-wrapper"><span class="input-prefix">$</span><input type="number" id="convAmount" class="converter-input" placeholder="0.00" step="any" value="0.0001"></div></div><div class="actions"><button id="toPointsBtn" class="converter-btn btn-primary-conv"><i class="fas fa-coins"></i> Convertir en points</button></div><div class="result-card"><div class="result-label">Valeur convertie</div><div class="result-value" id="convResult">1 point</div></div></div></div>
-<div id="scanner-tab" class="tab-page">
-<div id="page0" class="scan-card"><div class="scan-title"><i class="fas fa-clipboard-list"></i> Feuille de présence</div><div class="cam-area"><video id="video0" autoplay playsinline muted></video><canvas id="canvas0"></canvas><img id="preview0" class="preview-img" style="display:none;"></div><div class="btn-row"><button id="startCam0" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture0" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div><div id="status0" class="status-badge"><i class="fas fa-circle"></i> En attente</div></div>
-<div id="page1" class="scan-card hidden"><div class="scan-title"><i class="fas fa-file-alt"></i> PV transmission de rapport</div><div class="cam-area"><video id="video1" autoplay playsinline muted></video><canvas id="canvas1"></canvas><img id="preview1" class="preview-img" style="display:none;"></div><div class="btn-row"><button id="startCam1" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture1" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div><div id="status1" class="status-badge"><i class="fas fa-circle"></i> En attente</div></div>
-<div id="page2" class="scan-card hidden"><div class="scan-title"><i class="fas fa-archive"></i> PV archivage</div><div class="cam-area"><video id="video2" autoplay playsinline muted></video><canvas id="canvas2"></canvas><img id="preview2" class="preview-img" style="display:none;"></div><div class="btn-row"><button id="startCam2" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture2" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div><div id="status2" class="status-badge"><i class="fas fa-circle"></i> En attente</div></div>
-<div class="progress-indicator"><div class="prog-step active" id="prog0">1</div><div class="prog-step" id="prog1">2</div><div class="prog-step" id="prog2">3</div></div>
-<div id="previewAllArea" class="preview-all hidden"><div class="preview-all-item" data-index="0"><img id="previewAll0" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-clipboard-list"></i> Présence</div></div><div class="preview-all-item" data-index="1"><img id="previewAll1" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-file-alt"></i> Transmission</div></div><div class="preview-all-item" data-index="2"><img id="previewAll2" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-archive"></i> Archivage</div></div></div>
-<button id="sendFinalBtn" class="send-btn-special hidden"><i class="fas fa-paper-plane"></i> ENVOYER AU DEO</button>
-<button id="restartAllBtn" class="restart-all-btn hidden"><i class="fas fa-sync-alt"></i> RECOMMENCER</button>
+<div class="navbar">
+    <div class="logo">
+        <img src="https://www.netubex.com/favicon.png.png" alt="NeTubeX" class="logo-img" onerror="this.src='https://netubex.github.io/hata/favicon.png.png'">
+        <span class="logo-text">NeTubeX</span>
+    </div>
 </div>
-<footer>© NeTubeX 2026</footer>
+<div class="tabs-container">
+    <button class="tab-btn active" data-tab="converter"><i class="fas fa-exchange-alt"></i> Conversion</button>
+    <button class="tab-btn" data-tab="scanner"><i class="fas fa-camera"></i> Scan documents</button>
+</div>
+<div class="app-container">
+    <div id="converter-tab" class="tab-page active-page">
+        <div class="converter-card">
+            <div class="converter-title"><i class="fas fa-dollar-sign"></i> → <i class="fas fa-coins"></i><span>Convertisseur</span></div>
+            <div class="input-group">
+                <div class="input-label"><span>Montant en Dollars</span><span>$ USD</span></div>
+                <div class="input-wrapper"><span class="input-prefix">$</span><input type="number" id="convAmount" class="converter-input" placeholder="0.00" step="any" value="0.0001"></div>
+            </div>
+            <div class="actions"><button id="toPointsBtn" class="converter-btn btn-primary-conv"><i class="fas fa-coins"></i> Convertir en points</button></div>
+            <div class="result-card"><div class="result-label">Valeur convertie</div><div class="result-value" id="convResult">1 point</div></div>
+        </div>
+    </div>
+    
+    <div id="scanner-tab" class="tab-page">
+        <div id="page0" class="scan-card">
+            <div class="scan-title"><i class="fas fa-clipboard-list"></i> Feuille de présence</div>
+            <div class="cam-area"><video id="video0" autoplay playsinline muted></video><canvas id="canvas0"></canvas><img id="preview0" class="preview-img" style="display:none;"></div>
+            <div class="btn-row"><button id="startCam0" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture0" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div>
+            <div id="status0" class="status-badge"><i class="fas fa-circle"></i> En attente</div>
+        </div>
+        <div id="page1" class="scan-card hidden">
+            <div class="scan-title"><i class="fas fa-file-alt"></i> PV transmission de rapport</div>
+            <div class="cam-area"><video id="video1" autoplay playsinline muted></video><canvas id="canvas1"></canvas><img id="preview1" class="preview-img" style="display:none;"></div>
+            <div class="btn-row"><button id="startCam1" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture1" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div>
+            <div id="status1" class="status-badge"><i class="fas fa-circle"></i> En attente</div>
+        </div>
+        <div id="page2" class="scan-card hidden">
+            <div class="scan-title"><i class="fas fa-archive"></i> PV archivage</div>
+            <div class="cam-area"><video id="video2" autoplay playsinline muted></video><canvas id="canvas2"></canvas><img id="preview2" class="preview-img" style="display:none;"></div>
+            <div class="btn-row"><button id="startCam2" class="btn btn-primary"><i class="fas fa-video"></i> ACTIVER</button><button id="capture2" class="btn btn-capture" disabled><i class="fas fa-camera"></i> CAPTURER</button></div>
+            <div id="status2" class="status-badge"><i class="fas fa-circle"></i> En attente</div>
+        </div>
+        
+        <!-- Champ Observation multi-lignes -->
+        <div class="scan-card" style="margin-top:20px;">
+            <div class="scan-title"><i class="fas fa-pen-alt"></i> Observation</div>
+            <textarea id="observationText" class="observation-textarea" rows="3" placeholder="Saisissez une observation sur ce rapport..."></textarea>
+        </div>
+        
+        <div class="progress-indicator"><div class="prog-step active" id="prog0">1</div><div class="prog-step" id="prog1">2</div><div class="prog-step" id="prog2">3</div></div>
+        <div id="previewAllArea" class="preview-all hidden">
+            <div class="preview-all-item" data-index="0"><img id="previewAll0" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-clipboard-list"></i> Présence</div></div>
+            <div class="preview-all-item" data-index="1"><img id="previewAll1" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-file-alt"></i> Transmission</div></div>
+            <div class="preview-all-item" data-index="2"><img id="previewAll2" class="preview-all-img" src=""><div class="preview-all-label"><i class="fas fa-archive"></i> Archivage</div></div>
+        </div>
+        <button id="sendFinalBtn" class="send-btn-special hidden"><i class="fas fa-paper-plane"></i> ENVOYER AU DEO</button>
+        <button id="restartAllBtn" class="restart-all-btn hidden"><i class="fas fa-sync-alt"></i> RECOMMENCER</button>
+    </div>
+    <footer>© NeTubeX 2026</footer>
 </div>
 
 <div id="popupOverlay" class="popup-overlay">
-<div class="popup-card">
-<div id="popupTitle" class="popup-title"></div>
-<div id="popupMessage" class="popup-message"></div>
-<div class="popup-buttons">
-<button id="popupBtnLeft" class="popup-btn secondary"></button>
-<button id="popupBtnRight" class="popup-btn primary"></button>
-</div>
-</div>
+    <div class="popup-card">
+        <div id="popupTitle" class="popup-title"></div>
+        <div id="popupMessage" class="popup-message"></div>
+        <div class="popup-buttons">
+            <button id="popupBtnLeft" class="popup-btn secondary"></button>
+            <button id="popupBtnRight" class="popup-btn primary"></button>
+        </div>
+    </div>
 </div>
 
 <script>
+// Configuration Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+
+// Initialiser Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 // Sécurité
 document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
-document.addEventListener('keydown',function(e){if(e.key==='F12'){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C')){e.preventDefault();return false;}if(e.ctrlKey&&e.key==='u'){e.preventDefault();return false;}if(e.ctrlKey&&e.key==='s'){e.preventDefault();return false;}if(e.ctrlKey&&e.key==='p'){e.preventDefault();return false;}});
-document.addEventListener('touchmove',function(e){if(e.scale&&e.scale!==1){e.preventDefault();}},{passive:false});
-document.addEventListener('dblclick',function(e){e.preventDefault();});
-
-// Désactivation console
-(function(){const noop=function(){};if(window.console){window.console.log=noop;window.console.info=noop;window.console.warn=noop;window.console.debug=noop;window.console.error=noop;}})();
+document.addEventListener('keydown',function(e){if(e.key==='F12'){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C')){e.preventDefault();return false;}if(e.ctrlKey&&e.key==='u'){e.preventDefault();return false;}});
 
 // Popup générique
 function showPopup(title, message, icon, leftText, rightText, onRightClick, isDanger=false, onLeftClick=null) {
@@ -163,27 +220,6 @@ function showPopup(title, message, icon, leftText, rightText, onRightClick, isDa
     
     popup.classList.add('active');
 }
-
-// Popup de confirmation déconnexion
-function showLogoutConfirmation() {
-    const message = `
-        <div style="text-align:center;">
-            <i class="fas fa-sign-out-alt" style="font-size:2rem;color:#F39C12;margin-bottom:12px;display:block;"></i>
-            <strong>Voulez-vous vraiment vous déconnecter ?</strong>
-            <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Vous serez redirigé vers la page de connexion.</p>
-        </div>
-    `;
-    
-    showPopup('Déconnexion', message, 'fas fa-question-circle', 'Annuler', 'Se déconnecter', () => {
-        window.location.href = 'https://www.netubex.com/hata/login.html';
-    }, true);
-}
-
-// Événement déconnexion
-document.getElementById('logoutBtn').addEventListener('click', function(e) {
-    e.preventDefault();
-    showLogoutConfirmation();
-});
 
 // Conversion
 const DOLLAR_TO_POINTS=10000;
@@ -469,22 +505,65 @@ function goToPage(page){
     updateProgressUI();
 }
 
-function sendAllDocuments(){
+// Envoi vers Firebase collection scan_reports
+async function sendAllDocuments(){
     if(!capturedImages[0]||!capturedImages[1]||!capturedImages[2]){
+        showPopup('Documents manquants', 'Veuillez capturer les 3 documents avant d\'envoyer.', 'fas fa-exclamation-triangle', 'Fermer', null, null);
         return;
     }
     
+    const observation = document.getElementById('observationText').value.trim() || "Aucune observation";
+    
     const message = `
         <div style="text-align:center;">
-            <i class="fas fa-paper-plane" style="font-size:2rem;color:#10b981;margin-bottom:12px;display:block;"></i>
-            <strong>Documents envoyés au DEO avec succès !</strong>
-            <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Les 3 documents ont été transmis.</p>
+            <i class="fas fa-spinner fa-pulse" style="font-size:2rem;color:#F39C12;margin-bottom:12px;display:block;"></i>
+            <strong>Envoi en cours...</strong>
+            <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Veuillez patienter</p>
         </div>
     `;
     
-    showPopup('Envoi réussi', message, 'fas fa-check-circle', 'OK', null, () => {
-        location.reload();
-    });
+    showPopup('Envoi en cours', message, 'fas fa-cloud-upload-alt', null, null, null);
+    
+    try {
+        // Préparer les données pour Firestore
+        const rapportData = {
+            expediteur: "FEN (Blandine Kazembe)",
+            observation: observation,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            documents: {
+                feuillePresence: capturedImages[0],
+                pvTransmission: capturedImages[1],
+                pvArchivage: capturedImages[2]
+            }
+        };
+        
+        // Envoyer vers la collection scan_reports
+        await db.collection("scan_reports").add(rapportData);
+        
+        const successMessage = `
+            <div style="text-align:center;">
+                <i class="fas fa-check-circle" style="font-size:2rem;color:#10b981;margin-bottom:12px;display:block;"></i>
+                <strong>Rapport envoyé au DEO avec succès !</strong>
+                <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Les 3 documents ont été transmis à la collection scan_reports.</p>
+                <p style="margin-top:8px;font-size:0.7rem;color:#F39C12;"><i class="fas fa-pen-alt"></i> Observation: ${escapeHtml(observation.substring(0, 100))}${observation.length > 100 ? '...' : ''}</p>
+            </div>
+        `;
+        
+        showPopup('Succès', successMessage, 'fas fa-check-circle', 'OK', null, () => {
+            location.reload();
+        });
+        
+    } catch (error) {
+        console.error("Erreur lors de l'envoi:", error);
+        const errorMessage = `
+            <div style="text-align:center;">
+                <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:#ef4444;margin-bottom:12px;display:block;"></i>
+                <strong>Erreur lors de l'envoi</strong>
+                <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Veuillez vérifier votre connexion et réessayer.</p>
+            </div>
+        `;
+        showPopup('Erreur', errorMessage, 'fas fa-exclamation-triangle', 'Fermer', null, null);
+    }
 }
 
 function showRestartPopup() {
@@ -498,8 +577,19 @@ function showRestartPopup() {
     
     showPopup('Recommencer', message, 'fas fa-sync-alt', 'Annuler', 'Recommencer', () => {
         resetAllCaptures();
-        showPopup('✅ Réinitialisé', 'Tous les documents ont été supprimés. Vous pouvez recommencer les captures.', 'fas fa-check-circle', 'Fermer', null, null);
+        document.getElementById('observationText').value = '';
+        showPopup('Réinitialisé', 'Tous les documents ont été supprimés. Vous pouvez recommencer les captures.', 'fas fa-check-circle', 'Fermer', null, null);
     }, true);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
 }
 
 function initScan(){
