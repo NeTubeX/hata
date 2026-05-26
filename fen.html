@@ -65,6 +65,7 @@ canvas{display:none;}
 .preview-all-img{width:65px;height:65px;border-radius:14px;object-fit:cover;background:#111827;border:1px solid rgba(243,156,18,0.3);}
 .preview-all-label{font-size:0.55rem;margin-top:5px;color:#9ca3af;display:flex;align-items:center;justify-content:center;gap:4px;}
 .send-btn-special{background:linear-gradient(135deg,#F39C12,#E67E22);width:100%;padding:14px;border-radius:60px;font-weight:700;font-size:0.9rem;border:none;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;}
+.send-btn-special:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
 .restart-all-btn{background:rgba(239,68,68,0.85);width:100%;padding:14px;border-radius:60px;font-weight:700;font-size:0.9rem;border:none;cursor:pointer;color:white;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;}
 .hidden{display:none;}
 footer{text-align:center;font-size:0.65rem;color:#4b556b;margin-top:32px;padding:16px;}
@@ -179,6 +180,10 @@ const firebaseConfig = {
 // Initialiser Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+
+// Variable pour empêcher les envois multiples
+let isSending = false;
+let timerInterval = null;
 
 // Sécurité
 document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
@@ -408,6 +413,8 @@ async function captureDocument(index){
             document.getElementById('sendFinalBtn').classList.remove('hidden');
             document.getElementById('restartAllBtn').classList.remove('hidden');
             document.getElementById('previewAllArea').classList.remove('hidden');
+            // Vérifier le timer au chargement du bouton
+            startSendButtonTimer();
         }
         updateProgressUI();
     },400);
@@ -434,14 +441,29 @@ function resetAllCaptures(){
         statusDiv.style.color='';
     }
     updateGlobalPreview();
-    document.getElementById('sendFinalBtn').classList.add('hidden');
-    document.getElementById('restartAllBtn').classList.add('hidden');
-    document.getElementById('previewAllArea').classList.add('hidden');
+    document.getElementById('sendFinalBtn').classList.remove('hidden');
+    document.getElementById('restartAllBtn').classList.remove('hidden');
+    document.getElementById('previewAllArea').classList.remove('hidden');
     currentPage=0;
     document.getElementById('page0').classList.remove('hidden');
     document.getElementById('page1').classList.add('hidden');
     document.getElementById('page2').classList.add('hidden');
     updateProgressUI();
+    
+    // Réactiver le bouton si le timer est terminé
+    const disabledUntil = localStorage.getItem('sendBtnDisabledUntil');
+    if (!disabledUntil || parseInt(disabledUntil) <= Date.now()) {
+        const sendBtn = document.getElementById('sendFinalBtn');
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        sendBtn.style.cursor = 'pointer';
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ENVOYER AU DEO';
+        isSending = false;
+        localStorage.removeItem('sendBtnDisabledUntil');
+        if(timerInterval) clearInterval(timerInterval);
+    } else {
+        startSendButtonTimer();
+    }
 }
 
 function updateGlobalPreview(){
@@ -505,8 +527,60 @@ function goToPage(page){
     updateProgressUI();
 }
 
-// Envoi vers Firebase collection scan_reports
+// Fonction pour démarrer le timer sur le bouton
+function startSendButtonTimer() {
+    const sendBtn = document.getElementById('sendFinalBtn');
+    const disabledUntil = localStorage.getItem('sendBtnDisabledUntil');
+    
+    if (timerInterval) clearInterval(timerInterval);
+    
+    if (disabledUntil && sendBtn) {
+        const remaining = parseInt(disabledUntil) - Date.now();
+        
+        if (remaining > 0) {
+            sendBtn.disabled = true;
+            sendBtn.style.opacity = '0.5';
+            sendBtn.style.cursor = 'not-allowed';
+            isSending = true;
+            
+            timerInterval = setInterval(() => {
+                const newRemaining = parseInt(localStorage.getItem('sendBtnDisabledUntil')) - Date.now();
+                if (newRemaining > 0) {
+                    const minutesLeft = Math.floor(newRemaining / 60000);
+                    const secondsLeft = Math.ceil(newRemaining / 1000);
+                    if (secondsLeft <= 60) {
+                        sendBtn.innerHTML = `<i class="fas fa-clock"></i> ${secondsLeft}s`;
+                    } else {
+                        sendBtn.innerHTML = `<i class="fas fa-clock"></i> ${minutesLeft}min ${secondsLeft % 60}s`;
+                    }
+                } else {
+                    clearInterval(timerInterval);
+                    sendBtn.disabled = false;
+                    sendBtn.style.opacity = '1';
+                    sendBtn.style.cursor = 'pointer';
+                    sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ENVOYER AU DEO';
+                    isSending = false;
+                    localStorage.removeItem('sendBtnDisabledUntil');
+                }
+            }, 1000);
+        } else {
+            sendBtn.disabled = false;
+            sendBtn.style.opacity = '1';
+            sendBtn.style.cursor = 'pointer';
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> ENVOYER AU DEO';
+            isSending = false;
+            localStorage.removeItem('sendBtnDisabledUntil');
+        }
+    }
+}
+
+// Envoi vers Firebase
 async function sendAllDocuments(){
+    if(isSending){
+        showPopup('Envoi en cours', 'Veuillez patienter, votre rapport est déjà en cours d\'envoi.', 'fas fa-spinner fa-pulse', 'OK', null, null);
+        return;
+    }
+    
     if(!capturedImages[0]||!capturedImages[1]||!capturedImages[2]){
         showPopup('Documents manquants', 'Veuillez capturer les 3 documents avant d\'envoyer.', 'fas fa-exclamation-triangle', 'Fermer', null, null);
         return;
@@ -514,10 +588,19 @@ async function sendAllDocuments(){
     
     const observation = document.getElementById('observationText').value.trim() || "Aucune observation";
     
+    const sendBtn = document.getElementById('sendFinalBtn');
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.5';
+    sendBtn.style.cursor = 'not-allowed';
+    isSending = true;
+    
+    const disableUntil = Date.now() + (5 * 60 * 1000);
+    localStorage.setItem('sendBtnDisabledUntil', disableUntil);
+    
     const message = `
         <div style="text-align:center;">
             <i class="fas fa-spinner fa-pulse" style="font-size:2rem;color:#F39C12;margin-bottom:12px;display:block;"></i>
-            <strong>Envoi en cours...</strong>
+            <strong>Traitement en cours...</strong>
             <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Veuillez patienter</p>
         </div>
     `;
@@ -525,7 +608,6 @@ async function sendAllDocuments(){
     showPopup('Envoi en cours', message, 'fas fa-cloud-upload-alt', null, null, null);
     
     try {
-        // Préparer les données pour Firestore
         const rapportData = {
             expediteur: "FEN (Blandine Kazembe)",
             observation: observation,
@@ -537,21 +619,22 @@ async function sendAllDocuments(){
             }
         };
         
-        // Envoyer vers la collection scan_reports
         await db.collection("scan_reports").add(rapportData);
+        
+        startSendButtonTimer();
         
         const successMessage = `
             <div style="text-align:center;">
                 <i class="fas fa-check-circle" style="font-size:2rem;color:#10b981;margin-bottom:12px;display:block;"></i>
                 <strong>Rapport envoyé au DEO avec succès !</strong>
-                <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Les 3 documents ont été transmis à la collection scan_reports.</p>
-                <p style="margin-top:8px;font-size:0.7rem;color:#F39C12;"><i class="fas fa-pen-alt"></i> Observation: ${escapeHtml(observation.substring(0, 100))}${observation.length > 100 ? '...' : ''}</p>
+                <p style="margin-top:12px;font-size:0.8rem;color:#9ca3af;">Les 3 documents ont été transmis.</p>
+                <p style="margin-top:8px;font-size:0.7rem;color:#F39C12;"><i class="fas fa-user"></i> Expéditeur: FEN (Blandine Kazembe)</p>
+                <p style="margin-top:4px;font-size:0.7rem;color:#F39C12;"><i class="fas fa-pen-alt"></i> Observation: ${escapeHtml(observation.substring(0, 100))}${observation.length > 100 ? '...' : ''}</p>
+                <p style="margin-top:12px;font-size:0.7rem;color:#10b981;"><i class="fas fa-clock"></i> Prochain envoi possible dans 5 minutes</p>
             </div>
         `;
         
-        showPopup('Succès', successMessage, 'fas fa-check-circle', 'OK', null, () => {
-            location.reload();
-        });
+        showPopup('Succès', successMessage, 'fas fa-check-circle', 'OK', null, null);
         
     } catch (error) {
         console.error("Erreur lors de l'envoi:", error);
@@ -563,6 +646,12 @@ async function sendAllDocuments(){
             </div>
         `;
         showPopup('Erreur', errorMessage, 'fas fa-exclamation-triangle', 'Fermer', null, null);
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        sendBtn.style.cursor = 'pointer';
+        isSending = false;
+        localStorage.removeItem('sendBtnDisabledUntil');
+        if(timerInterval) clearInterval(timerInterval);
     }
 }
 
@@ -605,6 +694,7 @@ initScan();
 
 window.addEventListener('beforeunload',()=>{
     for(let i=0;i<3;i++) if(streams[i]) streams[i].getTracks().forEach(t=>t.stop());
+    if(timerInterval) clearInterval(timerInterval);
 });
 
 // Gestion des onglets
@@ -626,6 +716,11 @@ tabBtns.forEach(btn=>{
             scannerTab.classList.add('active-page');
         }
     });
+});
+
+// Vérifier le timer au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    startSendButtonTimer();
 });
 </script>
 </body>
