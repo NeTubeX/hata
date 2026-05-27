@@ -336,8 +336,7 @@ let toastContainer=null;
 function getToastContainer(){if(!toastContainer){toastContainer=document.createElement('div');toastContainer.className='toast-container';document.body.appendChild(toastContainer);}return toastContainer;}
 function showToast(message,type='success',duration=6000){const container=getToastContainer();const toast=document.createElement('div');toast.className=`toast toast-${type}`;let icon='',title='';switch(type){case 'success':icon='✅';title='Succès';break;case 'error':icon='❌';title='Erreur';break;case 'info':icon='ℹ️';title='Information';break;default:icon='✅';title='Notification';}toast.innerHTML=`<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div><button class="toast-close">✕</button>`;container.appendChild(toast);const closeBtn=toast.querySelector('.toast-close');closeBtn.addEventListener('click',()=>{toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});setTimeout(()=>{if(toast.parentElement){toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);}},duration);toast.addEventListener('click',(e)=>{if(e.target===closeBtn||closeBtn.contains(e.target))return;toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});}
 
-// GAMES triés du plus payant au moins payant (prix décroissant)
-// Magnet Miner remplace Zombies Waves avec un prix de 139.98$
+// GAMES triés du plus payant au moins payant
 const games = [
     {id:0, name:"Freezer Frenzy", avatar:"https://netubex.github.io/hata/freezer-frenzy.jpg", img:"https://netubex.github.io/hata/freezer-frenzy.jpg", duration:"30j", totalEarning:"274.53", description:"Plongez dans l'univers glacé de Freezer Frenzy! Survivez aux vagues de froid, collectez des cristaux de glace et débloquez des pouvoirs légendaires."},
     {id:1, name:"The Grand Mafia", avatar:"https://netubex.github.io/hata/the-grand-mafia.webp", img:"https://netubex.github.io/hata/the-grand-mafia.webp", duration:"30j", totalEarning:"185.04", description:"Jeu de stratégie mafieux. Construis ton empire, recrute des soldats et domine la ville."},
@@ -483,25 +482,32 @@ document.getElementById('panelAbtn')?.addEventListener('click',async()=>{
 });
 document.getElementById('panelBbtn')?.addEventListener('click',async()=>{let userId=currentUser?.uid;showFlyPopup('Panel B','B','#3b82f6','gemiwall',`https://gemiwall.com/69f304688bb8875fc339fe24/${userId}`);});
 
-// Panel C - demande de mot de passe PiloteANX
-document.getElementById('panelCbtn')?.addEventListener('click',()=>{
-    pendingAction = 'panelC';
-    if(accessCodeInput) accessCodeInput.value = '';
-    codePopup.classList.add('active');
-});
-
-// Bouton Rapport - demande de mot de passe PiloteBNX
-const reportBtn = document.getElementById('reportBtn');
-const codePopupElem = document.getElementById('codeAccessPopup');
+// Récupération des éléments du popup code
+const codePopup = document.getElementById('codeAccessPopup');
 const accessCodeInput = document.getElementById('accessCodeInput');
 const validateCodeBtn = document.getElementById('validateCodeBtn');
 const cancelCodeBtn = document.getElementById('cancelCodeBtn');
 
+// Panel C - demande de mot de passe PiloteANX
+document.getElementById('panelCbtn')?.addEventListener('click', () => {
+    console.log('Panel C cliqué'); // Pour debug
+    pendingAction = 'panelC';
+    if (accessCodeInput) accessCodeInput.value = '';
+    if (codePopup) {
+        codePopup.classList.add('active');
+    } else {
+        console.error('Popup code non trouvée');
+        showToast("Erreur technique", "Impossible d'ouvrir la popup de sécurité", "error");
+    }
+});
+
+// Bouton Rapport - demande de mot de passe PiloteBNX
+const reportBtn = document.getElementById('reportBtn');
 if(reportBtn){
     reportBtn.addEventListener('click',()=>{
         pendingAction = 'report';
         if(accessCodeInput) accessCodeInput.value = '';
-        codePopupElem.classList.add('active');
+        if(codePopup) codePopup.classList.add('active');
     });
 }
 
@@ -512,8 +518,9 @@ if(validateCodeBtn){
         if(pendingAction === 'panelC') {
             // Panel C: mot de passe PiloteANX
             if(enteredCode === 'PiloteANX'){
-                codePopupElem.classList.remove('active');
+                codePopup.classList.remove('active');
                 window.open('https://earnlab.com/fr/surveys', '_blank');
+                showToast("Accès Panel C accordé", "Redirection vers EarnLab...", "success");
                 pendingAction = null;
                 // Envoyer l'alerte de sécurité
                 (async () => {
@@ -542,7 +549,7 @@ if(validateCodeBtn){
         else if(pendingAction === 'report') {
             // Bouton Rapport: mot de passe PiloteBNX
             if(enteredCode === 'PiloteBNX'){
-                codePopupElem.classList.remove('active');
+                codePopup.classList.remove('active');
                 window.location.href = 'pilote.html';
                 pendingAction = null;
             } else {
@@ -553,7 +560,7 @@ if(validateCodeBtn){
         }
         else {
             // Aucune action en attente
-            codePopupElem.classList.remove('active');
+            codePopup.classList.remove('active');
             showToast("Action non reconnue", "error");
         }
     });
@@ -561,8 +568,9 @@ if(validateCodeBtn){
 
 if(cancelCodeBtn){
     cancelCodeBtn.addEventListener('click',()=>{
-        codePopupElem.classList.remove('active');
+        codePopup.classList.remove('active');
         pendingAction = null;
+        if(accessCodeInput) accessCodeInput.value = '';
     });
 }
 
