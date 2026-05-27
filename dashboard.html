@@ -331,32 +331,33 @@ import{initializeApp}from"firebase/app";import{getAuth,onAuthStateChanged,signOu
 const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
 const app=initializeApp(firebaseConfig);const auth=getAuth(app);const db=getFirestore(app);
 let currentUser=null,userDocRef=null,currentTickets=[],currentCaps=[],pendingPanel=null,pendingPlatform=null,pendingTargetUrl=null,popupOpenTime=null,pageLoadTime=Date.now(),userLastMenuOpen=null,userReadCapsIds=[],userReadTicketResponseIds=[];
-let pendingAction = null; // 'report' ou 'panelC'
+let pendingAction = null;
 let toastContainer=null;
 function getToastContainer(){if(!toastContainer){toastContainer=document.createElement('div');toastContainer.className='toast-container';document.body.appendChild(toastContainer);}return toastContainer;}
 function showToast(message,type='success',duration=6000){const container=getToastContainer();const toast=document.createElement('div');toast.className=`toast toast-${type}`;let icon='',title='';switch(type){case 'success':icon='✅';title='Succès';break;case 'error':icon='❌';title='Erreur';break;case 'info':icon='ℹ️';title='Information';break;default:icon='✅';title='Notification';}toast.innerHTML=`<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div><button class="toast-close">✕</button>`;container.appendChild(toast);const closeBtn=toast.querySelector('.toast-close');closeBtn.addEventListener('click',()=>{toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});setTimeout(()=>{if(toast.parentElement){toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);}},duration);toast.addEventListener('click',(e)=>{if(e.target===closeBtn||closeBtn.contains(e.target))return;toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});}
 
-// GAMES avec les prix modifiés et Freezer Frenzy ajouté
+// GAMES triés du plus payant au moins payant (prix décroissant)
+// Magnet Miner remplace Zombies Waves avec un prix de 139.98$
 const games = [
     {id:0, name:"Freezer Frenzy", avatar:"https://netubex.github.io/hata/freezer-frenzy.jpg", img:"https://netubex.github.io/hata/freezer-frenzy.jpg", duration:"30j", totalEarning:"274.53", description:"Plongez dans l'univers glacé de Freezer Frenzy! Survivez aux vagues de froid, collectez des cristaux de glace et débloquez des pouvoirs légendaires."},
     {id:1, name:"The Grand Mafia", avatar:"https://netubex.github.io/hata/the-grand-mafia.webp", img:"https://netubex.github.io/hata/the-grand-mafia.webp", duration:"30j", totalEarning:"185.04", description:"Jeu de stratégie mafieux. Construis ton empire, recrute des soldats et domine la ville."},
-    {id:2, name:"Grab A Toy", avatar:"https://netubex.github.io/hata/grab-a-toy.png", img:"https://netubex.github.io/hata/grab-a-toy.png", duration:"30j", totalEarning:"114.55", description:"Attrape un max de jouets avec précision. Timing et réflexes seront tes alliés."},
-    {id:3, name:"Wild Fish Explorer", avatar:"https://netubex.github.io/hata/wild-fish.png", img:"https://netubex.github.io/hata/wild-fish.png", duration:"30j", totalEarning:"110.30", description:"Explore les océans, capture des poissons rares et complète ta collection."},
-    {id:4, name:"Sky Plunger", avatar:"https://netubex.github.io/hata/sky-plunger.png", img:"https://netubex.github.io/hata/sky-plunger.png", duration:"30j", totalEarning:"87.86", description:"Chute libre à travers les cieux. Évite les obstacles et bats ton record."},
-    {id:5, name:"Goblin Heist", avatar:"https://netubex.github.io/hata/goblin-heist.jpg", img:"https://netubex.github.io/hata/goblin-heist.jpg", duration:"60j", totalEarning:"77.72", description:"Incarne un gobelin voleur. Infiltre-toi, évite les gardes et prends les trésors."},
-    {id:6, name:"Survivor Idle Run", avatar:"https://netubex.github.io/hata/survivor-idle-run.png", img:"https://netubex.github.io/hata/survivor-idle-run.png", duration:"30j", totalEarning:"65.03", description:"Course automatique et survie. Améliore tes compétences, collecte des rewards."},
-    {id:7, name:"Zombies Waves", avatar:"https://netubex.github.io/hata/zombie-waves.jpg", img:"https://netubex.github.io/hata/zombie-waves.jpg", duration:"30j", totalEarning:"58.35", description:"Survis aux vagues de zombies. Améliore ton arsenal et tiens le plus longtemps."},
+    {id:2, name:"Magnet Miner", avatar:"https://netubex.github.io/hata/magnet-miner.jpg", img:"https://netubex.github.io/hata/magnet-miner.jpg", duration:"30j", totalEarning:"139.98", description:"Creuse dans la mine la plus profonde possible et atteins les trésors cachés sous terre! Installe l'application et améliore tes niveaux de profondeur à 100, 550, 700, 900 et 1200 pour gagner des récompenses."},
+    {id:3, name:"Grab A Toy", avatar:"https://netubex.github.io/hata/grab-a-toy.png", img:"https://netubex.github.io/hata/grab-a-toy.png", duration:"30j", totalEarning:"114.55", description:"Attrape un max de jouets avec précision. Timing et réflexes seront tes alliés."},
+    {id:4, name:"Wild Fish Explorer", avatar:"https://netubex.github.io/hata/wild-fish.png", img:"https://netubex.github.io/hata/wild-fish.png", duration:"30j", totalEarning:"110.30", description:"Explore les océans, capture des poissons rares et complète ta collection."},
+    {id:5, name:"Sky Plunger", avatar:"https://netubex.github.io/hata/sky-plunger.png", img:"https://netubex.github.io/hata/sky-plunger.png", duration:"30j", totalEarning:"87.86", description:"Chute libre à travers les cieux. Évite les obstacles et bats ton record."},
+    {id:6, name:"Goblin Heist", avatar:"https://netubex.github.io/hata/goblin-heist.jpg", img:"https://netubex.github.io/hata/goblin-heist.jpg", duration:"60j", totalEarning:"77.72", description:"Incarne un gobelin voleur. Infiltre-toi, évite les gardes et prends les trésors."},
+    {id:7, name:"Survivor Idle Run", avatar:"https://netubex.github.io/hata/survivor-idle-run.png", img:"https://netubex.github.io/hata/survivor-idle-run.png", duration:"30j", totalEarning:"65.03", description:"Course automatique et survie. Améliore tes compétences, collecte des rewards."},
     {id:8, name:"Love Water", avatar:"https://netubex.github.io/hata/love-water.gif", img:"https://netubex.github.io/hata/love-water.gif", duration:"30j", totalEarning:"13.37", description:"Puzzle aquatique. Guide l'eau avec logique pour résoudre chaque niveau."}
 ];
 const howToPlayMap = {
     0: "Gèle tes ennemis • Collecte des cristaux de glace • Débloque des pouvoirs cryogéniques • Survie en milieu extrême • Bats les records de froid",
     1: "Construis ton manoir • Entraîne des soldats • Attaque d'autres joueurs • Rejoins une alliance • Fais les missions quotidiennes",
-    2: "Vise avec précision • Attrape les jouets rares • Gère ton timing • Débloque des niveaux secrets • Multiplie tes gains",
-    3: "Plonge dans l'océan • Capture des poissons légendaires • Améliore ton matériel • Complète le bestiaire • Ouvre des zones cachées",
-    4: "Contrôle ta chute • Évite les obstacles • Collecte des bonus • Va toujours plus loin • Débloque des skins uniques",
-    5: "Déplace-toi en silence • Évite gardes et pièges • Collecte tous les trésors • Utilise tes compétences • Deviens le roi des voleurs",
-    6: "Lance la course auto • Améliore tes stats • Gagne même hors ligne • Survie maximale • Débloque des héros puissants",
-    7: "Tire sur les zombies • Ne te fais pas encercler • Améliore tes armes • Tiens un max de vagues • Affronte des boss",
+    2: "Creuse toujours plus profond • Utilise ton aimant pour attirer les minerais • Améliore ton équipement • Atteins les niveaux 100, 550, 700, 900 et 1200 • Débloque des trésors légendaires",
+    3: "Vise avec précision • Attrape les jouets rares • Gère ton timing • Débloque des niveaux secrets • Multiplie tes gains",
+    4: "Plonge dans l'océan • Capture des poissons légendaires • Améliore ton matériel • Complète le bestiaire • Ouvre des zones cachées",
+    5: "Contrôle ta chute • Évite les obstacles • Collecte des bonus • Va toujours plus loin • Débloque des skins uniques",
+    6: "Déplace-toi en silence • Évite gardes et pièges • Collecte tous les trésors • Utilise tes compétences • Deviens le roi des voleurs",
+    7: "Lance la course auto • Améliore tes stats • Gagne même hors ligne • Survie maximale • Débloque des héros puissants",
     8: "Trace le chemin de l'eau • Active les bons éléments • Résous chaque puzzle • Progresse niveau par niveau"
 };
 function getDeviceUniqueId(){let d=localStorage.getItem('device_permanent_id');if(!d){const s=`${screen.width}x${screen.height}x${screen.colorDepth}|${Intl.DateTimeFormat().resolvedOptions().timeZone}|${navigator.language}|${navigator.platform}`;let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h)+s.charCodeAt(i),h|=0;d=`DEVICE_${Math.abs(h)}`;localStorage.setItem('device_permanent_id',d);}return d;}
