@@ -30,7 +30,6 @@ body{font-family:'Inter','Courier New',monospace;background:#0a0e1a;color:#EAEAE
 .question-card:hover{transform:translateY(-5px);box-shadow:0 35px 55px -15px rgba(0,0,0,0.6),0 0 0 1px rgba(230,126,34,0.2);}
 .question-card.netuber-0{background:linear-gradient(145deg,rgba(26,42,26,0.85),rgba(15,31,15,0.85));border-left:4px solid #facc15;}
 .question-card.netuber-1{background:linear-gradient(145deg,rgba(26,42,58,0.85),rgba(15,26,47,0.85));border-left:4px solid #06b6d4;}
-.question-card.netuber-2{background:linear-gradient(145deg,rgba(42,26,42,0.85),rgba(31,15,31,0.85));border-left:4px solid #ec4899;}
 .question-card.default-card{background:rgba(15,23,42,0.75);border-left:4px solid #F39C12;}
 .question-text{font-size:1.15rem;font-weight:700;line-height:1.5;margin-bottom:24px;color:#fff;min-height:80px;}
 .question-meta{border-left:3px solid #F39C12;padding:3px 12px;margin-bottom:16px;font-size:0.7rem;font-weight:700;color:#f1f5f9;}
@@ -38,6 +37,8 @@ body{font-family:'Inter','Courier New',monospace;background:#0a0e1a;color:#EAEAE
 .input-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px;}
 .input-row select{flex:2;min-width:180px;padding:14px 18px;font-size:0.9rem;border-radius:60px;background:#fff;border:none;font-weight:500;color:#0a0e1a;cursor:pointer;}
 .input-row input{flex:2;min-width:180px;padding:14px 18px;font-size:0.9rem;border-radius:60px;background:#fff;border:none;font-weight:500;color:#0a0e1a;}
+.input-row .time-group{display:flex;gap:10px;flex:2;}
+.input-row .time-group select{flex:1;}
 button{background:linear-gradient(135deg,#E67E22,#F39C12);border:none;padding:14px 28px;border-radius:60px;font-weight:700;font-size:0.9rem;color:#fff;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 12px rgba(230,126,34,0.3);}
 button:active{transform:scale(0.97);}
 .choice-row{display:flex;gap:15px;margin-top:16px;}
@@ -96,6 +97,10 @@ footer{text-align:center;font-size:0.7rem;color:#5f748d;margin-top:30px;padding:
 <div class="input-row" id="inputRow">
 <select id="answerSelect" style="display:none;"></select>
 <input type="number" id="answerNumber" placeholder="Saisir..." style="display:none;">
+<div id="timeGroup" class="time-group" style="display:none;">
+<select id="hourSelect"></select>
+<select id="minuteSelect"></select>
+</div>
 <button id="submitBtn">✓ Valider</button>
 </div>
 <div class="choice-row hidden" id="choiceRow">
@@ -133,11 +138,28 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const RAISONS_ABSENCE = ["Obligations familiales","Maladie","Absence non justifiée","Déplacement/voyage","Abandon","Problème de santé","Fatigue","Rendez-vous","Deuil","Engagement scolaire"];
-const NETUBERS = [{code:"MA-NX-S1-ZA-01"},{code:"MA-NX-S1-ZA-02"},{code:"MA-NX-S1-ZA-03"}];
+const NETUBERS = [{code:"MA-NX-S1-ZA-01"},{code:"MA-NX-S1-ZA-02"}];
 let currentStep = 0, responses = {}, questions = [], waitingYesNo = false, typewriterTimeout = null, formulaireComplete = false;
 let questionText, questionMeta, inputRow, choiceRow, answerSelect, answerNumber, submitBtn, yesBtn, noBtn;
 let progressFill, stepCounterSpan, prevBtnIcon, resetBtnIcon, saveStatus, popupOverlay, popupTitle, popupMessageDiv;
-let popupBtnLeft, popupBtnRight, sendReportBtn, questionCardDiv;
+let popupBtnLeft, popupBtnRight, sendReportBtn, questionCardDiv, timeGroup, hourSelect, minuteSelect;
+
+function initTimeSelectors(){
+    hourSelect = document.getElementById('hourSelect');
+    minuteSelect = document.getElementById('minuteSelect');
+    for(let h=0; h<=23; h++){
+        let option = document.createElement('option');
+        option.value = h.toString().padStart(2,'0');
+        option.textContent = h.toString().padStart(2,'0');
+        hourSelect.appendChild(option);
+    }
+    for(let m=0; m<=59; m++){
+        let option = document.createElement('option');
+        option.value = m.toString().padStart(2,'0');
+        option.textContent = m.toString().padStart(2,'0');
+        minuteSelect.appendChild(option);
+    }
+}
 
 function goToDashboard(){
     window.location.href = "dashboard.html";
@@ -175,18 +197,22 @@ function buildQuestions(){
     const q=[];
     let n=0;
     q.push({num:n++,type:"choice",field:"responsable",meta:"Identification",text:"Qui remplit le rapport aujourd'hui ?",options:["Madame Ursule","Madame Chancelle"]});
+    
+    // Nouvelle question pour Madame Blandine Kazembe
+    q.push({num:n++,type:"time",field:"heure_arrivee_blandine",meta:"Heure d'arrivée",text:"À quelle heure exacte Madame Blandine Kazembe est-elle arrivée ?",isTimeQuestion:true});
+    
     for(let nu of NETUBERS){
-        q.push({num:n++,type:"yesno",field:`${nu.code}_present`,meta:nu.code,text:`${nu.code} : Était-il présent aujourd'hui ?`});
-        q.push({num:n++,type:"select",field:`${nu.code}_raisonAbsence`,meta:nu.code,text:`${nu.code} : Raison de l'absence ? (si absent)`,options:RAISONS_ABSENCE.map(r=>`<option value="${r}">${r}</option>`).join('')});
+        q.push({num:n++,type:"yesno",field:`${nu.code}_present`,meta:nu.code,text:`${nu.code} : Était-elle présente aujourd'hui ?`});
+        q.push({num:n++,type:"select",field:`${nu.code}_raisonAbsence`,meta:nu.code,text:`${nu.code} : Raison de l'absence ? (si absente)`,options:RAISONS_ABSENCE.map(r=>`<option value="${r}">${r}</option>`).join('')});
         const questionsPresent=[
             {type:"select",field:`${nu.code}_objMensuel`,text:`${nu.code} : Quel est son objectif mensuel ?`,options:[...Array(16).keys()].map(i=>`<option value="${i}">${i}</option>`).join('')},
-            {type:"select",field:`${nu.code}_objAtteint`,text:`${nu.code} : Combien d'objectifs a-t-il atteints aujourd'hui ?`,options:[...Array(16).keys()].map(i=>`<option value="${i}">${i}</option>`).join('')},
+            {type:"select",field:`${nu.code}_objAtteint`,text:`${nu.code} : Combien d'objectifs a-t-elle atteints aujourd'hui ?`,options:[...Array(16).keys()].map(i=>`<option value="${i}">${i}</option>`).join('')},
             {type:"number",field:`${nu.code}_nbNiveaux`,text:`${nu.code} : Quel est le nombre de niveaux/événements ou mètres ?`,min:0},
-            {type:"number",field:`${nu.code}_nbNiveauxAtteints`,text:`${nu.code} : Combien de niveaux/événements ou mètres a-t-il atteints ?`,min:0},
-            {type:"number",field:`${nu.code}_pointsPrec`,text:`${nu.code} : Combien de points avait-il précédemment ?`,min:0},
-            {type:"number",field:`${nu.code}_pointsJour`,text:`${nu.code} : Combien de points a-t-il aujourd'hui ?`,min:0},
-            {type:"number",field:`${nu.code}_tempsPrec`,text:`${nu.code} : Quel temps avait-il précédemment (en minutes) ?`,min:0},
-            {type:"number",field:`${nu.code}_tempsJour`,text:`${nu.code} : Quel temps a-t-il aujourd'hui (en minutes) ?`,min:0}
+            {type:"number",field:`${nu.code}_nbNiveauxAtteints`,text:`${nu.code} : Combien de niveaux/événements ou mètres a-t-elle atteints ?`,min:0},
+            {type:"number",field:`${nu.code}_pointsPrec`,text:`${nu.code} : Combien de points avait-elle précédemment ?`,min:0},
+            {type:"number",field:`${nu.code}_pointsJour`,text:`${nu.code} : Combien de points a-t-elle aujourd'hui ?`,min:0},
+            {type:"number",field:`${nu.code}_tempsPrec`,text:`${nu.code} : Quel temps avait-elle précédemment (en minutes) ?`,min:0},
+            {type:"number",field:`${nu.code}_tempsJour`,text:`${nu.code} : Quel temps a-t-elle aujourd'hui (en minutes) ?`,min:0}
         ];
         for(let pq of questionsPresent){
             q.push({num:n++,type:pq.type,field:pq.field,meta:nu.code,text:pq.text,options:pq.options,min:pq.min,requiresPresent:true});
@@ -213,7 +239,7 @@ function updateCardColor(){
     const q=questions[currentStep];
     if(!q)return;
     const idx=getCurrentNetuberIndex();
-    questionCardDiv.classList.remove('netuber-0','netuber-1','netuber-2','default-card');
+    questionCardDiv.classList.remove('netuber-0','netuber-1','default-card');
     if(idx>=0&&idx<NETUBERS.length)questionCardDiv.classList.add(`netuber-${idx}`);
     else questionCardDiv.classList.add('default-card');
 }
@@ -281,6 +307,7 @@ function displayCurrent(){
     waitingYesNo=false;
     inputRow.classList.add('hidden');
     choiceRow.classList.add('hidden');
+    timeGroup.style.display='none';
     answerSelect.style.display='none';
     answerNumber.style.display='none';
     questionMeta.innerHTML=`<span class="question-num">#${q.num+1}</span> ${q.meta}`;
@@ -288,7 +315,7 @@ function displayCurrent(){
     if(q.field.includes('_raisonAbsence')){
         const netuberCode=q.field.replace('_raisonAbsence','');
         if(responses[`${netuberCode}_present`]==='OUI'){
-            displayText=`${netuberCode} : Cette question n'est pas applicable (présent). Cliquez directement sur Valider.`;
+            displayText=`${netuberCode} : Cette question n'est pas applicable (présente). Cliquez directement sur Valider.`;
         }
     }
     if(q.type==="choice"){
@@ -302,6 +329,20 @@ function displayCurrent(){
         waitingYesNo=true;
         yesBtn.textContent="✔ Oui";
         noBtn.textContent="✘ Non";
+        typewriterEffect(questionText,displayText,25);
+    }else if(q.type==="time"){
+        inputRow.classList.remove('hidden');
+        timeGroup.style.display='flex';
+        answerSelect.style.display='none';
+        answerNumber.style.display='none';
+        if(responses[q.field]){
+            let [h,m] = responses[q.field].split(':');
+            hourSelect.value = h;
+            minuteSelect.value = m;
+        } else {
+            hourSelect.value = '08';
+            minuteSelect.value = '00';
+        }
         typewriterEffect(questionText,displayText,25);
     }else if(q.type==="select"){
         inputRow.classList.remove('hidden');
@@ -407,7 +448,10 @@ function validateCurrent(){
             return;
         }
     }
-    if(q.type==="select"){
+    if(q.type==="time"){
+        const timeValue = `${hourSelect.value}:${minuteSelect.value}`;
+        handleResponse(timeValue);
+    }else if(q.type==="select"){
         handleResponse(answerSelect.value);
     }else if(q.type==="number"){
         const val=answerNumber.value.trim();
@@ -490,6 +534,7 @@ async function sendReportToFirebase(){
         }
     }
     if(!responses.referenceNumber||responses.referenceNumber.trim()==='')missing.push("Numéro de rapport");
+    if(!responses.heure_arrivee_blandine)missing.push("Heure d'arrivée de Madame Blandine Kazembe");
     
     if(missing.length>0){
         showPopup("⚠️ Champs manquants",missing.join("\n"),"Fermer","",()=>{},()=>{});
@@ -543,6 +588,7 @@ async function sendReportToFirebase(){
         const reportData={
             type:"pgco_report",
             responsable:responses.responsable||"Non spécifié",
+            heure_arrivee_blandine:responses.heure_arrivee_blandine||"Non spécifié",
             zone:"ORG-NX-S1",
             reference:currentRef,
             date:new Date().toLocaleDateString('fr-FR'),
@@ -556,11 +602,10 @@ async function sendReportToFirebase(){
             createdAt:new Date().toISOString()
         };
         
-        // Envoi vers Firebase Firestore
         const reportsRef = collection(db, "reports");
         await addDoc(reportsRef, reportData);
         
-        const confirmationMsg = `✅ Rapport envoyé avec succès !\n\n📌 Référence: ${currentRef}\n👤 Expéditeur: ${responses.responsable||"Non spécifié"}\n\n📊 Total points précédents: ${totalPtsP}\n📈 Total points jour: ${totalPtsJ}\n⏱️ Total temps précédent: ${totalTempsP} min\n⏱️ Total temps jour: ${totalTempsJ} min\n\n📅 ${new Date().toLocaleString('fr-FR')}`;
+        const confirmationMsg = `✅ Rapport envoyé avec succès !\n\n📌 Référence: ${currentRef}\n👤 Expéditeur: ${responses.responsable||"Non spécifié"}\n🕐 Heure arrivée Blandine: ${responses.heure_arrivee_blandine}\n\n📊 Total points précédents: ${totalPtsP}\n📈 Total points jour: ${totalPtsJ}\n⏱️ Total temps précédent: ${totalTempsP} min\n⏱️ Total temps jour: ${totalTempsJ} min\n\n📅 ${new Date().toLocaleString('fr-FR')}`;
         
         showPopup("✅ RAPPORT ENVOYÉ", confirmationMsg, "Fermer", "", () => {
             resetAllSilently();
@@ -597,6 +642,9 @@ function initApp(){
     popupBtnRight=document.getElementById('popupBtnRight');
     sendReportBtn=document.getElementById('sendReportBtn');
     questionCardDiv=document.getElementById('questionCard');
+    timeGroup=document.getElementById('timeGroup');
+    
+    initTimeSelectors();
     
     yesBtn.onclick=defaultYes;
     noBtn.onclick=defaultNo;
