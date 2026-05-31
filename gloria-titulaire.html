@@ -67,11 +67,77 @@ body{font-family:'Inter',sans-serif;color:#EAEAEA;font-weight:500;line-height:1.
 .toast-notification{position:fixed;top:100px;left:50%;transform:translateX(-50%) translateY(-100px);background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);color:white;padding:10px 22px;border-radius:60px;z-index:2000;transition:transform 0.3s;border-left:4px solid #10b981;font-size:12px;}
 .toast-notification.show{transform:translateX(-50%) translateY(0);}
 .toast-notification.error{border-left-color:#ef4444;}
+.modal-confirm{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);z-index:3000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all 0.2s;}
+.modal-confirm.show{visibility:visible;opacity:1;}
+.modal-content{background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:32px;padding:24px;max-width:320px;width:90%;text-align:center;border:1px solid rgba(59,130,246,0.3);box-shadow:0 20px 40px rgba(0,0,0,0.5);}
+.modal-content p{color:#e2e8f0;margin-bottom:24px;font-size:15px;}
+.modal-buttons{display:flex;gap:12px;justify-content:center;}
+.modal-buttons button{padding:10px 20px;border-radius:40px;font-weight:600;cursor:pointer;border:none;font-size:14px;}
+.modal-buttons .confirm-btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;}
+.modal-buttons .cancel-btn{background:rgba(100,116,139,0.3);color:#cbd5e1;border:1px solid rgba(59,130,246,0.3);}
+
+/* Bouton retour flottant - en bas à droite */
+.btn-back-floating {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, #1e3a5f, #0f2b44);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    color: white;
+    padding: 14px 20px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+}
+.btn-back-floating:hover {
+    background: linear-gradient(135deg, #2d4a6e, #1a3a5a);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+}
+.btn-back-floating:active {
+    transform: scale(0.96);
+}
+
+@media (max-width: 640px) {
+    .btn-back-floating {
+        bottom: 16px;
+        right: 16px;
+        padding: 12px 16px;
+        font-size: 12px;
+    }
+}
 </style>
 </head>
 <body>
 <div class="bg-fixed"></div>
 <div class="bg-overlay"></div>
+
+<!-- Modal de confirmation de retour -->
+<div id="confirmModal" class="modal-confirm">
+    <div class="modal-content">
+        <p>🔙 Êtes-vous sûr de vouloir quitter cet espace ?</p>
+        <div class="modal-buttons">
+            <button class="cancel-btn" id="cancelBackBtn">❌ Annuler</button>
+            <button class="confirm-btn" id="confirmBackBtn">✓ Confirmer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bouton retour flottant (en bas à droite) -->
+<button class="btn-back-floating" id="backButton">
+    ◀ RETOUR
+</button>
+
 <div class="navbar">
 <div class="logo"><div class="logo-icon">📘</div><span class="logo-text">CS. GLORIA DEI</span></div>
 </div>
@@ -94,8 +160,9 @@ body{font-family:'Inter',sans-serif;color:#EAEAEA;font-weight:500;line-height:1.
 <div class="readonly-banner"><span>🔒</span><span>Mode consultation - Vous visualisez les notes sans possibilité de modification</span></div>
 <div id="fichesContainer"></div>
 </div>
-<div class="footer-note">CS. GLORIA DEI</div>
+<div class="footer-note">CS. GLORIA DEI - KOYO (NEW KOYO)</div>
 </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -112,8 +179,10 @@ const db = getFirestore(app);
 let titulaireConfig = null;
 let toutesFiches = [];
 let fichesTitulaire = [];
+
 function toast(msg, isError=false){let d=document.createElement('div');d.className='toast-notification'+(isError?' error':'');d.innerHTML=`<span>${isError?'❌':'✓'}</span><span>${msg}</span>`;document.body.appendChild(d);setTimeout(()=>d.classList.add('show'),10);setTimeout(()=>{d.classList.remove('show');setTimeout(()=>d.remove(),300);},2500);}
 function formatNumero(num){return 'F'+String(num).padStart(3,'0');}
+
 async function loadAllClassesFromFirebase(){
     try{
         const snap=await getDocs(collection(db,"gloria_dei_fiches"));
@@ -213,7 +282,7 @@ async function generateFichePDF(ficheData){
     pdf.setFontSize(12);pdf.setFont('helvetica','bold');
     pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',148,15,{align:'center'});
     pdf.setFontSize(9);pdf.setFont('helvetica','normal');
-    pdf.text('KASUMBALESA / NEW KOVO',148,22,{align:'center'});
+    pdf.text('KASUMBALESA / KOYO (NEW KOYO)',148,22,{align:'center'});
     pdf.setFontSize(11);pdf.setFont('helvetica','bold');
     pdf.text('FICHE DE COTATION',148,32,{align:'center'});
     pdf.setFontSize(9);pdf.setFont('helvetica','normal');
@@ -292,6 +361,37 @@ document.getElementById('saveConfigBtn').onclick=async()=>{
     toast("Configuration enregistrée");
 };
 document.getElementById('reconfigBtn').onclick=()=>{localStorage.removeItem('gloria_titulaire_config');location.reload();};
+
+// Gestion du bouton retour flottant avec confirmation
+const backButton = document.getElementById('backButton');
+const confirmModal = document.getElementById('confirmModal');
+const confirmBackBtn = document.getElementById('confirmBackBtn');
+const cancelBackBtn = document.getElementById('cancelBackBtn');
+
+function showConfirmModal() {
+    confirmModal.classList.add('show');
+}
+function hideConfirmModal() {
+    confirmModal.classList.remove('show');
+}
+function redirectToReturnUrl() {
+    window.location.href = 'https://www.netubex.com/gloria-dei';
+}
+backButton.onclick = (e) => {
+    e.preventDefault();
+    showConfirmModal();
+};
+confirmBackBtn.onclick = () => {
+    hideConfirmModal();
+    redirectToReturnUrl();
+};
+cancelBackBtn.onclick = () => {
+    hideConfirmModal();
+};
+confirmModal.onclick = (e) => {
+    if(e.target === confirmModal) hideConfirmModal();
+};
+
 async function init(){
     let savedConfig=localStorage.getItem('gloria_titulaire_config');
     if(savedConfig){
