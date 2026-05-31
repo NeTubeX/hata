@@ -65,9 +65,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;}
 .prof-info{flex:2;min-width:180px;}
 .prof-name{font-weight:700;font-size:16px;color:#fff;margin-bottom:6px;}
 .prof-date{font-size:12px;color:#94a3b8;}
-.prof-code{font-family:monospace;font-weight:700;background:#0f172a;padding:8px 16px;border-radius:40px;font-size:14px;min-width:130px;text-align:center;}
-.code-visible{color:#10b981;}
-.code-hidden{color:#f97316;}
 .prof-actions{display:flex;gap:8px;}
 .icon-admin{background:rgba(59,130,246,0.2);border:none;font-size:24px;cursor:pointer;padding:8px;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin-top:16px;transition:all 0.2s;}
 .icon-admin:hover{background:rgba(59,130,246,0.4);transform:scale(1.05);}
@@ -160,6 +157,7 @@ const db = getFirestore(app);
 
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [];
 let saveTimeout = null, isCreatingFiche = false;
+let directriceCode = "1111";
 
 function toast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
@@ -225,7 +223,7 @@ async function loadAllFiches() {
 
 async function saveCurrentFiche() {
     if(!currentProf || !currentFicheId || !currentFiche) return;
-    try { await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`), currentFiche); } catch(e) {}
+    try { await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`), currentFiche); } catch(e) { console.error(e); }
 }
 function debounceSave() { if(saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(() => saveCurrentFiche(), 500); }
 
@@ -266,12 +264,22 @@ async function selectFiche(id) {
         afficherEpreuves();
         afficherEleves();
         afficherCotation();
-        const eleveSelect = document.getElementById('eleveForExportSelect');
-        if(eleveSelect) {
-            eleveSelect.innerHTML = '<option value="">-- Choisir un élève --</option>';
-            (currentFiche.eleves || []).forEach((e,i) => { if(e.nom?.trim()) eleveSelect.innerHTML += `<option value="${i}">${e.nom}</option>`; });
-        }
+        updateExportSelect();
         await refreshSelectors();
+    }
+}
+
+function updateExportSelect() {
+    const eleveSelect = document.getElementById('eleveForExportSelect');
+    if(eleveSelect && currentFiche) {
+        eleveSelect.innerHTML = '<option value="">-- Choisir un élève --</option>';
+        if(currentFiche.eleves && currentFiche.eleves.length > 0) {
+            currentFiche.eleves.forEach((e, i) => { 
+                if(e.nom && e.nom.trim()) {
+                    eleveSelect.innerHTML += `<option value="${i}">${e.nom}</option>`; 
+                }
+            });
+        }
     }
 }
 
@@ -313,6 +321,7 @@ document.getElementById('newFicheBtn').onclick = async () => {
             afficherEpreuves();
             afficherEleves();
             afficherCotation();
+            updateExportSelect();
             toast(`Fiche créée : ${cours} - ${classe}`, 'success');
         } catch(error) { toast("Erreur lors de la création", 'error'); }
         finally { isCreatingFiche = false; }
@@ -326,7 +335,7 @@ document.getElementById('deleteFicheBtn').onclick = async () => {
             await deleteDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`));
             toutesFiches = await loadAllFiches();
             if(toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
-            else { currentFiche = null; currentFicheId = null; resetFormFields(); afficherEpreuves(); afficherEleves(); afficherCotation(); await refreshSelectors(); }
+            else { currentFiche = null; currentFicheId = null; resetFormFields(); afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); await refreshSelectors(); }
             toast("Fiche supprimée avec succès", 'success');
         } catch(error) { toast("Erreur lors de la suppression", 'error'); }
     });
@@ -354,6 +363,7 @@ document.getElementById('copyElevesBtn').onclick = async () => {
             await saveCurrentFiche();
             afficherEleves();
             afficherCotation();
+            updateExportSelect();
             showModalToast(`${currentFiche.eleves.length} élève(s) copié(s) avec succès`, 'success');
             setTimeout(closeModal, 1500);
         } else showModalToast("Aucun élève trouvé dans la fiche source", 'error');
@@ -393,43 +403,34 @@ function afficherEpreuves() {
 window.updEpreuve = (p, idx, field, val) => { if(field === 'nom') currentFiche.epreuvesParPeriode[p][idx].nom = val; else currentFiche.epreuvesParPeriode[p][idx].max = parseFloat(val)||20; afficherCotation(); debounceSave(); toast(`Épreuve modifiée`, 'success'); };
 window.delEpreuve = (p, idx) => { currentFiche.epreuvesParPeriode[p].splice(idx,1); afficherEpreuves(); afficherCotation(); debounceSave(); toast(`Épreuve supprimée`, 'warning'); };
 
-function afficherEleves() {
-    let cont = document.getElementById('elevesListContainer');
-    if(!cont) return;
-    if(!currentFiche) { cont.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; }
-    cont.innerHTML = '';
-    let eleves = currentFiche.eleves || [];
-    for(let i=0;i<eleves.length;i++) {
-        let div = document.createElement('div');
-        div.className = 'eleve-row';
-        div.innerHTML = `<input type="text" value="${eleves[i].nom || ''}" placeholder="Nom complet" onchange="window.updEleve(${i},'nom',this.value)" style="flex:2"><select onchange="window.updEleve(${i},'sexe',this.value)"><option value="M" ${eleves[i].sexe=='M'?'selected':''}>M</option><option value="F" ${eleves[i].sexe=='F'?'selected':''}>F</option></select><span onclick="window.delEleve(${i})" style="cursor:pointer;color:#ef4444;padding:8px">🗑️</span>`;
-        cont.appendChild(div);
-    }
-    if(eleves.length===0) cont.innerHTML = '<div class="empty-state">Aucun élève inscrit</div>';
+function getPeriodeMax(periode) {
+    const eps = currentFiche.epreuvesParPeriode?.[periode] || [];
+    if(eps.length === 0) return currentFiche.p1Max || 20;
+    let sumMax = 0;
+    for(let ep of eps) sumMax += ep.max || 1;
+    return Math.min(currentFiche.p1Max || 20, Math.round(sumMax));
 }
-window.updEleve = (idx, field, val) => {
-    if(field === 'nom' && (!val || val.trim() === '')) { toast("Le nom de l'élève ne peut pas être vide", 'error'); return; }
-    currentFiche.eleves[idx][field] = val;
-    debounceSave();
-    afficherEleves();
-    afficherCotation();
-    toast(`Élève modifié`, 'success');
-};
-window.delEleve = (idx) => { 
-    const nom = currentFiche.eleves[idx]?.nom || 'Élève';
-    currentFiche.eleves.splice(idx,1); 
-    afficherEleves(); 
-    afficherCotation(); 
-    debounceSave(); 
-    toast(`${nom} a été supprimé`, 'warning'); 
-};
+
+function getExamMax(semestre) {
+    if(semestre === 1) return getPeriodeMax(1) + getPeriodeMax(2);
+    else return getPeriodeMax(3) + getPeriodeMax(4);
+}
+
+function getTotalSemestreMax(semestre) {
+    if(semestre === 1) return getPeriodeMax(1) + getPeriodeMax(2) + getExamMax(1);
+    else return getPeriodeMax(3) + getPeriodeMax(4) + getExamMax(2);
+}
+
+function getTotalAnnuelMax() {
+    return getTotalSemestreMax(1) + getTotalSemestreMax(2);
+}
 
 function calcMoy(periode, notes) {
     let eps = currentFiche.epreuvesParPeriode?.[periode] || [];
     if(!eps.length || !notes?.length) return 0;
     let sumN=0, sumM=0;
     for(let i=0;i<eps.length;i++) { sumN += (notes[i]||0); sumM += (eps[i].max||1); }
-    return sumM ? Math.min(currentFiche.p1Max, Math.round((sumN/sumM)*currentFiche.p1Max)) : 0;
+    return sumM ? Math.min(getPeriodeMax(periode), Math.round((sumN/sumM)*getPeriodeMax(periode))) : 0;
 }
 
 function afficherCotation() {
@@ -437,40 +438,65 @@ function afficherCotation() {
     let tbody = document.getElementById('cotationBody');
     let eleves = currentFiche?.eleves || [];
     if(!eleves.length) { thead.innerHTML = ''; tbody.innerHTML = '<tr><td class="empty-state">Aucun élève inscrit</td></tr>'; return; }
+    
+    let p1Max = getPeriodeMax(1);
+    let p2Max = getPeriodeMax(2);
+    let p3Max = getPeriodeMax(3);
+    let p4Max = getPeriodeMax(4);
+    let exam1Max = getExamMax(1);
+    let exam2Max = getExamMax(2);
+    let totalS1Max = getTotalSemestreMax(1);
+    let totalS2Max = getTotalSemestreMax(2);
+    let totalAnnuelMax = getTotalAnnuelMax();
+    
     let headers = ['<th>N°</th><th>NOMS</th><th>SEXE</th>'];
     let eps1 = currentFiche.epreuvesParPeriode?.[1] || [];
     for(let ep of eps1) headers.push(`<th>${ep.nom}<br>P1</th>`);
-    headers.push('<th>MOY P1</th>');
+    headers.push(`<th>MOY P1<br>/${p1Max}</th>`);
     let eps2 = currentFiche.epreuvesParPeriode?.[2] || [];
     for(let ep of eps2) headers.push(`<th>${ep.nom}<br>P2</th>`);
-    headers.push('<th>MOY P2</th><th>EXAM S1</th><th>TOT S1</th>');
+    headers.push(`<th>MOY P2<br>/${p2Max}</th>`);
+    headers.push(`<th>EXAM S1<br>/${exam1Max}</th>`);
+    headers.push(`<th>TOT S1<br>/${totalS1Max}</th>`);
     let eps3 = currentFiche.epreuvesParPeriode?.[3] || [];
     for(let ep of eps3) headers.push(`<th>${ep.nom}<br>P3</th>`);
-    headers.push('<th>MOY P3</th>');
+    headers.push(`<th>MOY P3<br>/${p3Max}</th>`);
     let eps4 = currentFiche.epreuvesParPeriode?.[4] || [];
     for(let ep of eps4) headers.push(`<th>${ep.nom}<br>P4</th>`);
-    headers.push('<th>MOY P4</th><th>EXAM S2</th><th>TOT S2</th><th>TOTAL</th>');
+    headers.push(`<th>MOY P4<br>/${p4Max}</th>`);
+    headers.push(`<th>EXAM S2<br>/${exam2Max}</th>`);
+    headers.push(`<th>TOT S2<br>/${totalS2Max}</th>`);
+    headers.push(`<th>TOTAL<br>/${totalAnnuelMax}</th>`);
     thead.innerHTML = headers.join('');
     tbody.innerHTML = '';
+    
     for(let i=0;i<eleves.length;i++) {
         let e = eleves[i];
         if(!e.notes) e.notes = {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};
-        let p1 = calcMoy(1, e.notes.p1), p2 = calcMoy(2, e.notes.p2), p3 = calcMoy(3, e.notes.p3), p4 = calcMoy(4, e.notes.p4);
-        let exam1 = e.notes.exam1||0, exam2 = e.notes.exam2||0;
-        let totalS1 = p1 + p2 + exam1, totalS2 = p3 + p4 + exam2, total = totalS1 + totalS2;
+        let p1 = calcMoy(1, e.notes.p1);
+        let p2 = calcMoy(2, e.notes.p2);
+        let p3 = calcMoy(3, e.notes.p3);
+        let p4 = calcMoy(4, e.notes.p4);
+        let exam1 = e.notes.exam1||0;
+        let exam2 = e.notes.exam2||0;
+        let totalS1 = p1 + p2 + exam1;
+        let totalS2 = p3 + p4 + exam2;
+        let total = totalS1 + totalS2;
+        
         let row = `<tr><td style="text-align:center">${String(i+1).padStart(2,'0')}</td><td style="text-align:left"><input type="text" value="${e.nom||''}" onchange="window.updNoteField(${i},'nom',this.value)" style="width:180px"></td><td style="text-align:center"><select onchange="window.updNoteField(${i},'sexe',this.value)"><option value="M" ${e.sexe=='M'?'selected':''}>M</option><option value="F" ${e.sexe=='F'?'selected':''}>F</option></select></td>`;
         for(let ei=0;ei<eps1.length;ei++) { let val = e.notes.p1?.[ei]||0; row += `<td><input type="number" step="0.5" min="0" max="${eps1[ei].max}" value="${val}" onchange="window.updNote(${i},1,${ei},this.value)" style="width:55px"></td>`; }
         row += `<td style="background:#1e3a5f">${p1}</td>`;
         for(let ei=0;ei<eps2.length;ei++) { let val = e.notes.p2?.[ei]||0; row += `<td><input type="number" step="0.5" min="0" max="${eps2[ei].max}" value="${val}" onchange="window.updNote(${i},2,${ei},this.value)" style="width:55px"></td>`; }
-        row += `<td style="background:#1e3a5f">${p2}</td><td><input type="number" step="0.5" min="0" max="${currentFiche.p1Max}" value="${exam1}" onchange="window.updExam(${i},1,this.value)" style="width:55px"></td><td style="background:#5c4a1a">${totalS1}</td>`;
+        row += `<td style="background:#1e3a5f">${p2}</td><td><input type="number" step="0.5" min="0" max="${exam1Max}" value="${exam1}" onchange="window.updExam(${i},1,this.value)" style="width:55px"></td><td style="background:#5c4a1a">${totalS1}</td>`;
         for(let ei=0;ei<eps3.length;ei++) { let val = e.notes.p3?.[ei]||0; row += `<td><input type="number" step="0.5" min="0" max="${eps3[ei].max}" value="${val}" onchange="window.updNote(${i},3,${ei},this.value)" style="width:55px"></td>`; }
         row += `<td style="background:#1e3a5f">${p3}</td>`;
         for(let ei=0;ei<eps4.length;ei++) { let val = e.notes.p4?.[ei]||0; row += `<td><input type="number" step="0.5" min="0" max="${eps4[ei].max}" value="${val}" onchange="window.updNote(${i},4,${ei},this.value)" style="width:55px"></td>`; }
-        row += `<td style="background:#1e3a5f">${p4}</td><td><input type="number" step="0.5" min="0" max="${currentFiche.p1Max}" value="${exam2}" onchange="window.updExam(${i},2,this.value)" style="width:55px"></td><td style="background:#5c4a1a">${totalS2}</td><td style="background:#5c4a1a">${total}</td></tr>`;
+        row += `<td style="background:#1e3a5f">${p4}</td><td><input type="number" step="0.5" min="0" max="${exam2Max}" value="${exam2}" onchange="window.updExam(${i},2,this.value)" style="width:55px"></td><td style="background:#5c4a1a">${totalS2}</td><td style="background:#5c4a1a">${total}</td></tr>`;
         tbody.innerHTML += row;
     }
 }
-window.updNoteField = (idx, field, val) => { if(field === 'nom' && !val.trim()) { toast("Le nom ne peut pas être vide", 'error'); return; } currentFiche.eleves[idx][field] = val; debounceSave(); };
+
+window.updNoteField = (idx, field, val) => { if(field === 'nom' && !val.trim()) { toast("Le nom ne peut pas être vide", 'error'); return; } currentFiche.eleves[idx][field] = val; debounceSave(); updateExportSelect(); };
 window.updNote = (idx, periode, epIdx, val) => {
     let v = parseFloat(val)||0;
     let maxEp = currentFiche.epreuvesParPeriode[periode]?.[epIdx]?.max || 20;
@@ -482,7 +508,8 @@ window.updNote = (idx, periode, epIdx, val) => {
 };
 window.updExam = (idx, sem, val) => {
     let v = parseFloat(val)||0;
-    if(v>currentFiche.p1Max) v=currentFiche.p1Max;
+    let maxExam = (sem === 1) ? getExamMax(1) : getExamMax(2);
+    if(v>maxExam) v=maxExam;
     if(!currentFiche.eleves[idx].notes) currentFiche.eleves[idx].notes = {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};
     if(sem===1) currentFiche.eleves[idx].notes.exam1 = v;
     else currentFiche.eleves[idx].notes.exam2 = v;
@@ -501,6 +528,7 @@ document.getElementById('addEleveBtn').onclick = () => {
     currentFiche.eleves.push({ id: Date.now(), nom: "", sexe: "M", notes: {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0} }); 
     afficherEleves(); 
     afficherCotation(); 
+    updateExportSelect();
     debounceSave(); 
     toast("Nouvel élève ajouté - Veuillez saisir son nom", 'success'); 
     setTimeout(() => { let lastInput = document.querySelector('#elevesListContainer .eleve-row:last-child input'); if(lastInput) lastInput.focus(); }, 100); 
@@ -510,6 +538,7 @@ document.getElementById('sortAlphaBtn').onclick = () => {
     if(currentFiche?.eleves?.length) { 
         currentFiche.eleves.sort((a,b)=>(a.nom||'').localeCompare(b.nom||'')); 
         afficherCotation(); 
+        updateExportSelect();
         debounceSave(); 
         toast("Liste triée alphabétiquement", 'success'); 
     } else { toast("Aucun élève à trier", 'warning'); } 
@@ -540,7 +569,7 @@ document.getElementById('changeCodeBtn').onclick = async () => {
     if(new1 !== new2) { toast("Les codes ne correspondent pas", 'error'); return; } 
     if(new1.length < 4) { toast("Le code doit contenir au moins 4 caractères", 'error'); return; } 
     currentProf.code = new1; 
-    await setDoc(doc(db, "gloria_dei_fiches", `prof_${currentProf.id}`), { _type: "prof", profId: currentProf.id, nom: currentProf.nom, code: currentProf.code, createdAt: currentProf.createdAt || Date.now() }); 
+    await setDoc(doc(db, "gloria_dei_fiches", currentProf.id), { _type: "prof", profId: currentProf.id, nom: currentProf.nom, code: currentProf.code, createdAt: currentProf.createdAt || Date.now() }); 
     document.getElementById('oldCode').value = ''; 
     document.getElementById('newCode1').value = ''; 
     document.getElementById('newCode2').value = ''; 
@@ -567,12 +596,9 @@ document.querySelectorAll('.tab').forEach(btn => {
     }; 
 });
 
-// ========== FONCTIONS PDF ==========
 async function generateFichePDF(ficheData) {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('landscape', 'mm', 'a4');
-    const pMax = ficheData.p1Max || 20;
-    const seuil = pMax / 2;
     const refNum = ficheData.numeroRef ? formatNumero(ficheData.numeroRef) : '???';
     
     pdf.setFontSize(12);
@@ -601,6 +627,28 @@ async function generateFichePDF(ficheData) {
     const eleves = ficheData.eleves || [];
     const eps = ficheData.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
     
+    const getPeriodeMaxCalc = (periode) => {
+        const epreuves = eps[periode] || [];
+        if(epreuves.length === 0) return ficheData.p1Max || 20;
+        let sumMax = 0;
+        for(let ep of epreuves) sumMax += ep.max || 1;
+        return Math.min(ficheData.p1Max || 20, Math.round(sumMax));
+    };
+    
+    const getExamMaxCalc = (semestre) => {
+        if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2);
+        else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4);
+    };
+    
+    const getTotalSemestreMaxCalc = (semestre) => {
+        if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2) + getExamMaxCalc(1);
+        else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4) + getExamMaxCalc(2);
+    };
+    
+    const getTotalAnnuelMaxCalc = () => {
+        return getTotalSemestreMaxCalc(1) + getTotalSemestreMaxCalc(2);
+    };
+    
     const calcMoyenne = (periode, notes) => {
         const epreuves = eps[periode] || [];
         if(!epreuves.length || !notes?.length) return 0;
@@ -609,10 +657,20 @@ async function generateFichePDF(ficheData) {
             sumNotes += (notes[i] || 0);
             sumMax += (epreuves[i].max || 1);
         }
-        return sumMax ? Math.min(pMax, Math.round((sumNotes / sumMax) * pMax)) : 0;
+        return sumMax ? Math.min(getPeriodeMaxCalc(periode), Math.round((sumNotes / sumMax) * getPeriodeMaxCalc(periode))) : 0;
     };
     
-    const headers = [['N°', 'NOMS - POSTNOMS', 'SEXE', '1er P', '2e P', 'EXAM', 'TOT.', '3e P', '4e P', 'EXAM', 'TOT.', 'TOTAL']];
+    let p1Max = getPeriodeMaxCalc(1);
+    let p2Max = getPeriodeMaxCalc(2);
+    let p3Max = getPeriodeMaxCalc(3);
+    let p4Max = getPeriodeMaxCalc(4);
+    let exam1Max = getExamMaxCalc(1);
+    let exam2Max = getExamMaxCalc(2);
+    let totalS1Max = getTotalSemestreMaxCalc(1);
+    let totalS2Max = getTotalSemestreMaxCalc(2);
+    let totalAnnuelMax = getTotalAnnuelMaxCalc();
+    
+    const headers = [['N°', 'NOMS - POSTNOMS', 'SEXE', `P1 /${p1Max}`, `P2 /${p2Max}`, `EXAM S1 /${exam1Max}`, `TOT S1 /${totalS1Max}`, `P3 /${p3Max}`, `P4 /${p4Max}`, `EXAM S2 /${exam2Max}`, `TOT S2 /${totalS2Max}`, `TOTAL /${totalAnnuelMax}`]];
     const body = [];
     
     for(let i=0; i<eleves.length; i++) {
@@ -639,18 +697,7 @@ async function generateFichePDF(ficheData) {
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2, valign: 'middle', halign: 'center' },
         headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-        columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 45, halign: 'left' }, 2: { cellWidth: 12 } },
-        didDrawCell: function(data) {
-            if(data.section === 'body' && typeof data.cell.raw === 'number' && !isNaN(data.cell.raw)) {
-                if(data.cell.raw < seuil && data.cell.raw !== 0) {
-                    pdf.setTextColor(255, 0, 0);
-                    pdf.text(data.cell.raw.toString(), data.cell.x + data.cell.width/2, data.cell.y + data.cell.height/2, { align: 'center', baseline: 'middle' });
-                    pdf.setTextColor(0, 0, 0);
-                    return false;
-                }
-            }
-            return true;
-        }
+        columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 45, halign: 'left' }, 2: { cellWidth: 12 } }
     });
     return pdf;
 }
@@ -676,6 +723,45 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
         const doc = new jsPDF('portrait', 'mm', 'a4');
         const numeroFiche = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
         
+        const eps = currentFiche.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
+        const getPeriodeMaxCalc = (periode) => {
+            const epreuves = eps[periode] || [];
+            if(epreuves.length === 0) return currentFiche.p1Max || 20;
+            let sumMax = 0;
+            for(let ep of epreuves) sumMax += ep.max || 1;
+            return Math.min(currentFiche.p1Max || 20, Math.round(sumMax));
+        };
+        const getExamMaxCalc = (semestre) => {
+            if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2);
+            else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4);
+        };
+        const getTotalSemestreMaxCalc = (semestre) => {
+            if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2) + getExamMaxCalc(1);
+            else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4) + getExamMaxCalc(2);
+        };
+        const getTotalAnnuelMaxCalc = () => getTotalSemestreMaxCalc(1) + getTotalSemestreMaxCalc(2);
+        
+        const calcMoyenne = (periode, notes) => {
+            const epreuves = eps[periode] || [];
+            if(!epreuves.length || !notes?.length) return 0;
+            let sumNotes = 0, sumMax = 0;
+            for(let i=0; i<epreuves.length; i++) {
+                sumNotes += (notes[i] || 0);
+                sumMax += (epreuves[i].max || 1);
+            }
+            return sumMax ? Math.min(getPeriodeMaxCalc(periode), Math.round((sumNotes / sumMax) * getPeriodeMaxCalc(periode))) : 0;
+        };
+        
+        const p1 = calcMoyenne(1, eleve.notes?.p1);
+        const p2 = calcMoyenne(2, eleve.notes?.p2);
+        const p3 = calcMoyenne(3, eleve.notes?.p3);
+        const p4 = calcMoyenne(4, eleve.notes?.p4);
+        const exam1 = eleve.notes?.exam1 || 0;
+        const exam2 = eleve.notes?.exam2 || 0;
+        const totalS1 = p1 + p2 + exam1;
+        const totalS2 = p3 + p4 + exam2;
+        const total = totalS1 + totalS2;
+        
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
         doc.text('COMPLEXE SCOLAIRE GLORIA DEI', 105, 15, { align: 'center' });
@@ -693,22 +779,42 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
         doc.text(`Cours: ${currentFiche.cours || ''}`, 20, 61);
         
         const body = [];
-        const eps = currentFiche.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
         for(let p=1; p<=4; p++) {
             for(let ei=0; ei<(eps[p]||[]).length; ei++) {
                 const note = (eleve.notes?.['p'+p] && eleve.notes['p'+p][ei]) ? eleve.notes['p'+p][ei] : 0;
-                body.push([`Période ${p}`, eps[p][ei].nom, `${note} / ${eps[p][ei].max}`]);
+                body.push([`Période ${p}`, eps[p][ei].nom, `${note} / ${eps[p][ei].max}`, `${Math.round((note/eps[p][ei].max)*getPeriodeMaxCalc(p))} / ${getPeriodeMaxCalc(p)}`]);
             }
         }
-        if(body.length === 0) body.push(['Aucune épreuve', '', '']);
+        
+        body.push(['', '', '', '']);
+        body.push(['RÉCAPITULATIF', '', '', '']);
+        body.push(['Période 1', '', `${p1} / ${getPeriodeMaxCalc(1)}`, '']);
+        body.push(['Période 2', '', `${p2} / ${getPeriodeMaxCalc(2)}`, '']);
+        body.push(['Examen Semestre 1', '', `${exam1} / ${getExamMaxCalc(1)}`, '']);
+        body.push(['Total Semestre 1', '', `${totalS1} / ${getTotalSemestreMaxCalc(1)}`, '']);
+        body.push(['Période 3', '', `${p3} / ${getPeriodeMaxCalc(3)}`, '']);
+        body.push(['Période 4', '', `${p4} / ${getPeriodeMaxCalc(4)}`, '']);
+        body.push(['Examen Semestre 2', '', `${exam2} / ${getExamMaxCalc(2)}`, '']);
+        body.push(['Total Semestre 2', '', `${totalS2} / ${getTotalSemestreMaxCalc(2)}`, '']);
+        body.push(['TOTAL ANNUEL', '', `${total} / ${getTotalAnnuelMaxCalc()}`, '']);
         
         doc.autoTable({
-            head: [['Période', 'Épreuve', 'Note']],
+            head: [['Période', 'Épreuve', 'Note brute', 'Note / max période']],
             body: body,
             startY: 75,
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] }
+            headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
+            didParseCell: function(data) {
+                if(data.section === 'body' && data.row.index >= body.length-11) {
+                    data.cell.styles.fillColor = [31, 41, 55];
+                    data.cell.styles.textColor = [255, 255, 255];
+                    if(data.column.index === 0 && data.cell.raw === 'RÉCAPITULATIF') {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.colSpan = 4;
+                    }
+                }
+            }
         });
         
         doc.save(`Releve_${numeroFiche}_${(eleve.nom || 'eleve').replace(/\s/g,'_')}.pdf`);
@@ -716,23 +822,83 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
     } catch(e) { toast("Erreur lors de la génération du PDF", 'error'); }
 };
 
-// ========== GESTION ADMIN ==========
-async function showAdminModal() {
-    let modal = document.createElement('div'); modal.className = 'modal-fullscreen';
-    modal.innerHTML = `<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>`;
-    document.body.appendChild(modal); setTimeout(() => modal.classList.add('show'), 10);
-    document.getElementById('closeAdminModal').onclick = () => modal.remove();
-    document.getElementById('validateAdminBtn').onclick = async () => { if(document.getElementById('adminCodeInput').value === '1111') { modal.remove(); showGestionProfsModal(); } else { document.getElementById('adminError').innerHTML = 'Code incorrect'; toast("Code d'accès incorrect", 'error'); } };
+function afficherEleves() {
+    let cont = document.getElementById('elevesListContainer');
+    if(!cont) return;
+    if(!currentFiche) { cont.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; }
+    cont.innerHTML = '';
+    let eleves = currentFiche.eleves || [];
+    for(let i=0;i<eleves.length;i++) {
+        let div = document.createElement('div');
+        div.className = 'eleve-row';
+        div.innerHTML = `<input type="text" value="${eleves[i].nom || ''}" placeholder="Nom complet" onchange="window.updEleve(${i},'nom',this.value)" style="flex:2"><select onchange="window.updEleve(${i},'sexe',this.value)"><option value="M" ${eleves[i].sexe=='M'?'selected':''}>M</option><option value="F" ${eleves[i].sexe=='F'?'selected':''}>F</option></select><span onclick="window.delEleve(${i})" style="cursor:pointer;color:#ef4444;padding:8px">🗑️</span>`;
+        cont.appendChild(div);
+    }
+    if(eleves.length===0) cont.innerHTML = '<div class="empty-state">Aucun élève inscrit</div>';
+    updateExportSelect();
+}
+
+window.updEleve = (idx, field, val) => {
+    if(field === 'nom' && (!val || val.trim() === '')) { toast("Le nom de l'élève ne peut pas être vide", 'error'); return; }
+    currentFiche.eleves[idx][field] = val;
+    debounceSave();
+    afficherEleves();
+    afficherCotation();
+    updateExportSelect();
+    toast(`Élève modifié`, 'success');
+};
+
+window.delEleve = (idx) => { 
+    const nom = currentFiche.eleves[idx]?.nom || 'Élève';
+    currentFiche.eleves.splice(idx,1); 
+    afficherEleves(); 
+    afficherCotation(); 
+    updateExportSelect();
+    debounceSave(); 
+    toast(`${nom} a été supprimé`, 'warning'); 
+};
+
+async function refreshTeachersList() {
+    const q = query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof"));
+    const snap = await getDocs(q);
+    const loginOverlay = document.getElementById('loginOverlay');
+    if(loginOverlay) {
+        const selectElem = loginOverlay.querySelector('#loginNom');
+        if(selectElem) {
+            selectElem.innerHTML = '<option value="">-- Choisir --</option>';
+            snap.forEach(doc => {
+                const prof = doc.data();
+                const option = document.createElement('option');
+                option.value = prof.nom;
+                option.dataset.id = prof.profId;
+                option.textContent = prof.nom;
+                selectElem.appendChild(option);
+            });
+        }
+    }
 }
 
 async function showGestionProfsModal() {
     let modal = document.createElement('div'); modal.className = 'modal-fullscreen';
-    modal.innerHTML = `<div class="modal-content" style="max-width:600px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Gestion des professeurs</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeGestionModal">&times;</span></div><button class="btn btn-success" id="addProfBtn" style="width:100%;margin-bottom:20px">+ Ajouter un professeur</button><div id="profsListContainer" style="max-height:450px;overflow-y:auto"></div><div style="margin-top:16px"><button class="btn btn-secondary" id="closeGestionBtn" style="width:100%">Fermer</button></div></div>`;
+    modal.innerHTML = `<div class="modal-content" style="max-width:600px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>👩‍🏫 Gestion des professeurs</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeGestionModal">&times;</span></div><button class="btn btn-success" id="addProfBtn" style="width:100%;margin-bottom:20px">+ Ajouter un professeur</button><div id="profsListContainer" style="max-height:450px;overflow-y:auto"></div><div style="margin-top:16px"><button class="btn btn-secondary" id="closeGestionBtn" style="width:100%">Fermer</button></div><div style="margin-top:16px;border-top:1px solid #334155;padding-top:16px"><h3 style="font-size:14px;margin-bottom:12px">🔐 Changer code directrice</h3><input type="password" id="oldDirectriceCode" placeholder="Ancien code" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><input type="password" id="newDirectriceCode1" placeholder="Nouveau code (4 chiffres)" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><input type="password" id="newDirectriceCode2" placeholder="Confirmer" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><button class="btn btn-sm" id="changeDirectriceCodeBtn" style="width:100%">✅ Changer code directrice</button></div></div>`;
     document.body.appendChild(modal); setTimeout(() => modal.classList.add('show'), 10);
     document.getElementById('closeGestionModal').onclick = () => modal.remove();
     document.getElementById('closeGestionBtn').onclick = () => modal.remove();
     await refreshProfsList();
     document.getElementById('addProfBtn').onclick = () => showAddProfForm();
+    document.getElementById('changeDirectriceCodeBtn').onclick = () => {
+        let old = document.getElementById('oldDirectriceCode').value;
+        let new1 = document.getElementById('newDirectriceCode1').value;
+        let new2 = document.getElementById('newDirectriceCode2').value;
+        if(old !== directriceCode) { toast("Ancien code incorrect", 'error'); return; }
+        if(new1 !== new2) { toast("Les codes ne correspondent pas", 'error'); return; }
+        if(!/^\d{4}$/.test(new1)) { toast("Le code doit être composé de 4 chiffres", 'error'); return; }
+        directriceCode = new1;
+        document.getElementById('oldDirectriceCode').value = '';
+        document.getElementById('newDirectriceCode1').value = '';
+        document.getElementById('newDirectriceCode2').value = '';
+        toast("Code directrice modifié avec succès", 'success');
+    };
 }
 
 async function refreshProfsList() {
@@ -742,56 +908,72 @@ async function refreshProfsList() {
     const snap = await getDocs(q);
     let profs = [];
     snap.forEach(doc => profs.push({ id: doc.id, ...doc.data() }));
-    if(profs.length === 0) { container.innerHTML = '<div class="empty-state">Aucun professeur enregistré</div>'; return; }
+    if(profs.length === 0) { container.innerHTML = '<div class="empty-state">📭 Aucun professeur enregistré</div>'; return; }
     profs.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
     container.innerHTML = '';
     profs.forEach(prof => {
         let div = document.createElement('div'); div.className = 'prof-list-item';
-        div.innerHTML = `<div class="prof-info"><div class="prof-name">${escapeHtml(prof.nom)}</div><div class="prof-date">${prof.createdAt ? new Date(prof.createdAt).toLocaleDateString() : ''}</div></div><div class="prof-code">${prof.code || '---'}</div><div class="prof-actions"><button class="btn btn-danger btn-sm" data-id="${prof.id}" data-nom="${escapeHtml(prof.nom)}">Supprimer</button></div>`;
+        div.innerHTML = `<div class="prof-info"><div class="prof-name">${escapeHtml(prof.nom)}</div><div class="prof-date">📅 Ajouté le ${prof.createdAt ? new Date(prof.createdAt).toLocaleDateString() : ''}</div></div><div class="prof-actions"><button class="btn btn-danger btn-sm" data-id="${prof.id}" data-nom="${escapeHtml(prof.nom)}">🗑️ Supprimer</button></div>`;
         container.appendChild(div);
     });
-    document.querySelectorAll('#profsListContainer .btn-danger').forEach(btn => { btn.onclick = async () => { showConfirm(`Supprimer "${btn.dataset.nom}" ?`, async () => { await deleteDoc(doc(db, "gloria_dei_fiches", btn.dataset.id)); await refreshProfsList(); toast(`Professeur "${btn.dataset.nom}" supprimé`, 'success'); }); }; });
+    document.querySelectorAll('#profsListContainer .btn-danger').forEach(btn => { btn.onclick = async () => { showConfirm(`Supprimer définitivement "${btn.dataset.nom}" ?`, async () => { await deleteDoc(doc(db, "gloria_dei_fiches", btn.dataset.id)); await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${btn.dataset.nom}" supprimé`, 'success'); }); }; });
 }
 
 function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
-function generateProfCode() { let chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789', code = ''; for(let i=0;i<6;i++) code += chars.charAt(Math.floor(Math.random() * chars.length)); return code; }
+function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+
 function showAddProfForm() {
     let modal = document.createElement('div'); modal.className = 'modal-fullscreen';
-    modal.innerHTML = `<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Générer et ajouter</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>`;
+    modal.innerHTML = `<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>➕ Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet du professeur"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Créer et générer le code</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>`;
     document.body.appendChild(modal); setTimeout(() => modal.classList.add('show'), 10);
     document.getElementById('closeAddModal').onclick = () => modal.remove();
     document.getElementById('cancelAddBtn').onclick = () => modal.remove();
-    document.getElementById('generateAndAddBtn').onclick = async () => { let nom = document.getElementById('newProfName').value.trim(); if(!nom) { toast("Veuillez entrer un nom", 'error'); return; } let code = generateProfCode(); let profId = 'prof_' + Date.now(); await setDoc(doc(db, "gloria_dei_fiches", profId), { _type: "prof", profId, nom, code, createdAt: Date.now() }); modal.remove(); showCodePopup(nom, code); await refreshProfsList(); toast(`Professeur "${nom}" ajouté avec succès`, 'success'); };
-}
-function showCodePopup(nom, code) {
-    let popup = document.createElement('div'); popup.className = 'modal-fullscreen';
-    popup.innerHTML = `<div class="modal-content" style="text-align:center;max-width:400px"><div style="display:flex;justify-content:flex-end"><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCodeX">&times;</span></div><h3>Professeur ajouté</h3><p style="margin:8px 0;color:#cbd5e1">${escapeHtml(nom)}</p><div style="background:#10b981;border-radius:60px;padding:16px 24px;margin:16px 0"><span style="font-size:24px;font-weight:800;letter-spacing:2px;color:#fff">${code}</span></div><p style="font-size:12px;color:#94a3b8">Notez ce code, il sera masqué après 5 minutes</p><button class="btn" id="closeCodePopup" style="margin-top:16px">Fermer</button></div>`;
-    document.body.appendChild(popup); setTimeout(() => popup.classList.add('show'), 10);
-    document.getElementById('closeCodePopup').onclick = () => popup.remove();
-    document.getElementById('closeCodeX').onclick = () => popup.remove();
+    document.getElementById('generateAndAddBtn').onclick = async () => { let nom = document.getElementById('newProfName').value.trim(); if(!nom) { toast("Veuillez entrer un nom", 'error'); return; } let code = generateProfCode(); let profId = 'prof_' + Date.now(); await setDoc(doc(db, "gloria_dei_fiches", profId), { _type: "prof", profId, nom, code, createdAt: Date.now() }); modal.remove(); showNewProfCodePopup(nom, code); await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${nom}" ajouté avec succès`, 'success'); };
 }
 
-// ========== CONNEXION ==========
+function showNewProfCodePopup(nom, code) {
+    let popup = document.createElement('div'); popup.className = 'modal-fullscreen';
+    popup.innerHTML = `<div class="modal-content" style="text-align:center;max-width:400px"><div style="display:flex;justify-content:flex-end"><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCodeX">&times;</span></div><div style="text-align:center;margin-bottom:16px">🎉</div><h3>Professeur ajouté avec succès</h3><p style="margin:16px 0 8px 0;color:#cbd5e1">${escapeHtml(nom)}</p><p style="font-size:12px;color:#f59e0b;margin-bottom:8px">⚠️ Code d'accès unique (à transmettre au professeur) :</p><div style="background:#10b981;border-radius:60px;padding:16px 24px;margin:16px 0;border:2px solid #fff;"><span style="font-size:28px;font-weight:800;letter-spacing:3px;color:#fff;font-family:monospace">${code}</span></div><p style="font-size:11px;color:#ef4444;background:rgba(239,68,68,0.1);padding:8px;border-radius:8px">🔒 Ce code ne sera plus jamais affiché après la fermeture de cette fenêtre</p><button class="btn" id="closeCodePopup" style="margin-top:16px">Fermer et ne plus afficher</button></div>`;
+    document.body.appendChild(popup); setTimeout(() => popup.classList.add('show'), 10);
+    const closePopup = () => popup.remove();
+    document.getElementById('closeCodePopup').onclick = closePopup;
+    document.getElementById('closeCodeX').onclick = closePopup;
+}
+
+async function showAdminModal() {
+    let modal = document.createElement('div'); modal.className = 'modal-fullscreen';
+    modal.innerHTML = `<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>`;
+    document.body.appendChild(modal); setTimeout(() => modal.classList.add('show'), 10);
+    document.getElementById('closeAdminModal').onclick = () => modal.remove();
+    document.getElementById('validateAdminBtn').onclick = async () => { if(document.getElementById('adminCodeInput').value === directriceCode) { modal.remove(); showGestionProfsModal(); } else { document.getElementById('adminError').innerHTML = 'Code incorrect'; toast("Code d'accès incorrect", 'error'); } };
+}
+
 async function showLogin() {
     let div = document.createElement('div'); div.className = 'login-overlay'; div.id = 'loginOverlay';
-    div.innerHTML = `<div class="login-card"><h2>GLORIA DEI</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option><option value="Prof. NGENDA Flory" data-id="p1">Prof. NGENDA Flory</option></select><input type="password" id="loginCode" placeholder="Code d'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>`;
+    div.innerHTML = `<div class="login-card"><h2>GLORIA DEI</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>`;
     document.body.appendChild(div);
+    const q = query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof"));
+    const snap = await getDocs(q);
+    const select = document.getElementById('loginNom');
+    select.innerHTML = '<option value="">-- Choisir --</option>';
+    snap.forEach(doc => {
+        const prof = doc.data();
+        const option = document.createElement('option');
+        option.value = prof.nom;
+        option.dataset.id = prof.profId;
+        option.textContent = prof.nom;
+        select.appendChild(option);
+    });
     document.getElementById('loginBtn').onclick = async () => {
         let nom = document.getElementById('loginNom').value;
         let code = document.getElementById('loginCode').value;
-        let profId = nom === "Prof. NGENDA Flory" ? "p1" : null;
-        if(!profId) {
-            const profsSnap = await getDocs(query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof")));
-            let found = false;
-            profsSnap.forEach(doc => { if(doc.data().nom === nom && doc.data().code === code) { found = true; profId = doc.data().profId; } });
-            if(!found) { document.getElementById('loginError').innerHTML = 'Identifiants incorrects'; toast("Identifiants incorrects", 'error'); return; }
-        }
-        let savedCode = await (async () => { const snap = await getDoc(doc(db, "gloria_dei_fiches", `prof_${profId}`)); return snap.exists() ? snap.data().code : null; })();
-        let defaultCode = "0000";
-        let validCode = savedCode || defaultCode;
-        if(code === validCode) {
-            currentProf = { id: profId, nom: nom, code: validCode, createdAt: Date.now() };
-            if(!savedCode && profId === "p1") await setDoc(doc(db, "gloria_dei_fiches", `prof_${profId}`), { _type: "prof", profId, nom, code: validCode, createdAt: Date.now() });
+        let foundProf = null;
+        const profsSnap = await getDocs(query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof")));
+        profsSnap.forEach(doc => { if(doc.data().nom === nom) foundProf = doc.data(); });
+        if(!foundProf && nom === "Prof. NGENDA Flory") foundProf = { nom: "Prof. NGENDA Flory", code: "0000", profId: "p1" };
+        if(!foundProf) { document.getElementById('loginError').innerHTML = 'Identifiants incorrects'; toast("Identifiants incorrects", 'error'); return; }
+        if(code === foundProf.code) {
+            currentProf = { id: foundProf.profId, nom: nom, code: foundProf.code, createdAt: Date.now() };
             document.getElementById('loginOverlay').remove();
             document.getElementById('mainApp').style.display = 'block';
             toutesFiches = await loadAllFiches();
