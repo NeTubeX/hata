@@ -23,7 +23,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;}
 .tab{background:transparent;border:1px solid #334155;padding:9px 20px;border-radius:40px;font-size:13px;cursor:pointer;color:#cbd5e1;transition:all 0.2s;}
 .tab:hover{background:rgba(59,130,246,0.2);border-color:#3b82f6;}
 .tab.active{background:#1e3a5f;color:#fff;border-color:transparent;}
-.tab.disabled{opacity:0.5;cursor:not-allowed;pointer-events:none;}
 .tab-content{display:none;animation:fadeIn 0.25s;}
 .tab-content.active{display:block;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -66,8 +65,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;}
 .prof-name{font-weight:700;font-size:16px;color:#fff;margin-bottom:6px;}
 .prof-date{font-size:12px;color:#94a3b8;}
 .prof-actions{display:flex;gap:8px;}
-.icon-admin{background:rgba(59,130,246,0.2);border:none;font-size:24px;cursor:pointer;padding:8px;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin-top:16px;transition:all 0.2s;}
-.icon-admin:hover{background:rgba(59,130,246,0.4);transform:scale(1.05);}
 .toast-container{position:fixed;top:20px;right:20px;z-index:30000;display:flex;flex-direction:column;gap:10px;pointer-events:none;}
 .toast-notification{background:rgba(18,25,45,0.95);backdrop-filter:blur(12px);border-radius:12px;padding:12px 20px;min-width:280px;max-width:380px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);border-left:3px solid #10b981;transform:translateX(400px);transition:transform 0.3s ease;pointer-events:auto;}
 .toast-notification.show{transform:translateX(0);}
@@ -158,6 +155,7 @@ const db = getFirestore(app);
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [];
 let saveTimeout = null, isCreatingFiche = false;
 let directriceCode = "1111";
+let pendingSync = [];
 
 function toast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
@@ -194,37 +192,132 @@ function showConfirm(msg, onOk) {
     div.querySelector('#confirmCancel').onclick = () => div.remove();
 }
 
-async function getNextFicheNumero() {
-    const compteurRef = doc(db, "gloria_dei_fiches", "_compteur_global");
-    const snap = await getDoc(compteurRef);
-    if(snap.exists()) {
-        const newNum = (snap.data().valeur || 0) + 1;
-        await updateDoc(compteurRef, { valeur: increment(1) });
-        return newNum;
-    } else {
-        await setDoc(compteurRef, { valeur: 1 });
-        return 1;
+async function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('GloriaDeiDB', 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if(!db.objectStoreNames.contains('professeurs')) db.createObjectStore('professeurs', { keyPath: 'id' });
+            if(!db.objectStoreNames.contains('fiches')) db.createObjectStore('fiches', { keyPath: 'id' });
+            if(!db.objectStoreNames.contains('compteur')) db.createObjectStore('compteur', { keyPath: 'id' });
+            if(!db.objectStoreNames.contains('pendingSync')) db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true });
+        };
+    });
+}
+
+async function saveToIndexedDB(store, data) {
+    const dbConn = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = dbConn.transaction(store, 'readwrite');
+        const storeObj = tx.objectStore(store);
+        const request = storeObj.put(data);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        tx.oncomplete = () => dbConn.close();
+    });
+}
+
+async function getAllFromIndexedDB(store) {
+    const dbConn = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = dbConn.transaction(store, 'readonly');
+        const storeObj = tx.objectStore(store);
+        const request = storeObj.getAll();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        tx.oncomplete = () => dbConn.close();
+    });
+}
+
+async function getFromIndexedDB(store, key) {
+    const dbConn = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = dbConn.transaction(store, 'readonly');
+        const storeObj = tx.objectStore(store);
+        const request = storeObj.get(key);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        tx.oncomplete = () => dbConn.close();
+    });
+}
+
+async function deleteFromIndexedDB(store, key) {
+    const dbConn = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = dbConn.transaction(store, 'readwrite');
+        const storeObj = tx.objectStore(store);
+        const request = storeObj.delete(key);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        tx.oncomplete = () => dbConn.close();
+    });
+}
+
+async function addPendingSync(action, data) {
+    await saveToIndexedDB('pendingSync', { id: Date.now(), action, data, timestamp: Date.now() });
+}
+
+async function syncToFirebase() {
+    if(!navigator.onLine) return;
+    const pending = await getAllFromIndexedDB('pendingSync');
+    for(const item of pending) {
+        try {
+            if(item.action === 'saveFiche') {
+                await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${item.data.ficheId}`), item.data);
+            } else if(item.action === 'deleteFiche') {
+                await deleteDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${item.data}`));
+            } else if(item.action === 'saveProf') {
+                await setDoc(doc(db, "gloria_dei_fiches", item.data.id), item.data);
+            } else if(item.action === 'deleteProf') {
+                await deleteDoc(doc(db, "gloria_dei_fiches", item.data));
+            } else if(item.action === 'updateCompteur') {
+                await setDoc(doc(db, "gloria_dei_fiches", "_compteur_global"), { valeur: item.data });
+            }
+            await deleteFromIndexedDB('pendingSync', item.id);
+        } catch(e) { console.error('Sync failed', e); }
     }
+}
+
+window.addEventListener('online', () => { syncToFirebase(); });
+
+async function getNextFicheNumero() {
+    let compteur = await getFromIndexedDB('compteur', 'global');
+    let currentVal = compteur?.valeur || 0;
+    const newVal = currentVal + 1;
+    await saveToIndexedDB('compteur', { id: 'global', valeur: newVal });
+    if(navigator.onLine) {
+        try {
+            await setDoc(doc(db, "gloria_dei_fiches", "_compteur_global"), { valeur: newVal });
+        } catch(e) { await addPendingSync('updateCompteur', newVal); }
+    } else {
+        await addPendingSync('updateCompteur', newVal);
+    }
+    return newVal;
 }
 
 async function loadAllFiches() {
     if(!currentProf) return [];
-    const q = query(collection(db, "gloria_dei_fiches"), where("profId", "==", currentProf.id));
-    const snap = await getDocs(q);
-    const fiches = [];
-    for(const docSnap of snap.docs) {
-        const data = docSnap.data();
-        if(data._type === "prof") continue;
-        fiches.push({ id: data.ficheId, cours: data.cours || '', classe: data.classe || '', option: data.option || '', numeroRef: data.numeroRef || null });
-    }
-    fiches.sort((a, b) => (a.numeroRef || 999) - (b.numeroRef || 999));
-    return fiches;
+    const allFiches = await getAllFromIndexedDB('fiches');
+    const profFiches = allFiches.filter(f => f.profId === currentProf.id && !f._type);
+    profFiches.sort((a, b) => (a.numeroRef || 999) - (b.numeroRef || 999));
+    return profFiches.map(f => ({ id: f.ficheId, cours: f.cours || '', classe: f.classe || '', option: f.option || '', numeroRef: f.numeroRef || null }));
 }
 
 async function saveCurrentFiche() {
     if(!currentProf || !currentFicheId || !currentFiche) return;
-    try { await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`), currentFiche); } catch(e) { console.error(e); }
+    const ficheToSave = { ...currentFiche, id: `${currentProf.id}_${currentFicheId}` };
+    await saveToIndexedDB('fiches', ficheToSave);
+    if(navigator.onLine) {
+        try {
+            await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`), currentFiche);
+        } catch(e) { await addPendingSync('saveFiche', currentFiche); }
+    } else {
+        await addPendingSync('saveFiche', currentFiche);
+    }
 }
+
 function debounceSave() { if(saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(() => saveCurrentFiche(), 500); }
 
 async function refreshSelectors() {
@@ -251,10 +344,9 @@ async function refreshSelectors() {
 async function selectFiche(id) {
     if(!id || isCreatingFiche) return;
     currentFicheId = id;
-    const docRef = doc(db, "gloria_dei_fiches", `${currentProf.id}_${id}`);
-    const snap = await getDoc(docRef);
-    if(snap.exists() && !snap.data()._type) {
-        currentFiche = snap.data();
+    const stored = await getFromIndexedDB('fiches', `${currentProf.id}_${id}`);
+    if(stored && !stored._type) {
+        currentFiche = stored;
         document.getElementById('coursInput').value = currentFiche.cours || '';
         document.getElementById('classeSelect').value = currentFiche.classe || '';
         document.getElementById('optionSelect').value = currentFiche.option || '';
@@ -313,7 +405,12 @@ document.getElementById('newFicheBtn').onclick = async () => {
                 epreuvesParPeriode: {1:[{nom:"Interrogation",max:20}],2:[{nom:"Interrogation",max:20}],3:[{nom:"Interrogation",max:20}],4:[{nom:"Interrogation",max:20}]},
                 eleves: []
             };
-            await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${newId}`), newFiche);
+            await saveToIndexedDB('fiches', { ...newFiche, id: `${currentProf.id}_${newId}` });
+            if(navigator.onLine) {
+                try {
+                    await setDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${newId}`), newFiche);
+                } catch(e) { await addPendingSync('saveFiche', newFiche); }
+            } else { await addPendingSync('saveFiche', newFiche); }
             currentFiche = newFiche;
             currentFicheId = newId;
             resetFormFields();
@@ -332,7 +429,12 @@ document.getElementById('deleteFicheBtn').onclick = async () => {
     if(!currentFicheId) { toast("Aucune fiche sélectionnée", 'error'); return; }
     showConfirm("Supprimer cette fiche ?", async () => {
         try {
-            await deleteDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`));
+            await deleteFromIndexedDB('fiches', `${currentProf.id}_${currentFicheId}`);
+            if(navigator.onLine) {
+                try {
+                    await deleteDoc(doc(db, "gloria_dei_fiches", `${currentProf.id}_${currentFicheId}`));
+                } catch(e) { await addPendingSync('deleteFiche', currentFicheId); }
+            } else { await addPendingSync('deleteFiche', currentFicheId); }
             toutesFiches = await loadAllFiches();
             if(toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
             else { currentFiche = null; currentFicheId = null; resetFormFields(); afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); await refreshSelectors(); }
@@ -356,10 +458,9 @@ document.getElementById('copyElevesBtn').onclick = async () => {
     document.getElementById('cancelCopyBtn').onclick = closeModal;
     document.getElementById('confirmCopyBtn').onclick = async () => {
         const sourceId = document.getElementById('sourceFicheSelect').value;
-        const docRef = doc(db, "gloria_dei_fiches", `${currentProf.id}_${sourceId}`);
-        const snap = await getDoc(docRef);
-        if(snap.exists() && snap.data().eleves?.length) {
-            currentFiche.eleves = snap.data().eleves.map(e => ({ ...e, id: Date.now() + Math.random(), notes: {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0} }));
+        const stored = await getFromIndexedDB('fiches', `${currentProf.id}_${sourceId}`);
+        if(stored && stored.eleves?.length) {
+            currentFiche.eleves = stored.eleves.map(e => ({ ...e, id: Date.now() + Math.random(), notes: {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0} }));
             await saveCurrentFiche();
             afficherEleves();
             afficherCotation();
@@ -569,7 +670,13 @@ document.getElementById('changeCodeBtn').onclick = async () => {
     if(new1 !== new2) { toast("Les codes ne correspondent pas", 'error'); return; } 
     if(new1.length < 4) { toast("Le code doit contenir au moins 4 caractères", 'error'); return; } 
     currentProf.code = new1; 
-    await setDoc(doc(db, "gloria_dei_fiches", currentProf.id), { _type: "prof", profId: currentProf.id, nom: currentProf.nom, code: currentProf.code, createdAt: currentProf.createdAt || Date.now() }); 
+    const profData = { _type: "prof", id: currentProf.id, profId: currentProf.id, nom: currentProf.nom, code: currentProf.code, createdAt: currentProf.createdAt || Date.now() };
+    await saveToIndexedDB('professeurs', profData);
+    if(navigator.onLine) {
+        try {
+            await setDoc(doc(db, "gloria_dei_fiches", currentProf.id), profData);
+        } catch(e) { await addPendingSync('saveProf', profData); }
+    } else { await addPendingSync('saveProf', profData); }
     document.getElementById('oldCode').value = ''; 
     document.getElementById('newCode1').value = ''; 
     document.getElementById('newCode2').value = ''; 
@@ -596,121 +703,93 @@ document.querySelectorAll('.tab').forEach(btn => {
     }; 
 });
 
-async function generateFichePDF(ficheData) {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('landscape', 'mm', 'a4');
-    const refNum = ficheData.numeroRef ? formatNumero(ficheData.numeroRef) : '???';
-    
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('COMPLEXE SCOLAIRE GLORIA DEI', 148, 15, { align: 'center' });
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('KASUMBALESA / KOYO (NEW KOYO)', 148, 22, { align: 'center' });
-    pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('FICHE DE COTATION', 148, 32, { align: 'center' });
-    
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Année scolaire : ${ficheData.anneeScolaire || '2026-2027'}`, 14, 45);
-    pdf.text(`Référence : ${refNum}`, 14, 53);
-    pdf.text(`Cours : ${ficheData.cours || ''}`, 14, 61);
-    pdf.text(`Classe : ${ficheData.classe || ''}`, 14, 69);
-    let yOffset = 77;
-    if(ficheData.option && ficheData.option !== '') {
-        pdf.text(`Option : ${ficheData.option}`, 14, yOffset);
-        yOffset += 8;
-    }
-    pdf.text(`Titulaire : ${ficheData.titulaire || ''}`, 14, yOffset);
-    
-    const eleves = ficheData.eleves || [];
-    const eps = ficheData.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
-    
-    const getPeriodeMaxCalc = (periode) => {
-        const epreuves = eps[periode] || [];
-        if(epreuves.length === 0) return ficheData.p1Max || 20;
-        let sumMax = 0;
-        for(let ep of epreuves) sumMax += ep.max || 1;
-        return Math.min(ficheData.p1Max || 20, Math.round(sumMax));
-    };
-    
-    const getExamMaxCalc = (semestre) => {
-        if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2);
-        else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4);
-    };
-    
-    const getTotalSemestreMaxCalc = (semestre) => {
-        if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2) + getExamMaxCalc(1);
-        else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4) + getExamMaxCalc(2);
-    };
-    
-    const getTotalAnnuelMaxCalc = () => {
-        return getTotalSemestreMaxCalc(1) + getTotalSemestreMaxCalc(2);
-    };
-    
-    const calcMoyenne = (periode, notes) => {
-        const epreuves = eps[periode] || [];
-        if(!epreuves.length || !notes?.length) return 0;
-        let sumNotes = 0, sumMax = 0;
-        for(let i=0; i<epreuves.length; i++) {
-            sumNotes += (notes[i] || 0);
-            sumMax += (epreuves[i].max || 1);
-        }
-        return sumMax ? Math.min(getPeriodeMaxCalc(periode), Math.round((sumNotes / sumMax) * getPeriodeMaxCalc(periode))) : 0;
-    };
-    
-    let p1Max = getPeriodeMaxCalc(1);
-    let p2Max = getPeriodeMaxCalc(2);
-    let p3Max = getPeriodeMaxCalc(3);
-    let p4Max = getPeriodeMaxCalc(4);
-    let exam1Max = getExamMaxCalc(1);
-    let exam2Max = getExamMaxCalc(2);
-    let totalS1Max = getTotalSemestreMaxCalc(1);
-    let totalS2Max = getTotalSemestreMaxCalc(2);
-    let totalAnnuelMax = getTotalAnnuelMaxCalc();
-    
-    const headers = [['N°', 'NOMS - POSTNOMS', 'SEXE', `P1 /${p1Max}`, `P2 /${p2Max}`, `EXAM S1 /${exam1Max}`, `TOT S1 /${totalS1Max}`, `P3 /${p3Max}`, `P4 /${p4Max}`, `EXAM S2 /${exam2Max}`, `TOT S2 /${totalS2Max}`, `TOTAL /${totalAnnuelMax}`]];
-    const body = [];
-    
-    for(let i=0; i<eleves.length; i++) {
-        const e = eleves[i];
-        const notes = e.notes || {p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};
-        const p1 = calcMoyenne(1, notes.p1);
-        const p2 = calcMoyenne(2, notes.p2);
-        const p3 = calcMoyenne(3, notes.p3);
-        const p4 = calcMoyenne(4, notes.p4);
-        const exam1 = notes.exam1 || 0;
-        const exam2 = notes.exam2 || 0;
-        const totalS1 = p1 + p2 + exam1;
-        const totalS2 = p3 + p4 + exam2;
-        const total = totalS1 + totalS2;
-        body.push([(i+1).toString(), e.nom || '', e.sexe === 'F' ? 'F' : 'M', p1, p2, exam1, totalS1, p3, p4, exam2, totalS2, total]);
-    }
-    
-    if(body.length === 0) body.push(['', 'Aucun élève', '', '', '', '', '', '', '', '', '', '']);
-    
-    pdf.autoTable({
-        head: headers,
-        body: body,
-        startY: yOffset + 8,
-        theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 2, valign: 'middle', halign: 'center' },
-        headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
-        columnStyles: { 0: { cellWidth: 12 }, 1: { cellWidth: 45, halign: 'left' }, 2: { cellWidth: 12 } }
-    });
-    return pdf;
-}
-
+// EXPORT PDF PROFESSIONNEL
 document.getElementById('exportCurrentBtn').onclick = async () => {
     if(!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
-    if(!currentFiche.eleves?.length) { toast("Aucun élève à exporter", 'error'); return; }
+    if(!currentFiche.eleves || currentFiche.eleves.length === 0) { toast("Aucun élève à exporter", 'error'); return; }
     try {
-        const pdf = await generateFichePDF(currentFiche);
-        const numeroFiche = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : 'fiche';
-        pdf.save(`Fiche_${numeroFiche}_${currentFiche.cours || 'cours'}.pdf`);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        const refNum = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+        
+        pdf.setFillColor(255,255,255);
+        pdf.rect(0,0,297,210,'F');
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(0,51,102);
+        pdf.text('COMPLEXE SCOLAIRE GLORIA DEI', 148, 20, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(80,80,80);
+        pdf.text('KASUMBALESA / KOYO (NEW KOYO)', 148, 27, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(0,51,102);
+        pdf.text('FICHE DE COTATION', 148, 37, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(0,0,0);
+        pdf.text(`Année scolaire : ${currentFiche.anneeScolaire || '2026-2027'}`, 14, 50);
+        pdf.text(`Référence : ${refNum}`, 14, 57);
+        pdf.text(`Cours : ${currentFiche.cours || ''}`, 14, 64);
+        pdf.text(`Classe : ${currentFiche.classe || ''}`, 14, 71);
+        let yOff = 78;
+        if(currentFiche.option && currentFiche.option !== '') {
+            pdf.text(`Option : ${currentFiche.option}`, 14, yOff);
+            yOff += 7;
+        }
+        pdf.text(`Titulaire : ${currentFiche.titulaire || ''}`, 14, yOff);
+        
+        const eps = currentFiche.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
+        const getPeriodeMaxCalc = (p) => {
+            const epreuves = eps[p] || [];
+            if(epreuves.length === 0) return currentFiche.p1Max || 20;
+            let sum = 0;
+            for(let ep of epreuves) sum += ep.max || 1;
+            return Math.min(currentFiche.p1Max || 20, Math.round(sum));
+        };
+        const getExamMaxCalc = (s) => s === 1 ? getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2) : getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4);
+        const getTotalSemestreMaxCalc = (s) => s === 1 ? getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2)+getExamMaxCalc(1) : getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4)+getExamMaxCalc(2);
+        const getTotalAnnuelMaxCalc = () => getTotalSemestreMaxCalc(1)+getTotalSemestreMaxCalc(2);
+        const calcMoy = (p, notes) => {
+            const epreuves = eps[p] || [];
+            if(!epreuves.length || !notes?.length) return 0;
+            let sumN=0, sumM=0;
+            for(let i=0;i<epreuves.length;i++) { sumN += (notes[i]||0); sumM += (epreuves[i].max||1); }
+            return sumM ? Math.min(getPeriodeMaxCalc(p), Math.round((sumN/sumM)*getPeriodeMaxCalc(p))) : 0;
+        };
+        
+        const headers = [['N°', 'NOMS', 'SEXE', `P1/${getPeriodeMaxCalc(1)}`, `P2/${getPeriodeMaxCalc(2)}`, `EXAM S1/${getExamMaxCalc(1)}`, `TOT S1/${getTotalSemestreMaxCalc(1)}`, `P3/${getPeriodeMaxCalc(3)}`, `P4/${getPeriodeMaxCalc(4)}`, `EXAM S2/${getExamMaxCalc(2)}`, `TOT S2/${getTotalSemestreMaxCalc(2)}`, `TOTAL/${getTotalAnnuelMaxCalc()}`]];
+        const body = [];
+        for(let i=0;i<currentFiche.eleves.length;i++) {
+            const e = currentFiche.eleves[i];
+            const notes = e.notes || {};
+            const p1 = calcMoy(1, notes.p1);
+            const p2 = calcMoy(2, notes.p2);
+            const p3 = calcMoy(3, notes.p3);
+            const p4 = calcMoy(4, notes.p4);
+            const exam1 = notes.exam1 || 0;
+            const exam2 = notes.exam2 || 0;
+            body.push([(i+1).toString(), e.nom || '', e.sexe === 'F' ? 'F' : 'M', p1, p2, exam1, p1+p2+exam1, p3, p4, exam2, p3+p4+exam2, p1+p2+exam1+p3+p4+exam2]);
+        }
+        
+        pdf.autoTable({
+            head: headers,
+            body: body,
+            startY: yOff + 10,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', textColor: [0,0,0] },
+            headStyles: { fillColor: [0,51,102], textColor: [255,255,255], fontStyle: 'bold', halign: 'center' },
+            alternateRowStyles: { fillColor: [245,245,245] }
+        });
+        
+        pdf.save(`Fiche_${refNum}_${currentFiche.cours || 'cours'}.pdf`);
         toast("PDF exporté avec succès", 'success');
-    } catch(e) { toast("Erreur lors de la génération du PDF", 'error'); }
+    } catch(e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); }
 };
 
 document.getElementById('exportEleveNotesBtn').onclick = async () => {
@@ -720,67 +799,47 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
     if(!eleve) { toast("Élève non trouvé", 'error'); return; }
     try {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('portrait', 'mm', 'a4');
-        const numeroFiche = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+        const pdf = new jsPDF('portrait', 'mm', 'a4');
+        const refNum = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+        
+        pdf.setFillColor(255,255,255);
+        pdf.rect(0,0,210,297,'F');
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.setTextColor(0,51,102);
+        pdf.text('COMPLEXE SCOLAIRE GLORIA DEI', 105, 20, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(80,80,80);
+        pdf.text('KASUMBALESA / KOYO (NEW KOYO)', 105, 27, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(0,51,102);
+        pdf.text('RELEVÉ DES ÉPREUVES', 105, 37, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(0,0,0);
+        pdf.text(`Référence: ${refNum}`, 150, 50);
+        pdf.text(`Élève: ${eleve.nom || ''}`, 20, 50);
+        pdf.text(`Classe: ${currentFiche.classe || ''}${currentFiche.option ? ' - ' + currentFiche.option : ''}`, 20, 58);
+        pdf.text(`Cours: ${currentFiche.cours || ''}`, 20, 66);
         
         const eps = currentFiche.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
-        const getPeriodeMaxCalc = (periode) => {
-            const epreuves = eps[periode] || [];
+        const getPeriodeMaxCalc = (p) => {
+            const epreuves = eps[p] || [];
             if(epreuves.length === 0) return currentFiche.p1Max || 20;
-            let sumMax = 0;
-            for(let ep of epreuves) sumMax += ep.max || 1;
-            return Math.min(currentFiche.p1Max || 20, Math.round(sumMax));
+            let sum = 0;
+            for(let ep of epreuves) sum += ep.max || 1;
+            return Math.min(currentFiche.p1Max || 20, Math.round(sum));
         };
-        const getExamMaxCalc = (semestre) => {
-            if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2);
-            else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4);
-        };
-        const getTotalSemestreMaxCalc = (semestre) => {
-            if(semestre === 1) return getPeriodeMaxCalc(1) + getPeriodeMaxCalc(2) + getExamMaxCalc(1);
-            else return getPeriodeMaxCalc(3) + getPeriodeMaxCalc(4) + getExamMaxCalc(2);
-        };
-        const getTotalAnnuelMaxCalc = () => getTotalSemestreMaxCalc(1) + getTotalSemestreMaxCalc(2);
-        
-        const calcMoyenne = (periode, notes) => {
-            const epreuves = eps[periode] || [];
-            if(!epreuves.length || !notes?.length) return 0;
-            let sumNotes = 0, sumMax = 0;
-            for(let i=0; i<epreuves.length; i++) {
-                sumNotes += (notes[i] || 0);
-                sumMax += (epreuves[i].max || 1);
-            }
-            return sumMax ? Math.min(getPeriodeMaxCalc(periode), Math.round((sumNotes / sumMax) * getPeriodeMaxCalc(periode))) : 0;
-        };
-        
-        const p1 = calcMoyenne(1, eleve.notes?.p1);
-        const p2 = calcMoyenne(2, eleve.notes?.p2);
-        const p3 = calcMoyenne(3, eleve.notes?.p3);
-        const p4 = calcMoyenne(4, eleve.notes?.p4);
-        const exam1 = eleve.notes?.exam1 || 0;
-        const exam2 = eleve.notes?.exam2 || 0;
-        const totalS1 = p1 + p2 + exam1;
-        const totalS2 = p3 + p4 + exam2;
-        const total = totalS1 + totalS2;
-        
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('COMPLEXE SCOLAIRE GLORIA DEI', 105, 15, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('KASUMBALESA / KOYO (NEW KOYO)', 105, 22, { align: 'center' });
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('RELEVÉ DES ÉPREUVES', 105, 32, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Réf: ${numeroFiche}`, 150, 45);
-        doc.text(`Élève: ${eleve.nom || ''}`, 20, 45);
-        doc.text(`Classe: ${currentFiche.classe || ''}${currentFiche.option ? ' - ' + currentFiche.option : ''}`, 20, 53);
-        doc.text(`Cours: ${currentFiche.cours || ''}`, 20, 61);
         
         const body = [];
-        for(let p=1; p<=4; p++) {
-            for(let ei=0; ei<(eps[p]||[]).length; ei++) {
+        for(let p=1;p<=4;p++) {
+            for(let ei=0;ei<(eps[p]||[]).length;ei++) {
                 const note = (eleve.notes?.['p'+p] && eleve.notes['p'+p][ei]) ? eleve.notes['p'+p][ei] : 0;
                 body.push([`Période ${p}`, eps[p][ei].nom, `${note} / ${eps[p][ei].max}`, `${Math.round((note/eps[p][ei].max)*getPeriodeMaxCalc(p))} / ${getPeriodeMaxCalc(p)}`]);
             }
@@ -788,27 +847,35 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
         
         body.push(['', '', '', '']);
         body.push(['RÉCAPITULATIF', '', '', '']);
+        
+        const p1 = (() => { const e=eps[1]||[]; let s=0,m=0; for(let i=0;i<e.length;i++){s+=(eleve.notes?.p1?.[i]||0); m+=(e[i].max||1);} return m?Math.min(getPeriodeMaxCalc(1),Math.round((s/m)*getPeriodeMaxCalc(1))):0; })();
+        const p2 = (() => { const e=eps[2]||[]; let s=0,m=0; for(let i=0;i<e.length;i++){s+=(eleve.notes?.p2?.[i]||0); m+=(e[i].max||1);} return m?Math.min(getPeriodeMaxCalc(2),Math.round((s/m)*getPeriodeMaxCalc(2))):0; })();
+        const p3 = (() => { const e=eps[3]||[]; let s=0,m=0; for(let i=0;i<e.length;i++){s+=(eleve.notes?.p3?.[i]||0); m+=(e[i].max||1);} return m?Math.min(getPeriodeMaxCalc(3),Math.round((s/m)*getPeriodeMaxCalc(3))):0; })();
+        const p4 = (() => { const e=eps[4]||[]; let s=0,m=0; for(let i=0;i<e.length;i++){s+=(eleve.notes?.p4?.[i]||0); m+=(e[i].max||1);} return m?Math.min(getPeriodeMaxCalc(4),Math.round((s/m)*getPeriodeMaxCalc(4))):0; })();
+        const exam1 = eleve.notes?.exam1 || 0;
+        const exam2 = eleve.notes?.exam2 || 0;
+        
         body.push(['Période 1', '', `${p1} / ${getPeriodeMaxCalc(1)}`, '']);
         body.push(['Période 2', '', `${p2} / ${getPeriodeMaxCalc(2)}`, '']);
-        body.push(['Examen Semestre 1', '', `${exam1} / ${getExamMaxCalc(1)}`, '']);
-        body.push(['Total Semestre 1', '', `${totalS1} / ${getTotalSemestreMaxCalc(1)}`, '']);
+        body.push(['Examen Semestre 1', '', `${exam1} / ${getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2)}`, '']);
+        body.push(['Total Semestre 1', '', `${p1+p2+exam1} / ${getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2)+getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2)}`, '']);
         body.push(['Période 3', '', `${p3} / ${getPeriodeMaxCalc(3)}`, '']);
         body.push(['Période 4', '', `${p4} / ${getPeriodeMaxCalc(4)}`, '']);
-        body.push(['Examen Semestre 2', '', `${exam2} / ${getExamMaxCalc(2)}`, '']);
-        body.push(['Total Semestre 2', '', `${totalS2} / ${getTotalSemestreMaxCalc(2)}`, '']);
-        body.push(['TOTAL ANNUEL', '', `${total} / ${getTotalAnnuelMaxCalc()}`, '']);
+        body.push(['Examen Semestre 2', '', `${exam2} / ${getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4)}`, '']);
+        body.push(['Total Semestre 2', '', `${p3+p4+exam2} / ${getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4)+getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4)}`, '']);
+        body.push(['TOTAL ANNUEL', '', `${p1+p2+exam1+p3+p4+exam2} / ${(getPeriodeMaxCalc(1)+getPeriodeMaxCalc(2))*2 + (getPeriodeMaxCalc(3)+getPeriodeMaxCalc(4))*2}`, '']);
         
-        doc.autoTable({
-            head: [['Période', 'Épreuve', 'Note brute', 'Note / max période']],
+        pdf.autoTable({
+            head: [['Période', 'Épreuve', 'Note', 'Note / max période']],
             body: body,
             startY: 75,
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255] },
+            styles: { fontSize: 9, cellPadding: 3, textColor: [0,0,0] },
+            headStyles: { fillColor: [0,51,102], textColor: [255,255,255], fontStyle: 'bold' },
+            alternateRowStyles: { fillColor: [245,245,245] },
             didParseCell: function(data) {
-                if(data.section === 'body' && data.row.index >= body.length-11) {
-                    data.cell.styles.fillColor = [31, 41, 55];
-                    data.cell.styles.textColor = [255, 255, 255];
+                if(data.section === 'body' && data.row.index >= body.length-11 && data.row.index <= body.length-1) {
+                    data.cell.styles.fillColor = [220,230,245];
                     if(data.column.index === 0 && data.cell.raw === 'RÉCAPITULATIF') {
                         data.cell.styles.fontStyle = 'bold';
                         data.cell.colSpan = 4;
@@ -817,9 +884,9 @@ document.getElementById('exportEleveNotesBtn').onclick = async () => {
             }
         });
         
-        doc.save(`Releve_${numeroFiche}_${(eleve.nom || 'eleve').replace(/\s/g,'_')}.pdf`);
+        pdf.save(`Releve_${refNum}_${(eleve.nom || 'eleve').replace(/\s/g,'_')}.pdf`);
         toast(`PDF généré pour ${eleve.nom}`, 'success');
-    } catch(e) { toast("Erreur lors de la génération du PDF", 'error'); }
+    } catch(e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); }
 };
 
 function afficherEleves() {
@@ -859,15 +926,13 @@ window.delEleve = (idx) => {
 };
 
 async function refreshTeachersList() {
-    const q = query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof"));
-    const snap = await getDocs(q);
+    const allProfs = await getAllFromIndexedDB('professeurs');
     const loginOverlay = document.getElementById('loginOverlay');
     if(loginOverlay) {
         const selectElem = loginOverlay.querySelector('#loginNom');
         if(selectElem) {
             selectElem.innerHTML = '<option value="">-- Choisir --</option>';
-            snap.forEach(doc => {
-                const prof = doc.data();
+            allProfs.forEach(prof => {
                 const option = document.createElement('option');
                 option.value = prof.nom;
                 option.dataset.id = prof.profId;
@@ -904,10 +969,7 @@ async function showGestionProfsModal() {
 async function refreshProfsList() {
     let container = document.getElementById('profsListContainer');
     if(!container) return;
-    const q = query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof"));
-    const snap = await getDocs(q);
-    let profs = [];
-    snap.forEach(doc => profs.push({ id: doc.id, ...doc.data() }));
+    const profs = await getAllFromIndexedDB('professeurs');
     if(profs.length === 0) { container.innerHTML = '<div class="empty-state">📭 Aucun professeur enregistré</div>'; return; }
     profs.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
     container.innerHTML = '';
@@ -916,7 +978,7 @@ async function refreshProfsList() {
         div.innerHTML = `<div class="prof-info"><div class="prof-name">${escapeHtml(prof.nom)}</div><div class="prof-date">📅 Ajouté le ${prof.createdAt ? new Date(prof.createdAt).toLocaleDateString() : ''}</div></div><div class="prof-actions"><button class="btn btn-danger btn-sm" data-id="${prof.id}" data-nom="${escapeHtml(prof.nom)}">🗑️ Supprimer</button></div>`;
         container.appendChild(div);
     });
-    document.querySelectorAll('#profsListContainer .btn-danger').forEach(btn => { btn.onclick = async () => { showConfirm(`Supprimer définitivement "${btn.dataset.nom}" ?`, async () => { await deleteDoc(doc(db, "gloria_dei_fiches", btn.dataset.id)); await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${btn.dataset.nom}" supprimé`, 'success'); }); }; });
+    document.querySelectorAll('#profsListContainer .btn-danger').forEach(btn => { btn.onclick = async () => { showConfirm(`Supprimer définitivement "${btn.dataset.nom}" ?`, async () => { await deleteFromIndexedDB('professeurs', btn.dataset.id); if(navigator.onLine) { try { await deleteDoc(doc(db, "gloria_dei_fiches", btn.dataset.id)); } catch(e) { await addPendingSync('deleteProf', btn.dataset.id); } } else { await addPendingSync('deleteProf', btn.dataset.id); } await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${btn.dataset.nom}" supprimé`, 'success'); }); }; });
 }
 
 function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[m])); }
@@ -928,7 +990,7 @@ function showAddProfForm() {
     document.body.appendChild(modal); setTimeout(() => modal.classList.add('show'), 10);
     document.getElementById('closeAddModal').onclick = () => modal.remove();
     document.getElementById('cancelAddBtn').onclick = () => modal.remove();
-    document.getElementById('generateAndAddBtn').onclick = async () => { let nom = document.getElementById('newProfName').value.trim(); if(!nom) { toast("Veuillez entrer un nom", 'error'); return; } let code = generateProfCode(); let profId = 'prof_' + Date.now(); await setDoc(doc(db, "gloria_dei_fiches", profId), { _type: "prof", profId, nom, code, createdAt: Date.now() }); modal.remove(); showNewProfCodePopup(nom, code); await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${nom}" ajouté avec succès`, 'success'); };
+    document.getElementById('generateAndAddBtn').onclick = async () => { let nom = document.getElementById('newProfName').value.trim(); if(!nom) { toast("Veuillez entrer un nom", 'error'); return; } let code = generateProfCode(); let profId = 'prof_' + Date.now(); const profData = { _type: "prof", id: profId, profId, nom, code, createdAt: Date.now() }; await saveToIndexedDB('professeurs', profData); if(navigator.onLine) { try { await setDoc(doc(db, "gloria_dei_fiches", profId), profData); } catch(e) { await addPendingSync('saveProf', profData); } } else { await addPendingSync('saveProf', profData); } modal.remove(); showNewProfCodePopup(nom, code); await refreshProfsList(); await refreshTeachersList(); toast(`Professeur "${nom}" ajouté avec succès`, 'success'); };
 }
 
 function showNewProfCodePopup(nom, code) {
@@ -977,38 +1039,54 @@ async function showLogin() {
     let div = document.createElement('div'); div.className = 'login-overlay'; div.id = 'loginOverlay';
     div.innerHTML = `<div class="login-card"><h2>GLORIA DEI</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>`;
     document.body.appendChild(div);
-    const q = query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof"));
-    const snap = await getDocs(q);
-    const select = document.getElementById('loginNom');
-    select.innerHTML = '<option value="">-- Choisir --</option>';
-    snap.forEach(doc => {
-        const prof = doc.data();
-        const option = document.createElement('option');
-        option.value = prof.nom;
-        option.dataset.id = prof.profId;
-        option.textContent = prof.nom;
-        select.appendChild(option);
-    });
+    await refreshTeachersList();
+    
     document.getElementById('loginBtn').onclick = async () => {
         let nom = document.getElementById('loginNom').value;
         let code = document.getElementById('loginCode').value;
-        let foundProf = null;
-        const profsSnap = await getDocs(query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof")));
-        profsSnap.forEach(doc => { if(doc.data().nom === nom) foundProf = doc.data(); });
-        if(!foundProf && nom === "Prof. NGENDA Flory") foundProf = { nom: "Prof. NGENDA Flory", code: "0000", profId: "p1" };
+        const allProfs = await getAllFromIndexedDB('professeurs');
+        let foundProf = allProfs.find(p => p.nom === nom);
+        if(!foundProf && nom === "Prof. NGENDA Flory") foundProf = { nom: "Prof. NGENDA Flory", code: "0000", profId: "p1", id: "p1" };
         if(!foundProf) { document.getElementById('loginError').innerHTML = 'Identifiants incorrects'; toast("Identifiants incorrects", 'error'); return; }
         if(code === foundProf.code) {
-            currentProf = { id: foundProf.profId, nom: nom, code: foundProf.code, createdAt: Date.now() };
+            currentProf = { id: foundProf.profId, nom: nom, code: foundProf.code, createdAt: foundProf.createdAt || Date.now() };
             document.getElementById('loginOverlay').remove();
             document.getElementById('mainApp').style.display = 'block';
             toutesFiches = await loadAllFiches();
             if(toutesFiches.length) await selectFiche(toutesFiches[0].id);
             await refreshSelectors();
+            syncToFirebase();
             toast(`Bienvenue ${currentProf.nom}`, 'success');
         } else { document.getElementById('loginError').innerHTML = 'Code incorrect'; toast("Code d'accès incorrect", 'error'); }
     };
     document.getElementById('adminIconBtn').onclick = () => { showAdminModal(); };
 }
+
+await initIndexedDB();
+const compteurExist = await getFromIndexedDB('compteur', 'global');
+if(!compteurExist) await saveToIndexedDB('compteur', { id: 'global', valeur: 0 });
+
+if(navigator.onLine) {
+    try {
+        const fbProfs = await getDocs(query(collection(db, "gloria_dei_fiches"), where("_type", "==", "prof")));
+        for(const docSnap of fbProfs.docs) {
+            const profData = docSnap.data();
+            await saveToIndexedDB('professeurs', { ...profData, id: profData.profId });
+        }
+        const fbFiches = await getDocs(collection(db, "gloria_dei_fiches"));
+        for(const docSnap of fbFiches.docs) {
+            const data = docSnap.data();
+            if(!data._type) {
+                await saveToIndexedDB('fiches', { ...data, id: docSnap.id });
+            }
+        }
+        const compteurSnap = await getDoc(doc(db, "gloria_dei_fiches", "_compteur_global"));
+        if(compteurSnap.exists()) {
+            await saveToIndexedDB('compteur', { id: 'global', valeur: compteurSnap.data().valeur || 0 });
+        }
+    } catch(e) { console.log("Mode hors ligne uniquement"); }
+}
+
 showLogin();
 </script>
 </body>
