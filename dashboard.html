@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head> 
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, shrink-to-fit=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,6 +29,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .nav-buttons{display:flex;align-items:center;gap:12px;flex-shrink:0;}
 .user-code{background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.3);padding:6px 14px;border-radius:40px;font-size:0.8rem;font-weight:600;color:#EAEAEA;font-family:monospace;letter-spacing:0.5px;white-space:nowrap;}
 .online-dot{width:10px;height:10px;background:#10b981;border-radius:50%;animation:blink 1.2s infinite;box-shadow:0 0 4px #10b981;flex-shrink:0;}
+.online-dot.offline{background:#ef4444;animation:none;box-shadow:none;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
 .score-floating{position:fixed;left:20px;bottom:100px;width:56px;height:56px;border-radius:50%;background:#2d2d2d;display:flex;align-items:center;justify-content:center;z-index:150;border:1px solid rgba(255,255,255,0.2);box-shadow:0 10px 20px rgba(0,0,0,0.4),0 4px 8px rgba(0,0,0,0.2);cursor:pointer;transition:all 0.3s cubic-bezier(0.34,1.2,0.64,1);overflow:hidden;}
 .score-icon-only{font-size:1.6rem;font-weight:400;display:flex;align-items:center;justify-content:center;transition:all 0.3s;}
@@ -167,6 +168,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 .code-btn{background:linear-gradient(135deg,#8b5cf6,#6d28d9);border:none;padding:12px 28px;border-radius:60px;font-weight:700;color:#fff;cursor:pointer;transition:all 0.3s;}
 .code-btn.secondary{background:#3a3b3c;color:#fff;}
 .code-btn:hover{transform:translateY(-2px);}
+.offline-banner{position:fixed;top:0;left:0;right:0;background:#ef4444;color:#fff;text-align:center;padding:8px;font-size:12px;z-index:10000;transform:translateY(-100%);transition:transform 0.3s;}
+.offline-banner.show{transform:translateY(0);}
 @media (max-width:768px){.navbar{padding:8px 16px;gap:12px;}.navbar .nav-buttons{gap:8px;}.user-code{padding:4px 10px;font-size:0.7rem;}.online-dot{width:8px;height:8px;}.logo-text{font-size:1.1rem;}.logo-img{width:32px;height:32px;}}
 </style>
 </head>
@@ -174,11 +177,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 <div class="bg-fixed-dash"></div>
 <div class="bg-overlay-dash"></div>
 <div class="rainbow-line"></div>
+<div class="offline-banner" id="offlineBanner">⚠️ Mode hors ligne - Les données seront synchronisées automatiquement</div>
 <div class="navbar" id="navbar">
 <div class="logo"><img src="https://netubex.github.io/hata/favicon.png.png" alt="NeTubeX" class="logo-img"><span class="logo-text">NeTubeX</span></div>
 <div class="nav-buttons">
 <span id="userCodeDisplay" class="user-code">Chargement...</span>
-<div class="online-dot"></div>
+<div class="online-dot" id="onlineDot"></div>
 </div>
 </div>
 <div class="score-floating" id="scoreFloating" data-score="medium">
@@ -327,85 +331,44 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ar
 {"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
 </script>
 <script type="module">
-import{initializeApp}from"firebase/app";import{getAuth,onAuthStateChanged,signOut}from"firebase/auth";import{getFirestore,doc,getDoc,updateDoc,arrayUnion,onSnapshot,collection,addDoc,query,where,orderBy,limit,getDocs}from"firebase/firestore";
+import{initializeApp}from"firebase/app";import{getAuth,onAuthStateChanged,signOut}from"firebase/auth";import{getFirestore,doc,getDoc,updateDoc,arrayUnion,onSnapshot,collection,addDoc,query,where,orderBy,limit,getDocs,setDoc,deleteDoc}from"firebase/firestore";
 const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
 const app=initializeApp(firebaseConfig);const auth=getAuth(app);const db=getFirestore(app);
-let currentUser=null,userDocRef=null,currentTickets=[],currentCaps=[],pendingPanel=null,pendingPlatform=null,pendingTargetUrl=null,popupOpenTime=null,pageLoadTime=Date.now(),userLastMenuOpen=null,userReadCapsIds=[],userReadTicketResponseIds=[];
-let pendingAction = null;
-let toastContainer=null;
+let currentUser=null,userDocRef=null,currentTickets=[],currentCaps=[],pendingPanel=null,pendingPlatform=null,pendingTargetUrl=null,popupOpenTime=null,pageLoadTime=Date.now(),userLastMenuOpen=null,userReadCapsIds=[],userReadTicketResponseIds=[],pendingAction=null,toastContainer=null,isOffline=false,pendingSync=[],dbReady=false;
+const DB_NAME='NetubeX_OfflineDB';const DB_VERSION=1;let indexedDBConn=null;
 function getToastContainer(){if(!toastContainer){toastContainer=document.createElement('div');toastContainer.className='toast-container';document.body.appendChild(toastContainer);}return toastContainer;}
 function showToast(message,type='success',duration=6000){const container=getToastContainer();const toast=document.createElement('div');toast.className=`toast toast-${type}`;let icon='',title='';switch(type){case 'success':icon='✅';title='Succès';break;case 'error':icon='❌';title='Erreur';break;case 'info':icon='ℹ️';title='Information';break;default:icon='✅';title='Notification';}toast.innerHTML=`<div class="toast-icon">${icon}</div><div class="toast-content"><div class="toast-title">${title}</div><div class="toast-message">${message}</div></div><button class="toast-close">✕</button>`;container.appendChild(toast);const closeBtn=toast.querySelector('.toast-close');closeBtn.addEventListener('click',()=>{toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});setTimeout(()=>{if(toast.parentElement){toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);}},duration);toast.addEventListener('click',(e)=>{if(e.target===closeBtn||closeBtn.contains(e.target))return;toast.classList.add('toast-exit');setTimeout(()=>toast.remove(),300);});}
-
-// GAMES triés du plus payant au moins payant
-const games = [
-    {id:0, name:"Freezer Frenzy", avatar:"https://netubex.github.io/hata/freezer-frenzy.jpg", img:"https://netubex.github.io/hata/freezer-frenzy.jpg", duration:"30j", totalEarning:"274.53", description:"Plongez dans l'univers glacé de Freezer Frenzy! Survivez aux vagues de froid, collectez des cristaux de glace et débloquez des pouvoirs légendaires."},
-    {id:1, name:"The Grand Mafia", avatar:"https://netubex.github.io/hata/the-grand-mafia.webp", img:"https://netubex.github.io/hata/the-grand-mafia.webp", duration:"30j", totalEarning:"185.04", description:"Jeu de stratégie mafieux. Construis ton empire, recrute des soldats et domine la ville."},
-    {id:2, name:"Magnet Miner", avatar:"https://netubex.github.io/hata/magnet-miner.jpg", img:"https://netubex.github.io/hata/magnet-miner.jpg", duration:"30j", totalEarning:"139.98", description:"Creuse dans la mine la plus profonde possible et atteins les trésors cachés sous terre! Installe l'application et améliore tes niveaux de profondeur à 100, 550, 700, 900 et 1200 pour gagner des récompenses."},
-    {id:3, name:"Grab A Toy", avatar:"https://netubex.github.io/hata/grab-a-toy.png", img:"https://netubex.github.io/hata/grab-a-toy.png", duration:"30j", totalEarning:"114.55", description:"Attrape un max de jouets avec précision. Timing et réflexes seront tes alliés."},
-    {id:4, name:"Wild Fish Explorer", avatar:"https://netubex.github.io/hata/wild-fish.png", img:"https://netubex.github.io/hata/wild-fish.png", duration:"30j", totalEarning:"110.30", description:"Explore les océans, capture des poissons rares et complète ta collection."},
-    {id:5, name:"Sky Plunger", avatar:"https://netubex.github.io/hata/sky-plunger.png", img:"https://netubex.github.io/hata/sky-plunger.png", duration:"30j", totalEarning:"87.86", description:"Chute libre à travers les cieux. Évite les obstacles et bats ton record."},
-    {id:6, name:"Goblin Heist", avatar:"https://netubex.github.io/hata/goblin-heist.jpg", img:"https://netubex.github.io/hata/goblin-heist.jpg", duration:"60j", totalEarning:"77.72", description:"Incarne un gobelin voleur. Infiltre-toi, évite les gardes et prends les trésors."},
-    {id:7, name:"Survivor Idle Run", avatar:"https://netubex.github.io/hata/survivor-idle-run.png", img:"https://netubex.github.io/hata/survivor-idle-run.png", duration:"30j", totalEarning:"65.03", description:"Course automatique et survie. Améliore tes compétences, collecte des rewards."},
-    {id:8, name:"Love Water", avatar:"https://netubex.github.io/hata/love-water.gif", img:"https://netubex.github.io/hata/love-water.gif", duration:"30j", totalEarning:"13.37", description:"Puzzle aquatique. Guide l'eau avec logique pour résoudre chaque niveau."}
-];
-const howToPlayMap = {
-    0: "Gèle tes ennemis • Collecte des cristaux de glace • Débloque des pouvoirs cryogéniques • Survie en milieu extrême • Bats les records de froid",
-    1: "Construis ton manoir • Entraîne des soldats • Attaque d'autres joueurs • Rejoins une alliance • Fais les missions quotidiennes",
-    2: "Creuse toujours plus profond • Utilise ton aimant pour attirer les minerais • Améliore ton équipement • Atteins les niveaux 100, 550, 700, 900 et 1200 • Débloque des trésors légendaires",
-    3: "Vise avec précision • Attrape les jouets rares • Gère ton timing • Débloque des niveaux secrets • Multiplie tes gains",
-    4: "Plonge dans l'océan • Capture des poissons légendaires • Améliore ton matériel • Complète le bestiaire • Ouvre des zones cachées",
-    5: "Contrôle ta chute • Évite les obstacles • Collecte des bonus • Va toujours plus loin • Débloque des skins uniques",
-    6: "Déplace-toi en silence • Évite gardes et pièges • Collecte tous les trésors • Utilise tes compétences • Deviens le roi des voleurs",
-    7: "Lance la course auto • Améliore tes stats • Gagne même hors ligne • Survie maximale • Débloque des héros puissants",
-    8: "Trace le chemin de l'eau • Active les bons éléments • Résous chaque puzzle • Progresse niveau par niveau"
-};
-function getDeviceUniqueId(){let d=localStorage.getItem('device_permanent_id');if(!d){const s=`${screen.width}x${screen.height}x${screen.colorDepth}|${Intl.DateTimeFormat().resolvedOptions().timeZone}|${navigator.language}|${navigator.platform}`;let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h)+s.charCodeAt(i),h|=0;d=`DEVICE_${Math.abs(h)}`;localStorage.setItem('device_permanent_id',d);}return d;}
-async function sendSecurityAlert(t,e,o={}){try{await addDoc(collection(db,"security_alerts"),{type:t,email:e||null,netuberCode:o.netuberCode||null,netuberId:o.netuberId||null,message:o.message||'',details:{timeSpentSeconds:Math.floor((Date.now()-pageLoadTime)/1000),deviceId:getDeviceUniqueId(),userAgent:navigator.userAgent,language:navigator.language,platform:navigator.platform,...o},timestamp:new Date().toISOString(),read:false});return true;}catch(e){return false;}}
+function updateOnlineStatusUI(){const dot=document.getElementById('onlineDot');const banner=document.getElementById('offlineBanner');if(navigator.onLine){isOffline=false;if(dot){dot.classList.remove('offline');}if(banner){banner.classList.remove('show');}if(currentUser&&dbReady){syncToFirebase();}}else{isOffline=true;if(dot){dot.classList.add('offline');}if(banner){banner.classList.add('show');}showToast("Mode hors ligne actif - Les modifications seront synchronisées plus tard",'warning',4000);}}
+function openIndexedDB(){return new Promise((resolve,reject)=>{if(indexedDBConn&&indexedDBConn.name===DB_NAME){resolve(indexedDBConn);return;}const request=indexedDB.open(DB_NAME,DB_VERSION);request.onerror=()=>reject(request.error);request.onsuccess=()=>{indexedDBConn=request.result;resolve(indexedDBConn);};request.onupgradeneeded=(event)=>{const db=event.target.result;if(!db.objectStoreNames.contains('user')){db.createObjectStore('user',{keyPath:'uid'});}if(!db.objectStoreNames.contains('tickets')){db.createObjectStore('tickets',{keyPath:'id'});}if(!db.objectStoreNames.contains('caps')){db.createObjectStore('caps',{keyPath:'id'});}if(!db.objectStoreNames.contains('pendingSync')){db.createObjectStore('pendingSync',{keyPath:'id',autoIncrement:true});}};});}
+async function saveToIndexedDB(store,data){try{const dbConn=await openIndexedDB();return new Promise((resolve,reject)=>{const tx=dbConn.transaction(store,'readwrite');const storeObj=tx.objectStore(store);const request=storeObj.put(data);request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve();tx.oncomplete=()=>resolve();});}catch(e){console.error('IndexedDB save error:',e);}}
+async function getFromIndexedDB(store,key){try{const dbConn=await openIndexedDB();return new Promise((resolve,reject)=>{const tx=dbConn.transaction(store,'readonly');const storeObj=tx.objectStore(store);const request=storeObj.get(key);request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve(request.result);});}catch(e){return null;}}
+async function getAllFromIndexedDB(store){try{const dbConn=await openIndexedDB();return new Promise((resolve,reject)=>{const tx=dbConn.transaction(store,'readonly');const storeObj=tx.objectStore(store);const request=storeObj.getAll();request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve(request.result||[]);});}catch(e){return[];}}
+async function deleteFromIndexedDB(store,key){try{const dbConn=await openIndexedDB();return new Promise((resolve,reject)=>{const tx=dbConn.transaction(store,'readwrite');const storeObj=tx.objectStore(store);const request=storeObj.delete(key);request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve();});}catch(e){}}
+async function addPendingSync(action,data){const syncItem={id:Date.now()+Math.random(),action,data,timestamp:Date.now()};await saveToIndexedDB('pendingSync',syncItem);if(navigator.onLine){syncToFirebase();}}
+async function syncToFirebase(){if(!navigator.onLine||!currentUser||!dbReady)return;const pendingItems=await getAllFromIndexedDB('pendingSync');for(const item of pendingItems){try{if(item.action==='ticket'){await updateDoc(userDocRef,{ticketsList:arrayUnion(item.data)});}else if(item.action==='alert'){await addDoc(collection(db,"security_alerts"),item.data);}await deleteFromIndexedDB('pendingSync',item.id);showToast(`Synchronisation effectuée`,'success',2000);}}catch(e){console.error('Sync error:',e);}}
+async function saveUserOffline(userData){await saveToIndexedDB('user',userData);}
+async function loadUserOffline(uid){return await getFromIndexedDB('user',uid);}
+async function saveTicketOffline(ticket){const tickets=await getAllFromIndexedDB('tickets');const existing=tickets.find(t=>t.id===ticket.id);if(!existing){await saveToIndexedDB('tickets',ticket);}}
+async function loadTicketsOffline(){return await getAllFromIndexedDB('tickets');}
+async function saveCapOffline(cap){const caps=await getAllFromIndexedDB('caps');const existing=caps.find(c=>c.id===cap.id);if(!existing){await saveToIndexedDB('caps',cap);}}
+async function loadCapsOffline(){return await getAllFromIndexedDB('caps');}
+const games=[{id:0,name:"Freezer Frenzy",avatar:"https://netubex.github.io/hata/freezer-frenzy.jpg",img:"https://netubex.github.io/hata/freezer-frenzy.jpg",duration:"30j",totalEarning:"274.53",description:"Plongez dans l'univers glacé de Freezer Frenzy! Survivez aux vagues de froid, collectez des cristaux de glace et débloquez des pouvoirs légendaires."},{id:1,name:"The Grand Mafia",avatar:"https://netubex.github.io/hata/the-grand-mafia.webp",img:"https://netubex.github.io/hata/the-grand-mafia.webp",duration:"30j",totalEarning:"185.04",description:"Jeu de stratégie mafieux. Construis ton empire, recrute des soldats et domine la ville."},{id:2,name:"Magnet Miner",avatar:"https://netubex.github.io/hata/magnet-miner.jpg",img:"https://netubex.github.io/hata/magnet-miner.jpg",duration:"30j",totalEarning:"139.98",description:"Creuse dans la mine la plus profonde possible et atteins les trésors cachés sous terre! Installe l'application et améliore tes niveaux de profondeur à 100, 550, 700, 900 et 1200 pour gagner des récompenses."},{id:3,name:"Grab A Toy",avatar:"https://netubex.github.io/hata/grab-a-toy.png",img:"https://netubex.github.io/hata/grab-a-toy.png",duration:"30j",totalEarning:"114.55",description:"Attrape un max de jouets avec précision. Timing et réflexes seront tes alliés."},{id:4,name:"Wild Fish Explorer",avatar:"https://netubex.github.io/hata/wild-fish.png",img:"https://netubex.github.io/hata/wild-fish.png",duration:"30j",totalEarning:"110.30",description:"Explore les océans, capture des poissons rares et complète ta collection."},{id:5,name:"Sky Plunger",avatar:"https://netubex.github.io/hata/sky-plunger.png",img:"https://netubex.github.io/hata/sky-plunger.png",duration:"30j",totalEarning:"87.86",description:"Chute libre à travers les cieux. Évite les obstacles et bats ton record."},{id:6,name:"Goblin Heist",avatar:"https://netubex.github.io/hata/goblin-heist.jpg",img:"https://netubex.github.io/hata/goblin-heist.jpg",duration:"60j",totalEarning:"77.72",description:"Incarne un gobelin voleur. Infiltre-toi, évite les gardes et prends les trésors."},{id:7,name:"Survivor Idle Run",avatar:"https://netubex.github.io/hata/survivor-idle-run.png",img:"https://netubex.github.io/hata/survivor-idle-run.png",duration:"30j",totalEarning:"65.03",description:"Course automatique et survie. Améliore tes compétences, collecte des rewards."},{id:8,name:"Love Water",avatar:"https://netubex.github.io/hata/love-water.gif",img:"https://netubex.github.io/hata/love-water.gif",duration:"30j",totalEarning:"13.37",description:"Puzzle aquatique. Guide l'eau avec logique pour résoudre chaque niveau."}];
+const howToPlayMap={0:"Gèle tes ennemis • Collecte des cristaux de glace • Débloque des pouvoirs cryogéniques • Survie en milieu extrême • Bats les records de froid",1:"Construis ton manoir • Entraîne des soldats • Attaque d'autres joueurs • Rejoins une alliance • Fais les missions quotidiennes",2:"Creuse toujours plus profond • Utilise ton aimant pour attirer les minerais • Améliore ton équipement • Atteins les niveaux 100, 550, 700, 900 et 1200 • Débloque des trésors légendaires",3:"Vise avec précision • Attrape les jouets rares • Gère ton timing • Débloque des niveaux secrets • Multiplie tes gains",4:"Plonge dans l'océan • Capture des poissons légendaires • Améliore ton matériel • Complète le bestiaire • Ouvre des zones cachées",5:"Contrôle ta chute • Évite les obstacles • Collecte des bonus • Va toujours plus loin • Débloque des skins uniques",6:"Déplace-toi en silence • Évite gardes et pièges • Collecte tous les trésors • Utilise tes compétences • Deviens le roi des voleurs",7:"Lance la course auto • Améliore tes stats • Gagne même hors ligne • Survie maximale • Débloque des héros puissants",8:"Trace le chemin de l'eau • Active les bons éléments • Résous chaque puzzle • Progresse niveau par niveau"};
 function escapeHtml(str){if(!str)return '';return str.replace(/[&<>]/g,m=>m==='&'?'&amp;':(m==='<'?'&lt;':'&gt;'));}
 function renderGames(){let container=document.getElementById('gamesContainer');if(!container)return;container.innerHTML='';games.forEach(g=>{let card=document.createElement('div');card.className='post-card';card.innerHTML=`<div class="post-top"><div class="avatar"><img src="${g.avatar}" alt="${g.name}"></div><div class="post-right"><div class="post-name">${g.name}</div><div class="post-sub">Nouvelle section <i class="fas fa-globe-africa"></i><span class="jeu-remunerateur">Jeu rémunérateur</span></div><div class="post-description">${g.description}</div></div></div><div class="image-wrapper" data-id="${g.id}" data-name="${g.name}" data-earning="${g.totalEarning}" data-howto="${howToPlayMap[g.id]}"><img class="post-image" src="${g.img}" alt="${g.name}" loading="lazy"><div class="image-overlay"><i class="fas fa-info-circle"></i> Cliquer pour voir comment ça marche</div></div><div class="post-stats"><span class="duration"><i class="fas fa-calendar-alt"></i> ${g.duration}</span><span class="earning"><i class="fas fa-coins"></i> ${g.totalEarning}$</span></div>`;container.appendChild(card);});document.querySelectorAll('.image-wrapper').forEach(wrapper=>{wrapper.addEventListener('click',(e)=>{e.stopPropagation();let earning=wrapper.dataset.earning;let howto=wrapper.dataset.howto;document.getElementById('howtoText').innerHTML=howto;let formattedEarning=earning.replace('.',',');document.getElementById('rewardAmount').innerHTML=formattedEarning+' $';document.getElementById('rewardMessage').innerHTML=`${formattedEarning} $ seront ajoutés à votre compte de frais de mission si vous terminez ce jeu rémunérateur.`;document.getElementById('howtoPopup').classList.add('active');});});}
 function renderTickets(tab){let container=document.getElementById('ticketsListContainer');if(!container)return;let filtered=currentTickets.filter(t=>tab==='encours'?t.status!=='résolu':t.status==='résolu');if(filtered.length===0){container.innerHTML='<p style="text-align:center;color:#b0b3b8;padding:20px;">📭 Aucun ticket</p>';return;}container.innerHTML=filtered.map(t=>{let statusText=t.status==='ouvert'?'📩 En attente':(t.status==='en cours'?'⚙️ En cours':'✅ Résolu');let statusClass=t.status==='ouvert'?'status-ouvert':(t.status==='en cours'?'status-en-cours':'status-resolu');let reponsesHtml=t.reponses&&t.reponses.length?`<div class="ticket-reponse"><i class="fas fa-headset"></i> <strong>Réponse Pôle Technique:</strong><br>${escapeHtml(t.reponses[t.reponses.length-1].message)}</div>`:'';return`<div class="ticket-item ${t.status==='résolu'?'resolu':''}"><div class="ticket-header"><span class="ticket-date"><i class="far fa-calendar-alt"></i> ${new Date(t.date).toLocaleDateString('fr-FR')}</span></div><div class="ticket-subject"><i class="fas fa-comment-dots" style="margin-right:8px;color:#f59e0b;"></i>${escapeHtml(t.subject)}</div><div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;"><span class="ticket-status ${statusClass}"><i class="fas fa-circle"></i> ${statusText}</span><span class="ticket-priority">${t.priority==='haute'?'🔴 Priorité haute':(t.priority==='moyenne'?'🟠 Priorité moyenne':'🟢 Priorité basse')}</span></div>${reponsesHtml}</div>`;}).join('');}
 function renderCaps(){let container=document.getElementById('capsListContainer');if(!container)return;if(!currentCaps||!currentCaps.length){container.innerHTML='<p style="text-align:center;color:#b0b3b8;padding:20px;">📭 Aucun CAP reçu</p>';return;}container.innerHTML=currentCaps.map(cap=>`<div class="ticket-item" style="border-left-color:#f59e0b;"><div class="ticket-header"><span class="ticket-category"><i class="fas fa-envelope"></i> CAP</span><span class="ticket-date">${new Date(cap.sentDate).toLocaleDateString('fr-FR')}</span></div><div class="ticket-subject"><i class="fas fa-chart-line" style="margin-right:8px;color:#f59e0b;"></i>${escapeHtml(cap.message)}</div>${cap.expiryDate?`<div style="font-size:0.7rem;color:#f59e0b;margin-top:5px;">📅 Expire le: ${new Date(cap.expiryDate).toLocaleDateString('fr-FR')}</div>`:''}</div>`).join('');}
 function updateNotificationBadge(){if(!currentUser)return;let lastMenuOpen=userLastMenuOpen||new Date(0).toISOString();let unreadCount=0;let readCapsIds=userReadCapsIds||[];let readTicketResponseIds=userReadTicketResponseIds||[];currentCaps.forEach(cap=>{if(cap.sentDate&&cap.sentDate>lastMenuOpen&&!readCapsIds.includes(cap.id))unreadCount++;});currentTickets.forEach(ticket=>{if(ticket.reponses&&ticket.reponses.length&&!readTicketResponseIds.includes(ticket.id)){let lastResponse=ticket.reponses[ticket.reponses.length-1];if(lastResponse.date&&lastResponse.date>lastMenuOpen)unreadCount++;}});let badge=document.getElementById('notificationBadge');if(badge){if(unreadCount>0){badge.textContent=unreadCount>99?'99+':unreadCount;badge.style.display='flex';}else{badge.style.display='none';}}}
-async function markNotificationsAsRead(){if(!currentUser||!userDocRef)return;let now=new Date().toISOString();await updateDoc(userDocRef,{lastMenuOpen:now});userLastMenuOpen=now;let readCapsIds=currentCaps.map(c=>c.id);let readTicketResponseIds=currentTickets.filter(t=>t.reponses&&t.reponses.length).map(t=>t.id);await updateDoc(userDocRef,{readCapsIds:readCapsIds,readTicketResponseIds:readTicketResponseIds});userReadCapsIds=readCapsIds;userReadTicketResponseIds=readTicketResponseIds;updateNotificationBadge();}
-async function sendTicketToFirebase(subject,priority){if(!currentUser)return false;if(!subject||subject===''){showToast("Veuillez saisir un sujet","error");return false;}let ticket={id:`TKT_${Date.now()}_${Math.random().toString(36).substr(2,8)}`,subject:subject,priority:priority,status:"ouvert",date:new Date().toISOString(),reponses:[]};try{await updateDoc(userDocRef,{ticketsList:arrayUnion(ticket)});showToast("✅ Ticket envoyé avec succès !","success");return true;}catch(e){showToast("❌ Erreur envoi ticket","error");return false;}}
-function listenToTicketsAndCaps(){if(!userDocRef)return;onSnapshot(userDocRef,(snap)=>{if(snap.exists()){let data=snap.data();currentTickets=data.ticketsList||[];currentCaps=data.capsList||[];let activeTab=document.querySelector('.tickets-tab.active')?.dataset.tab||'encours';renderTickets(activeTab);renderCaps();updateNotificationBadge();}});}
-async function updateOnlineStatus(){if(currentUser&&userDocRef)await updateDoc(userDocRef,{lastSeen:new Date().toISOString(),isOnline:true}).catch(()=>{});}
-let currentUserIdForOffers = null;
-function updateLampColor(score){const lampElement = document.getElementById('scoreFloating');if(!lampElement) return;let colorLevel = 'low';if(score >= 70) colorLevel = 'high';else if(score >= 50) colorLevel = 'medium';else colorLevel = 'low';lampElement.setAttribute('data-score', colorLevel);}
-async function calculateAndDisplayScore() {
-if(!currentUser) return;
-try {
-const userSnap = await getDoc(userDocRef);
-if(!userSnap.exists()) { document.getElementById('netuberScore').innerHTML = '--'; document.getElementById('scoreEmoji').innerHTML = '⚪'; document.getElementById('scoreDate').innerHTML = 'Compte invalide'; updateLampColor(0); return; }
-const netuberCode = userSnap.data().code;
-if(!netuberCode) { document.getElementById('netuberScore').innerHTML = '--'; document.getElementById('scoreEmoji').innerHTML = '⚠️'; document.getElementById('scoreDate').innerHTML = 'Code manquant'; updateLampColor(0); return; }
-const reportsQuery = query(collection(db, "reports"), orderBy("createdAt", "desc"), limit(1));
-const snapshot = await getDocs(reportsQuery);
-if(snapshot.empty) { document.getElementById('netuberScore').innerHTML = '--'; document.getElementById('scoreEmoji').innerHTML = '📭'; document.getElementById('scoreDate').innerHTML = 'Aucun rapport'; updateLampColor(0); return; }
-const latestReport = snapshot.docs[0].data();
-let netuberData = null;
-if(latestReport.netubers && Array.isArray(latestReport.netubers)) { netuberData = latestReport.netubers.find(n => n.code === netuberCode); }
-if(!netuberData && latestReport.code === netuberCode) { netuberData = latestReport; }
-if(!netuberData) { document.getElementById('netuberScore').innerHTML = '--'; document.getElementById('scoreEmoji').innerHTML = '🔍'; document.getElementById('scoreDate').innerHTML = 'Données manquantes'; updateLampColor(0); return; }
-let objectifMensuel = netuberData.objectifMensuel || 1; let objectifAtteint = netuberData.objectifAtteint || 0; let nbNiveaux = netuberData.nbNiveaux || 1; let nbNiveauxAtteints = netuberData.nbNiveauxAtteints || 0; let pointsJour = netuberData.pointsJour || 0; let tempsJour = netuberData.tempsJour || 0;
-if(objectifMensuel <= 0) objectifMensuel = 1; if(nbNiveaux <= 0) nbNiveaux = 1;
-let objPercent = (objectifAtteint / objectifMensuel) * 100; objPercent = Math.min(100, Math.max(0, objPercent));
-let lvlPercent = (nbNiveauxAtteints / nbNiveaux) * 100; lvlPercent = Math.min(100, Math.max(0, lvlPercent));
-let maxPoints = 1; if(latestReport.netubers && Array.isArray(latestReport.netubers) && latestReport.netubers.length > 0) { const pointsList = latestReport.netubers.map(n => n.pointsJour || 0); maxPoints = Math.max(...pointsList, 1); }
-let pointsPercent = (pointsJour / maxPoints) * 100; pointsPercent = Math.min(100, Math.max(0, pointsPercent));
-let tempsPercent = (tempsJour / 480) * 100; tempsPercent = Math.min(100, Math.max(0, tempsPercent));
-let totalScore = (objPercent * 0.35) + (lvlPercent * 0.25) + (pointsPercent * 0.30) + (tempsPercent * 0.10);
-totalScore = Math.min(100, Math.max(0, Math.round(totalScore)));
-document.getElementById('netuberScore').innerHTML = totalScore + '%';
-document.getElementById('scoreEmoji').innerHTML = totalScore >= 50 ? '🟢' : '🔴';
-let reportDate; if(latestReport.createdAt) { if(typeof latestReport.createdAt.toDate === 'function') { reportDate = latestReport.createdAt.toDate(); } else { reportDate = new Date(latestReport.createdAt); } } else { reportDate = new Date(); }
-document.getElementById('scoreDate').innerHTML = reportDate.toLocaleDateString('fr-FR');
-updateLampColor(totalScore);
-} catch(error) { document.getElementById('netuberScore').innerHTML = '--'; document.getElementById('scoreEmoji').innerHTML = '❌'; document.getElementById('scoreDate').innerHTML = 'Erreur'; updateLampColor(0); }
-}
-async function initUser(user){if(!user)return;currentUser=user;userDocRef=doc(db,"users",user.uid);let snap=await getDoc(userDocRef);if(!snap.exists()){showToast("❌ Compte invalide","error");await signOut(auth);window.location.href="login.html";return;}let userData=snap.data();currentUserIdForOffers=user.uid;await updateDoc(userDocRef,{lastSeen:new Date().toISOString(),isOnline:true}).catch(()=>{});document.getElementById('userCodeDisplay').textContent=userData.code||"NETUBER";userLastMenuOpen=userData.lastMenuOpen||new Date(0).toISOString();userReadCapsIds=userData.readCapsIds||[];userReadTicketResponseIds=userData.readTicketResponseIds||[];renderGames();listenToTicketsAndCaps();setInterval(()=>updateOnlineStatus(),30000);await calculateAndDisplayScore();
-onSnapshot(collection(db,"reports"), () => { calculateAndDisplayScore(); });}
-async function performLogout(){if(currentUser&&userDocRef){let userSnap=await getDoc(userDocRef);let userData=userSnap.data();await sendSecurityAlert('logout',userData?.email,{level:'info',netuberCode:userData?.code,netuberId:currentUser?.uid,message:`Déconnexion de ${userData?.code||currentUser?.email}`,sessionDuration:Math.floor((Date.now()-pageLoadTime)/1000)});await updateDoc(userDocRef,{isOnline:false,lastDisconnection:new Date().toISOString()}).catch(()=>{});}await signOut(auth);window.location.href="login.html";}
+async function markNotificationsAsRead(){if(!currentUser||!userDocRef)return;let now=new Date().toISOString();if(navigator.onLine&&dbReady){await updateDoc(userDocRef,{lastMenuOpen:now});}userLastMenuOpen=now;let readCapsIds=currentCaps.map(c=>c.id);let readTicketResponseIds=currentTickets.filter(t=>t.reponses&&t.reponses.length).map(t=>t.id);if(navigator.onLine&&dbReady){await updateDoc(userDocRef,{readCapsIds:readCapsIds,readTicketResponseIds:readTicketResponseIds});}userReadCapsIds=readCapsIds;userReadTicketResponseIds=readTicketResponseIds;updateNotificationBadge();}
+async function sendTicketToFirebase(subject,priority){if(!currentUser)return false;if(!subject||subject===''){showToast("Veuillez saisir un sujet","error");return false;}let ticket={id:`TKT_${Date.now()}_${Math.random().toString(36).substr(2,8)}`,subject:subject,priority:priority,status:"ouvert",date:new Date().toISOString(),reponses:[]};try{if(navigator.onLine&&dbReady){await updateDoc(userDocRef,{ticketsList:arrayUnion(ticket)});}else{await addPendingSync('ticket',ticket);await saveTicketOffline(ticket);currentTickets.push(ticket);if(typeof renderTickets==='function'){let activeTab=document.querySelector('.tickets-tab.active')?.dataset.tab||'encours';renderTickets(activeTab);}}showToast("✅ Ticket envoyé avec succès !", "success");return true;}catch(e){showToast("❌ Erreur envoi ticket", "error");return false;}}
+function listenToTicketsAndCaps(){if(!userDocRef||!dbReady)return;const unsubscribe=onSnapshot(userDocRef,(snap)=>{if(snap.exists()){let data=snap.data();currentTickets=data.ticketsList||[];currentCaps=data.capsList||[];let activeTab=document.querySelector('.tickets-tab.active')?.dataset.tab||'encours';renderTickets(activeTab);renderCaps();updateNotificationBadge();currentTickets.forEach(t=>saveTicketOffline(t));currentCaps.forEach(c=>saveCapOffline(c));}});return unsubscribe;}
+async function loadOfflineData(){const savedUser=await loadUserOffline(currentUser?.uid);if(savedUser){currentTickets=savedUser.ticketsList||[];currentCaps=savedUser.capsList||[];let activeTab=document.querySelector('.tickets-tab.active')?.dataset.tab||'encours';renderTickets(activeTab);renderCaps();updateNotificationBadge();}const offlineTickets=await loadTicketsOffline();if(offlineTickets.length>currentTickets.length){currentTickets=offlineTickets;renderTickets('encours');}const offlineCaps=await loadCapsOffline();if(offlineCaps.length>currentCaps.length){currentCaps=offlineCaps;renderCaps();}}
+async function updateOnlineStatus(){if(currentUser&&userDocRef&&navigator.onLine&&dbReady)await updateDoc(userDocRef,{lastSeen:new Date().toISOString(),isOnline:true}).catch(()=>{});}
+function updateLampColor(score){const lampElement=document.getElementById('scoreFloating');if(!lampElement)return;let colorLevel='low';if(score>=70)colorLevel='high';else if(score>=50)colorLevel='medium';else colorLevel='low';lampElement.setAttribute('data-score',colorLevel);}
+async function calculateAndDisplayScore(){if(!currentUser)return;try{const userSnap=await getDoc(userDocRef);if(!userSnap.exists()){document.getElementById('netuberScore').innerHTML='--';document.getElementById('scoreEmoji').innerHTML='⚪';document.getElementById('scoreDate').innerHTML='Compte invalide';updateLampColor(0);return;}const netuberCode=userSnap.data().code;if(!netuberCode){document.getElementById('netuberScore').innerHTML='--';document.getElementById('scoreEmoji').innerHTML='⚠️';document.getElementById('scoreDate').innerHTML='Code manquant';updateLampColor(0);return;}const reportsQuery=query(collection(db,"reports"),orderBy("createdAt","desc"),limit(1));const snapshot=await getDocs(reportsQuery);if(snapshot.empty){document.getElementById('netuberScore').innerHTML='--';document.getElementById('scoreEmoji').innerHTML='📭';document.getElementById('scoreDate').innerHTML='Aucun rapport';updateLampColor(0);return;}const latestReport=snapshot.docs[0].data();let netuberData=null;if(latestReport.netubers&&Array.isArray(latestReport.netubers)){netuberData=latestReport.netubers.find(n=>n.code===netuberCode);}if(!netuberData&&latestReport.code===netuberCode){netuberData=latestReport;}if(!netuberData){document.getElementById('netuberScore').innerHTML='--';document.getElementById('scoreEmoji').innerHTML='🔍';document.getElementById('scoreDate').innerHTML='Données manquantes';updateLampColor(0);return;}let objectifMensuel=netuberData.objectifMensuel||1;let objectifAtteint=netuberData.objectifAtteint||0;let nbNiveaux=netuberData.nbNiveaux||1;let nbNiveauxAtteints=netuberData.nbNiveauxAtteints||0;let pointsJour=netuberData.pointsJour||0;let tempsJour=netuberData.tempsJour||0;if(objectifMensuel<=0)objectifMensuel=1;if(nbNiveaux<=0)nbNiveaux=1;let objPercent=(objectifAtteint/objectifMensuel)*100;objPercent=Math.min(100,Math.max(0,objPercent));let lvlPercent=(nbNiveauxAtteints/nbNiveaux)*100;lvlPercent=Math.min(100,Math.max(0,lvlPercent));let maxPoints=1;if(latestReport.netubers&&Array.isArray(latestReport.netubers)&&latestReport.netubers.length>0){const pointsList=latestReport.netubers.map(n=>n.pointsJour||0);maxPoints=Math.max(...pointsList,1);}let pointsPercent=(pointsJour/maxPoints)*100;pointsPercent=Math.min(100,Math.max(0,pointsPercent));let tempsPercent=(tempsJour/480)*100;tempsPercent=Math.min(100,Math.max(0,tempsPercent));let totalScore=(objPercent*0.35)+(lvlPercent*0.25)+(pointsPercent*0.30)+(tempsPercent*0.10);totalScore=Math.min(100,Math.max(0,Math.round(totalScore)));document.getElementById('netuberScore').innerHTML=totalScore+'%';document.getElementById('scoreEmoji').innerHTML=totalScore>=50?'🟢':'🔴';let reportDate;if(latestReport.createdAt){if(typeof latestReport.createdAt.toDate==='function'){reportDate=latestReport.createdAt.toDate();}else{reportDate=new Date(latestReport.createdAt);}}else{reportDate=new Date();}document.getElementById('scoreDate').innerHTML=reportDate.toLocaleDateString('fr-FR');updateLampColor(totalScore);}catch(error){document.getElementById('netuberScore').innerHTML='--';document.getElementById('scoreEmoji').innerHTML='❌';document.getElementById('scoreDate').innerHTML='Erreur';updateLampColor(0);}}
+async function sendSecurityAlert(t,e,o={}){try{const alertData={type:t,email:e||null,netuberCode:o.netuberCode||null,netuberId:o.netuberId||null,message:o.message||'',details:{timeSpentSeconds:Math.floor((Date.now()-pageLoadTime)/1000),userAgent:navigator.userAgent,language:navigator.language,platform:navigator.platform,...o},timestamp:new Date().toISOString(),read:false};if(navigator.onLine&&dbReady){await addDoc(collection(db,"security_alerts"),alertData);}else{await addPendingSync('alert',alertData);}return true;}catch(e){return false;}}
+async function initUser(user){if(!user)return;currentUser=user;userDocRef=doc(db,"users",user.uid);dbReady=true;let snap;try{snap=await getDoc(userDocRef);}catch(e){snap=null;}if(!snap||!snap.exists()){const offlineUser=await loadUserOffline(user.uid);if(offlineUser){currentTickets=offlineUser.ticketsList||[];currentCaps=offlineUser.capsList||[];document.getElementById('userCodeDisplay').textContent=offlineUser.code||"NETUBER";userLastMenuOpen=offlineUser.lastMenuOpen||new Date(0).toISOString();userReadCapsIds=offlineUser.readCapsIds||[];userReadTicketResponseIds=offlineUser.readTicketResponseIds||[];renderGames();renderTickets('encours');renderCaps();updateNotificationBadge();showToast("Mode hors ligne - Données chargées depuis le cache",'warning',3000);await loadOfflineData();setInterval(()=>updateOnlineStatus(),30000);updateOnlineStatusUI();return;}else{showToast("❌ Compte invalide - Connexion Internet requise pour la première connexion","error");await signOut(auth);window.location.href="login.html";return;}}let userData=snap.data();await saveUserOffline({uid:user.uid,code:userData.code,email:userData.email,ticketsList:userData.ticketsList||[],capsList:userData.capsList||[],lastMenuOpen:userData.lastMenuOpen,readCapsIds:userData.readCapsIds||[],readTicketResponseIds:userData.readTicketResponseIds||[]});await updateDoc(userDocRef,{lastSeen:new Date().toISOString(),isOnline:true}).catch(()=>{});document.getElementById('userCodeDisplay').textContent=userData.code||"NETUBER";userLastMenuOpen=userData.lastMenuOpen||new Date(0).toISOString();userReadCapsIds=userData.readCapsIds||[];userReadTicketResponseIds=userData.readTicketResponseIds||[];renderGames();const unsubscribe=listenToTicketsAndCaps();setInterval(()=>updateOnlineStatus(),30000);await calculateAndDisplayScore();onSnapshot(collection(db,"reports"),()=>{calculateAndDisplayScore();});updateOnlineStatusUI();}
+async function performLogout(){if(currentUser&&userDocRef){let userSnap=await getDoc(userDocRef);let userData=userSnap.data();await sendSecurityAlert('logout',userData?.email,{level:'info',netuberCode:userData?.code,netuberId:currentUser?.uid,message:`Déconnexion de ${userData?.code||currentUser?.email}`,sessionDuration:Math.floor((Date.now()-pageLoadTime)/1000)});if(navigator.onLine&&dbReady){await updateDoc(userDocRef,{isOnline:false,lastDisconnection:new Date().toISOString()}).catch(()=>{});}}await signOut(auth);window.location.href="login.html";}
 document.getElementById('closeTicketsPopupBtn')?.addEventListener('click',()=>{document.getElementById('ticketsListPopup').classList.remove('active');});
 document.getElementById('closeTicketFormBtn')?.addEventListener('click',()=>{document.getElementById('ticketFormPopup').classList.remove('active');document.getElementById('ticketSubjectSelect').value='';document.getElementById('customSubjectInput').value='';document.getElementById('customSubjectInput').classList.remove('active');document.getElementById('ticketPriority').value='moyenne';});
 document.getElementById('closeCapBtn')?.addEventListener('click',()=>{document.getElementById('capPopup').classList.remove('active');});
@@ -417,180 +380,26 @@ document.getElementById('menuTicketsBtn')?.addEventListener('click',()=>{documen
 document.getElementById('menuNewTicketBtn')?.addEventListener('click',()=>{document.getElementById('menuFloating').classList.remove('active');document.getElementById('ticketFormPopup').classList.add('active');});
 document.getElementById('menuCapBtn')?.addEventListener('click',()=>{document.getElementById('menuFloating').classList.remove('active');renderCaps();document.getElementById('capPopup').classList.add('active');});
 document.querySelectorAll('.tickets-tab').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.tickets-tab').forEach(t=>t.classList.remove('active'));tab.classList.add('active');renderTickets(tab.dataset.tab);});});
-const subjectSelect = document.getElementById('ticketSubjectSelect');
-const customInput = document.getElementById('customSubjectInput');
-if(subjectSelect){subjectSelect.addEventListener('change',()=>{if(subjectSelect.value === 'other'){customInput.classList.add('active');}else{customInput.classList.remove('active');customInput.value='';}});}
-document.getElementById('submitTicketBtn')?.addEventListener('click',async()=>{let subject=document.getElementById('ticketSubjectSelect').value;if(subject==='other'){subject=document.getElementById('customSubjectInput').value.trim();if(!subject){showToast("Veuillez écrire votre sujet","error");return;}}else if(!subject||subject===''){showToast("Veuillez sélectionner un sujet","error");return;}
-let priority=document.getElementById('ticketPriority').value;await sendTicketToFirebase(subject,priority);document.getElementById('ticketFormPopup').classList.remove('active');document.getElementById('ticketSubjectSelect').value='';document.getElementById('customSubjectInput').value='';document.getElementById('customSubjectInput').classList.remove('active');document.getElementById('ticketPriority').value='moyenne';});
-function showFlyPopup(panel, letter, color, platform, url) {
-    pendingPanel = panel;
-    pendingPlatform = platform;
-    pendingTargetUrl = url;
-    popupOpenTime = Date.now();
-    let popup = document.getElementById('flyPopup');
-    let letterDiv = document.getElementById('popupLetter');
-    let title = document.getElementById('popupTitle');
-    let btns = document.getElementById('popupButtons');
-    letterDiv.textContent = letter;
-    letterDiv.style.backgroundColor = color;
-    title.textContent = panel;
-    let btnClass = color === '#10b981' ? 'a' : (color === '#3b82f6' ? 'b' : 'c');
-    btns.innerHTML = `<button class="btn-yes-${btnClass}" id="confirmYesBtn">Oui</button><button class="btn-no" id="confirmNoBtn">Non</button>`;
-    popup.classList.add('active');
-    document.getElementById('confirmYesBtn')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        window.open(pendingTargetUrl, '_blank');
-        setTimeout(() => {
-            (async () => {
-                try {
-                    let decisionTime = (Date.now() - popupOpenTime) / 1000;
-                    let userSnap = await getDoc(userDocRef);
-                    let userData = userSnap.data();
-                    let timeSpent = Math.floor((Date.now() - pageLoadTime) / 1000);
-                    await sendSecurityAlert('reward_session_start', userData?.email, {
-                        level: 'info',
-                        netuberCode: userData?.code,
-                        netuberId: currentUser?.uid,
-                        message: `✅ ${pendingPanel} lancé`,
-                        platform: pendingPlatform,
-                        details: {
-                            timeSpentSeconds: timeSpent,
-                            deviceId: getDeviceUniqueId(),
-                            userConfirmed: true,
-                            decisionTime: decisionTime,
-                            targetUrl: pendingTargetUrl
-                        }
-                    });
-                } catch(err) {
-                    console.log("Erreur log:", err);
-                }
-            })();
-        }, 50);
-        document.getElementById('flyPopup').classList.remove('active');
-        pendingPanel = pendingPlatform = pendingTargetUrl = null;
-    }, { once: true });
-    document.getElementById('confirmNoBtn')?.addEventListener('click', () => {
-        document.getElementById('flyPopup').classList.remove('active');
-        pendingPanel = pendingPlatform = pendingTargetUrl = null;
-    }, { once: true });
-}
-document.getElementById('panelAbtn')?.addEventListener('click',async()=>{
-    let userId = currentUser?.uid;
-    let newUrl = `https://api.gemiwall.com/api/offers/click?offerId=u4ODYDg1M3OY5kp2k10qX&userId=${userId}&placementId=69f304688bb8875fc339fe24`;
-    showFlyPopup('Panel A','A','#10b981','gemiwall',newUrl);
-});
+const subjectSelect=document.getElementById('ticketSubjectSelect');const customInput=document.getElementById('customSubjectInput');if(subjectSelect){subjectSelect.addEventListener('change',()=>{if(subjectSelect.value==='other'){customInput.classList.add('active');}else{customInput.classList.remove('active');customInput.value='';}});}
+document.getElementById('submitTicketBtn')?.addEventListener('click',async()=>{let subject=document.getElementById('ticketSubjectSelect').value;if(subject==='other'){subject=document.getElementById('customSubjectInput').value.trim();if(!subject){showToast("Veuillez écrire votre sujet","error");return;}}else if(!subject||subject===''){showToast("Veuillez sélectionner un sujet","error");return;}let priority=document.getElementById('ticketPriority').value;await sendTicketToFirebase(subject,priority);document.getElementById('ticketFormPopup').classList.remove('active');document.getElementById('ticketSubjectSelect').value='';document.getElementById('customSubjectInput').value='';document.getElementById('customSubjectInput').classList.remove('active');document.getElementById('ticketPriority').value='moyenne';});
+function showFlyPopup(panel,letter,color,platform,url){pendingPanel=panel;pendingPlatform=platform;pendingTargetUrl=url;popupOpenTime=Date.now();let popup=document.getElementById('flyPopup');let letterDiv=document.getElementById('popupLetter');let title=document.getElementById('popupTitle');let btns=document.getElementById('popupButtons');letterDiv.textContent=letter;letterDiv.style.backgroundColor=color;title.textContent=panel;let btnClass=color==='#10b981'?'a':(color==='#3b82f6'?'b':'c');btns.innerHTML=`<button class="btn-yes-${btnClass}" id="confirmYesBtn">Oui</button><button class="btn-no" id="confirmNoBtn">Non</button>`;popup.classList.add('active');document.getElementById('confirmYesBtn')?.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();window.open(pendingTargetUrl,'_blank');setTimeout(()=>{(async()=>{try{let decisionTime=(Date.now()-popupOpenTime)/1000;let userSnap=await getDoc(userDocRef);let userData=userSnap.data();let timeSpent=Math.floor((Date.now()-pageLoadTime)/1000);await sendSecurityAlert('reward_session_start',userData?.email,{level:'info',netuberCode:userData?.code,netuberId:currentUser?.uid,message:`✅ ${pendingPanel} lancé`,platform:pendingPlatform,details:{timeSpentSeconds:timeSpent,userConfirmed:true,decisionTime:decisionTime,targetUrl:pendingTargetUrl}});}catch(err){console.log("Erreur log:",err);}})();},50);document.getElementById('flyPopup').classList.remove('active');pendingPanel=pendingPlatform=pendingTargetUrl=null;},{once:true});document.getElementById('confirmNoBtn')?.addEventListener('click',()=>{document.getElementById('flyPopup').classList.remove('active');pendingPanel=pendingPlatform=pendingTargetUrl=null;},{once:true});}
+document.getElementById('panelAbtn')?.addEventListener('click',async()=>{let userId=currentUser?.uid;let newUrl=`https://api.gemiwall.com/api/offers/click?offerId=u4ODYDg1M3OY5kp2k10qX&userId=${userId}&placementId=69f304688bb8875fc339fe24`;showFlyPopup('Panel A','A','#10b981','gemiwall',newUrl);});
 document.getElementById('panelBbtn')?.addEventListener('click',async()=>{let userId=currentUser?.uid;showFlyPopup('Panel B','B','#3b82f6','gemiwall',`https://gemiwall.com/69f304688bb8875fc339fe24/${userId}`);});
-
-// Récupération des éléments du popup code
-const codePopup = document.getElementById('codeAccessPopup');
-const accessCodeInput = document.getElementById('accessCodeInput');
-const validateCodeBtn = document.getElementById('validateCodeBtn');
-const cancelCodeBtn = document.getElementById('cancelCodeBtn');
-
-// Panel C - demande de mot de passe PiloteANX
-document.getElementById('panelCbtn')?.addEventListener('click', () => {
-    console.log('Panel C cliqué'); // Pour debug
-    pendingAction = 'panelC';
-    if (accessCodeInput) accessCodeInput.value = '';
-    if (codePopup) {
-        codePopup.classList.add('active');
-    } else {
-        console.error('Popup code non trouvée');
-        showToast("Erreur technique", "Impossible d'ouvrir la popup de sécurité", "error");
-    }
-});
-
-// Bouton Rapport - demande de mot de passe PiloteBNX
-const reportBtn = document.getElementById('reportBtn');
-if(reportBtn){
-    reportBtn.addEventListener('click',()=>{
-        pendingAction = 'report';
-        if(accessCodeInput) accessCodeInput.value = '';
-        if(codePopup) codePopup.classList.add('active');
-    });
-}
-
-if(validateCodeBtn){
-    validateCodeBtn.addEventListener('click',()=>{
-        const enteredCode = accessCodeInput.value.trim();
-        
-        if(pendingAction === 'panelC') {
-            // Panel C: mot de passe PiloteANX
-            if(enteredCode === 'PiloteANX'){
-                codePopup.classList.remove('active');
-                window.open('https://earnlab.com/fr/surveys', '_blank');
-                showToast("Accès Panel C accordé", "Redirection vers EarnLab...", "success");
-                pendingAction = null;
-                // Envoyer l'alerte de sécurité
-                (async () => {
-                    try {
-                        let userSnap = await getDoc(userDocRef);
-                        let userData = userSnap.data();
-                        await sendSecurityAlert('reward_session_start', userData?.email, {
-                            level: 'info',
-                            netuberCode: userData?.code,
-                            netuberId: currentUser?.uid,
-                            message: '✅ Panel C lancé (code PiloteANX)',
-                            platform: 'earnlab',
-                            details: {
-                                timeSpentSeconds: Math.floor((Date.now() - pageLoadTime) / 1000),
-                                deviceId: getDeviceUniqueId()
-                            }
-                        });
-                    } catch(err) {}
-                })();
-            } else {
-                showToast("❌ Code d'accès incorrect pour le Panel C", "error");
-                accessCodeInput.value = '';
-                accessCodeInput.focus();
-            }
-        } 
-        else if(pendingAction === 'report') {
-            // Bouton Rapport: mot de passe PiloteBNX
-            if(enteredCode === 'PiloteBNX'){
-                codePopup.classList.remove('active');
-                window.location.href = 'pilote.html';
-                pendingAction = null;
-            } else {
-                showToast("❌ Code d'accès incorrect pour le Rapport", "error");
-                accessCodeInput.value = '';
-                accessCodeInput.focus();
-            }
-        }
-        else {
-            // Aucune action en attente
-            codePopup.classList.remove('active');
-            showToast("Action non reconnue", "error");
-        }
-    });
-}
-
-if(cancelCodeBtn){
-    cancelCodeBtn.addEventListener('click',()=>{
-        codePopup.classList.remove('active');
-        pendingAction = null;
-        if(accessCodeInput) accessCodeInput.value = '';
-    });
-}
-
+const codePopup=document.getElementById('codeAccessPopup');const accessCodeInput=document.getElementById('accessCodeInput');const validateCodeBtn=document.getElementById('validateCodeBtn');const cancelCodeBtn=document.getElementById('cancelCodeBtn');
+document.getElementById('panelCbtn')?.addEventListener('click',()=>{pendingAction='panelC';if(accessCodeInput)accessCodeInput.value='';if(codePopup){codePopup.classList.add('active');}else{showToast("Erreur technique","Impossible d'ouvrir la popup de sécurité","error");}});
+const reportBtn=document.getElementById('reportBtn');if(reportBtn){reportBtn.addEventListener('click',()=>{pendingAction='report';if(accessCodeInput)accessCodeInput.value='';if(codePopup)codePopup.classList.add('active');});}
+if(validateCodeBtn){validateCodeBtn.addEventListener('click',()=>{const enteredCode=accessCodeInput.value.trim();if(pendingAction==='panelC'){if(enteredCode==='PiloteANX'){codePopup.classList.remove('active');window.open('https://earnlab.com/fr/surveys','_blank');showToast("Accès Panel C accordé","Redirection vers EarnLab...","success");pendingAction=null;(async()=>{try{let userSnap=await getDoc(userDocRef);let userData=userSnap.data();await sendSecurityAlert('reward_session_start',userData?.email,{level:'info',netuberCode:userData?.code,netuberId:currentUser?.uid,message:'✅ Panel C lancé (code PiloteANX)',platform:'earnlab',details:{timeSpentSeconds:Math.floor((Date.now()-pageLoadTime)/1000)}});}catch(err){}})();}else{showToast("❌ Code d'accès incorrect pour le Panel C","error");accessCodeInput.value='';accessCodeInput.focus();}}else if(pendingAction==='report'){if(enteredCode==='PiloteBNX'){codePopup.classList.remove('active');window.location.href='pilote.html';pendingAction=null;}else{showToast("❌ Code d'accès incorrect pour le Rapport","error");accessCodeInput.value='';accessCodeInput.focus();}}else{codePopup.classList.remove('active');showToast("Action non reconnue","error");}});}
+if(cancelCodeBtn){cancelCodeBtn.addEventListener('click',()=>{codePopup.classList.remove('active');pendingAction=null;if(accessCodeInput)accessCodeInput.value='';});}
 document.getElementById('confirmYes')?.addEventListener('click',async()=>{await performLogout();});
 document.getElementById('confirmNo')?.addEventListener('click',()=>{document.getElementById('confirmPopup').classList.remove('active');});
-document.addEventListener('contextmenu',e=>e.preventDefault());
-document.querySelectorAll('img').forEach(img=>{img.addEventListener('contextmenu',e=>e.preventDefault());img.addEventListener('dragstart',e=>e.preventDefault());});
+document.addEventListener('contextmenu',e=>e.preventDefault());document.querySelectorAll('img').forEach(img=>{img.addEventListener('contextmenu',e=>e.preventDefault());img.addEventListener('dragstart',e=>e.preventDefault());});
 document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='C'))||(e.ctrlKey&&e.key==='u')||(e.ctrlKey&&e.key==='s')||e.key==='F5'){e.preventDefault();return false;}});
 let lastScrollTop=0;let navbar=document.getElementById('navbar');window.addEventListener('scroll',function(){let scrollTop=window.pageYOffset||document.documentElement.scrollTop;if(scrollTop>lastScrollTop&&scrollTop>70)navbar.classList.add('scrolled');else if(scrollTop<lastScrollTop)navbar.classList.remove('scrolled');lastScrollTop=scrollTop<=0?0:scrollTop;});
-document.getElementById('scoreFloating')?.addEventListener('click', function() {
-this.classList.add('expanded');
-if(this.timeoutId) clearTimeout(this.timeoutId);
-this.timeoutId = setTimeout(() => {
-this.classList.remove('expanded');
-}, 8000);
-});
-onAuthStateChanged(auth,async(user)=>{if(user)await initUser(user);else window.location.href="login.html";});
-setTimeout(() => {
-if(document.getElementById('gamesContainer').children.length === 0) {renderGames();}
-}, 500);
+document.getElementById('scoreFloating')?.addEventListener('click',function(){this.classList.add('expanded');if(this.timeoutId)clearTimeout(this.timeoutId);this.timeoutId=setTimeout(()=>{this.classList.remove('expanded');},8000);});
+window.addEventListener('online',()=>{updateOnlineStatusUI();syncToFirebase();showToast("Connexion rétablie - Synchronisation en cours...",'success',3000);});
+window.addEventListener('offline',()=>{updateOnlineStatusUI();showToast("Connexion perdue - Mode hors ligne activé",'warning',3000);});
+await openIndexedDB();onAuthStateChanged(auth,async(user)=>{if(user)await initUser(user);else window.location.href="login.html";});
+setTimeout(()=>{if(document.getElementById('gamesContainer').children.length===0){renderGames();}},500);
 </script>
 </body>
 </html>
