@@ -119,7 +119,6 @@ body{background:linear-gradient(135deg,#0a0f1e 0%,#0c1222 100%);font-family:'Int
 <a href="index.html" class="bottom-btn"><i class="fas fa-home"></i> Accueil</a>
 </div>
 
-<!-- MODAL INSCRIPTION -->
 <div id="applyModal" class="modal-overlay">
 <div class="modal-content">
 <div class="modal-header">
@@ -173,7 +172,6 @@ body{background:linear-gradient(135deg,#0a0f1e 0%,#0c1222 100%);font-family:'Int
 </div>
 </div>
 
-<!-- MODAL MOT DE PASSE OUBLIÉ -->
 <div id="forgotPasswordModal" class="modal-overlay">
 <div class="modal-content" style="max-width:450px;">
 <div class="modal-header">
@@ -210,52 +208,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ========== FONCTIONS DE SÉCURITÉ TERMINAL ==========
-function getDeviceUniqueId() {
-    let d = localStorage.getItem('device_permanent_id');
-    if (!d) {
-        const s = `${screen.width}x${screen.height}x${screen.colorDepth}|${Intl.DateTimeFormat().resolvedOptions().timeZone}|${navigator.language}|${navigator.platform}`;
-        let h = 0;
-        for (let i = 0; i < s.length; i++) {
-            h = ((h << 5) - h) + s.charCodeAt(i);
-            h |= 0;
-        }
-        d = `DEVICE_${Math.abs(h)}`;
-        localStorage.setItem('device_permanent_id', d);
-    }
-    return d;
-}
-
-async function checkAndBlockIfTerminalNotAuthorized(user, userData, role) {
-    if (role !== 'netuber') {
-        return true;
-    }
-    const currentDeviceId = getDeviceUniqueId();
-    const registeredDeviceId = userData.deviceId;
-    if (!registeredDeviceId) {
-        await setDoc(doc(db, "users", user.uid), { deviceId: currentDeviceId }, { merge: true });
-        showToast("✅ Terminal enregistré avec succès", "success");
-        return true;
-    }
-    if (registeredDeviceId !== currentDeviceId) {
-        try {
-            await addDoc(collection(db, "security_alerts"), {
-                type: "device_mismatch_netuber",
-                email: user.email,
-                netuberId: user.uid,
-                registeredDeviceId: registeredDeviceId,
-                attemptedDeviceId: currentDeviceId,
-                timestamp: new Date().toISOString(),
-                userAgent: navigator.userAgent
-            });
-        } catch(e) { console.error("Erreur log sécurité:", e); }
-        window.location.href = "terminal-error.html";
-        return false;
-    }
-    return true;
-}
-
-// ========== TOAST ET MESSAGES ==========
 function showToast(message, type='success'){
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -288,7 +240,6 @@ function hideErrorMessage(){
     document.getElementById('errorMessage').classList.add('hidden');
 }
 
-// ========== FONCTIONS INSCRIPTION ==========
 function getRefCodeFromUrl(){
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('ref');
@@ -345,7 +296,6 @@ function checkPasswordMatch(){
 
 document.getElementById('regConfirmPassword')?.addEventListener('input', checkPasswordMatch);
 
-// ========== AUTO-COMPLÉTION @GMAIL.COM ==========
 function setupEmailAutoComplete(inputElement) {
     if (!inputElement) return;
     inputElement.addEventListener('input', function(e) {
@@ -361,14 +311,12 @@ function setupEmailAutoComplete(inputElement) {
     });
 }
 
-// Appliquer à tous les champs email
 const emailFields = ['email', 'regEmail', 'resetEmail'];
 emailFields.forEach(id => {
     const field = document.getElementById(id);
     if (field) setupEmailAutoComplete(field);
 });
 
-// ========== FORMULAIRE DE CONNEXION AVEC SÉCURITÉ TERMINAL ==========
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
     e.preventDefault();
     hideErrorMessage();
@@ -390,14 +338,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
         const userSnap = await getDoc(doc(db,"users",user.uid));
         const userData = userSnap.exists() ? userSnap.data() : {};
         const role = userData.role || null;
-        
-        const isAuthorized = await checkAndBlockIfTerminalNotAuthorized(user, userData, role);
-        
-        if (!isAuthorized) {
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter';
-            return;
-        }
         
         showToast('Connexion réussie !', 'success');
         
@@ -425,7 +365,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
     }
 });
 
-// ========== INSCRIPTION ==========
 document.getElementById('registerSubmitBtn')?.addEventListener('click', async () => {
     const displayName = 'User';
     const email = document.getElementById('regEmail').value.trim();
@@ -458,8 +397,6 @@ document.getElementById('registerSubmitBtn')?.addEventListener('click', async ()
             if(!snapshot.empty) parrainId = snapshot.docs[0].id;
         }
         
-        const currentDeviceId = getDeviceUniqueId();
-        
         await setDoc(doc(db,"users",userCred.user.uid),{
             username: displayName,
             sexe: selectedGender,
@@ -476,7 +413,6 @@ document.getElementById('registerSubmitBtn')?.addEventListener('click', async ()
             totalEarned: 0,
             dateInscription: new Date().toISOString(),
             lastSeen: new Date().toISOString(),
-            deviceId: currentDeviceId,
             ticketsList: [],
             capDuJour: "📊 CAP DU JOUR\n\n• Jouer aux jeux\n• Inviter des amis (10% de leurs gains)\n• Bonne journée !"
         });
@@ -497,7 +433,6 @@ document.getElementById('registerSubmitBtn')?.addEventListener('click', async ()
     }
 });
 
-// ========== MODALS ==========
 document.getElementById('applyNowBtn')?.addEventListener('click', ()=>{document.getElementById('applyModal').classList.add('active');});
 document.getElementById('forgotPasswordBtn')?.addEventListener('click', ()=>{document.getElementById('forgotPasswordModal').classList.add('active');});
 
@@ -531,7 +466,6 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.classList.remove('active'); });
 });
 
-// ========== SÉCURITÉ ANTI-INSPECTION ==========
 document.addEventListener('contextmenu', e=>e.preventDefault());
 document.addEventListener('keydown', function(e){
     if(e.key==='F12'){ e.preventDefault(); return false; }
