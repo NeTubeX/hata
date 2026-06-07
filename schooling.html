@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0e1a">
-<title>GLORIA-DEI-SCOLARITÉ</title>
+<title>GESTION SCOLAIRE</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -256,84 +256,47 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;}
 @media (max-width:640px){.titulaire-container .btn-back-floating{bottom:16px;right:16px;padding:12px 16px;font-size:12px;}
 .titulaire-container .container-titu{padding:0 8px;}}
 .titulaire-container .footer-note{display:none;}
-
-/* ===== AMÉLIORATION DES LISTES DÉROULANTES ===== */
 select {
     appearance: none;
     -webkit-appearance: none;
-    -moz-appearance: none;
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 14px;
     padding-right: 32px !important;
 }
-
 @media (max-width: 768px) {
     select {
         font-size: 16px !important;
     }
 }
-
-/* ===== AMÉLIORATION DES CASES À COCHER ===== */
-input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    border: 2px solid #3b82f6;
-    background: #1e293b;
-    cursor: pointer;
-    position: relative;
-}
-input[type="checkbox"]:checked {
-    background: #3b82f6;
-}
-input[type="checkbox"]:checked::after {
-    content: "✓";
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-size: 12px;
-}
-input[type="checkbox"]:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
-}
-
-/* ===== AMÉLIORATION DES PLACEHOLDERS ===== */
-::placeholder {
-    color: #64748b;
-    opacity: 1;
-}
-input:focus::placeholder {
-    color: #475569;
-}
-
-/* ===== BARRE DE DÉFILEMENT PERSONNALISÉE ===== */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-::-webkit-scrollbar-track {
-    background: #1e293b;
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb {
-    background: #3b82f6;
-    border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #2563eb;
-}
 </style>
 </head>
 <body>
+<div class="modal-fullscreen" id="schoolModal" style="z-index: 50000;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 48px; margin-bottom: 10px;">🏫</div>
+            <h3 style="color: #fff;">Sélectionnez votre établissement</h3>
+            <p style="color: #cbd5e1; font-size: 13px;">Choisissez l'école dans laquelle vous enseignez</p>
+        </div>
+        <div class="form-field">
+            <label>ÉCOLE / COMPLEXE SCOLAIRE</label>
+            <select id="schoolSelectModal" style="width: 100%; padding: 12px; border-radius: 12px; background: #2d3748; border: 1px solid #334155; color: #fff;">
+                <option value="">-- Chargement des écoles... --</option>
+            </select>
+        </div>
+        <div style="margin-top: 20px;">
+            <button class="btn btn-success" id="validateSchoolBtn" style="width: 100%;">✅ VALIDER MON ÉCOLE</button>
+        </div>
+        <div id="schoolModalError" style="color: #ef4444; font-size: 12px; text-align: center; margin-top: 15px;"></div>
+        <div style="margin-top: 15px; text-align: center;">
+            <span id="retrySchoolBtn" style="color: #60a5fa; font-size: 12px; cursor: pointer;">⟳ Réessayer</span>
+        </div>
+    </div>
+</div>
 <div class="container" id="mainApp" style="display:none">
-<div class="school-header"><div class="school-name">COMPLEXE SCOLAIRE GLORIA DEI</div><div class="school-sub">KASUMBALESA / KOYO (NEW KOYO)</div><div style="font-size:13px;margin-top:8px;color:#fff;">FICHE DE COTATION + ESPACE TITULAIRE</div></div>
+<div class="school-header"><div class="school-name" id="schoolNameDisplay">CHARGEMENT...</div><div class="school-sub" id="schoolSubDisplay"></div><div style="font-size:13px;margin-top:8px;color:#fff;">FICHE DE COTATION + ESPACE TITULAIRE</div></div>
 <div class="tabs-container"><div class="tabs" id="tabsContainer">
 <button class="tab active" data-tab="tabProf">PROFESSEURS</button>
 <button class="tab" data-tab="tabEpreuves">EPREUVES</button>
@@ -370,6 +333,7 @@ input:focus::placeholder {
 <div id="tabHoraire" class="tab-content"><div class="card"><div class="card-header">MON HORAIRE DE COURS</div><div class="section-body"><div id="horaireContainer"></div></div></div></div>
 <div id="tabParams" class="tab-content"><div class="card"><div class="card-header">PARAMETRES</div><div style="padding:20px;display:flex;flex-direction:column;gap:15px">
 <button class="btn btn-danger" id="logoutBtnParam">DECONNEXION</button>
+<button class="btn btn-warning" id="changeSchoolBtnParam" style="margin-bottom:10px;">🏫 CHANGER D'ÉCOLE</button>
 <div style="border-top:1px solid #334155;padding-top:15px"><h3 style="font-size:13px;margin-bottom:12px;color:#fff;">CONFIGURATION HORAIRE</h3>
 <select id="configJourSelect" style="width:100%;padding:10px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155;margin-bottom:10px;"><option value="lundi">Lundi</option><option value="mardi">Mardi</option><option value="mercredi">Mercredi</option><option value="jeudi">Jeudi</option><option value="vendredi">Vendredi</option></select>
 <div id="configHoraireList"></div>
@@ -402,7 +366,7 @@ input:focus::placeholder {
 </div>
 </div>
 </div>
-<div class="footer-note">CS. GLORIA DEI - KOYO (NEW KOYO) | Année scolaire 2026-2027</div>
+<div class="footer-note" id="footerNote">GESTION SCOLAIRE | Année scolaire 2026-2027</div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
 <script>
@@ -448,6 +412,118 @@ let groupesActuels = [];
 let optionsParClasse = {};
 let horaireProf = {lundi:[],mardi:[],mercredi:[],jeudi:[],vendredi:[]};
 let jourAffichage=null;
+let currentEcole = null;
+let currentEcoleCollectionName = null;
+function getCurrentEcoleCollection() {
+    if (currentEcoleCollectionName) return currentEcoleCollectionName;
+    const saved = localStorage.getItem('gloria_current_ecole');
+    if (saved) {
+        try {
+            const ecole = JSON.parse(saved);
+            currentEcoleCollectionName = ecole.collectionName;
+            return ecole.collectionName;
+        } catch(e) {}
+    }
+    return 'gloria_dei_fiches';
+}
+async function saveCurrentEcole(ecole) {
+    currentEcole = ecole;
+    currentEcoleCollectionName = ecole.collectionName;
+    localStorage.setItem('gloria_current_ecole', JSON.stringify({
+        id: ecole.id,
+        nom: ecole.nom,
+        adresse: ecole.adresse || '',
+        collectionName: ecole.collectionName
+    }));
+    const nameEl = document.getElementById('schoolNameDisplay');
+    const subEl = document.getElementById('schoolSubDisplay');
+    const footerEl = document.getElementById('footerNote');
+    if(nameEl) nameEl.textContent = ecole.nom.toUpperCase();
+    if(subEl && ecole.adresse) subEl.textContent = ecole.adresse;
+    if(footerEl) footerEl.textContent = `${ecole.nom.toUpperCase()} | Année scolaire 2026-2027`;
+}
+async function loadEcolesList() {
+    try {
+        const ecolesRef = collection(db, "ecoles");
+        const snapshot = await getDocs(ecolesRef);
+        const ecoles = [];
+        snapshot.forEach(doc => {
+            ecoles.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        return ecoles;
+    } catch(error) {
+        return [];
+    }
+}
+async function showSchoolModal() {
+    const modal = document.getElementById('schoolModal');
+    const select = document.getElementById('schoolSelectModal');
+    const errorDiv = document.getElementById('schoolModalError');
+    if (!modal) return;
+    const existingChoice = localStorage.getItem('gloria_current_ecole');
+    if (existingChoice) {
+        try {
+            const ecole = JSON.parse(existingChoice);
+            currentEcoleCollectionName = ecole.collectionName;
+            currentEcole = ecole;
+            const nameEl = document.getElementById('schoolNameDisplay');
+            const subEl = document.getElementById('schoolSubDisplay');
+            const footerEl = document.getElementById('footerNote');
+            if(nameEl) nameEl.textContent = ecole.nom.toUpperCase();
+            if(subEl && ecole.adresse) subEl.textContent = ecole.adresse;
+            if(footerEl) footerEl.textContent = `${ecole.nom.toUpperCase()} | Année scolaire 2026-2027`;
+            modal.classList.remove('show');
+            showLogin();
+            return;
+        } catch(e) {}
+    }
+    modal.classList.add('show');
+    select.innerHTML = '<option value="">-- Chargement des écoles... --</option>';
+    const ecoles = await loadEcolesList();
+    if (ecoles.length === 0) {
+        select.innerHTML = '<option value="">-- Aucune école disponible --</option>';
+        errorDiv.innerHTML = '⚠️ Aucune école enregistrée. Veuillez en ajouter dans Firebase (collection "ecoles").';
+        return;
+    }
+    select.innerHTML = '<option value="">-- Sélectionnez votre école --</option>';
+    ecoles.forEach(ecole => {
+        select.innerHTML += `<option value="${ecole.id}" data-collection="${ecole.collectionName}" data-nom="${ecole.nom}" data-adresse="${ecole.adresse || ''}">${ecole.nom}</option>`;
+    });
+    document.getElementById('validateSchoolBtn').onclick = async function() {
+        if (!select.value) {
+            errorDiv.innerHTML = 'Veuillez sélectionner une école';
+            return;
+        }
+        const selectedOption = select.options[select.selectedIndex];
+        const ecole = {
+            id: select.value,
+            nom: selectedOption.getAttribute('data-nom'),
+            adresse: selectedOption.getAttribute('data-adresse') || '',
+            collectionName: selectedOption.getAttribute('data-collection')
+        };
+        await saveCurrentEcole(ecole);
+        modal.classList.remove('show');
+        toast(`Bienvenue à ${ecole.nom}`, 'success');
+        showLogin();
+    };
+    document.getElementById('retrySchoolBtn').onclick = async function() {
+        select.innerHTML = '<option value="">-- Chargement des écoles... --</option>';
+        const newEcoles = await loadEcolesList();
+        if (newEcoles.length === 0) {
+            select.innerHTML = '<option value="">-- Aucune école disponible --</option>';
+            errorDiv.innerHTML = '⚠️ Aucune école enregistrée.';
+        } else {
+            select.innerHTML = '<option value="">-- Sélectionnez votre école --</option>';
+            newEcoles.forEach(ecole => {
+                select.innerHTML += `<option value="${ecole.id}" data-collection="${ecole.collectionName}" data-nom="${ecole.nom}" data-adresse="${ecole.adresse || ''}">${ecole.nom}</option>`;
+            });
+            errorDiv.innerHTML = '';
+        }
+    };
+}
 function sauvegarderSession(prof) {
     if(prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt })); }
     else { localStorage.removeItem('gloria_session_prof'); }
@@ -480,8 +556,8 @@ function allerHier(){const o=['lundi','mardi','mercredi','jeudi','vendredi'];let
 function allerDemain(){const o=['lundi','mardi','mercredi','jeudi','vendredi'];let a=jourAffichage||getJourReel().code;if(a==='weekend')a='lundi';let i=o.indexOf(a);if(i<4)setJourAffichage(o[i+1]);else toast("Fin de semaine",'warning');}
 function revenirAujourdhui(){setJourAffichage(null);toast("Affichage jour réel",'success');}
 function afficherModalCours(p){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px;text-align:center"><div style="font-size:48px;margin-bottom:16px;">📘</div><h3>'+p.libelle+'</h3><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">CLASSE</p><h4 style="color:#fff;">'+p.classe+'</h4></div><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">OPTION</p><h4 style="color:#fff;">'+(p.option||'-')+'</h4></div><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">COURS</p><h4 style="color:#60a5fa;">'+p.cours+'</h4></div><button class="btn btn-outline" onclick="this.closest(\'.modal-fullscreen\').classList.remove(\'show\');setTimeout(()=>this.closest(\'.modal-fullscreen\').remove(),300)">FERMER</button></div>';document.body.appendChild(m);setTimeout(()=>m.classList.add('show'),10);}
-async function sauvegarderHoraireFirebase(){if(!currentProf)return;try{await setDoc(doc(db,"gloria_dei_fiches","horaire_"+currentProf.id),{profId:currentProf.id,horaire:horaireProf,lastUpdated:new Date()});toast("Horaire sauvegardé dans le cloud",'success');}catch(e){console.error("Erreur sauvegarde horaire:",e);await addPendingSync('saveHoraire',{profId:currentProf.id,horaire:horaireProf});toast("Sauvegarde en attente (hors ligne)",'warning');}}
-async function chargerHoraireFirebase(){if(!currentProf)return;try{const docRef=await getDoc(doc(db,"gloria_dei_fiches","horaire_"+currentProf.id));if(docRef.exists()){const data=docRef.data();horaireProf=data.horaire||horaireProf;}else if(localStorage.getItem('gloria_horaire_'+currentProf.id)){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);horaireProf=JSON.parse(s);await sauvegarderHoraireFirebase();}}catch(e){console.error("Erreur chargement horaire:",e);if(localStorage.getItem('gloria_horaire_'+currentProf.id)){horaireProf=JSON.parse(localStorage.getItem('gloria_horaire_'+currentProf.id));}}afficherHoraire();afficherConfigHoraire();}
+async function sauvegarderHoraireFirebase(){if(!currentProf)return;const colName = getCurrentEcoleCollection();try{await setDoc(doc(db,colName,"horaire_"+currentProf.id),{profId:currentProf.id,horaire:horaireProf,lastUpdated:new Date()});toast("Horaire sauvegardé dans le cloud",'success');}catch(e){console.error("Erreur sauvegarde horaire:",e);await addPendingSync('saveHoraire',{profId:currentProf.id,horaire:horaireProf});toast("Sauvegarde en attente (hors ligne)",'warning');}}
+async function chargerHoraireFirebase(){if(!currentProf)return;const colName = getCurrentEcoleCollection();try{const docRef=await getDoc(doc(db,colName,"horaire_"+currentProf.id));if(docRef.exists()){const data=docRef.data();horaireProf=data.horaire||horaireProf;}else if(localStorage.getItem('gloria_horaire_'+currentProf.id)){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);horaireProf=JSON.parse(s);await sauvegarderHoraireFirebase();}}catch(e){console.error("Erreur chargement horaire:",e);if(localStorage.getItem('gloria_horaire_'+currentProf.id)){horaireProf=JSON.parse(localStorage.getItem('gloria_horaire_'+currentProf.id));}}afficherHoraire();afficherConfigHoraire();}
 function afficherHoraire(){let c=document.getElementById('horaireContainer');if(!c)return;let j=getJourActuel();if(j.estWeekend){c.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:64px;margin-bottom:16px;">🎉</div><div style="font-size:24px;font-weight:bold;color:#60a5fa;">WEEK-END</div><div style="color:#cbd5e1;margin-top:8px;">Aucun cours</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let h=horaireProf[j.code]||[];if(h.length===0){c.innerHTML='<div class="empty-state">Aucun horaire configuré<br><small>Allez dans Paramètres</small><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let html='';h.forEach(p=>{let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){html+='<div class="horaire-item horaire-pause"><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">PAUSE</div></div>';}else{let classeAffichee=p.classe||"Non définie";let optionAffichee=p.option||"-";let coursAffiche=p.cours||"Non défini";html+='<div class="horaire-item" onclick=\'window.afficherModalCours('+JSON.stringify({libelle:ht+" HEURE",classe:classeAffichee,option:optionAffichee,cours:coursAffiche})+')\'><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">'+classeAffichee+' | '+optionAffichee+' | '+coursAffiche+'</div></div>';}});c.innerHTML='<div class="horaire-list-container">'+html+'</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div>';}
 function afficherConfigHoraire(){let c=document.getElementById('configHoraireList');if(!c)return;let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];c.innerHTML='';h.sort((a,b)=>a.heure-b.heure);h.forEach((p,idx)=>{let div=document.createElement('div');div.className='horaire-config-item';let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';}else{div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><select id="conf_classe_'+idx+'" style="width:110px;"><option value="">Classe</option>'+document.getElementById('classeSelect').innerHTML+'</select><select id="conf_option_'+idx+'" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_'+idx+'" placeholder="Cours" value="'+escapeHtml(p.cours||'')+'" style="width:120px;"><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';let clsSel=div.querySelector('#conf_classe_'+idx);if(clsSel&&p.classe)clsSel.value=p.classe;let optSel=div.querySelector('#conf_option_'+idx);if(optSel){let opts=optionsParClasse[p.classe]||[];optSel.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optSel.innerHTML+='<option value="'+escapeHtml(o)+'" '+(p.option===o?'selected':'')+'>'+escapeHtml(o)+'</option>';});}}c.appendChild(div);div.querySelector('.btn-danger')?.addEventListener('click',()=>{horaireProf[jour].splice(idx,1);horaireProf[jour].forEach((h2,i2)=>h2.heure=i2+1);afficherConfigHoraire();});let cls=div.querySelector('#conf_classe_'+idx);if(cls)cls.onchange=function(){let optDiv=div.querySelector('#conf_option_'+idx);if(optDiv){let opts=optionsParClasse[this.value]||[];optDiv.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optDiv.innerHTML+='<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>';});}};});}
 function sauvegarderHoraireAuto(){let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];for(let i=0;i<h.length;i++){if(!h[i].pause){let cls=document.getElementById('conf_classe_'+i);let opt=document.getElementById('conf_option_'+i);let crs=document.getElementById('conf_cours_'+i);if(cls)h[i].classe=cls.value;if(opt)h[i].option=opt.value;if(crs)h[i].cours=crs.value;}}if(currentProf){localStorage.setItem('gloria_horaire_'+currentProf.id,JSON.stringify(horaireProf));sauvegarderHoraireFirebase();}afficherHoraire();toast("Horaire mis à jour",'success');}
@@ -496,15 +572,15 @@ async function getAllFromIndexedDB(store){let dbc=await initIndexedDB();return n
 async function getFromIndexedDB(store,key){let dbc=await initIndexedDB();return new Promise(function(res,rej){let tx=dbc.transaction(store,'readonly');let so=tx.objectStore(store);let r=so.get(key);r.onerror=function(){rej(r.error);};r.onsuccess=function(){res(r.result);};tx.oncomplete=function(){dbc.close();};});}
 async function deleteFromIndexedDB(store,key){let dbc=await initIndexedDB();return new Promise(function(res,rej){let tx=dbc.transaction(store,'readwrite');let so=tx.objectStore(store);let r=so.delete(key);r.onerror=function(){rej(r.error);};r.onsuccess=function(){res();};tx.oncomplete=function(){dbc.close();};});}
 async function addPendingSync(a,d){await saveToIndexedDB('pendingSync',{id:Date.now(),action:a,data:d,timestamp:Date.now()});}
-async function syncToFirebase(){if(!navigator.onLine)return;let p=await getAllFromIndexedDB('pendingSync');for(let i of p){try{if(i.action==='saveFiche'){await setDoc(doc(db,"gloria_dei_fiches",currentProf.id+'_'+i.data.ficheId),i.data);}else if(i.action==='deleteFiche'){await deleteDoc(doc(db,"gloria_dei_fiches",currentProf.id+'_'+i.data));}else if(i.action==='saveProf'){await setDoc(doc(db,"gloria_dei_fiches",i.data.id),i.data);}else if(i.action==='deleteProf'){await deleteDoc(doc(db,"gloria_dei_fiches",i.data));}else if(i.action==='updateCompteur'){await setDoc(doc(db,"gloria_dei_fiches","_compteur_global"),{valeur:i.data});}else if(i.action==='saveHoraire'){await setDoc(doc(db,"gloria_dei_fiches","horaire_"+i.data.profId),{profId:i.data.profId,horaire:i.data.horaire,lastUpdated:new Date()});}await deleteFromIndexedDB('pendingSync',i.id);}catch(e){console.error('Sync failed',e);}}}
+async function syncToFirebase(){if(!navigator.onLine)return;const colName = getCurrentEcoleCollection();let p=await getAllFromIndexedDB('pendingSync');for(let i of p){try{if(i.action==='saveFiche'){await setDoc(doc(db,colName,currentProf.id+'_'+i.data.ficheId),i.data);}else if(i.action==='deleteFiche'){await deleteDoc(doc(db,colName,currentProf.id+'_'+i.data));}else if(i.action==='saveProf'){await setDoc(doc(db,colName,i.data.id),i.data);}else if(i.action==='deleteProf'){await deleteDoc(doc(db,colName,i.data));}else if(i.action==='updateCompteur'){await setDoc(doc(db,colName,"_compteur_global"),{valeur:i.data});}else if(i.action==='saveHoraire'){await setDoc(doc(db,colName,"horaire_"+i.data.profId),{profId:i.data.profId,horaire:i.data.horaire,lastUpdated:new Date()});}await deleteFromIndexedDB('pendingSync',i.id);}catch(e){console.error('Sync failed',e);}}}
 window.addEventListener('online',function(){syncToFirebase();});
-async function getNextFicheNumero(){let c=await getFromIndexedDB('compteur','global');let cv=c?.valeur||0;let nv=cv+1;await saveToIndexedDB('compteur',{id:'global',valeur:nv});if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches","_compteur_global"),{valeur:nv});}catch(e){await addPendingSync('updateCompteur',nv);}}else{await addPendingSync('updateCompteur',nv);}return nv;}
+async function getNextFicheNumero(){const colName = getCurrentEcoleCollection();let c=await getFromIndexedDB('compteur','global');let cv=c?.valeur||0;let nv=cv+1;await saveToIndexedDB('compteur',{id:'global',valeur:nv});if(navigator.onLine){try{await setDoc(doc(db,colName,"_compteur_global"),{valeur:nv});}catch(e){await addPendingSync('updateCompteur',nv);}}else{await addPendingSync('updateCompteur',nv);}return nv;}
 async function loadAllFiches(){if(!currentProf)return[];let all=await getAllFromIndexedDB('fiches');let pf=all.filter(function(f){return f.profId===currentProf.id&&!f._type;});pf.sort(function(a,b){return (a.numeroRef||999)-(b.numeroRef||999);});return pf.map(function(f){return {id:f.ficheId,cours:f.cours||'',classe:f.classe||'',option:f.option||'',numeroRef:f.numeroRef||null};});}
-async function saveCurrentFiche(){if(!currentProf||!currentFicheId||!currentFiche)return;
+async function saveCurrentFiche(){if(!currentProf||!currentFicheId||!currentFiche)return;const colName = getCurrentEcoleCollection();
 currentFiche.lastModified=new Date();
 let ft={...currentFiche,id:currentProf.id+'_'+currentFicheId};
 await saveToIndexedDB('fiches',ft);
-if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",currentProf.id+'_'+currentFicheId),currentFiche);}catch(e){await addPendingSync('saveFiche',currentFiche);}}else{await addPendingSync('saveFiche',currentFiche);}}
+if(navigator.onLine){try{await setDoc(doc(db,colName,currentProf.id+'_'+currentFicheId),currentFiche);}catch(e){await addPendingSync('saveFiche',currentFiche);}}else{await addPendingSync('saveFiche',currentFiche);}}
 function debounceSave(){if(saveTimeout)clearTimeout(saveTimeout);saveTimeout=setTimeout(function(){saveCurrentFiche();},500);}
 async function refreshSelectors(){toutesFiches=await loadAllFiches();let sl=['ficheSelect','epreuveFicheSelector','elevesFicheSelector','cotationFicheSelector','exportFicheSelector'];for(let s=0;s<sl.length;s++){let sel=document.getElementById(sl[s]);if(sel){sel.innerHTML='<option value="">-- Choisir --</option>';for(let f of toutesFiches){let opt=document.createElement('option');opt.value=f.id;let refa=f.numeroRef?formatNumero(f.numeroRef):'Nouvelle';let optText=f.option?' ('+f.option+')':'';opt.textContent=refa+' - '+(f.cours||'?')+' - '+(f.classe||'?')+optText;if(currentFicheId===f.id)opt.selected=true;sel.appendChild(opt);}sel.onchange=async function(){if(sel.value&&!isCreatingFiche)await selectFiche(sel.value);};}}}
 async function selectFiche(id){clearAllToasts();if(!id||isCreatingFiche)return;currentFicheId=id;let st=await getFromIndexedDB('fiches',currentProf.id+'_'+id);if(st&&!st._type){currentFiche=st;document.getElementById('coursInput').value=currentFiche.cours||'';document.getElementById('classeSelect').value=currentFiche.classe||'';mettreAJourSelectOptions(currentFiche.classe||'');document.getElementById('optionSelect').value=currentFiche.option||'';document.getElementById('titulaireInput').value=currentFiche.titulaire||'';document.getElementById('p1MaxConfig').value=currentFiche.p1Max||20;toggleOptionField();afficherEpreuves();afficherEleves();afficherCotation();updateExportSelect();refreshSelectors();refreshGroupes();alimenterClassement();rafraichirGroupesPourCotation();mettreAJourEpreuvesSelect();}}
@@ -530,23 +606,23 @@ document.getElementById('addEleveBtn').onclick=function(){if(!currentFiche){toas
 document.getElementById('sortAlphaBtn').onclick=function(){if(currentFiche?.eleves?.length){currentFiche.eleves.sort(function(a,b){return (a.nom||'').localeCompare(b.nom||'');});afficherCotation();updateExportSelect();debounceSave();refreshGroupes();toast("Liste triée alphabétiquement",'success');}else{toast("Aucun élève à trier",'warning');}};
 document.getElementById('searchInput').oninput=function(e){let t=e.target.value.toLowerCase();let rs=document.querySelectorAll('#cotationBody tr');for(let r of rs){let inp=r.cells[1]?.querySelector('input');let tx=inp?.value.toLowerCase()||'';r.style.display=(!t||tx.includes(t))?'':'none';}};
 document.getElementById('logoutBtnParam').onclick=function(){showConfirm("Déconnecter ?",function(){sauvegarderSession(null);currentProf=null;currentFiche=null;document.getElementById('mainApp').style.display='none';showLogin();toast("Déconnexion réussie",'success');});};
-document.getElementById('changeCodeBtn').onclick=async function(){let o=document.getElementById('oldCode').value;let n1=document.getElementById('newCode1').value;let n2=document.getElementById('newCode2').value;if(o!==currentProf.code){toast("Ancien code incorrect",'error');return;}if(n1!==n2){toast("Les codes ne correspondent pas",'error');return;}if(n1.length<4){toast("Le code doit contenir au moins 4 caractères",'error');return;}currentProf.code=n1;let pd={_type:"prof",id:currentProf.id,profId:currentProf.id,nom:currentProf.nom,code:currentProf.code,createdAt:currentProf.createdAt||Date.now()};await saveToIndexedDB('professeurs',pd);if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",currentProf.id),pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}sauvegarderSession(currentProf);document.getElementById('oldCode').value='';document.getElementById('newCode1').value='';document.getElementById('newCode2').value='';toast("Code d'accès modifié",'success');};
+document.getElementById('changeCodeBtn').onclick=async function(){let o=document.getElementById('oldCode').value;let n1=document.getElementById('newCode1').value;let n2=document.getElementById('newCode2').value;if(o!==currentProf.code){toast("Ancien code incorrect",'error');return;}if(n1!==n2){toast("Les codes ne correspondent pas",'error');return;}if(n1.length<4){toast("Le code doit contenir au moins 4 caractères",'error');return;}currentProf.code=n1;const colName = getCurrentEcoleCollection();let pd={_type:"prof",id:currentProf.id,profId:currentProf.id,nom:currentProf.nom,code:currentProf.code,createdAt:currentProf.createdAt||Date.now()};await saveToIndexedDB('professeurs',pd);if(navigator.onLine){try{await setDoc(doc(db,colName,currentProf.id),pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}sauvegarderSession(currentProf);document.getElementById('oldCode').value='';document.getElementById('newCode1').value='';document.getElementById('newCode2').value='';toast("Code d'accès modifié",'success');};
 document.querySelectorAll('.tab').forEach(function(btn){btn.onclick=function(){if(isCreatingFiche){toast("Terminez la création de la fiche d'abord",'warning');return;}document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});this.classList.add('active');document.getElementById(this.dataset.tab).classList.add('active');if(this.dataset.tab==='tabCotation')afficherCotation();if(this.dataset.tab==='tabEpreuves')afficherEpreuves();if(this.dataset.tab==='tabEleves')afficherEleves();if(this.dataset.tab==='tabGroupes'){refreshGroupes();document.getElementById('equipesResultat').innerHTML='';groupesActuels=[];rafraichirGroupesPourCotation();}if(this.dataset.tab==='tabNotesGroupe'){mettreAJourEpreuvesSelect();rafraichirGroupesPourCotation();}if(this.dataset.tab==='tabClassement')alimenterClassement();if(this.dataset.tab==='tabHoraire'){chargerHoraireProf();}};});
 function afficherEleves(){let c=document.getElementById('elevesListContainer');if(!c)return;if(!currentFiche){c.innerHTML='<div class="empty-state">Aucune fiche sélectionnée</div>';return;}c.innerHTML='';let ev=currentFiche.eleves||[];for(let i=0;i<ev.length;i++){let d=document.createElement('div');d.className='eleve-row';d.innerHTML='<input type="text" value="'+(ev[i].nom||'')+'" placeholder="Nom complet" onchange="window.updEleve('+i+',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve('+i+',\'sexe\',this.value)"><option value="M" '+(ev[i].sexe=='M'?'selected':'')+'>M</option><option value="F" '+(ev[i].sexe=='F'?'selected':'')+'>F</option></select><span onclick="window.delEleve('+i+')" style="cursor:pointer;color:#ef4444;padding:8px">X</span>';c.appendChild(d);}if(ev.length===0)c.innerHTML='<div class="empty-state">Aucun élève inscrit</div>';updateExportSelect();}
 window.updEleve=function(i,f,v){if(f==='nom'&&(!v||v.trim()==='')){toast("Le nom de l'élève ne peut pas être vide",'error');return;}currentFiche.eleves[i][f]=v;debounceSave();afficherEleves();afficherCotation();updateExportSelect();refreshGroupes();rafraichirGroupesPourCotation();toast("Élève modifié",'success');};
 window.delEleve=function(i){let n=currentFiche.eleves[i]?.nom||'Élève';showConfirm("Supprimer "+n+" de la liste ?",function(){currentFiche.eleves.splice(i,1);afficherEleves();afficherCotation();updateExportSelect();refreshGroupes();rafraichirGroupesPourCotation();debounceSave();toast(n+" a été supprimé",'warning');});};
-document.getElementById('newFicheBtn').onclick=async function(){let c=document.getElementById('coursInput').value.trim();let cl=document.getElementById('classeSelect').value;let op=document.getElementById('optionSelect').value;if(!c){toast("Veuillez renseigner le cours",'error');return;}if(!cl){toast("Veuillez sélectionner une classe",'error');return;}if(cl!=='7ème EB'&&cl!=='8ème EB'&&!op){toast("Veuillez sélectionner une option",'error');return;}showConfirm("Créer une nouvelle fiche ?",async function(){isCreatingFiche=true;try{let nid='f'+Date.now();let nnum=await getNextFicheNumero();let fop=(cl==='7ème EB'||cl==='8ème EB')?'':op;let now=new Date();let nf={profId:currentProf.id,ficheId:nid,cours:c,classe:cl,option:fop,titulaire:document.getElementById('titulaireInput').value.trim()||'',anneeScolaire:"2026-2027",p1Max:20,numeroRef:nnum,dateCreation:now,lastModified:now,epreuvesParPeriode:{1:[{nom:"Interrogation",max:20}],2:[{nom:"Interrogation",max:20}],3:[{nom:"Interrogation",max:20}],4:[{nom:"Interrogation",max:20}]},eleves:[]};await saveToIndexedDB('fiches',{...nf,id:currentProf.id+'_'+nid});if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",currentProf.id+'_'+nid),nf);}catch(e){await addPendingSync('saveFiche',nf);}}else{await addPendingSync('saveFiche',nf);}currentFiche=nf;currentFicheId=nid;document.getElementById('coursInput').value='';document.getElementById('classeSelect').value='';document.getElementById('optionSelect').value='';document.getElementById('titulaireInput').value='';toggleOptionField();await refreshSelectors();afficherEpreuves();afficherEleves();afficherCotation();updateExportSelect();refreshGroupes();toast("Fiche créée : "+c+" - "+cl,'success');}catch(error){toast("Erreur lors de la création",'error');}finally{isCreatingFiche=false;}});};
-document.getElementById('deleteFicheBtn').onclick=async function(){if(!currentFicheId){toast("Aucune fiche sélectionnée",'error');return;}showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function(){try{let ficheData=await getFromIndexedDB('fiches',currentProf.id+'_'+currentFicheId);if(ficheData){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let dateExpiration=new Date();dateExpiration.setDate(dateExpiration.getDate()+30);corbeille.push({...ficheData,dateSuppression:new Date().toISOString(),dateExpiration:dateExpiration.toISOString(),supprimee:true,enAttenteSuppression:false,professeurId:currentProf.id,professeurNom:currentProf.nom});localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches","corbeille_"+currentFicheId),{...ficheData,dateSuppression:new Date().toISOString(),dateExpiration:dateExpiration.toISOString(),professeurNom:currentProf.nom});}catch(e){}}}await deleteFromIndexedDB('fiches',currentProf.id+'_'+currentFicheId);if(navigator.onLine){try{await deleteDoc(doc(db,"gloria_dei_fiches",currentProf.id+'_'+currentFicheId));}catch(e){await addPendingSync('deleteFiche',currentFicheId);}}else{await addPendingSync('deleteFiche',currentFicheId);}toutesFiches=await loadAllFiches();if(toutesFiches.length>0)await selectFiche(toutesFiches[0].id);else{currentFiche=null;currentFicheId=null;document.getElementById('coursInput').value='';document.getElementById('classeSelect').value='';document.getElementById('optionSelect').value='';document.getElementById('titulaireInput').value='';afficherEpreuves();afficherEleves();afficherCotation();updateExportSelect();refreshSelectors();}toast("Fiche supprimée avec succès",'success');}catch(error){toast("Erreur lors de la suppression",'error');}});};
+document.getElementById('newFicheBtn').onclick=async function(){let c=document.getElementById('coursInput').value.trim();let cl=document.getElementById('classeSelect').value;let op=document.getElementById('optionSelect').value;if(!c){toast("Veuillez renseigner le cours",'error');return;}if(!cl){toast("Veuillez sélectionner une classe",'error');return;}if(cl!=='7ème EB'&&cl!=='8ème EB'&&!op){toast("Veuillez sélectionner une option",'error');return;}showConfirm("Créer une nouvelle fiche ?",async function(){isCreatingFiche=true;try{let nid='f'+Date.now();let nnum=await getNextFicheNumero();let fop=(cl==='7ème EB'||cl==='8ème EB')?'':op;let now=new Date();let nf={profId:currentProf.id,ficheId:nid,cours:c,classe:cl,option:fop,titulaire:document.getElementById('titulaireInput').value.trim()||'',anneeScolaire:"2026-2027",p1Max:20,numeroRef:nnum,dateCreation:now,lastModified:now,epreuvesParPeriode:{1:[{nom:"Interrogation",max:20}],2:[{nom:"Interrogation",max:20}],3:[{nom:"Interrogation",max:20}],4:[{nom:"Interrogation",max:20}]},eleves:[]};await saveToIndexedDB('fiches',{...nf,id:currentProf.id+'_'+nid});const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,currentProf.id+'_'+nid),nf);}catch(e){await addPendingSync('saveFiche',nf);}}else{await addPendingSync('saveFiche',nf);}currentFiche=nf;currentFicheId=nid;document.getElementById('coursInput').value='';document.getElementById('classeSelect').value='';document.getElementById('optionSelect').value='';document.getElementById('titulaireInput').value='';toggleOptionField();await refreshSelectors();afficherEpreuves();afficherEleves();afficherCotation();updateExportSelect();refreshGroupes();toast("Fiche créée : "+c+" - "+cl,'success');}catch(error){toast("Erreur lors de la création",'error');}finally{isCreatingFiche=false;}});};
+document.getElementById('deleteFicheBtn').onclick=async function(){if(!currentFicheId){toast("Aucune fiche sélectionnée",'error');return;}showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function(){try{let ficheData=await getFromIndexedDB('fiches',currentProf.id+'_'+currentFicheId);if(ficheData){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let dateExpiration=new Date();dateExpiration.setDate(dateExpiration.getDate()+30);corbeille.push({...ficheData,dateSuppression:new Date().toISOString(),dateExpiration:dateExpiration.toISOString(),supprimee:true,enAttenteSuppression:false,professeurId:currentProf.id,professeurNom:currentProf.nom});localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,"corbeille_"+currentFicheId),{...ficheData,dateSuppression:new Date().toISOString(),dateExpiration:dateExpiration.toISOString(),professeurNom:currentProf.nom});}catch(e){}}}await deleteFromIndexedDB('fiches',currentProf.id+'_'+currentFicheId);const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await deleteDoc(doc(db,colName,currentProf.id+'_'+currentFicheId));}catch(e){await addPendingSync('deleteFiche',currentFicheId);}}else{await addPendingSync('deleteFiche',currentFicheId);}toutesFiches=await loadAllFiches();if(toutesFiches.length>0)await selectFiche(toutesFiches[0].id);else{currentFiche=null;currentFicheId=null;document.getElementById('coursInput').value='';document.getElementById('classeSelect').value='';document.getElementById('optionSelect').value='';document.getElementById('titulaireInput').value='';afficherEpreuves();afficherEleves();afficherCotation();updateExportSelect();refreshSelectors();}toast("Fiche supprimée avec succès",'success');}catch(error){toast("Erreur lors de la suppression",'error');}});};
 document.getElementById('copyElevesBtn').onclick=async function(){if(!currentFiche){toast("Aucune fiche sélectionnée",'error');return;}let fd=toutesFiches.filter(function(f){return f.id!==currentFicheId;});if(fd.length===0){toast("Aucune autre fiche disponible",'warning');return;}let m=document.createElement('div');m.className='modal-fullscreen';let oh='';for(let f of fd){oh+='<option value="'+f.id+'">'+formatNumero(f.numeroRef)+' - '+(f.cours||'')+' - '+(f.classe||'')+'</option>';}m.innerHTML='<div class="modal-content" style="max-width:500px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Copier les élèves</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCopyModal">&times;</span></div><p style="color:#cbd5e1;margin-bottom:16px">Fiche source :</p><select id="sourceFicheSelect" style="width:100%;padding:12px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;margin-bottom:20px">'+oh+'</select><div style="display:flex;gap:10px"><button class="btn btn-success" id="confirmCopyBtn">Copier</button><button class="btn btn-outline" id="cancelCopyBtn">Annuler</button></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);let cm=function(){m.remove();};document.getElementById('closeCopyModal').onclick=cm;document.getElementById('cancelCopyBtn').onclick=cm;document.getElementById('confirmCopyBtn').onclick=async function(){let sid=document.getElementById('sourceFicheSelect').value;let st=await getFromIndexedDB('fiches',currentProf.id+'_'+sid);if(st&&st.eleves?.length){currentFiche.eleves=st.eleves.map(function(e){return {...e,id:Date.now()+Math.random(),notes:{p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0}};});await saveCurrentFiche();afficherEleves();afficherCotation();updateExportSelect();refreshGroupes();toast(currentFiche.eleves.length+" élève(s) copié(s)",'success');setTimeout(cm,1500);}else toast("Aucun élève trouvé dans la fiche source",'error');};};
 document.getElementById('coursInput').oninput=function(){if(currentFiche&&!isCreatingFiche){currentFiche.cours=document.getElementById('coursInput').value;debounceSave();refreshSelectors();}};
 document.getElementById('classeSelect').onchange=function(){if(currentFiche&&!isCreatingFiche){currentFiche.classe=document.getElementById('classeSelect').value;if(['7ème EB','8ème EB'].includes(currentFiche.classe)){currentFiche.option='';document.getElementById('optionSelect').value='';}debounceSave();refreshSelectors();}toggleOptionField();};
 document.getElementById('optionSelect').onchange=function(){if(currentFiche&&!isCreatingFiche){currentFiche.option=document.getElementById('optionSelect').value;debounceSave();refreshSelectors();}};
 document.getElementById('titulaireInput').oninput=function(){if(currentFiche&&!isCreatingFiche){currentFiche.titulaire=document.getElementById('titulaireInput').value;debounceSave();}};
 document.getElementById('p1MaxConfig').onchange=function(){if(currentFiche&&!isCreatingFiche){currentFiche.p1Max=parseFloat(document.getElementById('p1MaxConfig').value)||20;debounceSave();afficherCotation();}};
-document.getElementById('exportCurrentBtn').onclick=async function(){if(!currentFiche){toast("Aucune fiche sélectionnée",'error');return;}if(!currentFiche.eleves||currentFiche.eleves.length===0){toast("Aucun élève à exporter",'error');return;}try{const{jsPDF}=window.jspdf;const pdf=new jsPDF('landscape','mm','a4');const rn=currentFiche.numeroRef?formatNumero(currentFiche.numeroRef):'???';pdf.setFillColor(255,255,255);pdf.rect(0,0,297,210,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(0,51,102);pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',148,20,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.setTextColor(80,80,80);pdf.text('KASUMBALESA / KOYO (NEW KOYO)',148,27,{align:'center'});pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.setTextColor(0,51,102);pdf.text('FICHE DE COTATION',148,37,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(0,0,0);pdf.text("Année scolaire : "+(currentFiche.anneeScolaire||'2026-2027'),14,50);pdf.text("Référence : "+rn,14,57);pdf.text("Cours : "+(currentFiche.cours||''),14,64);pdf.text("Classe : "+(currentFiche.classe||''),14,71);let y=78;if(currentFiche.option&&currentFiche.option!==''){pdf.text("Option : "+currentFiche.option,14,y);y+=7;}pdf.text("Titulaire : "+(currentFiche.titulaire||''),14,y);const eps=currentFiche.epreuvesParPeriode||{1:[],2:[],3:[],4:[]};const p1m=getPeriodeMax(1);const p2m=getPeriodeMax(2);const p3m=getPeriodeMax(3);const p4m=getPeriodeMax(4);const e1m=getExamMax(1);const e2m=getExamMax(2);const ts1m=getTotalSemestreMax(1);const ts2m=getTotalSemestreMax(2);const tam=getTotalAnnuelMax();const hd=[['N°','NOMS','SEXE','P1/'+p1m,'P2/'+p2m,'EXAM S1/'+e1m,'TOT S1/'+ts1m,'P3/'+p3m,'P4/'+p4m,'EXAM S2/'+e2m,'TOT S2/'+ts2m,'TOTAL/'+tam]];const bd=[];for(let i=0;i<currentFiche.eleves.length;i++){const e=currentFiche.eleves[i];const n=e.notes||{};const p1=calcMoy(1,n.p1);const p2=calcMoy(2,n.p2);const p3=calcMoy(3,n.p3);const p4=calcMoy(4,n.p4);const ex1=n.exam1||0;const ex2=n.exam2||0;bd.push([(i+1).toString(),e.nom||'',e.sexe==='F'?'F':'M',p1,p2,ex1,p1+p2+ex1,p3,p4,ex2,p3+p4+ex2,p1+p2+ex1+p3+p4+ex2]);}pdf.autoTable({head:hd,body:bd,startY:y+10,theme:'grid',styles:{fontSize:8,cellPadding:2,halign:'center',valign:'middle',textColor:[0,0,0]},headStyles:{fillColor:[0,51,102],textColor:[255,255,255],fontStyle:'bold',halign:'center'},alternateRowStyles:{fillColor:[245,245,245]}});pdf.save("Fiche_"+rn+"_"+(currentFiche.cours||'cours')+".pdf");toast("PDF exporté",'success');}catch(e){toast("Erreur lors de la génération du PDF",'error');console.error(e);}};
-document.getElementById('exportEleveNotesBtn').onclick=async function(){let idx=document.getElementById('eleveForExportSelect').value;if(idx===""){toast("Veuillez sélectionner un élève",'warning');return;}let eleve=currentFiche.eleves[parseInt(idx)];if(!eleve){toast("Élève non trouvé",'error');return;}try{const{jsPDF}=window.jspdf;const pdf=new jsPDF('portrait','mm','a4');const rn=currentFiche.numeroRef?formatNumero(currentFiche.numeroRef):'???';pdf.setFillColor(255,255,255);pdf.rect(0,0,210,297,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(0,51,102);pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',105,20,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.setTextColor(80,80,80);pdf.text('KASUMBALESA / KOYO (NEW KOYO)',105,27,{align:'center'});pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.setTextColor(0,51,102);pdf.text('RELEVE DES EPREUVES',105,37,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(0,0,0);pdf.text("Référence: "+rn,150,50);pdf.text("Élève: "+(eleve.nom||''),20,50);pdf.text("Classe: "+(currentFiche.classe||'')+(currentFiche.option?' - '+currentFiche.option:''),20,58);pdf.text("Cours: "+(currentFiche.cours||''),20,66);const eps=currentFiche.epreuvesParPeriode||{1:[],2:[],3:[],4:[]};const getP=function(p){return currentFiche.p1Max||20;};const bd=[];for(let p=1;p<=4;p++){for(let ei=0;ei<(eps[p]||[]).length;ei++){let nt=(eleve.notes?.['p'+p]&&eleve.notes['p'+p][ei])?eleve.notes['p'+p][ei]:0;bd.push(["Période "+p,eps[p][ei].nom,nt+" / "+eps[p][ei].max,Math.round((nt/eps[p][ei].max)*getP(p))+" / "+getP(p)]);}}bd.push(['','','','']);bd.push(['RECAPITULATIF','','','']);const p1m=getP(1);const p2m=getP(2);const p3m=getP(3);const p4m=getP(4);const p1=(function(){let e=eps[1]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p1?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p1m,Math.round((s/m)*p1m)):0;})();const p2=(function(){let e=eps[2]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p2?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p2m,Math.round((s/m)*p2m)):0;})();const p3=(function(){let e=eps[3]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p3?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p3m,Math.round((s/m)*p3m)):0;})();const p4=(function(){let e=eps[4]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p4?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p4m,Math.round((s/m)*p4m)):0;})();const ex1=eleve.notes?.exam1||0;const ex2=eleve.notes?.exam2||0;bd.push(['Période 1','',p1+" / "+p1m,'']);bd.push(['Période 2','',p2+" / "+p2m,'']);bd.push(['Examen Semestre 1','',ex1+" / "+(p1m+p2m),'']);bd.push(['Total Semestre 1','',(p1+p2+ex1)+" / "+(p1m+p2m+p1m+p2m),'']);bd.push(['Période 3','',p3+" / "+p3m,'']);bd.push(['Période 4','',p4+" / "+p4m,'']);bd.push(['Examen Semestre 2','',ex2+" / "+(p3m+p4m),'']);bd.push(['Total Semestre 2','',(p3+p4+ex2)+" / "+(p3m+p4m+p3m+p4m),'']);bd.push(['TOTAL ANNUEL','',(p1+p2+ex1+p3+p4+ex2)+" / "+((p1m+p2m)*2+(p3m+p4m)*2),'']);pdf.autoTable({head:[['Période','Epreuve','Note','Note / max période']],body:bd,startY:75,theme:'grid',styles:{fontSize:9,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[0,51,102],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,245,245]}});pdf.save("Releve_"+rn+"_"+(eleve.nom||'eleve').replace(/\s/g,'_')+".pdf");toast("PDF généré pour "+eleve.nom,'success');}catch(e){toast("Erreur lors de la génération du PDF",'error');console.error(e);}};
-async function chargerOptionsParClasse(){try{let od=await getDoc(doc(db,"gloria_dei_fiches","_options_par_classe"));if(od.exists()){optionsParClasse=od.data();}else{optionsParClasse={"1ère Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"2ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"3ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"4ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"]};await setDoc(doc(db,"gloria_dei_fiches","_options_par_classe"),optionsParClasse);}}catch(e){console.error("Erreur chargement options:",e);}toggleOptionField();}
-async function sauvegarderOptionsParClasse(){try{await setDoc(doc(db,"gloria_dei_fiches","_options_par_classe"),optionsParClasse);}catch(e){console.error("Erreur sauvegarde options:",e);}}
+document.getElementById('exportCurrentBtn').onclick=async function(){if(!currentFiche){toast("Aucune fiche sélectionnée",'error');return;}if(!currentFiche.eleves||currentFiche.eleves.length===0){toast("Aucun élève à exporter",'error');return;}try{const{jsPDF}=window.jspdf;const pdf=new jsPDF('landscape','mm','a4');const rn=currentFiche.numeroRef?formatNumero(currentFiche.numeroRef):'???';const ecoleNom = currentEcole?.nom || 'GESTION SCOLAIRE';pdf.setFillColor(255,255,255);pdf.rect(0,0,297,210,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(0,51,102);pdf.text(ecoleNom.toUpperCase(),148,20,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.setTextColor(80,80,80);if(currentEcole?.adresse) pdf.text(currentEcole.adresse,148,27,{align:'center'});pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.setTextColor(0,51,102);pdf.text('FICHE DE COTATION',148,37,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(0,0,0);pdf.text("Année scolaire : "+(currentFiche.anneeScolaire||'2026-2027'),14,50);pdf.text("Référence : "+rn,14,57);pdf.text("Cours : "+(currentFiche.cours||''),14,64);pdf.text("Classe : "+(currentFiche.classe||''),14,71);let y=78;if(currentFiche.option&&currentFiche.option!==''){pdf.text("Option : "+currentFiche.option,14,y);y+=7;}pdf.text("Titulaire : "+(currentFiche.titulaire||''),14,y);const eps=currentFiche.epreuvesParPeriode||{1:[],2:[],3:[],4:[]};const p1m=getPeriodeMax(1);const p2m=getPeriodeMax(2);const p3m=getPeriodeMax(3);const p4m=getPeriodeMax(4);const e1m=getExamMax(1);const e2m=getExamMax(2);const ts1m=getTotalSemestreMax(1);const ts2m=getTotalSemestreMax(2);const tam=getTotalAnnuelMax();const hd=[['N°','NOMS','SEXE','P1/'+p1m,'P2/'+p2m,'EXAM S1/'+e1m,'TOT S1/'+ts1m,'P3/'+p3m,'P4/'+p4m,'EXAM S2/'+e2m,'TOT S2/'+ts2m,'TOTAL/'+tam]];const bd=[];for(let i=0;i<currentFiche.eleves.length;i++){const e=currentFiche.eleves[i];const n=e.notes||{};const p1=calcMoy(1,n.p1);const p2=calcMoy(2,n.p2);const p3=calcMoy(3,n.p3);const p4=calcMoy(4,n.p4);const ex1=n.exam1||0;const ex2=n.exam2||0;bd.push([(i+1).toString(),e.nom||'',e.sexe==='F'?'F':'M',p1,p2,ex1,p1+p2+ex1,p3,p4,ex2,p3+p4+ex2,p1+p2+ex1+p3+p4+ex2]);}pdf.autoTable({head:hd,body:bd,startY:y+10,theme:'grid',styles:{fontSize:8,cellPadding:2,halign:'center',valign:'middle',textColor:[0,0,0]},headStyles:{fillColor:[0,51,102],textColor:[255,255,255],fontStyle:'bold',halign:'center'},alternateRowStyles:{fillColor:[245,245,245]}});pdf.save("Fiche_"+rn+"_"+(currentFiche.cours||'cours')+".pdf");toast("PDF exporté",'success');}catch(e){toast("Erreur lors de la génération du PDF",'error');console.error(e);}};
+document.getElementById('exportEleveNotesBtn').onclick=async function(){let idx=document.getElementById('eleveForExportSelect').value;if(idx===""){toast("Veuillez sélectionner un élève",'warning');return;}let eleve=currentFiche.eleves[parseInt(idx)];if(!eleve){toast("Élève non trouvé",'error');return;}try{const{jsPDF}=window.jspdf;const pdf=new jsPDF('portrait','mm','a4');const rn=currentFiche.numeroRef?formatNumero(currentFiche.numeroRef):'???';const ecoleNom = currentEcole?.nom || 'GESTION SCOLAIRE';pdf.setFillColor(255,255,255);pdf.rect(0,0,210,297,'F');pdf.setFont('helvetica','bold');pdf.setFontSize(14);pdf.setTextColor(0,51,102);pdf.text(ecoleNom.toUpperCase(),105,20,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(10);pdf.setTextColor(80,80,80);if(currentEcole?.adresse) pdf.text(currentEcole.adresse,105,27,{align:'center'});pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.setTextColor(0,51,102);pdf.text('RELEVE DES EPREUVES',105,37,{align:'center'});pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(0,0,0);pdf.text("Référence: "+rn,150,50);pdf.text("Élève: "+(eleve.nom||''),20,50);pdf.text("Classe: "+(currentFiche.classe||'')+(currentFiche.option?' - '+currentFiche.option:''),20,58);pdf.text("Cours: "+(currentFiche.cours||''),20,66);const eps=currentFiche.epreuvesParPeriode||{1:[],2:[],3:[],4:[]};const getP=function(p){return currentFiche.p1Max||20;};const bd=[];for(let p=1;p<=4;p++){for(let ei=0;ei<(eps[p]||[]).length;ei++){let nt=(eleve.notes?.['p'+p]&&eleve.notes['p'+p][ei])?eleve.notes['p'+p][ei]:0;bd.push(["Période "+p,eps[p][ei].nom,nt+" / "+eps[p][ei].max,Math.round((nt/eps[p][ei].max)*getP(p))+" / "+getP(p)]);}}bd.push(['','','','']);bd.push(['RECAPITULATIF','','','']);const p1m=getP(1);const p2m=getP(2);const p3m=getP(3);const p4m=getP(4);const p1=(function(){let e=eps[1]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p1?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p1m,Math.round((s/m)*p1m)):0;})();const p2=(function(){let e=eps[2]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p2?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p2m,Math.round((s/m)*p2m)):0;})();const p3=(function(){let e=eps[3]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p3?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p3m,Math.round((s/m)*p3m)):0;})();const p4=(function(){let e=eps[4]||[];let s=0,m=0;for(let i=0;i<e.length;i++){s+=(eleve.notes?.p4?.[i]||0);m+=(e[i].max||1);}return m?Math.min(p4m,Math.round((s/m)*p4m)):0;})();const ex1=eleve.notes?.exam1||0;const ex2=eleve.notes?.exam2||0;bd.push(['Période 1','',p1+" / "+p1m,'']);bd.push(['Période 2','',p2+" / "+p2m,'']);bd.push(['Examen Semestre 1','',ex1+" / "+(p1m+p2m),'']);bd.push(['Total Semestre 1','',(p1+p2+ex1)+" / "+(p1m+p2m+p1m+p2m),'']);bd.push(['Période 3','',p3+" / "+p3m,'']);bd.push(['Période 4','',p4+" / "+p4m,'']);bd.push(['Examen Semestre 2','',ex2+" / "+(p3m+p4m),'']);bd.push(['Total Semestre 2','',(p3+p4+ex2)+" / "+(p3m+p4m+p3m+p4m),'']);bd.push(['TOTAL ANNUEL','',(p1+p2+ex1+p3+p4+ex2)+" / "+((p1m+p2m)*2+(p3m+p4m)*2),'']);pdf.autoTable({head:[['Période','Epreuve','Note','Note / max période']],body:bd,startY:75,theme:'grid',styles:{fontSize:9,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[0,51,102],textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[245,245,245]}});pdf.save("Releve_"+rn+"_"+(eleve.nom||'eleve').replace(/\s/g,'_')+".pdf");toast("PDF généré pour "+eleve.nom,'success');}catch(e){toast("Erreur lors de la génération du PDF",'error');console.error(e);}};
+async function chargerOptionsParClasse(){const colName = getCurrentEcoleCollection();try{let od=await getDoc(doc(db,colName,"_options_par_classe"));if(od.exists()){optionsParClasse=od.data();}else{optionsParClasse={"1ère Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"2ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"3ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"],"4ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES"]};await setDoc(doc(db,colName,"_options_par_classe"),optionsParClasse);}}catch(e){console.error("Erreur chargement options:",e);}toggleOptionField();}
+async function sauvegarderOptionsParClasse(){const colName = getCurrentEcoleCollection();try{await setDoc(doc(db,colName,"_options_par_classe"),optionsParClasse);}catch(e){console.error("Erreur sauvegarde options:",e);}}
 async function ajouterOption(classe,option){if(!optionsParClasse[classe])optionsParClasse[classe]=[];if(!optionsParClasse[classe].includes(option)){optionsParClasse[classe].push(option);await sauvegarderOptionsParClasse();mettreAJourSelectOptions(classe);toast("Option '"+option+"' ajoutée à "+classe,'success');}else{toast("Cette option existe déjà",'warning');}}
 async function supprimerOption(classe,option){if(optionsParClasse[classe]){let idx=optionsParClasse[classe].indexOf(option);if(idx!==-1){optionsParClasse[classe].splice(idx,1);await sauvegarderOptionsParClasse();mettreAJourSelectOptions(classe);let tfd=await getAllFromIndexedDB('fiches');for(let f of tfd){if(f.classe===classe&&f.option===option&&!f._type){f.option=optionsParClasse[classe][0]||"";await saveToIndexedDB('fiches',f);if(currentFiche&&currentFiche.ficheId===f.ficheId){currentFiche.option=f.option;}}}toast("Option '"+option+"' supprimée de "+classe,'warning');}}}
 async function refreshTeachersList(){let ap=await getAllFromIndexedDB('professeurs');let lo=document.getElementById('loginOverlay');if(lo){let se=lo.querySelector('#loginNom');if(se){se.innerHTML='<option value="">-- Choisir --</option>';ap.forEach(function(p){let o=document.createElement('option');o.value=p.nom;o.dataset.id=p.profId;o.textContent=p.nom;se.appendChild(o);});}}}
@@ -595,14 +671,69 @@ function afficherCorbeille(){
         c.appendChild(d);
     }
 }
-window.restaurerFicheCorbeille=async function(ficheId){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);if(fiche){let select=document.getElementById(`restaureProf_${ficheId}`);let choix=select?select.value:fiche.profId;let nouveauProfId=fiche.profId;let nouveauProfNom=fiche.professeurNom;if(choix==="nouveau"){showPrompt("Nom du nouveau professeur","Nom complet",async function(nouveauNom){if(nouveauNom){let nouveauCode=Math.floor(1000+Math.random()*9000).toString();nouveauProfId='prof_'+Date.now();nouveauProfNom=nouveauNom;let nouveauProf={_type:"prof",id:nouveauProfId,profId:nouveauProfId,nom:nouveauNom,code:nouveauCode,createdAt:Date.now(),actif:true};await saveToIndexedDB('professeurs',nouveauProf);if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",nouveauProfId),nouveauProf);}catch(e){}}toast(`Nouveau professeur ${nouveauNom} créé avec code: ${nouveauCode}`,'success');}else{toast("Opération annulée",'warning');}});return;}else if(choix==="autre"){let professeurs=await getAllFromIndexedDB('professeurs');if(professeurs.length===0){toast("Aucun professeur disponible",'error');return;}let listeProfs=professeurs.map(p=>`${p.nom} (${p.id})`).join('\n');showPrompt("Nom ou ID du professeur",listeProfs,async function(reponse){if(reponse){let profTrouve=professeurs.find(p=>p.nom===reponse||p.id===reponse);if(profTrouve){nouveauProfId=profTrouve.id;nouveauProfNom=profTrouve.nom;}else{toast("Professeur non trouvé",'error');}}else{return;}});if(!nouveauProfId) return;}delete fiche.dateSuppression;delete fiche.supprimee;delete fiche.professeurNom;delete fiche.dateExpiration;fiche.profId=nouveauProfId;await saveToIndexedDB('fiches',{...fiche,id:nouveauProfId+'_'+fiche.ficheId});if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",nouveauProfId+'_'+fiche.ficheId),fiche);await deleteDoc(doc(db,"gloria_dei_fiches","corbeille_"+fiche.ficheId));}catch(e){await addPendingSync('saveFiche',fiche);}}let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();await refreshSelectors();toast(`Fiche restaurée chez ${nouveauProfNom}`,'success');}};
-window.supprimerFicheCorbeille=function(ficheId){showConfirm("⚠️ SUPPRESSION DÉFINITIVE !\n\nCette action est IRRÉVERSIBLE.\nLa fiche disparaîtra immédiatement.\n\nConfirmer ?",async function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));if(navigator.onLine){try{await deleteDoc(doc(db,"gloria_dei_fiches","corbeille_"+ficheId));}catch(e){}}afficherCorbeille();toast("Fiche supprimée définitivement",'warning');});};
-async function refreshProfsList(){let c=document.getElementById('profsListContainer');if(!c)return;let ps=await getAllFromIndexedDB('professeurs');if(ps.length===0){c.innerHTML='<div class="empty-state">Aucun professeur enregistré</div>';return;}ps.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});c.innerHTML='';ps.forEach(function(p){let d=document.createElement('div');d.className='prof-list-item'+(p.actif===false?' prof-desactiver':'');d.innerHTML=`<div class="prof-info"><div class="prof-name">${escapeHtml(p.nom)} ${p.actif===false?'<span class="badge">DÉSACTIVÉ</span>':''}</div><div class="prof-date">Ajouté le ${p.createdAt?new Date(p.createdAt).toLocaleDateString():''}</div>${p.raisonDesactivation?`<div class="prof-date">Raison: ${escapeHtml(p.raisonDesactivation)}</div>`:''}</div><div class="prof-actions">${p.actif===false?`<button class="btn btn-success btn-sm" data-id="${p.id}" data-action="reactiver">RÉACTIVER</button>`:`<button class="btn btn-warning btn-sm" data-id="${p.id}" data-action="desactiver">DÉSACTIVER</button>`}</div>`;c.appendChild(d);});document.querySelectorAll('#profsListContainer .btn-warning').forEach(btn=>{btn.onclick=async function(){showPrompt("Raison de la désactivation (optionnelle)","Raison",async function(raison){let prof=ps.find(p=>p.id===btn.dataset.id);if(prof){prof.actif=false;prof.raisonDesactivation=raison||"";await saveToIndexedDB('professeurs',prof);if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",prof.id),prof);}catch(e){}}toast(`Professeur ${prof.nom} désactivé`,'warning');await refreshProfsList();}});};});document.querySelectorAll('#profsListContainer .btn-success').forEach(btn=>{btn.onclick=async function(){let prof=ps.find(p=>p.id===btn.dataset.id);if(prof){prof.actif=true;delete prof.raisonDesactivation;await saveToIndexedDB('professeurs',prof);if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",prof.id),prof);}catch(e){}}toast(`Professeur ${prof.nom} réactivé`,'success');await refreshProfsList();}};});}
+window.restaurerFicheCorbeille=async function(ficheId){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);if(fiche){let select=document.getElementById(`restaureProf_${ficheId}`);let choix=select?select.value:fiche.profId;let nouveauProfId=fiche.profId;let nouveauProfNom=fiche.professeurNom;if(choix==="nouveau"){showPrompt("Nom du nouveau professeur","Nom complet",async function(nouveauNom){if(nouveauNom){let nouveauCode=Math.floor(1000+Math.random()*9000).toString();nouveauProfId='prof_'+Date.now();nouveauProfNom=nouveauNom;let nouveauProf={_type:"prof",id:nouveauProfId,profId:nouveauProfId,nom:nouveauNom,code:nouveauCode,createdAt:Date.now(),actif:true};await saveToIndexedDB('professeurs',nouveauProf);const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,nouveauProfId),nouveauProf);}catch(e){}}toast(`Nouveau professeur ${nouveauNom} créé avec code: ${nouveauCode}`,'success');}else{toast("Opération annulée",'warning');}});return;}else if(choix==="autre"){let professeurs=await getAllFromIndexedDB('professeurs');if(professeurs.length===0){toast("Aucun professeur disponible",'error');return;}let listeProfs=professeurs.map(p=>`${p.nom} (${p.id})`).join('\n');showPrompt("Nom ou ID du professeur",listeProfs,async function(reponse){if(reponse){let profTrouve=professeurs.find(p=>p.nom===reponse||p.id===reponse);if(profTrouve){nouveauProfId=profTrouve.id;nouveauProfNom=profTrouve.nom;}else{toast("Professeur non trouvé",'error');}}else{return;}});if(!nouveauProfId) return;}delete fiche.dateSuppression;delete fiche.supprimee;delete fiche.professeurNom;delete fiche.dateExpiration;fiche.profId=nouveauProfId;await saveToIndexedDB('fiches',{...fiche,id:nouveauProfId+'_'+fiche.ficheId});const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,nouveauProfId+'_'+fiche.ficheId),fiche);await deleteDoc(doc(db,colName,"corbeille_"+fiche.ficheId));}catch(e){await addPendingSync('saveFiche',fiche);}}let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();await refreshSelectors();toast(`Fiche restaurée chez ${nouveauProfNom}`,'success');}};
+window.supprimerFicheCorbeille=function(ficheId){showConfirm("⚠️ SUPPRESSION DÉFINITIVE !\n\nCette action est IRRÉVERSIBLE.\nLa fiche disparaîtra immédiatement.\n\nConfirmer ?",async function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await deleteDoc(doc(db,colName,"corbeille_"+ficheId));}catch(e){}}afficherCorbeille();toast("Fiche supprimée définitivement",'warning');});};
+async function refreshProfsList(){let c=document.getElementById('profsListContainer');if(!c)return;let ps=await getAllFromIndexedDB('professeurs');if(ps.length===0){c.innerHTML='<div class="empty-state">Aucun professeur enregistré</div>';return;}ps.sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});c.innerHTML='';ps.forEach(function(p){let d=document.createElement('div');d.className='prof-list-item'+(p.actif===false?' prof-desactiver':'');d.innerHTML=`<div class="prof-info"><div class="prof-name">${escapeHtml(p.nom)} ${p.actif===false?'<span class="badge">DÉSACTIVÉ</span>':''}</div><div class="prof-date">Ajouté le ${p.createdAt?new Date(p.createdAt).toLocaleDateString():''}</div>${p.raisonDesactivation?`<div class="prof-date">Raison: ${escapeHtml(p.raisonDesactivation)}</div>`:''}</div><div class="prof-actions">${p.actif===false?`<button class="btn btn-success btn-sm" data-id="${p.id}" data-action="reactiver">RÉACTIVER</button>`:`<button class="btn btn-warning btn-sm" data-id="${p.id}" data-action="desactiver">DÉSACTIVER</button>`}</div>`;c.appendChild(d);});document.querySelectorAll('#profsListContainer .btn-warning').forEach(btn=>{btn.onclick=async function(){showPrompt("Raison de la désactivation (optionnelle)","Raison",async function(raison){let prof=ps.find(p=>p.id===btn.dataset.id);if(prof){prof.actif=false;prof.raisonDesactivation=raison||"";await saveToIndexedDB('professeurs',prof);const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,prof.id),prof);}catch(e){}}toast(`Professeur ${prof.nom} désactivé`,'warning');await refreshProfsList();}});};});document.querySelectorAll('#profsListContainer .btn-success').forEach(btn=>{btn.onclick=async function(){let prof=ps.find(p=>p.id===btn.dataset.id);if(prof){prof.actif=true;delete prof.raisonDesactivation;await saveToIndexedDB('professeurs',prof);const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,prof.id),prof);}catch(e){}}toast(`Professeur ${prof.nom} réactivé`,'success');await refreshProfsList();}};});}
 function generateProfCode(){return Math.floor(1000+Math.random()*9000).toString();}
-function showAddProfForm(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet du professeur"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Créer et générer le code</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);document.getElementById('closeAddModal').onclick=function(){m.remove();};document.getElementById('cancelAddBtn').onclick=function(){m.remove();};document.getElementById('generateAndAddBtn').onclick=async function(){let n=document.getElementById('newProfName').value.trim();if(!n){toast("Veuillez entrer un nom",'error');return;}let c=generateProfCode();let pid='prof_'+Date.now();let pd={_type:"prof",id:pid,profId:pid,nom:n,code:c,createdAt:Date.now(),actif:true};await saveToIndexedDB('professeurs',pd);if(navigator.onLine){try{await setDoc(doc(db,"gloria_dei_fiches",pid),pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}m.remove();showNewProfCodePopup(n,c);await refreshProfsList();await refreshTeachersList();toast("Professeur '"+n+"' ajouté",'success');};}
+function showAddProfForm(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet du professeur"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Créer et générer le code</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);document.getElementById('closeAddModal').onclick=function(){m.remove();};document.getElementById('cancelAddBtn').onclick=function(){m.remove();};document.getElementById('generateAndAddBtn').onclick=async function(){let n=document.getElementById('newProfName').value.trim();if(!n){toast("Veuillez entrer un nom",'error');return;}let c=generateProfCode();let pid='prof_'+Date.now();let pd={_type:"prof",id:pid,profId:pid,nom:n,code:c,createdAt:Date.now(),actif:true};await saveToIndexedDB('professeurs',pd);const colName = getCurrentEcoleCollection();if(navigator.onLine){try{await setDoc(doc(db,colName,pid),pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}m.remove();showNewProfCodePopup(n,c);await refreshProfsList();await refreshTeachersList();toast("Professeur '"+n+"' ajouté",'success');};}
 function showNewProfCodePopup(nom,code){let p=document.createElement('div');p.className='modal-fullscreen';p.innerHTML='<div class="modal-content" style="text-align:center;max-width:400px"><div style="display:flex;justify-content:flex-end"><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCodeX">&times;</span></div><div style="text-align:center;margin-bottom:16px">🎉</div><h3>Professeur ajouté avec succès</h3><p style="margin:16px 0 8px 0;color:#cbd5e1">'+escapeHtml(nom)+'</p><p style="font-size:12px;color:#f59e0b;margin-bottom:8px">Code d\'accès unique (à transmettre au professeur) :</p><div style="background:#10b981;border-radius:60px;padding:16px 24px;margin:16px 0;border:2px solid #fff;"><span style="font-size:28px;font-weight:800;letter-spacing:3px;color:#fff;font-family:monospace">'+code+'</span></div><p style="font-size:11px;color:#ef4444;background:rgba(239,68,68,0.1);padding:8px;border-radius:8px">Ce code ne sera plus jamais affiché après la fermeture de cette fenêtre</p><button class="btn" id="closeCodePopup" style="margin-top:16px">Fermer et ne plus afficher</button></div>';document.body.appendChild(p);setTimeout(function(){p.classList.add('show');},10);let cp=function(){p.remove();};document.getElementById('closeCodePopup').onclick=cp;document.getElementById('closeCodeX').onclick=cp;}
 async function showAdminModal(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d\'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);let cc=0;let ct=null;let mc=m.querySelector('.modal-content');mc.style.cursor='pointer';mc.onclick=function(e){e.stopPropagation();cc++;if(ct)clearTimeout(ct);ct=setTimeout(function(){cc=0;},1000);if(cc===4){cc=0;if(ct)clearTimeout(ct);window.location.href='https://www.netubex.com/gloria-compta.html';}};document.getElementById('closeAdminModal').onclick=function(){m.remove();};document.getElementById('validateAdminBtn').onclick=async function(){if(document.getElementById('adminCodeInput').value===directriceCode){m.remove();showGestionProfsModal();}else{document.getElementById('adminError').innerHTML='Code incorrect';toast("Code d'accès incorrect",'error');}};}
-async function showLogin(){let d=document.createElement('div');d.className='login-overlay';d.id='loginOverlay';d.innerHTML='<div class="login-card"><h2>GLORIA DEI</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';document.body.appendChild(d);await refreshTeachersList();document.getElementById('loginBtn').onclick=async function(){let n=document.getElementById('loginNom').value;let c=document.getElementById('loginCode').value;let ap=await getAllFromIndexedDB('professeurs');let fp=ap.find(function(p){return p.nom===n;});if(!fp&&n==="Prof. NGENDA Flory")fp={nom:"Prof. NGENDA Flory",code:"0000",profId:"p1",id:"p1",actif:true};if(!fp||fp.actif===false){document.getElementById('loginError').innerHTML='Compte désactivé ou identifiants incorrects';toast("Compte désactivé ou identifiants incorrects",'error');return;}if(c===fp.code){currentProf={id:fp.profId,nom:n,code:fp.code,createdAt:fp.createdAt||Date.now()};sauvegarderSession(currentProf);document.getElementById('loginOverlay').remove();document.getElementById('mainApp').style.display='block';toutesFiches=await loadAllFiches();if(toutesFiches.length)await selectFiche(toutesFiches[0].id);await refreshSelectors();await chargerHoraireFirebase();syncToFirebase();toast("Bienvenue "+currentProf.nom,'success');}else{document.getElementById('loginError').innerHTML='Code incorrect';toast("Code d'accès incorrect",'error');}};document.getElementById('adminIconBtn').onclick=function(){showAdminModal();};}
+async function showLogin(){
+    const savedEcole = localStorage.getItem('gloria_current_ecole');
+    if (!savedEcole) {
+        await showSchoolModal();
+        return;
+    }
+    try {
+        const ecole = JSON.parse(savedEcole);
+        currentEcoleCollectionName = ecole.collectionName;
+        currentEcole = ecole;
+        const nameEl = document.getElementById('schoolNameDisplay');
+        const subEl = document.getElementById('schoolSubDisplay');
+        const footerEl = document.getElementById('footerNote');
+        if(nameEl) nameEl.textContent = ecole.nom.toUpperCase();
+        if(subEl && ecole.adresse) subEl.textContent = ecole.adresse;
+        if(footerEl) footerEl.textContent = `${ecole.nom.toUpperCase()} | Année scolaire 2026-2027`;
+    } catch(e) {
+        localStorage.removeItem('gloria_current_ecole');
+        await showSchoolModal();
+        return;
+    }
+    let d=document.createElement('div');
+    d.className='login-overlay';
+    d.id='loginOverlay';
+    d.innerHTML='<div class="login-card"><h2>ACCÈS ENSEIGNANT</h2><p>Connectez-vous à votre espace</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    document.body.appendChild(d);
+    await refreshTeachersList();
+    document.getElementById('loginBtn').onclick=async function(){
+        let n=document.getElementById('loginNom').value;
+        let c=document.getElementById('loginCode').value;
+        let ap=await getAllFromIndexedDB('professeurs');
+        let fp=ap.find(function(p){return p.nom===n;});
+        if(!fp && n==="Prof. NGENDA Flory") fp={nom:"Prof. NGENDA Flory",code:"0000",profId:"p1",id:"p1",actif:true};
+        if(!fp || fp.actif===false){
+            document.getElementById('loginError').innerHTML='Compte désactivé ou identifiants incorrects';
+            toast("Compte désactivé ou identifiants incorrects",'error');
+            return;
+        }
+        if(c===fp.code){
+            currentProf={id:fp.profId,nom:n,code:fp.code,createdAt:fp.createdAt||Date.now()};
+            sauvegarderSession(currentProf);
+            document.getElementById('loginOverlay').remove();
+            document.getElementById('mainApp').style.display='block';
+            toutesFiches=await loadAllFiches();
+            if(toutesFiches.length) await selectFiche(toutesFiches[0].id);
+            await refreshSelectors();
+            await chargerHoraireFirebase();
+            syncToFirebase();
+            toast("Bienvenue "+currentProf.nom,'success');
+        }else{
+            document.getElementById('loginError').innerHTML='Code incorrect';
+            toast("Code d'accès incorrect",'error');
+        }
+    };
+    document.getElementById('adminIconBtn').onclick=function(){showAdminModal();};
+}
 function refreshGroupes(){let c=document.getElementById('listePresenceEleves');if(!c||!currentFiche?.eleves)return;c.innerHTML='';currentFiche.eleves.forEach(function(e,i){let d=document.createElement('div');d.className='presence-item';d.innerHTML='<input type="checkbox" id="presence_'+i+'" checked><label for="presence_'+i+'">'+(e.nom||'Élève '+(i+1))+'</label>';c.appendChild(d);});}
 function getElevesPresent(){let p=[];let ev=currentFiche?.eleves||[];for(let i=0;i<ev.length;i++){let cb=document.getElementById('presence_'+i);if(cb&&cb.checked)p.push(ev[i]);}return p;}
 document.getElementById('tousPresentBtn')?.addEventListener('click',function(){let cb=document.querySelectorAll('#listePresenceEleves input[type="checkbox"]');cb.forEach(function(c){c.checked=true;});toast("Tous les élèves marqués présents",'success');});
@@ -620,6 +751,19 @@ function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];
 document.getElementById('configJourSelect')?.addEventListener('change',()=>afficherConfigHoraire());
 document.getElementById('ajouterHeureBtn')?.addEventListener('click',()=>ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click',()=>sauvegarderHoraireAuto());
+document.getElementById('changeSchoolBtnParam')?.addEventListener('click', function() {
+    showConfirm("Changer d'école ?\n\nVous devrez vous reconnecter.", async function() {
+        localStorage.removeItem('gloria_current_ecole');
+        localStorage.removeItem('gloria_session_prof');
+        currentProf = null;
+        currentFiche = null;
+        currentEcole = null;
+        currentEcoleCollectionName = null;
+        document.getElementById('mainApp').style.display = 'none';
+        await showSchoolModal();
+        toast("Vous pouvez maintenant choisir une autre école", 'success');
+    });
+});
 let titulaireConfig=null,toutesFichesTitu=[],fichesTitulaire=[],toutesFichesCompletTitu=[],currentPeriodTitu="all",currentClasseFilterTitu="all";
 const toutesOptionsTitu=["TOUTES","CG","HP","TCC","ELEC","MG","SCIENCES"];
 const classesSansOptionsTitu=["7ème EB","8ème EB"];
@@ -645,9 +789,9 @@ function getNotesForEleveTitu(eleve,fiche){
     let exam1=eleve.notes?.exam1||0,exam2=eleve.notes?.exam2||0;
     return{p1,p2,exam1,totalS1:p1+p2+exam1,p3,p4,exam2,totalS2:p3+p4+exam2,total:p1+p2+exam1+p3+p4+exam2,pMax:fiche.p1Max};
 }
-async function loadAllFichesFromFirebaseTitu(){
+async function loadAllFichesFromFirebaseTitu(){const colName = getCurrentEcoleCollection();
     try{
-        const snap=await getDocs(collection(db,"gloria_dei_fiches"));
+        const snap=await getDocs(collection(db,colName));
         const fiches=[];
         for(const doc of snap.docs){
             const data=doc.data();
@@ -851,16 +995,17 @@ function renderFicheCardTitu(fiche){
 async function generateFichePDFTitu(cours,classe,option,refNum,eleves,epreuves,pMax,titulaireNom){
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF('landscape','mm','a4');
+    const ecoleNom = currentEcole?.nom || 'GESTION SCOLAIRE';
     pdf.setFillColor(255,255,255);
     pdf.rect(0,0,297,210,'F');
     pdf.setFont('helvetica','bold');
     pdf.setFontSize(14);
     pdf.setTextColor(0,51,102);
-    pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',148,20,{align:'center'});
+    pdf.text(ecoleNom.toUpperCase(),148,20,{align:'center'});
     pdf.setFont('helvetica','normal');
     pdf.setFontSize(10);
     pdf.setTextColor(80,80,80);
-    pdf.text('KASUMBALESA / KOYO (NEW KOYO)',148,28,{align:'center'});
+    if(currentEcole?.adresse) pdf.text(currentEcole.adresse,148,28,{align:'center'});
     pdf.setFont('helvetica','bold');
     pdf.setFontSize(12);
     pdf.setTextColor(0,51,102);
@@ -1072,15 +1217,16 @@ document.getElementById('exportTitulaireRelevePdfBtn')?.addEventListener('click'
     if(window.derniersResultatsTitu?.length){
         const{jsPDF}=window.jspdf;
         const pdf=new jsPDF('landscape','mm','a4');
+        const ecoleNom = currentEcole?.nom || 'GESTION SCOLAIRE';
         pdf.setFillColor(255,255,255);
         pdf.rect(0,0,297,210,'F');
         pdf.setFont('helvetica','bold');
         pdf.setFontSize(14);
         pdf.setTextColor(0,51,102);
-        pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',148,20,{align:'center'});
+        pdf.text(ecoleNom.toUpperCase(),148,20,{align:'center'});
         pdf.setFont('helvetica','normal');
         pdf.setFontSize(10);
-        pdf.text('KASUMBALESA / KOYO (NEW KOYO)',148,28,{align:'center'});
+        if(currentEcole?.adresse) pdf.text(currentEcole.adresse,148,28,{align:'center'});
         pdf.setFont('helvetica','bold');
         pdf.setFontSize(12);
         pdf.text('RELEVÉ DE NOTES INDIVIDUEL',148,38,{align:'center'});
@@ -1101,15 +1247,16 @@ document.getElementById('exportTitulaireStatsPdfBtn')?.addEventListener('click',
     const{statsParClasse,totalEleves,nbFiches}=calculerStatsTitu();
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF('portrait','mm','a4');
+    const ecoleNom = currentEcole?.nom || 'GESTION SCOLAIRE';
     pdf.setFillColor(255,255,255);
     pdf.rect(0,0,210,297,'F');
     pdf.setFont('helvetica','bold');
     pdf.setFontSize(14);
     pdf.setTextColor(0,51,102);
-    pdf.text('COMPLEXE SCOLAIRE GLORIA DEI',105,20,{align:'center'});
+    pdf.text(ecoleNom.toUpperCase(),105,20,{align:'center'});
     pdf.setFont('helvetica','normal');
     pdf.setFontSize(10);
-    pdf.text('KASUMBALESA / KOYO (NEW KOYO)',105,28,{align:'center'});
+    if(currentEcole?.adresse) pdf.text(currentEcole.adresse,105,28,{align:'center'});
     pdf.setFont('helvetica','bold');
     pdf.setFontSize(12);
     pdf.text('STATISTIQUES GLOBALES',105,38,{align:'center'});
@@ -1157,8 +1304,9 @@ async function initTitulaire(){
     }
 }
 await initIndexedDB();let ce=await getFromIndexedDB('compteur','global');if(!ce)await saveToIndexedDB('compteur',{id:'global',valeur:0});await chargerOptionsParClasse();
-if(navigator.onLine){try{let fp=await getDocs(query(collection(db,"gloria_dei_fiches"),where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db,"gloria_dei_fiches"));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.profId+'_'+data.ficheId});}if(ds.id.startsWith("corbeille_")){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');if(!corbeille.find(f=>f.ficheId===data.ficheId)){corbeille.push(data);localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));}}}let cs=await getDoc(doc(db,"gloria_dei_fiches","_compteur_global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:'global',valeur:cs.data().valeur||0});}}catch(e){console.log("Erreur synchronisation Firebase:",e);}}
-let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}
+if(navigator.onLine){try{const colName = getCurrentEcoleCollection();let fp=await getDocs(query(collection(db,colName),where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db,colName));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.profId+'_'+data.ficheId});}if(ds.id.startsWith("corbeille_")){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');if(!corbeille.find(f=>f.ficheId===data.ficheId)){corbeille.push(data);localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));}}}let cs=await getDoc(doc(db,colName,"_compteur_global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:'global',valeur:cs.data().valeur||0});}}catch(e){console.log("Erreur synchronisation Firebase:",e);}}
+const savedEcoleFirst = localStorage.getItem('gloria_current_ecole');
+if(!savedEcoleFirst){await showSchoolModal();}else{let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}}
 initTitulaire();
 setInterval(function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let modifie=false;corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=new Date()){modifie=true;return false;}return true;});if(modifie){localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(document.getElementById('modalTabCorbeille')?.classList.contains('active')){afficherCorbeille();}}},24*60*60*1000);
 </script>
