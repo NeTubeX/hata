@@ -520,13 +520,17 @@ async function loadEcolesList() {
         return [];
     }
 }
+// ============ FONCTION CORRIGÉE ============
 async function showSchoolModal() {
     const modal = document.getElementById('schoolModal');
     const select = document.getElementById('schoolSelectModal');
     const errorDiv = document.getElementById('schoolModalError');
     const validateBtn = document.getElementById('validateSchoolBtn');
     const retryBtn = document.getElementById('retrySchoolBtn');
+    
     if (!modal) return;
+    
+    // Vérifier si une école est déjà choisie
     const existingChoice = localStorage.getItem('gloria_current_ecole');
     if (existingChoice) {
         try {
@@ -544,23 +548,40 @@ async function showSchoolModal() {
             return;
         } catch(e) {}
     }
+    
+    // Afficher la modal
     modal.classList.add('show');
     select.innerHTML = '<option value="">-- Chargement des écoles... --</option>';
+    errorDiv.innerHTML = '';
+    
+    // Charger la liste des écoles
     const ecoles = await loadEcolesList();
+    
     if (ecoles.length === 0) {
         select.innerHTML = '<option value="">-- Aucune école disponible --</option>';
         errorDiv.innerHTML = '⚠️ Aucune école enregistrée. Veuillez en ajouter dans Firebase (collection "ecoles").';
         return;
     }
+    
+    // Remplir le select
     select.innerHTML = '<option value="">-- Sélectionnez votre école --</option>';
     ecoles.forEach(ecole => {
         select.innerHTML += `<option value="${ecole.id}" data-collection="${ecole.collectionName}" data-nom="${ecole.nom}" data-adresse="${ecole.adresse || ''}" data-code="${ecole.codeRef || ''}">${ecole.nom} ${ecole.codeRef ? '('+ecole.codeRef+')' : ''}</option>`;
     });
+    
+    // Supprimer les anciens écouteurs pour éviter les doublons
+    const newValidateBtn = validateBtn.cloneNode(true);
+    validateBtn.parentNode.replaceChild(newValidateBtn, validateBtn);
+    const newRetryBtn = retryBtn.cloneNode(true);
+    retryBtn.parentNode.replaceChild(newRetryBtn, retryBtn);
+    
+    // Fonction de validation
     const handleValidate = async function() {
         if (!select.value) {
             errorDiv.innerHTML = 'Veuillez sélectionner une école';
             return;
         }
+        
         const selectedOption = select.options[select.selectedIndex];
         const ecole = {
             id: select.value,
@@ -569,14 +590,36 @@ async function showSchoolModal() {
             collectionName: selectedOption.getAttribute('data-collection'),
             codeRef: selectedOption.getAttribute('data-code') || ''
         };
-        await saveCurrentEcole(ecole);
-        modal.classList.remove('show');
-        toast(`Bienvenue à ${ecole.nom}`, 'success');
-        showLogin();
+        
+        try {
+            // Sauvegarder l'école
+            await saveCurrentEcole(ecole);
+            
+            // Fermer la modal
+            modal.classList.remove('show');
+            
+            // Nettoyer les messages d'erreur
+            errorDiv.innerHTML = '';
+            
+            // Afficher un message de succès
+            toast(`Bienvenue à ${ecole.nom}`, 'success');
+            
+            // Afficher l'écran de connexion
+            showLogin();
+            
+        } catch(err) {
+            console.error("Erreur lors de la validation:", err);
+            errorDiv.innerHTML = 'Erreur lors de la validation. Veuillez réessayer.';
+            toast("Erreur lors de la validation de l'école", 'error');
+        }
     };
+    
+    // Fonction de réessai
     const handleRetry = async function() {
         select.innerHTML = '<option value="">-- Chargement des écoles... --</option>';
+        errorDiv.innerHTML = '';
         const newEcoles = await loadEcolesList();
+        
         if (newEcoles.length === 0) {
             select.innerHTML = '<option value="">-- Aucune école disponible --</option>';
             errorDiv.innerHTML = '⚠️ Aucune école enregistrée.';
@@ -585,18 +628,15 @@ async function showSchoolModal() {
             newEcoles.forEach(ecole => {
                 select.innerHTML += `<option value="${ecole.id}" data-collection="${ecole.collectionName}" data-nom="${ecole.nom}" data-adresse="${ecole.adresse || ''}" data-code="${ecole.codeRef || ''}">${ecole.nom} ${ecole.codeRef ? '('+ecole.codeRef+')' : ''}</option>`;
             });
-            errorDiv.innerHTML = '';
         }
     };
-    if (validateBtn) {
-        validateBtn.removeEventListener('click', handleValidate);
-        validateBtn.addEventListener('click', handleValidate);
-    }
-    if (retryBtn) {
-        retryBtn.removeEventListener('click', handleRetry);
-        retryBtn.addEventListener('click', handleRetry);
-    }
+    
+    // Ajouter les nouveaux écouteurs
+    newValidateBtn.addEventListener('click', handleValidate);
+    newRetryBtn.addEventListener('click', handleRetry);
 }
+// ============ FIN FONCTION CORRIGÉE ============
+
 function sauvegarderSession(prof) {
     const ecolePrefix = getCurrentEcoleCollection();
     if(prof) { 
@@ -833,7 +873,7 @@ function mettreAJourEpreuvesSelect(){let s=document.getElementById('groupeEpreuv
 document.getElementById('groupePeriodeSelect')?.addEventListener('change',function(){mettreAJourEpreuvesSelect();});
 document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click',function(){if(!groupesActuels.length){toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord",'error');return;}let p=parseInt(document.getElementById('groupePeriodeSelect').value);let ei=parseInt(document.getElementById('groupeEpreuveSelect').value);let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(ei>=eps.length){toast("Épreuve non valide",'error');return;}let nme=eps[ei].max;let app=0;groupesActuels.forEach(function(g,gIdx){let inp=document.getElementById('groupeNote_'+gIdx);let nr=parseFloat(inp?.value);if(isNaN(nr))return;let nf=Math.min(nr,nme);if(nf<0)nf=0;localStorage.setItem('groupe_note_'+currentFicheId+'_'+gIdx,nf);g.forEach(function(eleve){let eIdx=currentFiche.eleves.findIndex(function(e){return e.id===eleve.id;});if(eIdx!==-1){if(!currentFiche.eleves[eIdx].notes)currentFiche.eleves[eIdx].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[eIdx].notes['p'+p])currentFiche.eleves[eIdx].notes['p'+p]=[];currentFiche.eleves[eIdx].notes['p'+p][ei]=nf;app++;}});});if(app>0){saveCurrentFiche();afficherCotation();toast(app+" élève(s) noté(s)",'success');}else{toast("Aucune note appliquée",'warning');}});
 function alimenterClassement(){let s=document.getElementById('epreuveClassementSelect');if(!s||!currentFiche)return;s.innerHTML='<option value="">-- Sélectionner une période --</option>';for(let p=1;p<=4;p++){if(currentFiche.epreuvesParPeriode?.[p]?.length)s.innerHTML+='<option value="'+p+'">Période '+p+'</option>';}s.onchange=function(){if(s.value)afficherClassement(parseInt(s.value));};}
-function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead><tr><th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th></tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)+'</td><td>'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></table>';document.getElementById('classementEpreuve').innerHTML=h;}
+function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead>感<th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th></tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)++'</td><td>'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></table>';document.getElementById('classementEpreuve').innerHTML=h;}
 document.getElementById('configJourSelect')?.addEventListener('change',()=>afficherConfigHoraire());
 document.getElementById('ajouterHeureBtn')?.addEventListener('click',()=>ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click',()=>sauvegarderHoraireAuto());
@@ -1048,7 +1088,7 @@ function renderFicheCardTitu(fiche){
     }
     if(eleves.length === 0) {
         let colSpan = headers.length;
-        tableRows = `<tr><td colspan="${colSpan}" style="text-align:center;padding:40px;">📭 Aucun élève inscrit dans cette fiche<th>`;
+        tableRows = `<tr><td colspan="${colSpan}" style="text-align:center;padding:40px;">📭 Aucun élève inscrit dans cette fiche</td></tr>`;
     }
     let headerRow = '<tr>';
     for(let h of headers) {
@@ -1426,4 +1466,3 @@ setInterval(function(){
 </script>
 </body>
 </html>
-```
