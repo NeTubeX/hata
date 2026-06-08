@@ -1,79 +1,97 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sélectionnez votre établissement</title>
-    <style>
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{background:#0a0e1a;font-family:system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;}
-        .selector{max-width:550px;width:100%;}
-        h1{text-align:center;color:white;margin-bottom:40px;font-size:28px;}
-        .school-card{background:rgba(18,18,31,0.9);backdrop-filter:blur(10px);border-radius:24px;padding:25px;margin-bottom:20px;text-align:center;cursor:pointer;transition:all 0.3s;border:1px solid rgba(59,130,246,0.3);}
-        .school-card:hover{transform:translateY(-5px);border-color:#3b82f6;background:rgba(30,58,95,0.9);}
-        .school-icon{font-size:56px;margin-bottom:12px;}
-        .school-name{font-size:24px;font-weight:800;color:white;margin-bottom:6px;}
-        .school-location{font-size:13px;color:#94a3b8;}
-        .btn-access{margin-top:16px;background:#1e3a5f;color:white;border:none;padding:10px 24px;border-radius:40px;font-size:13px;font-weight:600;cursor:pointer;}
-        .loading{text-align:center;color:#94a3b8;padding:40px;}
-        .error{text-align:center;color:#ef4444;padding:40px;}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+<title>Sélectionnez votre établissement</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:linear-gradient(135deg,#0B1120 0%,#0F172A 100%);font-family:'Inter',-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:24px 20px;}
+.selector{max-width:640px;width:100%;}
+h1{text-align:center;color:#F1F5F9;margin-bottom:32px;font-size:26px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;justify-content:center;gap:12px;}
+h1:before{content:"🏫";font-size:28px;}
+h1:after{content:"";width:40px;height:2px;background:linear-gradient(90deg,#3B82F6,transparent);border-radius:2px;margin-left:6px;}
+.school-card{background:rgba(17,24,39,0.75);backdrop-filter:blur(14px);border-radius:28px;padding:20px 24px;margin-bottom:18px;text-align:left;cursor:pointer;transition:all 0.25s cubic-bezier(0.2,0,0,1);border:1px solid rgba(59,130,246,0.25);box-shadow:0 8px 20px rgba(0,0,0,0.2);}
+.school-card:hover{transform:translateY(-3px);border-color:#3B82F6;background:rgba(30,58,95,0.85);box-shadow:0 16px 28px -8px rgba(0,0,0,0.4);}
+.school-card:active{transform:scale(0.98);}
+.school-icon{font-size:44px;margin-bottom:10px;display:inline-block;background:linear-gradient(145deg,#3B82F6,#2563EB);padding:8px;border-radius:24px;box-shadow:0 6px 12px -4px rgba(0,0,0,0.3);}
+.school-name{font-size:22px;font-weight:700;color:white;margin:12px 0 6px 0;letter-spacing:-0.2px;}
+.school-location{font-size:14px;color:#94A3B8;display:flex;align-items:center;gap:6px;margin-top:4px;}
+.school-location:before{content:"📍";font-size:13px;}
+.btn-access{margin-top:18px;background:#1E3A5F;color:#E2E8F0;border:none;padding:8px 20px;border-radius:40px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s;border:1px solid rgba(59,130,246,0.4);}
+.btn-access:after{content:"→";transition:transform 0.2s;}
+.school-card:hover .btn-access{background:#2563EB;color:white;border-color:#60A5FA;}
+.school-card:hover .btn-access:after{transform:translateX(4px);}
+.loading{text-align:center;color:#94A3B8;padding:60px 20px;background:rgba(15,23,42,0.6);border-radius:32px;backdrop-filter:blur(8px);font-size:16px;display:flex;align-items:center;justify-content:center;gap:12px;}
+.loading:before{content:"";width:22px;height:22px;border:3px solid rgba(59,130,246,0.3);border-top-color:#3B82F6;border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.error{text-align:center;color:#F87171;padding:48px 20px;background:rgba(127,29,29,0.3);border-radius:32px;backdrop-filter:blur(8px);font-weight:500;border-left:4px solid #EF4444;}
+@media (max-width:500px){.selector{padding:0 4px;}h1{font-size:22px;margin-bottom:28px;}.school-card{padding:18px 20px;}.school-name{font-size:20px;}.school-icon{font-size:38px;padding:6px;}}
+</style>
 </head>
 <body>
 <div class="selector">
-    <h1>🏫 SÉLECTIONNEZ VOTRE ÉTABLISSEMENT</h1>
-    <div id="schoolsList" class="loading">🔄 Chargement des écoles...</div>
+<h1>SÉLECTIONNEZ VOTRE ÉTABLISSEMENT</h1>
+<div id="schoolsList" class="loading">Chargement des écoles...</div>
 </div>
-
-<!-- MÊME MÉTHODE QUE LE DASHBOARD : TYPE MODULE -->
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
-        authDomain: "netubexmoney.firebaseapp.com",
-        projectId: "netubexmoney",
-        storageBucket: "netubexmoney.firebasestorage.app",
-        messagingSenderId: "856592608176",
-        appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    async function chargerEcoles() {
-        const container = document.getElementById('schoolsList');
-        
-        try {
-            const snapshot = await getDocs(collection(db, "ecoles"));
-            
-            if (snapshot.empty) {
-                container.innerHTML = '<div class="error">⚠️ Aucune école trouvée</div>';
-                return;
-            }
-            
-            let html = '';
-            snapshot.forEach(doc => {
-                const ecole = doc.data();
-                html += `
-                    <div class="school-card" onclick="window.location.href='/schooling?ecole=${ecole.prefixe}'">
-                        <div class="school-icon">🏛️</div>
-                        <div class="school-name">${ecole.nom}</div>
-                        <div class="school-location">📍 ${ecole.ville}</div>
-                        <div class="btn-access">Accéder →</div>
-                    </div>
-                `;
-            });
-            container.innerHTML = html;
-            
-        } catch (error) {
-            console.error(error);
-            container.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
-        }
-    }
-
-    chargerEcoles();
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const firebaseConfig = {
+apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+authDomain: "netubexmoney.firebaseapp.com",
+projectId: "netubexmoney",
+storageBucket: "netubexmoney.firebasestorage.app",
+messagingSenderId: "856592608176",
+appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+async function chargerEcoles() {
+const container = document.getElementById('schoolsList');
+try {
+const snapshot = await getDocs(collection(db, "ecoles"));
+if (snapshot.empty) {
+container.innerHTML = '<div class="error">⚠️ Aucune école trouvée</div>';
+return;
+}
+let html = '';
+snapshot.forEach(doc => {
+const ecole = doc.data();
+html += `
+<div class="school-card" data-prefixe="${ecole.prefixe}">
+<div class="school-icon">🏛️</div>
+<div class="school-name">${escapeHtml(ecole.nom)}</div>
+<div class="school-location">${escapeHtml(ecole.ville)}</div>
+<div class="btn-access">Accéder</div>
+</div>
+`;
+});
+container.innerHTML = html;
+document.querySelectorAll('.school-card').forEach(card => {
+card.addEventListener('click', (e) => {
+e.stopPropagation();
+const prefixe = card.getAttribute('data-prefixe');
+if(prefixe) window.location.href = `/schooling?ecole=${prefixe}`;
+});
+});
+} catch (error) {
+container.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+}
+}
+function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m) { if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; return m;}); }
+chargerEcoles();
+(function() {
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+document.addEventListener('keydown', function(e) {
+if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
+e.preventDefault();
+return false;
+}
+});
+document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
+document.querySelectorAll('img, .school-card, .btn-access').forEach(el => { el.addEventListener('contextmenu', (e) => e.preventDefault()); });
+})();
 </script>
 </body>
 </html>
