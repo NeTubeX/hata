@@ -1,75 +1,133 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0a0e1a">
-<title>Sélectionnez votre établissement</title>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0a0e1a;font-family:system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;}
-.selector{max-width:550px;width:100%;}
-h1{text-align:center;color:white;margin-bottom:40px;font-size:28px;}
-.school-card{background:rgba(18,18,31,0.9);backdrop-filter:blur(10px);border-radius:24px;padding:25px;margin-bottom:20px;text-align:center;cursor:pointer;transition:all 0.3s;border:1px solid rgba(59,130,246,0.3);}
-.school-card:hover{transform:translateY(-5px);border-color:#3b82f6;background:rgba(30,58,95,0.9);}
-.school-icon{font-size:56px;margin-bottom:12px;}
-.school-name{font-size:24px;font-weight:800;color:white;margin-bottom:6px;}
-.school-location{font-size:13px;color:#94a3b8;}
-.btn-access{margin-top:16px;background:#1e3a5f;color:white;border:none;padding:10px 24px;border-radius:40px;font-size:13px;font-weight:600;cursor:pointer;}
-.loading{text-align:center;color:#94a3b8;padding:40px;}
-.error{text-align:center;color:#ef4444;padding:40px;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sélectionnez votre établissement</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:#0a0e1a;font-family:system-ui,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;}
+        .selector{max-width:550px;width:100%;}
+        h1{text-align:center;color:white;margin-bottom:40px;font-size:28px;}
+        .school-card{background:rgba(18,18,31,0.9);backdrop-filter:blur(10px);border-radius:24px;padding:25px;margin-bottom:20px;text-align:center;cursor:pointer;transition:all 0.3s;border:1px solid rgba(59,130,246,0.3);}
+        .school-card:hover{transform:translateY(-5px);border-color:#3b82f6;background:rgba(30,58,95,0.9);}
+        .school-icon{font-size:56px;margin-bottom:12px;}
+        .school-name{font-size:24px;font-weight:800;color:white;margin-bottom:6px;}
+        .school-location{font-size:13px;color:#94a3b8;}
+        .btn-access{margin-top:16px;background:#1e3a5f;color:white;border:none;padding:10px 24px;border-radius:40px;font-size:13px;font-weight:600;cursor:pointer;}
+        .loading{text-align:center;color:#94a3b8;padding:40px;}
+        .error{text-align:center;color:#ef4444;padding:40px;}
+        .debug{background:#1e293b;padding:10px;margin-top:20px;border-radius:8px;font-size:11px;color:#94a3b8;word-break:break-all;}
+    </style>
 </head>
 <body>
 <div class="selector">
-<h1>🏫 SÉLECTIONNEZ VOTRE ÉTABLISSEMENT</h1>
-<div id="schoolsList" class="loading">Chargement des écoles...</div>
+    <h1>🏫 SÉLECTIONNEZ VOTRE ÉTABLISSEMENT</h1>
+    <div id="schoolsList" class="loading">🔄 Connexion à Firebase...</div>
+    <div id="debug" class="debug"></div>
 </div>
 
 <script>
-const firebaseConfig = {
-    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
-    authDomain: "netubexmoney.firebaseapp.com",
-    projectId: "netubexmoney",
-    storageBucket: "netubexmoney.firebasestorage.app",
-    messagingSenderId: "856592608176",
-    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
-};
-
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
-async function chargerEcoles() {
-    const container = document.getElementById('schoolsList');
-    try {
-        const snapshot = await db.collection('ecoles').get();
-        if (snapshot.empty) {
-            container.innerHTML = '<div class="error">⚠️ Aucune école trouvée</div>';
-            return;
+    // AFFICHER LES LOGS DANS LA PAGE
+    function logToPage(message) {
+        const debugDiv = document.getElementById('debug');
+        if (debugDiv) {
+            debugDiv.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' - ' + message + '</div>';
         }
-        
-        let html = '';
-        snapshot.forEach(doc => {
-            const ecole = doc.data();
-            html += `
-                <div class="school-card" onclick="window.location.href='/schooling?ecole=${ecole.prefixe}'">
-                    <div class="school-icon">🏛️</div>
-                    <div class="school-name">${ecole.nom}</div>
-                    <div class="school-location">${ecole.ville}</div>
-                    <div class="btn-access">Accéder →</div>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    } catch (error) {
-        console.error(error);
-        container.innerHTML = '<div class="error">❌ Erreur de chargement</div>';
+        console.log(message);
     }
-}
 
-chargerEcoles();
+    logToPage("Démarrage du script...");
+
+    // Configuration Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+        authDomain: "netubexmoney.firebaseapp.com",
+        projectId: "netubexmoney",
+        storageBucket: "netubexmoney.firebasestorage.app",
+        messagingSenderId: "856592608176",
+        appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+    };
+
+    logToPage("Configuration Firebase définie");
+
+    // Initialiser Firebase
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            logToPage("✅ Firebase initialisé avec succès");
+        } else {
+            logToPage("✅ Firebase déjà initialisé");
+        }
+    } catch (e) {
+        logToPage("❌ ERREUR INITIALISATION: " + e.message);
+    }
+
+    const db = firebase.firestore();
+    logToPage("✅ Firestore créé");
+
+    // Fonction pour charger les écoles
+    async function chargerEcoles() {
+        const container = document.getElementById('schoolsList');
+        logToPage("Chargement des écoles...");
+        
+        try {
+            logToPage("Tentative de lecture de la collection 'ecoles'...");
+            const snapshot = await db.collection('ecoles').get();
+            
+            logToPage("✅ Requête réussie !");
+            logToPage("Nombre de documents trouvés: " + snapshot.size);
+            
+            if (snapshot.empty) {
+                container.innerHTML = '<div class="error">⚠️ Aucune école trouvée dans Firebase</div>';
+                logToPage("⚠️ La collection 'ecoles' existe mais est VIDE");
+                return;
+            }
+            
+            let html = '';
+            let compteur = 0;
+            
+            snapshot.forEach(doc => {
+                const ecole = doc.data();
+                compteur++;
+                logToPage(`Document ${compteur}: ${doc.id} - ${ecole.nom || 'sans nom'}`);
+                
+                html += `
+                    <div class="school-card" onclick="window.location.href='/?ecole=${ecole.prefixe}'">
+                        <div class="school-icon">🏛️</div>
+                        <div class="school-name">${ecole.nom || 'Nom inconnu'}</div>
+                        <div class="school-location">📍 ${ecole.ville || 'Localisation inconnue'}</div>
+                        <div class="btn-access">Accéder →</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            logToPage(`✅ ${compteur} école(s) affichée(s) avec succès !`);
+            
+        } catch (error) {
+            logToPage("❌ ERREUR DETAILLEE: " + error.message);
+            logToPage("Code erreur: " + (error.code || 'inconnu'));
+            
+            let message = '';
+            if (error.code === 'permission-denied') {
+                message = '⛔ Permissions refusées. Vérifiez les règles Firebase.';
+            } else if (error.code === 'unavailable') {
+                message = '📡 Service indisponible. Vérifiez votre connexion internet.';
+            } else if (error.code === 'not-found') {
+                message = '📭 La collection "ecoles" n\'existe pas dans Firebase.';
+            } else {
+                message = '❌ ' + error.message;
+            }
+            
+            container.innerHTML = `<div class="error">${message}</div>`;
+        }
+    }
+
+    // Lancer le chargement
+    chargerEcoles();
 </script>
 </body>
 </html>
