@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ajouter Établissement</title>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
     <style>
         body {
             background: #0a0e1a;
@@ -33,44 +31,59 @@
             overflow-x: auto;
             font-size: 12px;
         }
-        .success { 
-            color: #10b981; 
-            font-weight: bold;
-        }
-        .error { 
-            color: #ef4444; 
-            font-weight: bold;
-        }
+        .success { color: #10b981; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .loading { color: #f59e0b; }
     </style>
 </head>
 <body>
     <h1>🏫 Ajout établissement</h1>
-    <button onclick="ajouterEcole()">📚 AJOUTER COMPLEXE SCOLAIRE BERNISSE</button>
+    <button id="ajouterBtn" onclick="ajouterEcole()">📚 AJOUTER COMPLEXE SCOLAIRE BERNISSE</button>
     <div id="status">⚠️ Cliquez sur le bouton pour ajouter l'école</div>
     <pre id="resultat"></pre>
 
     <script>
-        // Initialisation Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
-            authDomain: "netubexmoney.firebaseapp.com",
-            projectId: "netubexmoney",
-            storageBucket: "netubexmoney.firebasestorage.app",
-            messagingSenderId: "856592608176",
-            appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
-        };
+        // Attendre que la page soit complètement chargée
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Page chargée, initialisation Firebase...");
+            
+            // Initialisation Firebase
+            const firebaseConfig = {
+                apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+                authDomain: "netubexmoney.firebaseapp.com",
+                projectId: "netubexmoney",
+                storageBucket: "netubexmoney.firebasestorage.app",
+                messagingSenderId: "856592608176",
+                appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+            };
 
-        // Initialiser Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+            // Initialiser Firebase s'il n'est pas déjà initialisé
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+                console.log("Firebase initialisé");
+            } else {
+                console.log("Firebase déjà initialisé");
+            }
+            
+            window.db = firebase.firestore();
+            console.log("Firestore prêt");
+            document.getElementById('status').innerHTML = "✅ Firebase prêt ! Cliquez sur le bouton";
+        });
 
-        // La fonction ajouterEcole utilise db qui est maintenant initialisé
-        async function ajouterEcole() {
+        // Fonction pour ajouter l'école
+        window.ajouterEcole = async function() {
             const statusDiv = document.getElementById('status');
             const resultatDiv = document.getElementById('resultat');
             
+            // Vérifier que db existe
+            if (!window.db) {
+                statusDiv.innerHTML = "❌ Firebase non initialisé. Rechargez la page.";
+                statusDiv.className = "error";
+                return;
+            }
+            
             statusDiv.innerHTML = "⏳ Ajout en cours...";
-            statusDiv.style.color = "#f59e0b";
+            statusDiv.className = "loading";
             resultatDiv.textContent = "";
             
             try {
@@ -90,14 +103,17 @@
                     contratValide: true
                 };
                 
-                // Ajout à Firebase
-                await db.collection('ecoles').doc('HK-A001').set(ecoleData);
+                console.log("Tentative d'ajout...");
                 
+                // Ajout à Firebase
+                await window.db.collection('ecoles').doc('HK-A001').set(ecoleData);
+                
+                console.log("Ajout réussi !");
                 statusDiv.innerHTML = "✅ Établissement ajouté avec SUCCÈS !";
-                statusDiv.style.color = "#10b981";
+                statusDiv.className = "success";
                 
                 // Vérification
-                const docVerif = await db.collection('ecoles').doc('HK-A001').get();
+                const docVerif = await window.db.collection('ecoles').doc('HK-A001').get();
                 if (docVerif.exists) {
                     resultatDiv.textContent = "📚 DONNÉES ENREGISTRÉES :\n\n" + 
                         JSON.stringify(docVerif.data(), null, 2);
@@ -106,12 +122,12 @@
                 }
                 
             } catch (error) {
+                console.error("Erreur détaillée:", error);
                 statusDiv.innerHTML = "❌ ERREUR : " + error.message;
-                statusDiv.style.color = "#ef4444";
-                resultatDiv.textContent = "Détail : " + error.message;
-                console.error(error);
+                statusDiv.className = "error";
+                resultatDiv.textContent = "Détail : " + error.message + "\n\nCode: " + (error.code || 'inconnu');
             }
-        }
+        };
     </script>
 </body>
 </html>
