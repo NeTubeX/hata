@@ -6,11 +6,13 @@
 <title>Sélectionnez votre établissement</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{background:linear-gradient(135deg,#0B1120 0%,#0F172A 100%);font-family:'Inter',-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:24px 20px;}
-.selector{max-width:640px;width:100%;}
-h1{text-align:center;color:#F1F5F9;margin-bottom:32px;font-size:26px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;justify-content:center;gap:12px;}
-h1:before{content:"🏫";font-size:28px;}
-h1:after{content:"";width:40px;height:2px;background:linear-gradient(90deg,#3B82F6,transparent);border-radius:2px;margin-left:6px;}
+body{background:linear-gradient(135deg,#0B1120 0%,#0F172A 100%);font-family:'Inter',-apple-system,'Segoe UI',Roboto,Helvetica,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0;}
+.selector{max-width:720px;width:100%;margin:0 auto;padding:20px 20px 40px 20px;flex:1;}
+.header-fixed{position:sticky;top:0;z-index:100;background:linear-gradient(135deg,#0B1120 0%,#0F172A 100%);backdrop-filter:blur(0px);padding:20px 20px 12px 20px;width:100%;border-bottom:1px solid rgba(59,130,246,0.2);margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,0.2);}
+.header-fixed h1{text-align:center;color:#F1F5F9;font-size:26px;font-weight:600;letter-spacing:-0.3px;display:flex;align-items:center;justify-content:center;gap:12px;margin:0;}
+.header-fixed h1:before{content:"🏫";font-size:28px;}
+.header-fixed h1:after{content:"";width:40px;height:2px;background:linear-gradient(90deg,#3B82F6,transparent);border-radius:2px;margin-left:6px;}
+.content-wrapper{max-width:720px;width:100%;margin:0 auto;padding:0 20px;}
 .school-card{background:rgba(17,24,39,0.75);backdrop-filter:blur(14px);border-radius:28px;padding:20px 24px;margin-bottom:18px;text-align:left;cursor:pointer;transition:all 0.25s cubic-bezier(0.2,0,0,1);border:1px solid rgba(59,130,246,0.25);box-shadow:0 8px 20px rgba(0,0,0,0.2);}
 .school-card:hover{transform:translateY(-3px);border-color:#3B82F6;background:rgba(30,58,95,0.85);box-shadow:0 16px 28px -8px rgba(0,0,0,0.4);}
 .school-card:active{transform:scale(0.98);}
@@ -26,12 +28,15 @@ h1:after{content:"";width:40px;height:2px;background:linear-gradient(90deg,#3B82
 .loading:before{content:"";width:22px;height:22px;border:3px solid rgba(59,130,246,0.3);border-top-color:#3B82F6;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .error{text-align:center;color:#F87171;padding:48px 20px;background:rgba(127,29,29,0.3);border-radius:32px;backdrop-filter:blur(8px);font-weight:500;border-left:4px solid #EF4444;}
-@media (max-width:500px){.selector{padding:0 4px;}h1{font-size:22px;margin-bottom:28px;}.school-card{padding:18px 20px;}.school-name{font-size:20px;}.school-icon{font-size:38px;padding:6px;}}
+.schools-container{display:flex;flex-direction:column;width:100%;}
+@media (max-width:600px){.header-fixed h1{font-size:22px;}.school-card{padding:18px 20px;}.school-name{font-size:20px;}.school-icon{font-size:38px;padding:6px;}.content-wrapper{padding:0 16px;}}
 </style>
 </head>
 <body>
-<div class="selector">
+<div class="header-fixed">
 <h1>SÉLECTIONNEZ VOTRE ÉTABLISSEMENT</h1>
+</div>
+<div class="content-wrapper">
 <div id="schoolsList" class="loading">Chargement des écoles...</div>
 </div>
 <script type="module">
@@ -55,31 +60,33 @@ if (snapshot.empty) {
 container.innerHTML = '<div class="error">⚠️ Aucune école trouvée</div>';
 return;
 }
-let html = '';
+let html = '<div class="schools-container">';
 snapshot.forEach(doc => {
 const ecole = doc.data();
+const nomSafe = (ecole.nom || '').replace(/[&<>]/g, function(m) { if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m; });
+const villeSafe = (ecole.ville || '').replace(/[&<>]/g, function(m) { if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m; });
 html += `
-<div class="school-card" data-prefixe="${ecole.prefixe}">
+<div class="school-card" data-prefixe="${ecole.prefixe || ''}">
 <div class="school-icon">🏛️</div>
-<div class="school-name">${escapeHtml(ecole.nom)}</div>
-<div class="school-location">${escapeHtml(ecole.ville)}</div>
+<div class="school-name">${nomSafe}</div>
+<div class="school-location">${villeSafe}</div>
 <div class="btn-access">Accéder</div>
 </div>
 `;
 });
+html += '</div>';
 container.innerHTML = html;
 document.querySelectorAll('.school-card').forEach(card => {
 card.addEventListener('click', (e) => {
 e.stopPropagation();
 const prefixe = card.getAttribute('data-prefixe');
-if(prefixe) window.location.href = `/schooling?ecole=${prefixe}`;
+if(prefixe && prefixe !== 'null' && prefixe !== 'undefined') window.location.href = `/schooling?ecole=${encodeURIComponent(prefixe)}`;
 });
 });
 } catch (error) {
 container.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
 }
 }
-function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m) { if(m === '&') return '&amp;'; if(m === '<') return '&lt;'; if(m === '>') return '&gt;'; return m;}); }
 chargerEcoles();
 (function() {
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
@@ -90,7 +97,7 @@ return false;
 }
 });
 document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
-document.querySelectorAll('img, .school-card, .btn-access').forEach(el => { el.addEventListener('contextmenu', (e) => e.preventDefault()); });
+document.querySelectorAll('img, .school-card, .btn-access').forEach(el => { if(el) el.addEventListener('contextmenu', (e) => e.preventDefault()); });
 })();
 </script>
 </body>
