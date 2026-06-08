@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<! DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}
 html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;}
 .container{max-width:1400px;margin:0 auto;padding:20px;}
 .card{background:rgba(18,18,31,0.9);backdrop-filter:blur(10px);border-radius:20px;margin-bottom:20px;overflow:hidden;border:1px solid rgba(59,130,246,0.2);}
@@ -271,6 +271,21 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 <div class="toast-container" id="toastContainer"></div>
 <script>
+// Blocage des touches de développement
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+document.addEventListener('selectstart', function(e) { e.preventDefault(); return false; });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' || 
+        (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+        (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+        (e.ctrlKey && e.key === 'u') || 
+        (e.ctrlKey && e.key === 's') ||
+        (e.ctrlKey && e.shiftKey && e.key === 'J')) {
+        e.preventDefault();
+        return false;
+    }
+});
+
 let activeToasts = [];
 function toast(message, type){
     const c = document.getElementById('toastContainer');
@@ -295,9 +310,6 @@ function escapeHtml(s){if(!s)return '';return s.replace(/[&<>]/g,function(m){ret
 function showConfirm(msg,onOk){let d=document.createElement('div');d.className='modal-fullscreen';d.innerHTML='<div class="modal-content" style="max-width:350px;text-align:center"><p style="color:#fff;margin-bottom:20px">'+msg+'</p><div style="display:flex;gap:12px;margin-top:20px;justify-content:center"><button class="btn" id="confirmOk" style="background:#ef4444">Confirmer</button><button class="btn btn-outline" id="confirmCancel">Annuler</button></div></div>';document.body.appendChild(d);setTimeout(function(){d.classList.add('show');},10);d.querySelector('#confirmOk').onclick=function(){d.remove();onOk();};d.querySelector('#confirmCancel').onclick=function(){d.remove();};}
 function showPrompt(msg, placeholder, onConfirm){
     let d=document.createElement('div');d.className='modal-fullscreen';d.innerHTML='<div class="modal-content" style="max-width:400px"><p style="color:#fff;margin-bottom:20px">'+msg+'</p><input type="text" id="promptInput" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;margin-bottom:20px"><div style="display:flex;gap:12px"><button class="btn btn-success" id="promptOk">Valider</button><button class="btn btn-outline" id="promptCancel">Annuler</button></div></div>';document.body.appendChild(d);setTimeout(function(){d.classList.add('show');},10);d.querySelector('#promptOk').onclick=function(){let val=d.querySelector('#promptInput').value.trim();d.remove();if(onConfirm)onConfirm(val);};d.querySelector('#promptCancel').onclick=function(){d.remove();if(onConfirm)onConfirm(null);};}
-document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
-document.addEventListener('selectstart',function(e){e.preventDefault();return false;});
-document.addEventListener('keydown',function(e){if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&e.key==='I')||(e.ctrlKey&&e.key==='u')||(e.ctrlKey&&e.key==='s')){e.preventDefault();return false;}});
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -391,7 +403,23 @@ async function deleteFromIndexedDB(store,key){let dbc=await initIndexedDB();retu
 async function addPendingSync(a,d){await saveToIndexedDB('pendingSync',{id:Date.now(),action:a,data:d,timestamp:Date.now()});}
 async function syncToFirebase(){if(!navigator.onLine)return;let p=await getAllFromIndexedDB('pendingSync');for(let i of p){try{if(i.action==='saveFiche'){await setDoc(doc(db, `${SCHOOL_PREFIX}_fiches`, i.data.ficheId), i.data);}else if(i.action==='deleteFiche'){await deleteDoc(doc(db, `${SCHOOL_PREFIX}_fiches`, i.data));}else if(i.action==='saveProf'){await setDoc(doc(db, `${SCHOOL_PREFIX}_professeurs`, i.data.id), i.data);}else if(i.action==='deleteProf'){await deleteDoc(doc(db, `${SCHOOL_PREFIX}_professeurs`, i.data));}else if(i.action==='updateCompteur'){await setDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"),{valeur:i.data});}else if(i.action==='saveHoraire'){await setDoc(doc(db, `${SCHOOL_PREFIX}_horaires`, "horaire_"+i.data.profId),{profId:i.data.profId,horaire:i.data.horaire,lastUpdated:new Date()});}await deleteFromIndexedDB('pendingSync',i.id);}catch(e){console.error('Sync failed',e);}}}
 window.addEventListener('online',function(){syncToFirebase();});
-async function getNextFicheNumero(){let c=await getFromIndexedDB('compteur','global');let cv=c?.valeur||0;let nv=cv+1;await saveToIndexedDB('compteur',{id:'global',valeur:nv});if(navigator.onLine){try{await setDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"),{valeur:nv});}catch(e){await addPendingSync('updateCompteur',nv);}}else{await addPendingSync('updateCompteur',nv);}return nv;}
+async function getNextFicheNumero(){
+    let compteurKey = `global_${SCHOOL_PREFIX}`;
+    let c = await getFromIndexedDB('compteur', compteurKey);
+    let cv = c?.valeur || 0;
+    let nv = cv + 1;
+    await saveToIndexedDB('compteur', {id: compteurKey, valeur:nv});
+    if(navigator.onLine){
+        try{
+            await setDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"), {valeur:nv});
+        }catch(e){
+            await addPendingSync('updateCompteur', nv);
+        }
+    }else{
+        await addPendingSync('updateCompteur', nv);
+    }
+    return nv;
+}
 async function loadAllFiches(){if(!currentProf)return[];let all=await getAllFromIndexedDB('fiches');let pf=all.filter(function(f){return f.profId===currentProf.id && !f._type && f.school === SCHOOL_PREFIX;});pf.sort(function(a,b){return (a.numeroRef||999)-(b.numeroRef||999);});return pf.map(function(f){return {id:f.ficheId,cours:f.cours||'',classe:f.classe||'',option:f.option||'',numeroRef:f.numeroRef||null};});}
 async function saveCurrentFiche(){if(!currentProf||!currentFicheId||!currentFiche)return;
 currentFiche.lastModified=new Date();
@@ -1054,8 +1082,12 @@ async function initTitulaire(){
         await chargerFichesPourRechercheTitu();
     }
 }
-await initIndexedDB();let ce=await getFromIndexedDB('compteur','global');if(!ce)await saveToIndexedDB('compteur',{id:'global',valeur:0});await chargerOptionsParClasse();
-if(navigator.onLine){try{let fp=await getDocs(query(collection(db, `${SCHOOL_PREFIX}_professeurs`), where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.ficheId});}}let cs=await getDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:'global',valeur:cs.data().valeur||0});}}catch(e){console.log("Erreur synchronisation Firebase:",e);}}
+let compteurKey = `global_${SCHOOL_PREFIX}`;
+let ce = await getFromIndexedDB('compteur', compteurKey);
+if(!ce) await saveToIndexedDB('compteur', {id: compteurKey, valeur:0});
+await initIndexedDB();
+await chargerOptionsParClasse();
+if(navigator.onLine){try{let fp=await getDocs(query(collection(db, `${SCHOOL_PREFIX}_professeurs`), where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.ficheId});}}let cs=await getDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:compteurKey, valeur:cs.data().valeur||0});}}catch(e){console.log("Erreur synchronisation Firebase:",e);}}
 let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}
 initTitulaire();
 setInterval(function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let modifie=false;corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=new Date()){modifie=true;return false;}if(f.school && f.school !== SCHOOL_PREFIX) return false;return true;});if(modifie){localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(document.getElementById('modalTabCorbeille')?.classList.contains('active')){afficherCorbeille();}}},24*60*60*1000);
