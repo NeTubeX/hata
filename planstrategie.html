@@ -2,339 +2,598 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-<title>NETUBEX SARL | CALENDRIER STRATÉGIQUE - PSI</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>NETUBEX SARL | CALENDRIER STRATÉGIQUE + PLANNING</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#0a1a2f;color:#e0f2fe;line-height:1.4;min-height:100vh;overflow-x:hidden;overflow-y:auto;}
-.mobile-container{max-width:100%;padding:12px 12px 30px;margin:0 auto;overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh;}
-.header-logo{display:flex;align-items:center;gap:10px;background:#0d2740;padding:12px 16px;border-radius:40px;margin-bottom:16px;border:1px solid #2d5980;}
-.header-logo div{font-size:0.95rem;font-weight:500;color:#bbdefb;line-height:1.2;}
-h1{text-align:center;font-size:1.6rem;font-weight:500;margin:8px 0 16px;background:linear-gradient(135deg,#60a5fa,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-.info-section{background:#112b42;padding:18px 16px;border-radius:28px;margin-bottom:20px;border:1px solid #2d4e73;}
-.info-row{display:flex;flex-direction:column;gap:16px;margin-bottom:12px;}
-.info-item{width:100%;}
-label{display:block;margin-bottom:5px;font-weight:500;font-size:0.8rem;color:#b8d8f0;letter-spacing:0.2px;}
-input,select,textarea{width:100%;padding:14px 16px;background:#1e3a5f;border:1.5px solid #2d5780;border-radius:24px;font-size:0.95rem;color:#f0f9ff !important;transition:all 0.2s ease;-webkit-appearance:none;}
-textarea{resize:vertical;min-height:80px;font-family:inherit;}
-.section-title{font-size:1.3rem;font-weight:600;margin:24px 0 12px;padding-bottom:8px;border-bottom:3px solid #3b82f6;display:flex;align-items:center;flex-wrap:wrap;gap:10px;color:#d9f0ff;}
-.section-title span{background:#2563eb;color:white;font-size:0.7rem;padding:4px 12px;border-radius:40px;font-weight:500;}
-.month-card{background:#0e2e47;border-radius:32px;padding:18px 16px;margin-bottom:20px;border:1px solid #facc15;}
-.month-title{font-size:1.2rem;font-weight:700;color:#facc15;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;}
-.form-full{grid-column:span 2;}
-@media (max-width:600px){.form-grid{grid-template-columns:1fr;}.form-full{grid-column:span 1;}}
-.color-selector{background:#0e2e47;border-radius:32px;padding:16px;margin-bottom:20px;border:1px solid #3b82f6;}
-.color-selector label{margin-bottom:8px;font-size:0.8rem;color:#facc15;}
-.color-selector select{background:#1a3d5c;border:1px solid #3b82f6;cursor:pointer;}
-button{background:linear-gradient(145deg,#2563eb,#1d4ed8);color:white;border:none;padding:18px 24px;font-size:1.1rem;font-weight:600;border-radius:60px;cursor:pointer;width:100%;margin:20px 0 10px;transition:0.2s;}
-button:active{transform:scale(0.98);}
-footer{text-align:center;font-size:0.65rem;color:#5f748d;margin-top:16px;}
-#pdf-preview-container{position:fixed;left:-9999px;top:0;background:white;z-index:-1;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0f2fe;padding:24px;}
+.dashboard{max-width:1400px;margin:0 auto;}
+.header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:24px;padding:20px 28px;margin-bottom:24px;border:1px solid #2d5980;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;}
+.header h1{font-size:1.5rem;font-weight:600;color:#facc15;margin-bottom:6px;}
+.header p{font-size:0.8rem;color:#bbdefb;}
+.badge{background:#facc15;color:#0a1a2f;padding:6px 18px;border-radius:40px;font-weight:700;font-size:0.8rem;}
+.tab-container{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;}
+.tab-btn{background:#1e3a5f;border:none;padding:12px 28px;border-radius:40px;color:#fff;cursor:pointer;font-weight:600;font-size:0.9rem;transition:0.2s;}
+.tab-btn.active{background:#facc15;color:#0a1a2f;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.card{background:linear-gradient(135deg,#112b42,#0a1e30);border-radius:20px;overflow:hidden;border:1px solid #2d4e73;margin-bottom:24px;}
+.card-header{background:#0d2740;padding:14px 18px;border-bottom:2px solid #facc15;font-weight:700;color:#facc15;display:flex;align-items:center;gap:10px;font-size:0.9rem;}
+.card-body{padding:18px;}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-bottom:24px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:0.7rem;font-weight:600;color:#bbdefb;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px;}
+.field input,.field select{width:100%;padding:10px 12px;background:#1e3a5f;border:1.5px solid #2d5780;border-radius:12px;font-size:0.85rem;color:#f0f9ff;}
+.field textarea{width:100%;padding:10px 12px;background:#1e3a5f;border:1.5px solid #2d5780;border-radius:12px;font-size:0.85rem;color:#f0f9ff;resize:vertical;min-height:60px;font-family:inherit;}
+.date-group{display:flex;gap:8px;}
+.date-group select{flex:1;padding:10px 6px;background:#1e3a5f;border:1.5px solid #2d5780;border-radius:12px;color:#f0f9ff;cursor:pointer;}
+.btn{background:linear-gradient(145deg,#facc15,#e6b800);color:#0a1a2f;border:none;padding:12px 24px;font-size:0.9rem;font-weight:700;border-radius:40px;cursor:pointer;width:100%;margin-top:16px;transition:0.2s;}
+.btn-export{background:linear-gradient(145deg,#10b981,#059669);margin-bottom:16px;}
+.btn-export:last-child{margin-bottom:0;}
+.btn:hover{opacity:0.9;transform:scale(0.98);}
+.toast-container{position:fixed;top:20px;left:0;right:0;z-index:2000;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
+.toast{background:#1e3a5f;border-left:5px solid #10b981;border-radius:12px;padding:12px 24px;color:#fff;font-weight:500;font-size:0.85rem;box-shadow:0 4px 12px rgba(0,0,0,0.3);pointer-events:auto;animation:slideDown 0.3s ease;max-width:90%;text-align:center;}
+.toast.error{border-left-color:#ef4444;}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0;}to{transform:translateY(0);opacity:1;}}
+@media (max-width:900px){.grid-3{grid-template-columns:1fr;}.grid-2{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
-<div class="mobile-container">
-<div class="header-logo"><div>⚡ NETUBEX SARL<br>CALENDRIER STRATÉGIQUE - PSI</div></div>
-<h1>PLANIFICATION OPÉRATIONNELLE<br>2026-2027</h1>
-<div class="info-section">
-<div class="info-row">
-<div class="info-item"><label>Nom de l'entreprise</label><input id="company" value="NETUBEX SARL" readonly></div>
-<div class="info-item"><label>Initiateur du projet</label><input id="initiateur" value="Flory Ngenda" readonly></div>
-<div class="info-item"><label>Nom du projet</label><input id="nom_projet" value="Gestion de scolarité" readonly></div>
-<div class="info-item"><label>Vision stratégique</label><input id="vision" placeholder="Vision 2026-2027"></div>
-<div class="info-item"><label>Date de lancement prévue</label><input type="date" id="lancement"></div>
-<div class="info-item"><label>Date de création du planning</label><input type="date" id="creationDate"></div>
+<div class="dashboard">
+<div class="header">
+<div><h1>📅 NETUBEX SARL</h1><p>DÉPARTEMENT STRATÉGIE ET PLANIFICATION · 2026-2027</p></div>
+<div class="badge">PSI</div>
+</div>
+<div class="tab-container">
+<button class="tab-btn active" data-tab="tab1">📊 CALENDRIER STRATÉGIQUE</button>
+<button class="tab-btn" data-tab="tab2">📋 PLANNING OPÉRATIONNEL</button>
+<button class="tab-btn" data-tab="tab3">📄 EXPORT PDF</button>
+</div>
+<!-- ==================== ONGLET 1 : CALENDRIER STRATÉGIQUE ==================== -->
+<div id="tab1" class="tab-content active">
+<div class="card">
+<div class="card-header"><span>🏢</span> IDENTIFICATION DU PROJET</div>
+<div class="card-body">
+<div class="grid-2">
+<div class="field"><label>ENTREPRISE</label><input id="company" value="NETUBEX SARL" readonly></div>
+<div class="field"><label>PROJET</label><input id="nomProjet" value="Gestion de scolarité" readonly></div>
+<div class="field"><label>INITIATEUR</label><input id="initiateur" value="Flory Ngenda" readonly></div>
+<div class="field"><label>DATE PRÉSENTATION CVP</label><input type="date" id="dateCVP"></div>
+<div class="field"><label>VISION STRATÉGIQUE</label><input id="vision" placeholder="Vision 2026-2027"></div>
+<div class="field"><label>DATE LANCEMENT</label><input type="date" id="lancement"></div>
 </div>
 </div>
-<div class="section-title">CALENDRIER OPÉRATIONNEL PAR PÔLE <span>Avant lancement produit</span></div>
-<div class="month-card"><div class="month-title">📅 PHASE 1 : PRÉPARATION & MARKETING</div>
-<div class="form-grid">
-<div class="form-full"><label>Période (dates précises)</label><input id="m1_periode" placeholder="ex: 01 juin 2026 → 30 juin 2026"></div>
-<div class="form-full"><label>Objectif principal</label><input id="m1_objectif" placeholder="Objectif opérationnel"></div>
-<div class="form-full"><label>Actions clés</label><textarea id="m1_actions" rows="3" placeholder="Ex: Campagne réseaux sociaux, Création des supports"></textarea></div>
-<div><label>Pôle responsable</label><select id="m1_pole"><option>PSI</option><option>PAFCO</option><option>PMGAJ</option><option>PMGAJ + PAFCO</option></select></div>
-<div><label>Responsable opérationnel</label><input id="m1_responsable" placeholder="Nom"></div>
-<div><label>Priorité</label><select id="m1_priorite"><option>Critique</option><option>Haute</option><option>Moyenne</option><option>Basse</option></select></div>
-<div><label>Statut</label><select id="m1_statut"><option>À venir</option><option>En cours</option><option>Terminé</option><option>Bloqué</option></select></div>
-<div class="form-full"><label>Livrables attendus</label><textarea id="m1_livrables" rows="2"></textarea></div>
-</div></div>
-<div class="month-card"><div class="month-title">📅 PHASE 2 : DÉPLOIEMENT & SENSIBILISATION</div>
-<div class="form-grid">
-<div class="form-full"><label>Période (dates précises)</label><input id="m2_periode" placeholder="ex: 01 juillet 2026 → 31 juillet 2026"></div>
-<div class="form-full"><label>Objectif principal</label><input id="m2_objectif" placeholder="Objectif opérationnel"></div>
-<div class="form-full"><label>Actions clés</label><textarea id="m2_actions" rows="3"></textarea></div>
-<div><label>Pôle responsable</label><select id="m2_pole"><option>PSI</option><option>PAFCO</option><option>PMGAJ</option><option>PSI + PMGAJ</option></select></div>
-<div><label>Responsable opérationnel</label><input id="m2_responsable" placeholder="Nom"></div>
-<div><label>Priorité</label><select id="m2_priorite"><option>Critique</option><option>Haute</option><option>Moyenne</option><option>Basse</option></select></div>
-<div><label>Statut</label><select id="m2_statut"><option>À venir</option><option>En cours</option><option>Terminé</option><option>Bloqué</option></select></div>
-<div class="form-full"><label>Livrables attendus</label><textarea id="m2_livrables" rows="2"></textarea></div>
-</div></div>
-<div class="month-card"><div class="month-title">📅 PHASE 3 : LANCEMENT OFFICIEL & SUIVI</div>
-<div class="form-grid">
-<div class="form-full"><label>Période (dates précises)</label><input id="m3_periode" placeholder="ex: 01 août 2026 → 31 août 2026"></div>
-<div class="form-full"><label>Objectif principal</label><input id="m3_objectif" placeholder="Objectif opérationnel"></div>
-<div class="form-full"><label>Actions clés</label><textarea id="m3_actions" rows="3"></textarea></div>
-<div><label>Pôle responsable</label><select id="m3_pole"><option>PSI</option><option>PAFCO</option><option>PMGAJ</option><option>Tous les pôles</option></select></div>
-<div><label>Responsable opérationnel</label><input id="m3_responsable" placeholder="Nom"></div>
-<div><label>Priorité</label><select id="m3_priorite"><option>Critique</option><option>Haute</option><option>Moyenne</option><option>Basse</option></select></div>
-<div><label>Statut</label><select id="m3_statut"><option>À venir</option><option>En cours</option><option>Terminé</option><option>Bloqué</option></select></div>
-<div class="form-full"><label>Livrables attendus</label><textarea id="m3_livrables" rows="2"></textarea></div>
-</div></div>
-<div class="section-title">INDICATEURS DE SUCCÈS & POINTS DE CONTRÔLE</div>
-<div class="info-section">
-<div class="form-grid">
-<div class="form-full"><label>Points de contrôle clés (dates butoirs)</label><textarea id="controles" rows="2"></textarea></div>
-<div><label>Taux de préparation global</label><select id="avancement"><option>0%</option><option>25%</option><option>50%</option><option>75%</option><option>100%</option></select></div>
-<div><label>Risques identifiés</label><textarea id="risques" rows="2"></textarea></div>
-<div><label>Plan de mitigation</label><textarea id="mitigation" rows="2"></textarea></div>
-</div></div>
-<div class="section-title">SYNTHÈSE & APPROBATION PSI</div>
-<div class="info-section">
-<div class="form-grid">
-<div class="form-full"><label>Commentaires de la direction stratégique</label><textarea id="commentaires" rows="2"></textarea></div>
-<div><label>Validé par (PSI)</label><input id="validePar" value="Flory Ngenda"></div>
-<div><label>Signature</label><input id="signature" placeholder="Signature"></div>
-<div><label>Date d'approbation</label><input type="date" id="finalDate"></div>
-</div></div>
-<div class="color-selector"><label>🎨 COULEUR DE FOND DU RAPPORT PDF</label>
-<select id="pdfColor">
-<option value="#ffffff">⚪ Blanc</option>
-<option value="#e3f2fd">🔵 Bleu clair</option>
-<option value="#e8f5e9">🟢 Vert clair</option>
-<option value="#fff3e0">🟠 Orange clair</option>
-</select></div>
-<button id="generatePdfBtn">📄 GÉNÉRER LE CALENDRIER PDF (PAYSAGE)</button>
-<footer>NETUBEX SARL · PSI - Stratégie & Planification · Document opérationnel 2026-2027</footer>
 </div>
-
-<!-- Conteneur caché pour le PDF -->
-<div id="pdfContainer" style="position:absolute; left:-9999px; top:0; width:1123px; background:white; z-index:-1;"></div>
-
+<div class="grid-3">
+<div class="card"><div class="card-header"><span>📌</span> PÉRIODE 1 · PRÉPARATION</div><div class="card-body">
+<div class="field"><label>CALENDRIER</label><div class="date-group"><select id="p1_j_deb"><option>JJ</option></select><select id="p1_m_deb"><option>MM</option></select><select id="p1_a_deb"><option>AAAA</option></select><span>→</span><select id="p1_j_fin"><option>JJ</option></select><select id="p1_m_fin"><option>MM</option></select><select id="p1_a_fin"><option>AAAA</option></select></div></div>
+<div class="field"><label>OBJECTIF STRATÉGIQUE</label><input id="p1_obj" placeholder="Objectif principal"></div>
+<div class="field"><label>ORIENTATIONS CLÉS</label><textarea id="p1_actions" rows="2" placeholder="Grandes orientations"></textarea></div>
+<div class="field"><label>PÔLE RESPONSABLE</label><select id="p1_pole"><option value="PSI">PSI (Stratégie et Innovation)</option><option value="PAFCO">PAFCO (Administration-Finances-Commercial)</option><option value="PMGAJ">PMGAJ (Marketing-Gouvernance-Affaires Juridiques)</option></select></div>
+<div class="field"><label>RESPONSABLE</label><input id="p1_resp" readonly></div>
+<div class="field"><label>LIVRABLES CLÉS</label><input id="p1_liv" placeholder="Principaux livrables"></div>
+<div class="field"><label>STATUT JURIDIQUE</label><select id="p1_jur"><option>Conforme</option><option>En cours</option></select></div>
+</div></div>
+<div class="card"><div class="card-header"><span>⚡</span> PÉRIODE 2 · DÉPLOIEMENT</div><div class="card-body">
+<div class="field"><label>CALENDRIER</label><div class="date-group"><select id="p2_j_deb"><option>JJ</option></select><select id="p2_m_deb"><option>MM</option></select><select id="p2_a_deb"><option>AAAA</option></select><span>→</span><select id="p2_j_fin"><option>JJ</option></select><select id="p2_m_fin"><option>MM</option></select><select id="p2_a_fin"><option>AAAA</option></select></div></div>
+<div class="field"><label>OBJECTIF STRATÉGIQUE</label><input id="p2_obj" placeholder="Objectif principal"></div>
+<div class="field"><label>ORIENTATIONS CLÉS</label><textarea id="p2_actions" rows="2" placeholder="Grandes orientations"></textarea></div>
+<div class="field"><label>PÔLE RESPONSABLE</label><select id="p2_pole"><option value="PSI">PSI (Stratégie et Innovation)</option><option value="PAFCO">PAFCO (Administration-Finances-Commercial)</option><option value="PMGAJ">PMGAJ (Marketing-Gouvernance-Affaires Juridiques)</option></select></div>
+<div class="field"><label>RESPONSABLE</label><input id="p2_resp" readonly></div>
+<div class="field"><label>LIVRABLES CLÉS</label><input id="p2_liv" placeholder="Principaux livrables"></div>
+</div></div>
+<div class="card"><div class="card-header"><span>🚀</span> PÉRIODE 3 · LANCEMENT & SUIVI</div><div class="card-body">
+<div class="field"><label>CALENDRIER</label><div class="date-group"><select id="p3_j_deb"><option>JJ</option></select><select id="p3_m_deb"><option>MM</option></select><select id="p3_a_deb"><option>AAAA</option></select><span>→</span><select id="p3_j_fin"><option>JJ</option></select><select id="p3_m_fin"><option>MM</option></select><select id="p3_a_fin"><option>AAAA</option></select></div></div>
+<div class="field"><label>OBJECTIF STRATÉGIQUE</label><input id="p3_obj" placeholder="Objectif principal"></div>
+<div class="field"><label>ORIENTATIONS CLÉS</label><textarea id="p3_actions" rows="2" placeholder="Grandes orientations"></textarea></div>
+<div class="field"><label>PÔLE RESPONSABLE</label><select id="p3_pole"><option value="PSI">PSI (Stratégie et Innovation)</option><option value="PAFCO">PAFCO (Administration-Finances-Commercial)</option><option value="PMGAJ">PMGAJ (Marketing-Gouvernance-Affaires Juridiques)</option></select></div>
+<div class="field"><label>RESPONSABLE</label><input id="p3_resp" readonly></div>
+<div class="field"><label>LIVRABLES CLÉS</label><input id="p3_liv" placeholder="Principaux livrables"></div>
+</div></div>
+</div>
+<div class="grid-2">
+<div class="card"><div class="card-header"><span>📊</span> INDICATEURS DE SUCCÈS</div><div class="card-body">
+<div class="field"><label>POINTS DE CONTRÔLE</label><textarea id="controles" rows="2" placeholder="Étapes clés à surveiller"></textarea></div>
+<div class="field"><label>RISQUES & MITIGATION</label><textarea id="risques" rows="2" placeholder="Risques majeurs et mesures correctives"></textarea></div>
+<div class="field"><label>OBSERVATIONS</label><textarea id="observations" rows="2" placeholder="Commentaires stratégiques"></textarea></div>
+</div></div>
+<div class="card"><div class="card-header"><span>✅</span> VALIDATION</div><div class="card-body">
+<div class="field"><label>VALIDÉ ET DÉLIVRÉ PAR</label><input id="validePar" value="DÉPARTEMENT STRATÉGIE ET PLANIFICATION" readonly></div>
+<div class="field"><label>SIGNATURE</label><input id="signature" placeholder="Signature"></div>
+<div class="field"><label>DATE D'APPROBATION</label><input type="date" id="finalDate"></div>
+</div></div>
+</div>
+</div>
+<!-- ==================== ONGLET 2 : PLANNING OPÉRATIONNEL ==================== -->
+<div id="tab2" class="tab-content">
+<div class="card">
+<div class="card-header"><span>📋</span> PLANNING OPÉRATIONNEL</div>
+<div class="card-body">
+<div class="grid-2">
+<div class="field"><label>ACTION / MISSION</label><input id="plan_action" placeholder="Ex: Sensibilisation des établissements"></div>
+<div class="field"><label>PROVINCE</label><select id="plan_province"><option value="">Sélectionner une province</option></select></div>
+<div class="field"><label>VILLE / TERRITOIRE</label><select id="plan_ville"><option value="">Sélectionner d'abord une province</option></select></div>
+<div class="field"><label>PÔLE RESPONSABLE</label><select id="plan_pole"><option value="PSI">PSI (Stratégie et Innovation)</option><option value="PAFCO">PAFCO (Administration-Finances-Commercial)</option><option value="PMGAJ">PMGAJ (Marketing-Gouvernance-Affaires Juridiques)</option></select></div>
+<div class="field"><label>RESPONSABLE TERRAIN</label><input id="plan_responsable" value="Monsieur Bahati"></div>
+<div class="field"><label>NOMBRE D'ÉTABLISSEMENTS SCOLAIRES CIBLÉS</label><input id="plan_ecoles" type="number" placeholder="0" value="0"></div>
+<div class="field"><label>NOMBRE DE CLIENTS CIBLÉS</label><input id="plan_clients" type="number" placeholder="0" value="0"></div>
+<div class="field"><label>DATE D'EXÉCUTION</label><input type="date" id="plan_date"></div>
+<div class="field"><label>HEURE DE DÉBUT</label><input type="time" id="plan_heure_debut"></div>
+<div class="field"><label>HEURE DE FIN</label><input type="time" id="plan_heure_fin"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- ==================== ONGLET 3 : EXPORT PDF ==================== -->
+<div id="tab3" class="tab-content">
+<div class="card">
+<div class="card-header"><span>📄</span> GÉNÉRATION DE DOCUMENTS</div>
+<div class="card-body">
+<div style="text-align:center; padding:20px 0;">
+<p style="margin-bottom:24px; color:#bbdefb;">Cliquez sur le bouton correspondant au document que vous souhaitez exporter au format PDF.</p>
+<button class="btn btn-export" id="generateStrategiqueBtn">📊 GÉNÉRER LE PDF CALENDRIER STRATÉGIQUE</button>
+<button class="btn btn-export" id="generatePlanningBtn">📋 GÉNÉRER LE PDF PLANNING OPÉRATIONNEL</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="toastContainer" class="toast-container"></div>
 <script>
-function escapeHtml(s){
-    if(!s) return '';
-    return s.replace(/[&<>]/g, function(m){
-        if(m==='&') return '&amp;';
-        if(m==='<') return '&lt;';
-        if(m==='>') return '&gt;';
-        return m;
+// ==================== PROTECTION ====================
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12') { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.key === 'u') { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.key === 's') { e.preventDefault(); return false; }
+});
+// ==================== FIREBASE ====================
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+let db = null;
+try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch(e) { console.warn("Firebase non initialisé:", e); }
+const COLLECTION_NAME = "NETUBEX";
+const DOC_CALENDRIER = "calendrier_strategique";
+const DOC_PLANNING = "planning_operationnel";
+// ==================== INDEXEDDB ====================
+function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('NETUBEX_OfflineDB', 2);
+        request.onupgradeneeded = (e) => {
+            const dbConn = e.target.result;
+            if (!dbConn.objectStoreNames.contains('calendrier')) dbConn.createObjectStore('calendrier', { keyPath: 'id' });
+            if (!dbConn.objectStoreNames.contains('planning')) dbConn.createObjectStore('planning', { keyPath: 'id' });
+            if (!dbConn.objectStoreNames.contains('pending_sync')) dbConn.createObjectStore('pending_sync', { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
     });
 }
-
-function getFormValues(){
+async function saveToLocal(store, data) {
+    try {
+        const dbConn = await initIndexedDB();
+        return new Promise((resolve, reject) => {
+            const tx = dbConn.transaction(store, 'readwrite');
+            const req = tx.objectStore(store).put(data);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    } catch(e) { console.warn("saveToLocal error:", e); }
+}
+async function getFromLocal(store, key) {
+    try {
+        const dbConn = await initIndexedDB();
+        return new Promise((resolve, reject) => {
+            const tx = dbConn.transaction(store, 'readonly');
+            const req = tx.objectStore(store).get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    } catch(e) { return null; }
+}
+async function getAllFromLocal(store) {
+    try {
+        const dbConn = await initIndexedDB();
+        return new Promise((resolve, reject) => {
+            const tx = dbConn.transaction(store, 'readonly');
+            const req = tx.objectStore(store).getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    } catch(e) { return []; }
+}
+async function deleteFromLocal(store, key) {
+    try {
+        const dbConn = await initIndexedDB();
+        return new Promise((resolve, reject) => {
+            const tx = dbConn.transaction(store, 'readwrite');
+            const req = tx.objectStore(store).delete(key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    } catch(e) {}
+}
+async function addToPendingQueue(type, data) {
+    const pending = { type: type, data: data, timestamp: Date.now(), retry: 0 };
+    await saveToLocal('pending_sync', pending);
+    return pending;
+}
+async function getPendingQueue() { return await getAllFromLocal('pending_sync'); }
+async function removeFromPendingQueue(id) { await deleteFromLocal('pending_sync', id); }
+async function syncToFirebase() {
+    if (!db || !navigator.onLine) return;
+    const pending = await getPendingQueue();
+    if (pending.length === 0) return;
+    for (const item of pending) {
+        try {
+            if (item.type === 'save_calendrier') await db.collection(COLLECTION_NAME).doc(DOC_CALENDRIER).set(item.data);
+            else if (item.type === 'save_planning') await db.collection(COLLECTION_NAME).doc(DOC_PLANNING).set(item.data);
+            await removeFromPendingQueue(item.id);
+        } catch(e) { console.error('Sync failed', e); }
+    }
+}
+async function saveCalendrierLocal(data) {
+    await saveToLocal('calendrier', { id: 'current', ...data, lastModified: Date.now() });
+    await addToPendingQueue('save_calendrier', { id: 'current', ...data });
+    if (navigator.onLine && db) await syncToFirebase();
+}
+async function savePlanningLocal(data) {
+    await saveToLocal('planning', { id: 'current', ...data, lastModified: Date.now() });
+    await addToPendingQueue('save_planning', { id: 'current', ...data });
+    if (navigator.onLine && db) await syncToFirebase();
+}
+async function loadFromFirebase() {
+    if (!db || !navigator.onLine) {
+        const localCal = await getFromLocal('calendrier', 'current');
+        const localPlan = await getFromLocal('planning', 'current');
+        if (localCal) restoreCalendrier(localCal);
+        if (localPlan) restorePlanning(localPlan);
+        return;
+    }
+    try {
+        const calDoc = await db.collection(COLLECTION_NAME).doc(DOC_CALENDRIER).get();
+        if (calDoc.exists) { restoreCalendrier(calDoc.data()); await saveToLocal('calendrier', calDoc.data()); }
+        const planDoc = await db.collection(COLLECTION_NAME).doc(DOC_PLANNING).get();
+        if (planDoc.exists) { restorePlanning(planDoc.data()); await saveToLocal('planning', planDoc.data()); }
+    } catch(e) {
+        const localCal = await getFromLocal('calendrier', 'current');
+        const localPlan = await getFromLocal('planning', 'current');
+        if (localCal) restoreCalendrier(localCal);
+        if (localPlan) restorePlanning(localPlan);
+    }
+}
+function restoreCalendrier(data) {
+    if (data.dateCVP) document.getElementById('dateCVP').value = data.dateCVP;
+    if (data.vision) document.getElementById('vision').value = data.vision;
+    if (data.lancement) document.getElementById('lancement').value = data.lancement;
+    if (data.p1_obj) document.getElementById('p1_obj').value = data.p1_obj;
+    if (data.p1_actions) document.getElementById('p1_actions').value = data.p1_actions;
+    if (data.p1_pole) document.getElementById('p1_pole').value = data.p1_pole;
+    if (data.p1_liv) document.getElementById('p1_liv').value = data.p1_liv;
+    if (data.p1_jur) document.getElementById('p1_jur').value = data.p1_jur;
+    if (data.p2_obj) document.getElementById('p2_obj').value = data.p2_obj;
+    if (data.p2_actions) document.getElementById('p2_actions').value = data.p2_actions;
+    if (data.p2_pole) document.getElementById('p2_pole').value = data.p2_pole;
+    if (data.p2_liv) document.getElementById('p2_liv').value = data.p2_liv;
+    if (data.p3_obj) document.getElementById('p3_obj').value = data.p3_obj;
+    if (data.p3_actions) document.getElementById('p3_actions').value = data.p3_actions;
+    if (data.p3_pole) document.getElementById('p3_pole').value = data.p3_pole;
+    if (data.p3_liv) document.getElementById('p3_liv').value = data.p3_liv;
+    if (data.controles) document.getElementById('controles').value = data.controles;
+    if (data.risques) document.getElementById('risques').value = data.risques;
+    if (data.observations) document.getElementById('observations').value = data.observations;
+    if (data.signature) document.getElementById('signature').value = data.signature;
+    if (data.finalDate) document.getElementById('finalDate').value = data.finalDate;
+    updateResp(1); updateResp(2); updateResp(3);
+}
+function restorePlanning(data) {
+    if (data.action) document.getElementById('plan_action').value = data.action;
+    if (data.province) document.getElementById('plan_province').value = data.province;
+    if (data.ville) { updateVilles(); setTimeout(() => { document.getElementById('plan_ville').value = data.ville; }, 50); }
+    if (data.pole) document.getElementById('plan_pole').value = data.pole;
+    if (data.responsable) document.getElementById('plan_responsable').value = data.responsable;
+    if (data.ecoles) document.getElementById('plan_ecoles').value = data.ecoles;
+    if (data.clients) document.getElementById('plan_clients').value = data.clients;
+    if (data.date) document.getElementById('plan_date').value = data.date;
+    if (data.heure_debut) document.getElementById('plan_heure_debut').value = data.heure_debut;
+    if (data.heure_fin) document.getElementById('plan_heure_fin').value = data.heure_fin;
+}
+function collectCalendrierData() {
     return {
-        company: document.getElementById('company').value || 'NETUBEX SARL',
-        initiateur: document.getElementById('initiateur').value || 'Flory Ngenda',
-        nomProjet: document.getElementById('nom_projet').value || 'Gestion de scolarité',
-        vision: document.getElementById('vision').value || '-',
-        lancement: document.getElementById('lancement').value || '-',
-        creationDate: document.getElementById('creationDate').value || '-',
-        m1: {
-            periode: document.getElementById('m1_periode').value || '-',
-            objectif: document.getElementById('m1_objectif').value || '-',
-            actions: document.getElementById('m1_actions').value || '-',
-            pole: document.getElementById('m1_pole').value,
-            resp: document.getElementById('m1_responsable').value || '-',
-            priorite: document.getElementById('m1_priorite').value,
-            statut: document.getElementById('m1_statut').value,
-            livrables: document.getElementById('m1_livrables').value || '-'
-        },
-        m2: {
-            periode: document.getElementById('m2_periode').value || '-',
-            objectif: document.getElementById('m2_objectif').value || '-',
-            actions: document.getElementById('m2_actions').value || '-',
-            pole: document.getElementById('m2_pole').value,
-            resp: document.getElementById('m2_responsable').value || '-',
-            priorite: document.getElementById('m2_priorite').value,
-            statut: document.getElementById('m2_statut').value,
-            livrables: document.getElementById('m2_livrables').value || '-'
-        },
-        m3: {
-            periode: document.getElementById('m3_periode').value || '-',
-            objectif: document.getElementById('m3_objectif').value || '-',
-            actions: document.getElementById('m3_actions').value || '-',
-            pole: document.getElementById('m3_pole').value,
-            resp: document.getElementById('m3_responsable').value || '-',
-            priorite: document.getElementById('m3_priorite').value,
-            statut: document.getElementById('m3_statut').value,
-            livrables: document.getElementById('m3_livrables').value || '-'
-        },
-        controles: document.getElementById('controles').value || '-',
-        avancement: document.getElementById('avancement').value,
-        risques: document.getElementById('risques').value || '-',
-        mitigation: document.getElementById('mitigation').value || '-',
-        commentaires: document.getElementById('commentaires').value || '-',
-        validePar: document.getElementById('validePar').value || '-',
-        signature: document.getElementById('signature').value || '-',
-        finalDate: document.getElementById('finalDate').value || '-',
-        pdfColor: document.getElementById('pdfColor').value
+        dateCVP: document.getElementById('dateCVP').value,
+        vision: document.getElementById('vision').value,
+        lancement: document.getElementById('lancement').value,
+        p1_obj: document.getElementById('p1_obj').value,
+        p1_actions: document.getElementById('p1_actions').value,
+        p1_pole: document.getElementById('p1_pole').value,
+        p1_liv: document.getElementById('p1_liv').value,
+        p1_jur: document.getElementById('p1_jur').value,
+        p2_obj: document.getElementById('p2_obj').value,
+        p2_actions: document.getElementById('p2_actions').value,
+        p2_pole: document.getElementById('p2_pole').value,
+        p2_liv: document.getElementById('p2_liv').value,
+        p3_obj: document.getElementById('p3_obj').value,
+        p3_actions: document.getElementById('p3_actions').value,
+        p3_pole: document.getElementById('p3_pole').value,
+        p3_liv: document.getElementById('p3_liv').value,
+        controles: document.getElementById('controles').value,
+        risques: document.getElementById('risques').value,
+        observations: document.getElementById('observations').value,
+        signature: document.getElementById('signature').value,
+        finalDate: document.getElementById('finalDate').value
     };
 }
-
-function buildPDFContentHTML(values){
-    let nowTime = new Date().toLocaleString('fr-FR');
-    
-    function buildPhaseTable(m, title){
-        return `<div style="margin-bottom:8mm; page-break-inside:avoid;">
-            <div style="background:#1a237e; color:white; padding:4mm; border-radius:4px; font-weight:700; font-size:12pt;">${title}</div>
-            <table style="width:100%; border-collapse:collapse; font-size:10pt; margin-top:2mm;">
-                <tr><td style="padding:3mm; border:1px solid #ccc; width:30%; background:#f5f5f5;"><strong>Période</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.periode)}</td></tr>
-                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Objectif</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.objectif)}</td></tr>
-                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Actions clés</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.actions).replace(/\n/g,'<br>')}</td></tr>
-                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Pôle / Responsable</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.pole)} | ${escapeHtml(m.resp)}</td></tr>
-                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Priorité / Statut</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.priorite)} | ${escapeHtml(m.statut)}</td></tr>
-                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Livrables</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.livrables)}</td></tr>
-            </table>
-        </div>`;
-    }
-    
-    return `<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Calendrier Stratégique NETUBEX</title>
-        <style>
-            *{margin:0;padding:0;box-sizing:border-box;}
-            body{
-                font-family:'Segoe UI',Arial,sans-serif;
-                background:${values.pdfColor};
-                padding:8mm;
-                width:100%;
-            }
-            .header{
-                text-align:center;
-                margin-bottom:8mm;
-                padding-bottom:5mm;
-                border-bottom:3px solid #f59e0b;
-            }
-            .header h1{font-size:24pt; color:#1a237e; margin-bottom:3mm;}
-            .header h2{font-size:16pt; color:#e67e22; margin-bottom:2mm;}
-            .header p{font-size:10pt; color:#666;}
-            .info-bar{
-                display:flex;
-                justify-content:space-between;
-                background:#f8fafc;
-                padding:4mm;
-                border-radius:4px;
-                margin-bottom:8mm;
-                border:1px solid #dee2e6;
-                flex-wrap:wrap;
-            }
-            .info-bar div{margin:2mm 0;}
-            .section-title{
-                font-size:16pt;
-                font-weight:700;
-                color:#1a237e;
-                margin:8mm 0 4mm 0;
-                padding-bottom:3mm;
-                border-bottom:2px solid #1a237e;
-            }
-            .footer{
-                margin-top:8mm;
-                font-size:8pt;
-                color:#999;
-                text-align:center;
-                border-top:1px solid #ddd;
-                padding-top:4mm;
-            }
-            @media print{
-                body{margin:0;padding:5mm;}
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>⚡ ${escapeHtml(values.company)}</h1>
-            <p>PSI - Stratégie & Planification 2026-2027</p>
-            <h2>${escapeHtml(values.nomProjet)}</h2>
-            <p>Lancement prévu : ${values.lancement}</p>
-        </div>
-        
-        <div class="info-bar">
-            <div><strong>Vision :</strong> ${escapeHtml(values.vision)}</div>
-            <div><strong>Initiateur :</strong> ${escapeHtml(values.initiateur)}</div>
-            <div><strong>Date planning :</strong> ${values.creationDate}</div>
-        </div>
-        
-        <div class="section-title">📅 PHASE 1 : PRÉPARATION & MARKETING</div>
-        ${buildPhaseTable(values.m1, 'PHASE 1')}
-        
-        <div class="section-title">📅 PHASE 2 : DÉPLOIEMENT & SENSIBILISATION</div>
-        ${buildPhaseTable(values.m2, 'PHASE 2')}
-        
-        <div class="section-title">📅 PHASE 3 : LANCEMENT OFFICIEL & SUIVI</div>
-        ${buildPhaseTable(values.m3, 'PHASE 3')}
-        
-        <div class="section-title">📌 INDICATEURS DE SUCCÈS & POINTS DE CONTRÔLE</div>
-        <div style="background:#f8fafc; padding:4mm; border-radius:4px; margin-bottom:5mm;">
-            <div><strong>Points de contrôle :</strong> ${escapeHtml(values.controles)}</div>
-            <div style="margin-top:3mm;"><strong>Avancement :</strong> ${values.avancement}</div>
-            <div style="margin-top:3mm;"><strong>Risques identifiés :</strong> ${escapeHtml(values.risques)}</div>
-            <div style="margin-top:3mm;"><strong>Plan de mitigation :</strong> ${escapeHtml(values.mitigation)}</div>
-            <div style="margin-top:3mm;"><strong>Commentaires PSI :</strong> ${escapeHtml(values.commentaires)}</div>
-        </div>
-        
-        <div class="section-title">✅ VALIDATION</div>
-        <div style="background:#1a237e; color:white; padding:4mm; border-radius:4px; text-align:center;">
-            Validé par PSI : ${escapeHtml(values.validePar)} | Signature : ${escapeHtml(values.signature)} | Date : ${values.finalDate}
-        </div>
-        
-        <div class="footer">
-            NETUBEX SARL · PSI - Stratégie & Planification · Document opérationnel 2026-2027<br>
-            Généré le ${nowTime}
-        </div>
-    </body>
-    </html>`;
+function collectPlanningData() {
+    return {
+        action: document.getElementById('plan_action').value,
+        province: document.getElementById('plan_province').value,
+        ville: document.getElementById('plan_ville').value,
+        pole: document.getElementById('plan_pole').value,
+        responsable: document.getElementById('plan_responsable').value,
+        ecoles: document.getElementById('plan_ecoles').value,
+        clients: document.getElementById('plan_clients').value,
+        date: document.getElementById('plan_date').value,
+        heure_debut: document.getElementById('plan_heure_debut').value,
+        heure_fin: document.getElementById('plan_heure_fin').value
+    };
 }
-
-async function generatePDFProcess(){
-    const btn = document.getElementById('generatePdfBtn');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ GÉNÉRATION EN COURS...';
-    btn.disabled = true;
-    
-    try {
-        const values = getFormValues();
-        const fullHTML = buildPDFContentHTML(values);
-        
-        const container = document.getElementById('pdfContainer');
-        container.innerHTML = fullHTML;
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '0';
-        container.style.width = '1123px';
-        container.style.background = values.pdfColor;
-        container.style.display = 'block';
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        const opt = {
-            margin: [5, 5, 5, 5],
-            filename: `Calendrier_Strategique_${values.nomProjet.replace(/\s/g, '_')}_2026-2027.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: values.pdfColor },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
-        };
-        
-        await html2pdf().set(opt).from(container).save();
-        
-        container.innerHTML = '';
-        
-    } catch(error) {
-        console.error('Erreur:', error);
-        alert('Erreur lors de la génération du PDF: ' + error.message);
-    } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
+function attachAutoSave() {
+    document.querySelectorAll('#tab1 input, #tab1 select, #tab1 textarea').forEach(input => {
+        input.addEventListener('change', () => saveCalendrierLocal(collectCalendrierData()));
+        input.addEventListener('blur', () => saveCalendrierLocal(collectCalendrierData()));
+    });
+    document.querySelectorAll('#tab2 input, #tab2 select').forEach(input => {
+        input.addEventListener('change', () => savePlanningLocal(collectPlanningData()));
+        input.addEventListener('blur', () => savePlanningLocal(collectPlanningData()));
+    });
+}
+const provincesRDC = {
+    "Kinshasa": ["Kinshasa", "Maluku", "Nsele", "Mont Ngafula", "Limete"],
+    "Kongo Central": ["Matadi", "Boma", "Mbanza-Ngungu", "Muanda", "Kasangulu"],
+    "Kwango": ["Kenge", "Popokabaka", "Feshi", "Kahemba"],
+    "Kwilu": ["Bandundu", "Kikwit", "Bulungu", "Masi-Manimba"],
+    "Mai-Ndombe": ["Inongo", "Oshwe", "Nioki", "Mushie"],
+    "Kasaï": ["Tshikapa", "Ilebo", "Luebo", "Mweka"],
+    "Kasaï-Central": ["Kananga", "Demba", "Dibaya", "Luiza"],
+    "Kasaï-Oriental": ["Mbuji-Mayi", "Miabi", "Tshilenge", "Katanda"],
+    "Lomami": ["Kabinda", "Lubao", "Ngandajika", "Mwene-Ditu"],
+    "Sankuru": ["Lusambo", "Lodja", "Tshumbe", "Katako-Kombe"],
+    "Maniema": ["Kindu", "Pangi", "Kabambare", "Lubutu"],
+    "Sud-Kivu": ["Bukavu", "Uvira", "Fizi", "Mwenga", "Kalehe"],
+    "Nord-Kivu": ["Goma", "Butembo", "Beni", "Rutshuru", "Masisi"],
+    "Ituri": ["Bunia", "Mahagi", "Aru", "Irumu", "Djugu"],
+    "Haut-Uele": ["Isiro", "Wamba", "Rungu", "Niangara"],
+    "Tshopo": ["Kisangani", "Bafwasende", "Yangambi", "Ubundu"],
+    "Bas-Uele": ["Buta", "Aketi", "Ango", "Bondo"],
+    "Nord-Ubangi": ["Gbadolite", "Bosobolo", "Businga", "Mobayi-Mbongo"],
+    "Mongala": ["Lisala", "Bumba", "Bongandanga", "Yakoma"],
+    "Sud-Ubangi": ["Gemena", "Zongo", "Kungu", "Libenge"],
+    "Équateur": ["Mbandaka", "Bikoro", "Lukolela", "Ingende"],
+    "Tshuapa": ["Boende", "Bokungu", "Ikela", "Monkoto"],
+    "Tanganyika": ["Kalemie", "Manono", "Kongolo", "Nyunzu"],
+    "Haut-Lomami": ["Kamina", "Malemba-Nkulu", "Kanyama", "Mulongo"],
+    "Lualaba": ["Kolwezi", "Dilolo", "Kapanga", "Sandoa"],
+    "Haut-Katanga": ["Lubumbashi", "Likasi", "Kipushi", "Kasumbalesa"]
+};
+function initProvinces(){
+    var selectProv = document.getElementById('plan_province');
+    if(!selectProv) return;
+    selectProv.innerHTML = '<option value="">Sélectionner une province</option>';
+    for(var prov in provincesRDC) selectProv.innerHTML += '<option value="'+prov+'">'+prov+'</option>';
+}
+function updateVilles(){
+    var provSelect = document.getElementById('plan_province');
+    var villeSelect = document.getElementById('plan_ville');
+    if(!villeSelect) return;
+    var prov = provSelect.value;
+    if(prov && provincesRDC[prov]){
+        villeSelect.innerHTML = '<option value="">Sélectionner une ville</option>';
+        for(var i=0;i<provincesRDC[prov].length;i++) villeSelect.innerHTML += '<option value="'+provincesRDC[prov][i]+'">'+provincesRDC[prov][i]+'</option>';
+    } else {
+        villeSelect.innerHTML = '<option value="">Sélectionner d\'abord une province</option>';
     }
 }
-
-document.getElementById('generatePdfBtn').addEventListener('click', generatePDFProcess);
-document.getElementById('creationDate').valueAsDate = new Date();
-document.getElementById('finalDate').valueAsDate = new Date();
-document.getElementById('lancement').valueAsDate = new Date();
+var respMap = {'PSI':'Flory Ngenda','PAFCO':'Dieu Merci Makangila','PMGAJ':'Maendeleo Heri'};
+function updateResp(phase){
+    var pole = document.getElementById('p'+phase+'_pole').value;
+    var input = document.getElementById('p'+phase+'_resp');
+    if(input) input.value = respMap[pole] || '';
+}
+function showToast(msg, isError){
+    var container = document.getElementById('toastContainer');
+    var toast = document.createElement('div');
+    toast.className = 'toast' + (isError ? ' error' : '');
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(-100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+function clean(t){ return (t && t.trim()) ? t.trim() : '-'; }
+function getDate(prefix, type){
+    var j,m,a;
+    if(type==='deb'){
+        j=document.getElementById(prefix+'_j_deb')?.value;
+        m=document.getElementById(prefix+'_m_deb')?.value;
+        a=document.getElementById(prefix+'_a_deb')?.value;
+    }else{
+        j=document.getElementById(prefix+'_j_fin')?.value;
+        m=document.getElementById(prefix+'_m_fin')?.value;
+        a=document.getElementById(prefix+'_a_fin')?.value;
+    }
+    if(j && j!=='JJ' && m && m!=='MM' && a && a!=='AAAA'){
+        var moisNoms=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+        return j+" "+moisNoms[parseInt(m)-1]+" "+a;
+    }
+    return "-";
+}
+function getPeriode(prefix){
+    var deb=getDate(prefix,'deb');
+    var fin=getDate(prefix,'fin');
+    if(deb!=='-' && fin!=='-') return deb+" → "+fin;
+    return "-";
+}
+function getPoleComplet(sigle){
+    if(sigle==='PSI') return 'Pôle Stratégie et Innovation (PSI)';
+    if(sigle==='PAFCO') return 'Pôle Administration-Finances-Commercial (PAFCO)';
+    if(sigle==='PMGAJ') return 'Pôle Marketing-Gouvernance-Affaires Juridiques (PMGAJ)';
+    return sigle;
+}
+function generateStrategiquePDF(){
+    var btn=document.getElementById('generateStrategiqueBtn');
+    var orig=btn.textContent;
+    btn.textContent='GÉNÉRATION...';
+    btn.disabled=true;
+    try{
+        var {jsPDF}=window.jspdf;
+        var pdf=new jsPDF('landscape','mm','a4');
+        var projet=clean(document.getElementById('nomProjet').value);
+        var initiateur=clean(document.getElementById('initiateur').value);
+        var dateCVP=clean(document.getElementById('dateCVP').value);
+        var vision=clean(document.getElementById('vision').value);
+        var lancement=clean(document.getElementById('lancement').value);
+        var today = new Date();
+        var dateFormatted = today.toLocaleDateString('fr-FR');
+        var lieuDate = "Fait à Kasumbalesa, le " + dateFormatted;
+        var periodes=[
+            {cal:getPeriode('p1'), obj:clean(document.getElementById('p1_obj').value), act:clean(document.getElementById('p1_actions').value), pole:getPoleComplet(document.getElementById('p1_pole').value), resp:clean(document.getElementById('p1_resp').value), liv:clean(document.getElementById('p1_liv').value), jur:clean(document.getElementById('p1_jur').value)},
+            {cal:getPeriode('p2'), obj:clean(document.getElementById('p2_obj').value), act:clean(document.getElementById('p2_actions').value), pole:getPoleComplet(document.getElementById('p2_pole').value), resp:clean(document.getElementById('p2_resp').value), liv:clean(document.getElementById('p2_liv').value), jur:"-"},
+            {cal:getPeriode('p3'), obj:clean(document.getElementById('p3_obj').value), act:clean(document.getElementById('p3_actions').value), pole:getPoleComplet(document.getElementById('p3_pole').value), resp:clean(document.getElementById('p3_resp').value), liv:clean(document.getElementById('p3_liv').value), jur:"-"}
+        ];
+        var controles=clean(document.getElementById('controles').value);
+        var risques=clean(document.getElementById('risques').value);
+        var observations=clean(document.getElementById('observations').value);
+        var validePar=clean(document.getElementById('validePar').value);
+        var signature=clean(document.getElementById('signature').value);
+        var finalDate=clean(document.getElementById('finalDate').value);
+        pdf.setFillColor(15,30,60); pdf.rect(0,0,297,12,'F'); pdf.setFillColor(250,204,21); pdf.rect(0,12,297,2,'F');
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.setTextColor(255,255,255); pdf.text("NETUBEX SARL", 280, 9, {align:'right'});
+        pdf.setFontSize(11); pdf.setTextColor(250,204,21); pdf.text("CALENDRIER STRATÉGIQUE 2026-2027", 148, 9, {align:'center'});
+        pdf.autoTable({startY:22,head:[["INFORMATIONS","VALEUR"]],body:[["Projet",projet],["Initiateur",initiateur],["Date présentation CVP",dateCVP],["Vision stratégique",vision],["Date lancement",lancement]],theme:'grid',headStyles:{fillColor:[15,30,60],textColor:[255,255,255],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:50,fontStyle:'bold'},1:{cellWidth:210}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        var y=pdf.previousAutoTable.finalY+8;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(15,30,60); pdf.text("PÉRIODES STRATÉGIQUES", 12, y); y+=5;
+        var headers=[["CHAMP","PÉRIODE 1","PÉRIODE 2","PÉRIODE 3"]];
+        var body=[["Calendrier",periodes[0].cal,periodes[1].cal,periodes[2].cal],["Objectif stratégique",periodes[0].obj,periodes[1].obj,periodes[2].obj],["Orientations clés",periodes[0].act.length>55?periodes[0].act.substring(0,55)+"...":periodes[0].act,periodes[1].act.length>55?periodes[1].act.substring(0,55)+"...":periodes[1].act,periodes[2].act.length>55?periodes[2].act.substring(0,55)+"...":periodes[2].act],["Pôle responsable",periodes[0].pole,periodes[1].pole,periodes[2].pole],["Responsable",periodes[0].resp,periodes[1].resp,periodes[2].resp],["Livrables",periodes[0].liv,periodes[1].liv,periodes[2].liv]];
+        if(periodes[0].jur!=='-') body.push(["Statut juridique",periodes[0].jur,"-","-"]);
+        pdf.autoTable({startY:y,head:headers,body:body,theme:'grid',headStyles:{fillColor:[52,73,94],textColor:[255,255,255],fontStyle:'bold',fontSize:7,halign:'center'},styles:{fontSize:7,cellPadding:2,textColor:[0,0,0]},columnStyles:{0:{cellWidth:40,fontStyle:'bold'},1:{cellWidth:75},2:{cellWidth:75},3:{cellWidth:75}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        y=pdf.previousAutoTable.finalY+8;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(15,30,60); pdf.text("INDICATEURS & VALIDATION", 12, y); y+=5;
+        pdf.autoTable({startY:y,head:[["INDICATEUR","VALEUR"]],body:[["Points de contrôle",controles],["Risques et mitigation",risques],["Observations",observations]],theme:'grid',headStyles:{fillColor:[15,30,60],textColor:[255,255,255],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:55,fontStyle:'bold'},1:{cellWidth:205}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        y=pdf.previousAutoTable.finalY+8;
+        pdf.autoTable({startY:y,head:[["VALIDATION","INFORMATIONS"]],body:[["Validé et délivré par",validePar],["Signature",signature],["Date d'approbation",finalDate]],theme:'grid',headStyles:{fillColor:[250,204,21],textColor:[15,30,60],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:55,fontStyle:'bold'},1:{cellWidth:205}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        var lastY = pdf.previousAutoTable.finalY + 5;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(100,100,100);
+        pdf.text(lieuDate, 12, lastY);
+        var pages=pdf.internal.getNumberOfPages();
+        for(var i=1;i<=pages;i++){ pdf.setPage(i); pdf.setDrawColor(200,200,200); pdf.line(12,197,285,197); pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(100,100,100); pdf.text("NETUBEX SARL - Calendrier stratégique 2026-2027", 12, 202); pdf.text("Page "+i+"/"+pages, 285, 202, {align:'right'}); }
+        pdf.save("NETUBEX_Calendrier_Strategique.pdf");
+        showToast("PDF généré avec succès !", false);
+    }catch(e){ console.error(e); showToast("Erreur: "+e.message, true); }
+    finally{ btn.textContent=orig; btn.disabled=false; }
+}
+function generatePlanningPDF(){
+    var btn=document.getElementById('generatePlanningBtn');
+    var orig=btn.textContent;
+    btn.textContent='GÉNÉRATION...';
+    btn.disabled=true;
+    try{
+        var {jsPDF}=window.jspdf;
+        var pdf=new jsPDF('portrait','mm','a4');
+        var action=clean(document.getElementById('plan_action').value);
+        var province=clean(document.getElementById('plan_province').value);
+        var ville=clean(document.getElementById('plan_ville').value);
+        var pole=document.getElementById('plan_pole').value;
+        var poleComplet = (pole==='PSI')?'Pôle Stratégie et Innovation (PSI)':(pole==='PAFCO')?'Pôle Administration-Finances-Commercial (PAFCO)':'Pôle Marketing-Gouvernance-Affaires Juridiques (PMGAJ)';
+        var responsable=clean(document.getElementById('plan_responsable').value);
+        var ecoles=clean(document.getElementById('plan_ecoles').value);
+        var clients=clean(document.getElementById('plan_clients').value);
+        var dateExec=clean(document.getElementById('plan_date').value);
+        var heureDeb=clean(document.getElementById('plan_heure_debut').value);
+        var heureFin=clean(document.getElementById('plan_heure_fin').value);
+        var duree = "-";
+        if(heureDeb && heureFin){
+            var h1=parseInt(heureDeb.split(':')[0]); var m1=parseInt(heureDeb.split(':')[1]);
+            var h2=parseInt(heureFin.split(':')[0]); var m2=parseInt(heureFin.split(':')[1]);
+            var totalMin = (h2*60+m2) - (h1*60+m1);
+            if(totalMin>0) duree = Math.floor(totalMin/60)+"h"+(totalMin%60>0?totalMin%60+"min":"");
+        }
+        var today = new Date();
+        var dateFormatted = today.toLocaleDateString('fr-FR');
+        var lieuDate = "Fait à Kasumbalesa, le " + dateFormatted;
+        pdf.setFillColor(15,30,60); pdf.rect(0,0,210,12,'F'); pdf.setFillColor(250,204,21); pdf.rect(0,12,210,2,'F');
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(14); pdf.setTextColor(255,255,255); pdf.text("NETUBEX SARL", 105, 9, {align:'center'});
+        pdf.setFontSize(10); pdf.setTextColor(250,204,21); pdf.text("PLANNING OPÉRATIONNEL", 105, 22, {align:'center'});
+        pdf.autoTable({startY:32,head:[["INFORMATIONS","VALEUR"]],body:[["Action / Mission",action],["Province",province],["Ville / Territoire",ville],["Pôle responsable",poleComplet],["Responsable terrain",responsable]],theme:'grid',headStyles:{fillColor:[15,30,60],textColor:[255,255,255],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:60,fontStyle:'bold'},1:{cellWidth:120}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        var y=pdf.previousAutoTable.finalY+8;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(15,30,60); pdf.text("CIBLES PRÉVISIONNELLES", 12, y); y+=5;
+        pdf.autoTable({startY:y,head:[["INDICATEUR","PRÉVISION"]],body:[["Établissements scolaires ciblés",ecoles],["Clients ciblés",clients]],theme:'grid',headStyles:{fillColor:[15,30,60],textColor:[255,255,255],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:80,fontStyle:'bold'},1:{cellWidth:100}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        y=pdf.previousAutoTable.finalY+8;
+        pdf.setFont('helvetica','bold'); pdf.setFontSize(10); pdf.setTextColor(15,30,60); pdf.text("PLANIFICATION HORAIRE", 12, y); y+=5;
+        pdf.autoTable({startY:y,head:[["INDICATEUR","VALEUR"]],body:[["Date d'exécution",dateExec],["Heure de début",heureDeb||"-"],["Heure de fin",heureFin||"-"],["Durée prévue",duree]],theme:'grid',headStyles:{fillColor:[15,30,60],textColor:[255,255,255],fontStyle:'bold',fontSize:8},styles:{fontSize:8,cellPadding:4,textColor:[0,0,0]},columnStyles:{0:{cellWidth:60,fontStyle:'bold'},1:{cellWidth:120}},margin:{left:12,right:12},alternateRowStyles:{fillColor:[245,245,245]}});
+        var lastY = pdf.previousAutoTable.finalY + 5;
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(8); pdf.setTextColor(100,100,100);
+        pdf.text(lieuDate, 12, lastY);
+        pdf.setDrawColor(200,200,200); pdf.line(12,287,198,287);
+        pdf.setFont('helvetica','normal'); pdf.setFontSize(7); pdf.setTextColor(100,100,100);
+        pdf.text("NETUBEX SARL - Département Stratégie et Planification - Planning opérationnel", 12, 292);
+        pdf.save("NETUBEX_Planning_Operationnel.pdf");
+        showToast("PDF Planning généré avec succès !", false);
+    }catch(e){ console.error(e); showToast("Erreur: "+e.message, true); }
+    finally{ btn.textContent=orig; btn.disabled=false; }
+}
+function initDateSelects(){
+    var jours=[]; for(var i=1;i<=31;i++) jours.push(i);
+    var mois=["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Aoû","Sep","Oct","Nov","Déc"];
+    var annees=["2026","2027","2028"];
+    var prefixes=["p1","p2","p3"];
+    for(var s=0;s<prefixes.length;s++){
+        var p=prefixes[s];
+        var debJ=document.getElementById(p+"_j_deb"); var debM=document.getElementById(p+"_m_deb"); var debA=document.getElementById(p+"_a_deb");
+        var finJ=document.getElementById(p+"_j_fin"); var finM=document.getElementById(p+"_m_fin"); var finA=document.getElementById(p+"_a_fin");
+        if(debJ){ debJ.innerHTML='<option>JJ</option>'; for(var j=0;j<jours.length;j++) debJ.innerHTML+='<option>'+jours[j]+'</option>'; }
+        if(finJ){ finJ.innerHTML='<option>JJ</option>'; for(var j=0;j<jours.length;j++) finJ.innerHTML+='<option>'+jours[j]+'</option>'; }
+        if(debM){ debM.innerHTML='<option>MM</option>'; for(var m=0;m<mois.length;m++) debM.innerHTML+='<option value="'+(m+1)+'">'+mois[m]+'</option>'; }
+        if(finM){ finM.innerHTML='<option>MM</option>'; for(var m=0;m<mois.length;m++) finM.innerHTML+='<option value="'+(m+1)+'">'+mois[m]+'</option>'; }
+        if(debA){ debA.innerHTML='<option>AAAA</option>'; for(var a=0;a<annees.length;a++) debA.innerHTML+='<option>'+annees[a]+'</option>'; }
+        if(finA){ finA.innerHTML='<option>AAAA</option>'; for(var a=0;a<annees.length;a++) finA.innerHTML+='<option>'+annees[a]+'</option>'; }
+    }
+}
+initProvinces();
+initDateSelects();
+updateVilles();
+updateResp(1); updateResp(2); updateResp(3);
+document.getElementById('plan_province').onchange = updateVilles;
+document.getElementById('p1_pole').onchange = () => updateResp(1);
+document.getElementById('p2_pole').onchange = () => updateResp(2);
+document.getElementById('p3_pole').onchange = () => updateResp(3);
+document.getElementById('generateStrategiqueBtn').addEventListener('click', generateStrategiquePDF);
+document.getElementById('generatePlanningBtn').addEventListener('click', generatePlanningPDF);
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('dateCVP').value = today;
+document.getElementById('lancement').value = today;
+document.getElementById('finalDate').value = today;
+document.getElementById('plan_date').value = today;
+attachAutoSave();
+loadFromFirebase();
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(btn.dataset.tab).classList.add('active');
+    };
+});
+window.addEventListener('online', () => syncToFirebase());
 </script>
 </body>
 </html>
