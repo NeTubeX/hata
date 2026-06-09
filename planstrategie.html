@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#0a1a2f;color:#e0f2fe;line-height:1.4;min-height:100vh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#0a1a2f;color:#e0f2fe;line-height:1.4;min-height:100vh;overflow-x:hidden;overflow-y:auto;}
 .mobile-container{max-width:100%;padding:12px 12px 30px;margin:0 auto;overflow-y:auto;overflow-x:hidden;height:auto;min-height:100vh;}
 .header-logo{display:flex;align-items:center;gap:10px;background:#0d2740;padding:12px 16px;border-radius:40px;margin-bottom:16px;border:1px solid #2d5980;}
 .header-logo div{font-size:0.95rem;font-weight:500;color:#bbdefb;line-height:1.2;}
@@ -31,15 +31,7 @@ textarea{resize:vertical;min-height:80px;font-family:inherit;}
 button{background:linear-gradient(145deg,#2563eb,#1d4ed8);color:white;border:none;padding:18px 24px;font-size:1.1rem;font-weight:600;border-radius:60px;cursor:pointer;width:100%;margin:20px 0 10px;transition:0.2s;}
 button:active{transform:scale(0.98);}
 footer{text-align:center;font-size:0.65rem;color:#5f748d;margin-top:16px;}
-@media print {
-    body{background:white;padding:0;margin:0;}
-    .mobile-container{padding:0;margin:0;background:white;}
-    button,footer,.color-selector,.header-logo,.section-title span{display:none;}
-    .section-title{color:#1a237e;border-bottom-color:#1a237e;}
-    .month-card{border:1px solid #ccc;page-break-inside:avoid;}
-    .info-section{border:1px solid #ccc;}
-    @page{size:landscape;margin:1cm;}
-}
+#pdf-preview-container{position:fixed;left:-9999px;top:0;background:white;z-index:-1;}
 </style>
 </head>
 <body>
@@ -113,105 +105,236 @@ footer{text-align:center;font-size:0.65rem;color:#5f748d;margin-top:16px;}
 <option value="#e8f5e9">🟢 Vert clair</option>
 <option value="#fff3e0">🟠 Orange clair</option>
 </select></div>
-<button id="generatePdfBtn">📄 GÉNÉRER LE CALENDRIER PDF (PAYSAGE - 4 PAGES MAX)</button>
-<footer>NETUBEX SARL · PSI - Stratégie & Planification · Document opérationnel pré-lancement 2026-2027</footer>
+<button id="generatePdfBtn">📄 GÉNÉRER LE CALENDRIER PDF (PAYSAGE)</button>
+<footer>NETUBEX SARL · PSI - Stratégie & Planification · Document opérationnel 2026-2027</footer>
 </div>
+
+<!-- Conteneur caché pour le PDF -->
+<div id="pdfContainer" style="position:absolute; left:-9999px; top:0; width:1123px; background:white; z-index:-1;"></div>
 
 <script>
-function escapeHtml(s){if(!s)return'';return s.replace(/[&<>]/g,function(m){if(m==='&')return'&amp;';if(m==='<')return'&lt;';if(m==='>')return'&gt;';return m;});}
-
-function createPDFContent(){
-let company=document.getElementById('company').value||'NETUBEX SARL';
-let initiateur=document.getElementById('initiateur').value||'Flory Ngenda';
-let nomProjet=document.getElementById('nom_projet').value||'Gestion de scolarité';
-let vision=document.getElementById('vision').value||'-';
-let lancement=document.getElementById('lancement').value||'-';
-let creationDate=document.getElementById('creationDate').value||'-';
-
-let m1={periode:document.getElementById('m1_periode').value||'-',objectif:document.getElementById('m1_objectif').value||'-',actions:document.getElementById('m1_actions').value||'-',pole:document.getElementById('m1_pole').value,resp:document.getElementById('m1_responsable').value||'-',priorite:document.getElementById('m1_priorite').value,statut:document.getElementById('m1_statut').value,livrables:document.getElementById('m1_livrables').value||'-'};
-let m2={periode:document.getElementById('m2_periode').value||'-',objectif:document.getElementById('m2_objectif').value||'-',actions:document.getElementById('m2_actions').value||'-',pole:document.getElementById('m2_pole').value,resp:document.getElementById('m2_responsable').value||'-',priorite:document.getElementById('m2_priorite').value,statut:document.getElementById('m2_statut').value,livrables:document.getElementById('m2_livrables').value||'-'};
-let m3={periode:document.getElementById('m3_periode').value||'-',objectif:document.getElementById('m3_objectif').value||'-',actions:document.getElementById('m3_actions').value||'-',pole:document.getElementById('m3_pole').value,resp:document.getElementById('m3_responsable').value||'-',priorite:document.getElementById('m3_priorite').value,statut:document.getElementById('m3_statut').value,livrables:document.getElementById('m3_livrables').value||'-'};
-
-let controles=document.getElementById('controles').value||'-';
-let avancement=document.getElementById('avancement').value;
-let risques=document.getElementById('risques').value||'-';
-let mitigation=document.getElementById('mitigation').value||'-';
-let commentaires=document.getElementById('commentaires').value||'-';
-let validePar=document.getElementById('validePar').value||'-';
-let signature=document.getElementById('signature').value||'-';
-let finalDate=document.getElementById('finalDate').value||'-';
-let selectedColor=document.getElementById('pdfColor').value;
-let nowTime=new Date().toLocaleString('fr-FR');
-
-function buildPhaseTable(m,title){
-return`<div style="margin-bottom:6mm;page-break-inside:avoid;">
-<div style="background:#1a237e;color:white;padding:3mm;border-radius:4px;font-weight:700;">${title}</div>
-<table style="width:100%;border-collapse:collapse;font-size:9pt;margin-top:2mm;">
-<tr><td style="padding:2mm;border:1px solid #ddd;width:30%;"><strong>Période</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.periode)}</td></tr>
-<tr><td style="padding:2mm;border:1px solid #ddd;"><strong>Objectif</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.objectif)}</td></tr>
-<tr><td style="padding:2mm;border:1px solid #ddd;"><strong>Actions clés</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.actions).replace(/\n/g,'<br>')}</td></tr>
-<tr><td style="padding:2mm;border:1px solid #ddd;"><strong>Pôle / Responsable</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.pole)} | ${escapeHtml(m.resp)}</td></tr>
-<tr><td style="padding:2mm;border:1px solid #ddd;"><strong>Priorité / Statut</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.priorite)} | ${escapeHtml(m.statut)}</td></tr>
-<tr><td style="padding:2mm;border:1px solid #ddd;"><strong>Livrables</strong></td><td style="padding:2mm;border:1px solid #ddd;">${escapeHtml(m.livrables)}</td></tr>
-</table>
-</div>`;}
-
-return`<div style="background:${selectedColor};font-family:'Segoe UI',Arial,sans-serif;padding:5mm;max-width:100%;">
-<div style="text-align:center;margin-bottom:5mm;padding-bottom:3mm;border-bottom:2px solid #f59e0b;">
-<div style="font-size:22pt;font-weight:800;color:#1a237e;">⚡ ${escapeHtml(company)}</div>
-<div style="font-size:10pt;color:#4a627a;">PSI - Stratégie &amp; Planification 2026-2027</div>
-<div style="font-size:16pt;font-weight:700;color:#e67e22;margin-top:4mm;">${escapeHtml(nomProjet)}</div>
-<div style="font-size:9pt;margin-top:2mm;">Lancement prévu : ${lancement}</div>
-</div>
-<div style="display:flex;justify-content:space-between;background:#f8fafc;padding:3mm;border-radius:4px;margin-bottom:5mm;border:1px solid #dee2e6;flex-wrap:wrap;">
-<div><strong>Vision:</strong> ${escapeHtml(vision)}</div>
-<div><strong>Initiateur:</strong> ${escapeHtml(initiateur)}</div>
-<div><strong>Date planning:</strong> ${creationDate}</div>
-</div>
-${buildPhaseTable(m1,'📅 PHASE 1 : PRÉPARATION & MARKETING')}
-${buildPhaseTable(m2,'📅 PHASE 2 : DÉPLOIEMENT & SENSIBILISATION')}
-${buildPhaseTable(m3,'📅 PHASE 3 : LANCEMENT OFFICIEL & SUIVI')}
-<div style="background:#f8fafc;padding:3mm;border-radius:4px;margin-bottom:4mm;page-break-inside:avoid;">
-<div style="font-weight:700;">📌 POINTS DE CONTRÔLE</div>
-<div>${escapeHtml(controles)}</div>
-<div>Avancement: ${avancement}</div>
-<div><strong>Risques:</strong> ${escapeHtml(risques)}</div>
-<div><strong>Mitigation:</strong> ${escapeHtml(mitigation)}</div>
-<div><strong>Commentaires PSI:</strong> ${escapeHtml(commentaires)}</div>
-</div>
-<div style="background:#1a237e;color:white;padding:3mm;border-radius:4px;text-align:center;page-break-inside:avoid;">
-✅ VALIDATION PSI · ${escapeHtml(validePar)} · ${escapeHtml(signature)} · ${finalDate}
-</div>
-<div style="margin-top:4mm;font-size:7pt;color:#7f8c8d;text-align:center;">NETUBEX SARL · PSI · Document opérationnel · ${nowTime}</div>
-</div>`;}
-
-function generatePDFProcess(){
-const btn=document.getElementById('generatePdfBtn');
-const txt=btn.textContent;
-btn.textContent='⏳ GÉNÉRATION...';
-btn.disabled=true;
-const el=document.createElement('div');
-el.innerHTML=createPDFContent();
-html2pdf().set({
-margin:[5,5,5,5],
-filename:`Calendrier_Strategique_${document.getElementById('nom_projet').value||'NETUBEX'}_2026-2027.pdf`,
-image:{type:'jpeg',quality:0.98},
-html2canvas:{scale:2,useCORS:true,logging:false,backgroundColor:'#FFFFFF'},
-jsPDF:{unit:'mm',format:'a4',orientation:'landscape',compress:true}
-}).from(el).save().then(()=>{
-btn.textContent=txt;
-btn.disabled=false;
-}).catch(()=>{
-btn.textContent=txt;
-btn.disabled=false;
-alert('Erreur lors de la génération du PDF');
-});
+function escapeHtml(s){
+    if(!s) return '';
+    return s.replace(/[&<>]/g, function(m){
+        if(m==='&') return '&amp;';
+        if(m==='<') return '&lt;';
+        if(m==='>') return '&gt;';
+        return m;
+    });
 }
 
-document.getElementById('generatePdfBtn').addEventListener('click',generatePDFProcess);
-document.getElementById('creationDate').valueAsDate=new Date();
-document.getElementById('finalDate').valueAsDate=new Date();
-document.getElementById('lancement').valueAsDate=new Date();
+function getFormValues(){
+    return {
+        company: document.getElementById('company').value || 'NETUBEX SARL',
+        initiateur: document.getElementById('initiateur').value || 'Flory Ngenda',
+        nomProjet: document.getElementById('nom_projet').value || 'Gestion de scolarité',
+        vision: document.getElementById('vision').value || '-',
+        lancement: document.getElementById('lancement').value || '-',
+        creationDate: document.getElementById('creationDate').value || '-',
+        m1: {
+            periode: document.getElementById('m1_periode').value || '-',
+            objectif: document.getElementById('m1_objectif').value || '-',
+            actions: document.getElementById('m1_actions').value || '-',
+            pole: document.getElementById('m1_pole').value,
+            resp: document.getElementById('m1_responsable').value || '-',
+            priorite: document.getElementById('m1_priorite').value,
+            statut: document.getElementById('m1_statut').value,
+            livrables: document.getElementById('m1_livrables').value || '-'
+        },
+        m2: {
+            periode: document.getElementById('m2_periode').value || '-',
+            objectif: document.getElementById('m2_objectif').value || '-',
+            actions: document.getElementById('m2_actions').value || '-',
+            pole: document.getElementById('m2_pole').value,
+            resp: document.getElementById('m2_responsable').value || '-',
+            priorite: document.getElementById('m2_priorite').value,
+            statut: document.getElementById('m2_statut').value,
+            livrables: document.getElementById('m2_livrables').value || '-'
+        },
+        m3: {
+            periode: document.getElementById('m3_periode').value || '-',
+            objectif: document.getElementById('m3_objectif').value || '-',
+            actions: document.getElementById('m3_actions').value || '-',
+            pole: document.getElementById('m3_pole').value,
+            resp: document.getElementById('m3_responsable').value || '-',
+            priorite: document.getElementById('m3_priorite').value,
+            statut: document.getElementById('m3_statut').value,
+            livrables: document.getElementById('m3_livrables').value || '-'
+        },
+        controles: document.getElementById('controles').value || '-',
+        avancement: document.getElementById('avancement').value,
+        risques: document.getElementById('risques').value || '-',
+        mitigation: document.getElementById('mitigation').value || '-',
+        commentaires: document.getElementById('commentaires').value || '-',
+        validePar: document.getElementById('validePar').value || '-',
+        signature: document.getElementById('signature').value || '-',
+        finalDate: document.getElementById('finalDate').value || '-',
+        pdfColor: document.getElementById('pdfColor').value
+    };
+}
+
+function buildPDFContentHTML(values){
+    let nowTime = new Date().toLocaleString('fr-FR');
+    
+    function buildPhaseTable(m, title){
+        return `<div style="margin-bottom:8mm; page-break-inside:avoid;">
+            <div style="background:#1a237e; color:white; padding:4mm; border-radius:4px; font-weight:700; font-size:12pt;">${title}</div>
+            <table style="width:100%; border-collapse:collapse; font-size:10pt; margin-top:2mm;">
+                <tr><td style="padding:3mm; border:1px solid #ccc; width:30%; background:#f5f5f5;"><strong>Période</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.periode)}</td></tr>
+                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Objectif</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.objectif)}</td></tr>
+                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Actions clés</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.actions).replace(/\n/g,'<br>')}</td></tr>
+                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Pôle / Responsable</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.pole)} | ${escapeHtml(m.resp)}</td></tr>
+                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Priorité / Statut</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.priorite)} | ${escapeHtml(m.statut)}</td></tr>
+                <tr><td style="padding:3mm; border:1px solid #ccc; background:#f5f5f5;"><strong>Livrables</strong></td><td style="padding:3mm; border:1px solid #ccc;">${escapeHtml(m.livrables)}</td></tr>
+            </table>
+        </div>`;
+    }
+    
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Calendrier Stratégique NETUBEX</title>
+        <style>
+            *{margin:0;padding:0;box-sizing:border-box;}
+            body{
+                font-family:'Segoe UI',Arial,sans-serif;
+                background:${values.pdfColor};
+                padding:8mm;
+                width:100%;
+            }
+            .header{
+                text-align:center;
+                margin-bottom:8mm;
+                padding-bottom:5mm;
+                border-bottom:3px solid #f59e0b;
+            }
+            .header h1{font-size:24pt; color:#1a237e; margin-bottom:3mm;}
+            .header h2{font-size:16pt; color:#e67e22; margin-bottom:2mm;}
+            .header p{font-size:10pt; color:#666;}
+            .info-bar{
+                display:flex;
+                justify-content:space-between;
+                background:#f8fafc;
+                padding:4mm;
+                border-radius:4px;
+                margin-bottom:8mm;
+                border:1px solid #dee2e6;
+                flex-wrap:wrap;
+            }
+            .info-bar div{margin:2mm 0;}
+            .section-title{
+                font-size:16pt;
+                font-weight:700;
+                color:#1a237e;
+                margin:8mm 0 4mm 0;
+                padding-bottom:3mm;
+                border-bottom:2px solid #1a237e;
+            }
+            .footer{
+                margin-top:8mm;
+                font-size:8pt;
+                color:#999;
+                text-align:center;
+                border-top:1px solid #ddd;
+                padding-top:4mm;
+            }
+            @media print{
+                body{margin:0;padding:5mm;}
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>⚡ ${escapeHtml(values.company)}</h1>
+            <p>PSI - Stratégie & Planification 2026-2027</p>
+            <h2>${escapeHtml(values.nomProjet)}</h2>
+            <p>Lancement prévu : ${values.lancement}</p>
+        </div>
+        
+        <div class="info-bar">
+            <div><strong>Vision :</strong> ${escapeHtml(values.vision)}</div>
+            <div><strong>Initiateur :</strong> ${escapeHtml(values.initiateur)}</div>
+            <div><strong>Date planning :</strong> ${values.creationDate}</div>
+        </div>
+        
+        <div class="section-title">📅 PHASE 1 : PRÉPARATION & MARKETING</div>
+        ${buildPhaseTable(values.m1, 'PHASE 1')}
+        
+        <div class="section-title">📅 PHASE 2 : DÉPLOIEMENT & SENSIBILISATION</div>
+        ${buildPhaseTable(values.m2, 'PHASE 2')}
+        
+        <div class="section-title">📅 PHASE 3 : LANCEMENT OFFICIEL & SUIVI</div>
+        ${buildPhaseTable(values.m3, 'PHASE 3')}
+        
+        <div class="section-title">📌 INDICATEURS DE SUCCÈS & POINTS DE CONTRÔLE</div>
+        <div style="background:#f8fafc; padding:4mm; border-radius:4px; margin-bottom:5mm;">
+            <div><strong>Points de contrôle :</strong> ${escapeHtml(values.controles)}</div>
+            <div style="margin-top:3mm;"><strong>Avancement :</strong> ${values.avancement}</div>
+            <div style="margin-top:3mm;"><strong>Risques identifiés :</strong> ${escapeHtml(values.risques)}</div>
+            <div style="margin-top:3mm;"><strong>Plan de mitigation :</strong> ${escapeHtml(values.mitigation)}</div>
+            <div style="margin-top:3mm;"><strong>Commentaires PSI :</strong> ${escapeHtml(values.commentaires)}</div>
+        </div>
+        
+        <div class="section-title">✅ VALIDATION</div>
+        <div style="background:#1a237e; color:white; padding:4mm; border-radius:4px; text-align:center;">
+            Validé par PSI : ${escapeHtml(values.validePar)} | Signature : ${escapeHtml(values.signature)} | Date : ${values.finalDate}
+        </div>
+        
+        <div class="footer">
+            NETUBEX SARL · PSI - Stratégie & Planification · Document opérationnel 2026-2027<br>
+            Généré le ${nowTime}
+        </div>
+    </body>
+    </html>`;
+}
+
+async function generatePDFProcess(){
+    const btn = document.getElementById('generatePdfBtn');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ GÉNÉRATION EN COURS...';
+    btn.disabled = true;
+    
+    try {
+        const values = getFormValues();
+        const fullHTML = buildPDFContentHTML(values);
+        
+        const container = document.getElementById('pdfContainer');
+        container.innerHTML = fullHTML;
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.style.width = '1123px';
+        container.style.background = values.pdfColor;
+        container.style.display = 'block';
+        
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        const opt = {
+            margin: [5, 5, 5, 5],
+            filename: `Calendrier_Strategique_${values.nomProjet.replace(/\s/g, '_')}_2026-2027.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: values.pdfColor },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape', compress: true }
+        };
+        
+        await html2pdf().set(opt).from(container).save();
+        
+        container.innerHTML = '';
+        
+    } catch(error) {
+        console.error('Erreur:', error);
+        alert('Erreur lors de la génération du PDF: ' + error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+document.getElementById('generatePdfBtn').addEventListener('click', generatePDFProcess);
+document.getElementById('creationDate').valueAsDate = new Date();
+document.getElementById('finalDate').valueAsDate = new Date();
+document.getElementById('lancement').valueAsDate = new Date();
 </script>
 </body>
 </html>
