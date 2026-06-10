@@ -3,121 +3,80 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Test IA</title>
 <style>
-    /* Force l'effacement de TOUT fond */
-    html, body, :root {
+    /* Solution : colorer la zone batterie pour qu'elle ne soit PLUS GRISE */
+    html {
         background: #0a0e1a !important;
-    }
-    
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
     }
     
     body {
+        margin: 0;
+        padding: env(safe-area-inset-top) 0 0 0;
         background: #0a0e1a !important;
-        font-family: system-ui, -apple-system, sans-serif;
-        min-height: 100vh;
+        font-family: system-ui, sans-serif;
     }
     
-    /* Le reste de ton CSS */
+    /* Zone noire qui remplace le gris sous la batterie */
+    .battery-fix {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: env(safe-area-inset-top, 47px);
+        background: #0a0e1a;
+        z-index: 9999;
+    }
+    
     .container {
         max-width: 500px;
         margin: 0 auto;
-        padding: 40px 16px 20px;
+        padding: 20px;
+        position: relative;
+        z-index: 1;
+        background: #0a0e1a;
+        min-height: 100vh;
     }
     
-    h1 {
-        color: #fff;
-        font-size: 24px;
-        margin-bottom: 8px;
-        text-align: center;
-    }
-    
-    p {
-        color: #94a3b8;
-        font-size: 14px;
-        margin-bottom: 30px;
-        text-align: center;
-    }
-    
-    .btn-group {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-bottom: 30px;
-    }
+    /* Tout le reste en #0a0e1a */
+    h1 { color: white; text-align: center; }
+    p { color: #94a3b8; text-align: center; }
     
     .btn {
+        display: block;
+        width: 100%;
         padding: 16px;
+        margin: 10px 0;
         border-radius: 60px;
         border: none;
-        font-weight: 600;
-        font-size: 16px;
+        font-weight: bold;
         cursor: pointer;
     }
     
-    .btn-primary {
-        background: #3b82f6;
-        color: #fff;
-    }
-    
-    .btn-success {
-        background: #10b981;
-        color: #fff;
-    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-success { background: #10b981; color: white; }
     
     .card {
         background: #1e293b;
         border-radius: 20px;
         padding: 20px;
-        border: 1px solid #334155;
-    }
-    
-    .card-title {
-        color: #94a3b8;
-        font-size: 12px;
-        margin-bottom: 12px;
-    }
-    
-    .reponse {
-        color: #e2e8f0;
-        font-size: 15px;
-        line-height: 1.5;
-    }
-    
-    .loader {
-        display: inline-block;
-        width: 18px;
-        height: 18px;
-        border: 2px solid #3b82f6;
-        border-top-color: transparent;
-        border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
+        margin: 20px 0;
     }
 </style>
 </head>
 <body>
+<!-- Cache le gris sous la batterie -->
+<div class="battery-fix"></div>
+
 <div class="container">
     <h1>🧪 Test IA</h1>
     <p>Vérification de la connexion</p>
     
-    <div class="btn-group">
-        <button class="btn btn-primary" id="testBtn">🚀 Tester</button>
-        <button class="btn btn-success" id="questionBtn">💬 Question IA</button>
-    </div>
+    <button class="btn btn-primary" id="testBtn">🚀 Tester</button>
+    <button class="btn btn-success" id="questionBtn">💬 Question IA</button>
     
     <div class="card">
-        <div class="card-title">📋 RÉSULTAT</div>
-        <div class="reponse" id="reponse">Cliquez sur Tester</div>
+        <div id="reponse">Cliquez sur Tester</div>
     </div>
 </div>
 
@@ -126,31 +85,22 @@ const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
 const reponseDiv = document.getElementById('reponse');
 
 async function tester(question) {
-    reponseDiv.innerHTML = '<span class="loader"></span> Appel en cours...';
-    
+    reponseDiv.innerHTML = '⏳ Chargement...';
     try {
         const res = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ question: question })
         });
-        
         const data = await res.json();
-        
-        if(data.answer) {
-            reponseDiv.innerHTML = '✅ Succès<br><br>' + data.answer;
-        } else if(data.error) {
-            reponseDiv.innerHTML = '❌ Erreur<br><br>' + data.error;
-        } else {
-            reponseDiv.innerHTML = '⚠️ Réponse inattendue<br><br>' + JSON.stringify(data);
-        }
+        reponseDiv.innerHTML = data.answer || data.error || 'Réponse reçue';
     } catch(e) {
-        reponseDiv.innerHTML = '❌ Échec<br><br>' + e.message;
+        reponseDiv.innerHTML = 'Erreur: ' + e.message;
     }
 }
 
-document.getElementById('testBtn').onclick = () => tester('Réponds "OK, tout fonctionne"');
-document.getElementById('questionBtn').onclick = () => tester('Donne un conseil pour un professeur');
+document.getElementById('testBtn').onclick = () => tester('Réponds "OK"');
+document.getElementById('questionBtn').onclick = () => tester('Donne un conseil');
 </script>
 </body>
 </html>
