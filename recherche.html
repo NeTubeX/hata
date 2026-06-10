@@ -47,8 +47,11 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .messages-grid{padding:18px;display:flex;flex-direction:column;gap:14px;max-height:400px;overflow-y:auto;}
 .message-card{background:#0d2740;border-radius:20px;padding:16px;border-left:4px solid #10b981;transition:0.2s;}
 .message-card:hover{background:#123a5e;}
+.message-card.ursule-card{background:#0a3a2a;border-left:4px solid #10b981;border:1px solid #10b981;}
+.message-card.ursule-card:hover{background:#0e4a35;}
 .message-nom{font-weight:800;color:#facc15;font-size:0.9rem;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .message-badge{font-size:0.7rem;background:#1e3a5f;padding:2px 8px;border-radius:20px;color:#94a3b8;}
+.ursule-badge{background:#10b981;color:#0a1a2f;}
 .message-texte{font-size:0.9rem;color:#e0f2fe;line-height:1.5;margin-bottom:12px;white-space:pre-wrap;word-break:break-word;}
 .message-meta{font-size:0.7rem;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
 .btn-copy-message{background:#3b82f6;border:none;padding:4px 12px;border-radius:20px;color:white;font-size:0.7rem;cursor:pointer;transition:0.2s;}
@@ -179,7 +182,7 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 <!-- ONGLET STATISTIQUES -->
 <div id="stats-tab" class="tab-content">
 <div class="grid-stats">
-<div class="stat-card"><div class="stat-value" id="statTotalProfesseurs">-</div><div class="stat-label">Professeurs clients</div></div>
+<div class="stat-card"><div class="stat-value" id="statTotalProfesseurs">-</div><div class="stat-label">Clients</div></div>
 <div class="stat-card"><div class="stat-value" id="statTotalEtablissements">-</div><div class="stat-label">Établissements scolaires</div></div>
 <div class="stat-card"><div class="stat-value" id="statTotalProvinces">-</div><div class="stat-label">Provinces couvertes</div></div>
 <div class="stat-card"><div class="stat-value" id="statTauxOccupation">-</div><div class="stat-label">Taux moyen / établissement</div></div>
@@ -196,7 +199,7 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 <tr>
 <th>Établissement</th>
 <th>Province</th>
-<th style="text-align:center">👥 Profs</th>
+<th style="text-align:center">👥 Clients</th>
 </tr>
 </thead>
 <tbody id="tbodyProfesseurs">
@@ -416,13 +419,19 @@ function displayMessages() {
     messagesList.forEach((msg) => {
         const date = new Date(msg.date).toLocaleString('fr-FR');
         const messageId = msg.id || Date.now().toString();
+        const isUrsule = msg.nom === SENDER_NAME;
+        
         const card = document.createElement('div');
-        card.className = 'message-card';
+        card.className = `message-card ${isUrsule ? 'ursule-card' : ''}`;
         card.setAttribute('data-id', messageId);
+        
+        const badgeClass = isUrsule ? 'ursule-badge' : '';
+        const badgeText = isUrsule ? '👩‍🔬 Ursule Nyandji' : (msg.app === 'calendrier' ? '📅 Calendrier' : '📋 Innovation');
+        
         card.innerHTML = `
             <div class="message-nom">
                 📨 ${escapeHtml(msg.nom || 'Anonyme')}
-                <span class="message-badge">${msg.app === 'calendrier' ? '📅 Calendrier' : '📋 Innovation'}</span>
+                <span class="message-badge ${badgeClass}">${badgeText}</span>
             </div>
             <div class="message-texte">${escapeHtml(msg.message || '')}</div>
             <div class="message-meta">
@@ -542,13 +551,13 @@ async function copyStats() {
     }
     let text = "NETUBEX - STATISTIQUES ÉTABLISSEMENTS\n";
     text += `Date: ${new Date().toLocaleDateString('fr-FR')}\n\n`;
-    text += `Professeurs clients: ${statsData.totalProfesseurs}\n`;
+    text += `Clients: ${statsData.totalProfesseurs}\n`;
     text += `Établissements: ${statsData.totalEtablissements}\n`;
     text += `Provinces couvertes: ${statsData.totalProvinces}\n`;
-    text += `Taux moyen: ${statsData.tauxOccupation} profs/école\n\n`;
+    text += `Taux moyen: ${statsData.tauxOccupation} clients/école\n\n`;
     text += "RÉPARTITION:\n";
     statsData.profParEcole.forEach((item, idx) => {
-        text += `${idx + 1}. ${item.nom} - ${item.province}: ${item.nb} prof(s)\n`;
+        text += `${idx + 1}. ${item.nom} - ${item.province}: ${item.nb} client(s)\n`;
     });
     try {
         await navigator.clipboard.writeText(text);
@@ -568,29 +577,164 @@ async function exportStatsPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     
-    doc.setFillColor(10, 26, 47); doc.rect(0, 0, 210, 297, 'F');
-    doc.setTextColor(250, 204, 21);
-    doc.setFontSize(16); doc.text('NETUBEX SARL - Rapport Statistiques', 20, 20);
-    doc.setTextColor(224, 242, 254);
-    doc.setFontSize(10); doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 20, 30);
-    doc.setTextColor(250, 204, 21);
-    doc.setFontSize(11); doc.text('INDICATEURS CLÉS', 20, 45);
-    doc.setTextColor(224, 242, 254);
-    doc.setFontSize(9); 
-    doc.text(`Professeurs clients: ${statsData.totalProfesseurs || 0}`, 20, 55);
-    doc.text(`Établissements: ${statsData.totalEtablissements || 0}`, 20, 62);
-    doc.text(`Provinces couvertes: ${statsData.totalProvinces || 0}`, 20, 69);
-    doc.text(`Taux moyen: ${statsData.tauxOccupation || 0} profs/école`, 20, 76);
-    doc.setTextColor(250, 204, 21); doc.text('RÉPARTITION PAR ÉTABLISSEMENT', 20, 90);
+    // Fond blanc
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, 210, 297, 'F');
     
-    let y = 100;
-    doc.setTextColor(200, 212, 230);
+    // En-tête sombre
+    doc.setFillColor(10, 26, 47);
+    doc.rect(0, 0, 210, 45, 'F');
+    
+    // Logo
+    const logoUrl = 'https://www.netubex.com/favicon.png.png';
+    try {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = logoUrl;
+        await new Promise((resolve) => {
+            img.onload = () => { 
+                doc.addImage(img, 'PNG', 14, 8, 12, 12); 
+                resolve(); 
+            };
+            img.onerror = () => resolve();
+            setTimeout(resolve, 500);
+        });
+    } catch(e) {}
+    
+    // Titre dans l'en-tête
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('NETUBEX SARL', 30, 17);
+    doc.setTextColor(224, 242, 254);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Département Innovation et Recherche', 30, 27);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('fr-FR');
+    doc.text(`Rapport établi le ${dateStr}`, 30, 36);
+    
+    // Soulignement
+    doc.setDrawColor(250, 204, 21);
+    doc.setLineWidth(0.5);
+    doc.line(14, 42, 196, 42);
+    
+    // INDICATEURS CLÉS
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('INDICATEURS CLÉS', 14, 60);
+    doc.setFont(undefined, 'normal');
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(14, 64, 196, 64);
+    
+    // Cartes indicateurs
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(14, 72, 85, 30, 3, 3, 'F');
+    doc.roundedRect(111, 72, 85, 30, 3, 3, 'F');
+    doc.roundedRect(14, 108, 85, 30, 3, 3, 'F');
+    doc.roundedRect(111, 108, 85, 30, 3, 3, 'F');
+    
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Clients', 18, 85);
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${statsData.totalProfesseurs || 0}`, 18, 98);
+    
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Établissements', 115, 85);
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${statsData.totalEtablissements || 0}`, 115, 98);
+    
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Provinces couvertes', 18, 121);
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${statsData.totalProvinces || 0}`, 18, 134);
+    
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.text('Taux moyen / établissement', 115, 121);
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(`${statsData.tauxOccupation || 0}`, 115, 134);
+    
+    // RÉPARTITION PAR ÉTABLISSEMENT
+    doc.setTextColor(10, 26, 47);
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('RÉPARTITION PAR ÉTABLISSEMENT', 14, 160);
+    doc.setFont(undefined, 'normal');
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(14, 164, 196, 164);
+    
+    // En-tête du tableau
+    doc.setFillColor(10, 26, 47);
+    doc.rect(14, 172, 182, 8, 'F');
+    doc.setTextColor(250, 204, 21);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.text('Établissement', 16, 178);
+    doc.text('Province', 120, 178);
+    doc.text('Clients', 170, 178, { align: 'right' });
+    
+    // Données du tableau
+    let y = 186;
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    
     const ecoles = statsData.profParEcole || [];
-    for (const ecole of ecoles) {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${ecole.nom.substring(0, 28)} - ${ecole.province} : ${ecole.nb} prof(s)`, 20, y);
+    for (let i = 0; i < Math.min(ecoles.length, 12); i++) {
+        if (y > 270) { 
+            doc.addPage();
+            y = 20;
+            doc.setFillColor(10, 26, 47);
+            doc.rect(14, y - 8, 182, 8, 'F');
+            doc.setTextColor(250, 204, 21);
+            doc.text('Établissement', 16, y - 2);
+            doc.text('Province', 120, y - 2);
+            doc.text('Clients', 170, y - 2, { align: 'right' });
+            doc.setTextColor(50, 50, 50);
+            y += 6;
+        }
+        const item = ecoles[i];
+        doc.text(item.nom.substring(0, 28), 16, y);
+        doc.text(item.province, 120, y);
+        doc.text(`${item.nb}`, 170, y, { align: 'right' });
         y += 6;
     }
+    
+    if (ecoles.length === 0) {
+        doc.text('Aucune donnée disponible', 14, y);
+    }
+    
+    // Pied de page
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setTextColor(150, 150, 150);
+        doc.setFontSize(7);
+        doc.text(`NETUBEX SARL - Page ${i} sur ${pageCount}`, 105, 290, { align: 'center' });
+    }
+    
     doc.save(`netubex_stats_${new Date().toISOString().slice(0, 10)}.pdf`);
     showToast("✅ PDF exporté");
 }
