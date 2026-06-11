@@ -133,7 +133,7 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 <div class="form-group">
 <label class="required">Identifiant unique (préfixe)</label>
 <input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;">
-<span class="text-muted">🔑 Généré automatiquement à partir du nom</span>
+<span class="text-muted">🔑 Généré automatiquement à partir du nom (sans accents, tirets)</span>
 </div>
 <div class="form-group"><label class="required">Province</label><select id="province"><option value="">Sélectionner</option><option value="Kinshasa">Kinshasa</option><option value="Kongo Central">Kongo Central</option><option value="Kwango">Kwango</option><option value="Kwilu">Kwilu</option><option value="Mai-Ndombe">Mai-Ndombe</option><option value="Équateur">Équateur</option><option value="Mongala">Mongala</option><option value="Nord-Ubangi">Nord-Ubangi</option><option value="Sud-Ubangi">Sud-Ubangi</option><option value="Tshuapa">Tshuapa</option><option value="Bas-Uele">Bas-Uele</option><option value="Haut-Uele">Haut-Uele</option><option value="Ituri">Ituri</option><option value="Tshopo">Tshopo</option><option value="Nord-Kivu">Nord-Kivu</option><option value="Sud-Kivu">Sud-Kivu</option><option value="Maniema">Maniema</option><option value="Haut-Katanga">Haut-Katanga</option><option value="Haut-Lomami">Haut-Lomami</option><option value="Lualaba">Lualaba</option><option value="Lomami">Lomami</option><option value="Tanganyika">Tanganyika</option><option value="Kasaï">Kasaï</option><option value="Kasaï-Central">Kasaï-Central</option><option value="Kasaï-Oriental">Kasaï-Oriental</option><option value="Sankuru">Sankuru</option></select></div>
 <div class="form-group"><label class="required">Ville / Commune</label><select id="ville"><option value="">Sélectionner une ville</option></select></div>
@@ -259,12 +259,14 @@ function showToast(message, type = "success") {
 }
 
 function normaliserNom(nom) {
+    if (!nom) return '';
     return nom
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '');
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
 }
 
 async function prefixeExiste(prefixe) {
@@ -278,11 +280,11 @@ async function prefixeExiste(prefixe) {
 async function genererPrefixeAuto(nomEcole) {
     if (!nomEcole || nomEcole.length < 2) return '';
     let base = normaliserNom(nomEcole);
-    if (base.length > 35) base = base.substring(0, 35);
-    let prefixe = `ecole_${base}`;
+    if (base.length > 40) base = base.substring(0, 40);
+    let prefixe = base;
     let compteur = 1;
     while (await prefixeExiste(prefixe) && compteur <= 50) {
-        prefixe = `ecole_${base}_${compteur}`;
+        prefixe = `${base}-${compteur}`;
         compteur++;
     }
     return prefixe;
