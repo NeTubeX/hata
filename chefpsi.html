@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<title>NETUBEX | Tableau de bord - Pôle Stratégie & Innovation</title>
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0f2fe;padding:16px;line-height:1.4;}
+.container{max-width:900px;margin:0 auto;}
+.header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:28px;padding:18px 20px;margin-bottom:20px;border:1px solid #2d5980;display:flex;align-items:center;gap:15px;flex-wrap:wrap;}
+.logo{width:50px;height:50px;border-radius:12px;background:#fff;padding:8px;display:flex;align-items:center;justify-content:center;}
+.logo img{width:100%;height:100%;object-fit:contain;}
+.header-text{flex:1;}
+.header h1{font-size:1.3rem;font-weight:700;color:#facc15;}
+.header p{font-size:0.7rem;color:#bbdefb;margin-top:5px;}
+
+/* Titre principal */
+.page-title{background:#071a2c;border-radius:20px;padding:14px 18px;margin-bottom:20px;text-align:center;border:1px solid #facc1540;}
+.page-title h2{color:#facc15;font-size:1.2rem;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;}
+.page-title p{font-size:0.75rem;color:#94a3b8;margin-top:6px;}
+
+/* Messages */
+.messages-container{background:#0a1e30;border-radius:28px;border:1px solid #2d5980;overflow:hidden;margin-bottom:20px;}
+.messages-header{background:#071a2c;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.messages-header h3{font-size:1rem;font-weight:700;color:#facc15;}
+.btn-mark-all{background:#6b7280;border:none;padding:8px 16px;border-radius:40px;color:white;font-weight:600;font-size:0.75rem;cursor:pointer;transition:0.2s;}
+.btn-mark-all:hover{background:#4b5563;}
+
+.messages-grid{padding:18px;display:flex;flex-direction:column;gap:16px;max-height:500px;overflow-y:auto;}
+.message-card{background:#0d2740;border-radius:20px;padding:18px;border-left:4px solid #8b5cf6;transition:0.2s;position:relative;}
+.message-card:hover{background:#123a5e;}
+.message-card.unread{border-left:4px solid #ef4444;background:#1a2a40;}
+.message-card.unread::before{content:"●";position:absolute;top:15px;right:15px;color:#ef4444;font-size:12px;}
+.message-card.from-pole{background:#0a3a2a;border-left:4px solid #10b981;}
+.message-card.from-pole .message-badge{background:#facc15;color:#0a1a2f;}
+
+.message-nom{font-weight:800;color:#facc15;font-size:0.95rem;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.message-badge{font-size:0.7rem;background:#10b981;padding:3px 10px;border-radius:20px;color:#0a1a2f;font-weight:600;}
+.unread-badge{background:#ef4444;color:white;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;}
+
+.message-texte{font-size:0.95rem;color:#e0f2fe;line-height:1.5;margin-bottom:14px;white-space:pre-wrap;word-break:break-word;background:#0a1a2f;padding:12px;border-radius:16px;}
+.message-meta{font-size:0.7rem;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+.btn-copy{background:#3b82f6;border:none;padding:6px 14px;border-radius:20px;color:white;font-size:0.7rem;cursor:pointer;transition:0.2s;}
+.btn-copy:hover{background:#2563eb;}
+.btn-mark-read{background:#6b7280;border:none;padding:6px 14px;border-radius:20px;color:white;font-size:0.7rem;cursor:pointer;transition:0.2s;}
+.btn-mark-read:hover{background:#4b5563;}
+.btn-reply{background:#f59e0b;border:none;padding:6px 14px;border-radius:20px;color:#0a1a2f;font-size:0.7rem;cursor:pointer;font-weight:600;transition:0.2s;}
+.btn-reply:hover{background:#d97706;}
+.btn-delete{background:#ef4444;border:none;padding:6px 14px;border-radius:20px;color:white;font-size:0.7rem;cursor:pointer;transition:0.2s;}
+.btn-delete:hover{background:#dc2626;}
+
+/* Formulaire de réponse */
+.reply-form{background:#0a1e30;border-radius:20px;border:1px solid #f59e0b;margin-top:12px;overflow:hidden;display:none;}
+.reply-form.show{display:block;}
+.reply-header{background:#071a2c;padding:12px 16px;font-weight:600;color:#f59e0b;font-size:0.85rem;}
+.reply-body{padding:16px;}
+.reply-body textarea{width:100%;padding:12px;background:#0a1a2f;border:1px solid #2d5980;border-radius:16px;color:#e0f2fe;font-size:0.85rem;margin-bottom:12px;resize:vertical;min-height:80px;font-family:inherit;}
+.reply-body textarea:focus{outline:none;border-color:#f59e0b;}
+.reply-actions{display:flex;gap:10px;justify-content:flex-end;}
+.reply-send{background:#f59e0b;border:none;padding:8px 20px;border-radius:40px;color:#0a1a2f;font-weight:700;cursor:pointer;transition:0.2s;}
+.reply-send:hover{background:#d97706;}
+.reply-cancel{background:#2a3a4e;border:none;padding:8px 20px;border-radius:40px;color:#e2e8f0;cursor:pointer;transition:0.2s;}
+.reply-cancel:hover{background:#1e2a3a;}
+
+/* Formulaire d'envoi de nouveau message */
+.send-form{background:#0a1e30;border-radius:28px;border:1px solid #2d5980;margin-top:0;overflow:hidden;margin-bottom:20px;}
+.send-header{background:#071a2c;padding:14px 18px;font-weight:700;color:#f59e0b;font-size:0.9rem;display:flex;align-items:center;gap:8px;}
+.send-body{padding:18px;}
+.send-body textarea{width:100%;padding:12px 14px;background:#0a1a2f;border:1px solid #2d5980;border-radius:20px;color:#e0f2fe;font-size:0.85rem;margin-bottom:16px;resize:vertical;min-height:100px;font-family:inherit;}
+.send-body textarea:focus{outline:none;border-color:#f59e0b;}
+.btn-send-new{background:#8b5cf6;border:none;padding:12px;border-radius:44px;color:white;font-weight:700;cursor:pointer;width:100%;transition:0.2s;}
+.btn-send-new:hover{background:#7c3aed;}
+
+/* Réponses existantes */
+.responses-section{margin-top:16px;padding-top:12px;border-top:1px solid #2d5980;}
+.response-card{background:#1a2a3a;border-radius:16px;padding:12px;margin-top:10px;border-left:3px solid #f59e0b;}
+.response-header{font-size:0.7rem;color:#94a3b8;margin-bottom:6px;display:flex;gap:8px;align-items:center;}
+.response-badge{background:#f59e0b;color:#0a1a2f;padding:2px 8px;border-radius:20px;font-size:0.65rem;font-weight:600;}
+.response-text{font-size:0.85rem;color:#e0f2fe;margin-top:6px;}
+
+/* Modal de confirmation suppression */
+.delete-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:3000;align-items:center;justify-content:center;}
+.delete-content{background:#0a1e30;border-radius:28px;width:90%;max-width:350px;padding:28px 24px;border:1px solid #ef4444;text-align:center;}
+.delete-content h3{color:#ef4444;margin-bottom:16px;font-size:1.2rem;}
+.delete-content p{color:#bbdefb;font-size:0.9rem;margin-bottom:24px;}
+.delete-buttons{display:flex;gap:12px;justify-content:center;}
+.delete-buttons button{padding:10px 24px;border-radius:40px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;}
+.delete-buttons .delete-yes{background:#ef4444;color:white;}
+.delete-buttons .delete-yes:hover{background:#dc2626;}
+.delete-buttons .delete-no{background:#2a3a4e;color:#e2e8f0;}
+.delete-buttons .delete-no:hover{background:#1e2a3a;}
+
+/* Footer */
+.footer{background:#0f1722;border-top:1px solid #2d3a4e;padding:12px;font-size:0.7rem;color:#7f8ea3;text-align:center;margin-top:20px;border-radius:20px;}
+
+.toast{position:fixed;top:20px;left:16px;right:16px;background:#1e293b;border-left:4px solid #10b981;border-radius:20px;padding:12px 16px;color:white;font-size:0.85rem;display:none;z-index:1200;background:rgba(15,35,60,0.95);text-align:center;}
+
+/* Animation */
+@keyframes pulse{0%{transform:scale(1);}50%{transform:scale(1.05);}100%{transform:scale(1);}}
+.new-message-animation{animation:pulse 0.5s ease;}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo">
+            <img src="https://www.netubex.com/favicon.png.png" alt="NETUBEX" onerror="this.style.display='none'">
+        </div>
+        <div class="header-text">
+            <h1>NETUBEX SARL</h1>
+            <p>Pôle Stratégie et Innovation</p>
+        </div>
+    </div>
+
+    <div class="page-title">
+        <h2>🎯 TABLEAU DE BORD - CHEF DE PÔLE</h2>
+        <p>Échangez avec Ursule Nyandji · Répondez ou envoyez de nouveaux messages</p>
+    </div>
+
+    <!-- Formulaire d'envoi de nouveau message -->
+    <div class="send-form">
+        <div class="send-header">
+            ✏️ NOUVEAU MESSAGE POUR URSULE NYANDJI
+        </div>
+        <div class="send-body">
+            <textarea id="newMessage" rows="3" placeholder="Écrivez votre message ici..."></textarea>
+            <button id="sendNewMessageBtn" class="btn-send-new">📤 ENVOYER LE MESSAGE</button>
+        </div>
+    </div>
+
+    <div class="messages-container">
+        <div class="messages-header">
+            <h3>📨 Historique des échanges</h3>
+            <button id="markAllReadBtn" class="btn-mark-all">✅ Tout marquer lu</button>
+        </div>
+        
+        <div id="messagesGrid" class="messages-grid">
+            <div class="loading-text" style="text-align:center;padding:40px;">⏳ Chargement des messages...</div>
+        </div>
+        
+        <div class="messages-footer" style="background:#071a2c;padding:12px 18px;display:flex;justify-content:space-between;font-size:0.7rem;">
+            <span>💬 Tous les messages (reçus et envoyés)</span>
+            <span class="message-count" id="messageCount">0 message(s)</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        Pôle Stratégie et Innovation · Communication bidirectionnelle
+    </div>
+</div>
+
+<!-- Modal de confirmation suppression -->
+<div class="delete-modal" id="deleteModal">
+    <div class="delete-content">
+        <h3>🗑️ Supprimer le message</h3>
+        <p>Êtes-vous sûr de vouloir supprimer ce message ? Cette action est irréversible.</p>
+        <div class="delete-buttons">
+            <button class="delete-yes" id="deleteYes">Oui, supprimer</button>
+            <button class="delete-no" id="deleteNo">Annuler</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const POLE_MESSAGES_DOC_ID = "consultation_pole";
+const poleMessagesDocRef = doc(db, "communication", POLE_MESSAGES_DOC_ID);
+const READ_STATUS_KEY = "pole_chef_read_messages";
+
+const POLE_NAME = "Chef Pôle Stratégie & Innovation";
+
+let poleMessagesList = [];
+let unsubscribePole = null;
+let activeReplyId = null;
+let messageToDelete = null;
+
+// Gestion des messages lus
+function getReadMessages() {
+    const read = localStorage.getItem(READ_STATUS_KEY);
+    return read ? JSON.parse(read) : [];
+}
+
+function saveReadMessages(readList) {
+    localStorage.setItem(READ_STATUS_KEY, JSON.stringify(readList));
+}
+
+function markAsRead(messageId) {
+    const readList = getReadMessages();
+    if (!readList.includes(messageId)) {
+        readList.push(messageId);
+        saveReadMessages(readList);
+        updateUnreadBadge();
+        displayMessages();
+    }
+}
+
+function markAllAsRead() {
+    const allIds = poleMessagesList.map(msg => msg.id);
+    saveReadMessages(allIds);
+    updateUnreadBadge();
+    displayMessages();
+    showToast("✅ Tous les messages marqués comme lus");
+}
+
+function isRead(messageId) {
+    return getReadMessages().includes(messageId);
+}
+
+function getUnreadCount() {
+    return poleMessagesList.filter(msg => !isRead(msg.id) && msg.sender !== "pole").length;
+}
+
+function updateUnreadBadge() {
+    const unreadCount = getUnreadCount();
+    const titleElement = document.querySelector('.page-title h2');
+    
+    const oldBadge = document.querySelector('.unread-total-badge');
+    if (oldBadge) oldBadge.remove();
+    
+    if (unreadCount > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'unread-total-badge';
+        badge.style.cssText = 'background:#ef4444;color:white;border-radius:20px;padding:2px 10px;font-size:0.7rem;margin-left:10px;';
+        badge.textContent = `${unreadCount} non lu${unreadCount > 1 ? 's' : ''}`;
+        titleElement.appendChild(badge);
+    }
+    
+    if (unreadCount > 0) {
+        document.title = `(${unreadCount}) NETUBEX | Pôle Stratégie & Innovation`;
+    } else {
+        document.title = `NETUBEX | Pôle Stratégie & Innovation`;
+    }
+}
+
+// Supprimer un message
+async function deleteMessage(messageId) {
+    const messageToRemove = poleMessagesList.find(msg => msg.id === messageId);
+    if (!messageToRemove) return;
+    
+    try {
+        await updateDoc(poleMessagesDocRef, { messages: arrayRemove(messageToRemove) });
+        showToast("🗑️ Message supprimé avec succès");
+        
+        const readList = getReadMessages();
+        const newReadList = readList.filter(id => id !== messageId);
+        saveReadMessages(newReadList);
+    } catch (err) {
+        console.error("Erreur suppression:", err);
+        showToast("❌ Erreur lors de la suppression", true);
+    }
+}
+
+// Envoyer un nouveau message (du pôle vers Ursule)
+async function sendNewMessage(message) {
+    if (!message.trim()) {
+        showToast("❌ Message vide", true);
+        return false;
+    }
+    
+    const newMessage = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+        nom: POLE_NAME,
+        message: message.trim(),
+        date: new Date().toISOString(),
+        sender: "pole",
+        type: "new_message"
+    };
+    
+    try {
+        await updateDoc(poleMessagesDocRef, { messages: arrayUnion(newMessage) });
+        showToast("✅ Message envoyé à Ursule Nyandji");
+        return true;
+    } catch (err) {
+        console.error("Erreur envoi nouveau message:", err);
+        showToast("❌ Erreur lors de l'envoi", true);
+        return false;
+    }
+}
+
+// Envoyer une réponse (réponse à un message spécifique)
+async function sendResponse(messageId, responseText) {
+    if (!responseText.trim()) {
+        showToast("❌ Message vide", true);
+        return false;
+    }
+    
+    const response = {
+        id: Date.now().toString(),
+        message: responseText.trim(),
+        date: new Date().toISOString(),
+        from: "pole",
+        type: "response"
+    };
+    
+    try {
+        const currentDoc = await getDoc(poleMessagesDocRef);
+        const currentMessages = currentDoc.exists() ? currentDoc.data().messages : [];
+        const updatedMessages = currentMessages.map(msg => {
+            if (msg.id === messageId) {
+                const existingResponses = msg.responses || [];
+                return { ...msg, responses: [...existingResponses, response] };
+            }
+            return msg;
+        });
+        
+        await setDoc(poleMessagesDocRef, { messages: updatedMessages });
+        showToast("✅ Réponse envoyée à Ursule Nyandji");
+        markAsRead(messageId);
+        return true;
+    } catch (err) {
+        console.error("Erreur envoi réponse:", err);
+        showToast("❌ Erreur lors de l'envoi", true);
+        return false;
+    }
+}
+
+// Initialiser le document
+async function initPoleMessagesDocument() {
+    try {
+        const docSnap = await getDoc(poleMessagesDocRef);
+        if (!docSnap.exists()) {
+            await setDoc(poleMessagesDocRef, { messages: [], createdAt: new Date().toISOString() });
+        }
+    } catch (err) {
+        console.error("Erreur création document pôle:", err);
+    }
+}
+
+// Écouter les messages
+function listenToPoleMessages() {
+    if (unsubscribePole) unsubscribePole();
+    unsubscribePole = onSnapshot(poleMessagesDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const newMessagesList = data.messages || [];
+            newMessagesList.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const oldCount = poleMessagesList.length;
+            poleMessagesList = newMessagesList;
+            
+            // Détection des nouveaux messages d'Ursule
+            if (oldCount > 0 && poleMessagesList.length > oldCount) {
+                const newMessages = poleMessagesList.slice(0, poleMessagesList.length - oldCount);
+                newMessages.forEach(msg => {
+                    if (msg.sender !== "pole" && !isRead(msg.id)) {
+                        showToast(`🔴 Nouveau message de ${msg.nom || 'Ursule'}`, false);
+                        const grid = document.getElementById('messagesGrid');
+                        if (grid) grid.classList.add('new-message-animation');
+                        setTimeout(() => {
+                            if (grid) grid.classList.remove('new-message-animation');
+                        }, 500);
+                    }
+                });
+            }
+            
+            displayMessages();
+            updateUnreadBadge();
+        }
+    }, (error) => {
+        console.error("Erreur écoute messages pôle:", error);
+        document.getElementById('messagesGrid').innerHTML = '<div style="text-align:center;padding:40px;">❌ Erreur de connexion</div>';
+    });
+}
+
+// Afficher les messages
+function displayMessages() {
+    const container = document.getElementById('messagesGrid');
+    if (!container) return;
+    
+    if (poleMessagesList.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;">📭 Aucun message. Envoyez votre premier message à Ursule !</div>';
+        document.getElementById('messageCount').innerHTML = '0 message';
+        return;
+    }
+    
+    container.innerHTML = '';
+    poleMessagesList.forEach((msg) => {
+        const date = new Date(msg.date).toLocaleString('fr-FR');
+        const isFromPole = msg.sender === "pole";
+        const unread = !isFromPole && !isRead(msg.id);
+        const hasResponses = msg.responses && msg.responses.length > 0;
+        
+        const card = document.createElement('div');
+        card.className = `message-card ${unread ? 'unread' : ''} ${isFromPole ? 'from-pole' : ''}`;
+        
+        const senderBadge = isFromPole 
+            ? '<span class="message-badge" style="background:#facc15;">🏢 Pôle Stratégie & Innovation</span>' 
+            : '<span class="message-badge">👩‍🔬 Ursule Nyandji - Innovation</span>';
+        
+        card.innerHTML = `
+            <div class="message-nom">
+                📨 ${escapeHtml(msg.nom || (isFromPole ? POLE_NAME : 'Ursule Nyandji'))}
+                ${senderBadge}
+                ${unread ? '<span class="unread-badge">🔴 NON LU</span>' : ''}
+            </div>
+            <div class="message-texte">${escapeHtml(msg.message || '')}</div>
+            <div class="message-meta">
+                <span>📅 ${date}</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn-copy" data-message="${escapeHtml(msg.message || '')}">📋 Copier</button>
+                    ${!isFromPole && unread ? `<button class="btn-mark-read" data-id="${msg.id}">✅ Marquer lu</button>` : ''}
+                    ${!isFromPole ? `<button class="btn-reply" data-id="${msg.id}">💬 Répondre</button>` : ''}
+                    <button class="btn-delete" data-id="${msg.id}">🗑️ Supprimer</button>
+                </div>
+            </div>
+            ${hasResponses ? `
+                <div class="responses-section">
+                    ${msg.responses.map(resp => `
+                        <div class="response-card">
+                            <div class="response-header">
+                                <span class="response-badge">📤 RÉPONSE DU PÔLE</span>
+                                <span>${new Date(resp.date).toLocaleString('fr-FR')}</span>
+                            </div>
+                            <div class="response-text">${escapeHtml(resp.message)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+            ${!isFromPole ? `
+                <div class="reply-form" id="reply-form-${msg.id}">
+                    <div class="reply-header">✏️ Répondre à Ursule Nyandji</div>
+                    <div class="reply-body">
+                        <textarea id="reply-text-${msg.id}" rows="3" placeholder="Votre réponse..."></textarea>
+                        <div class="reply-actions">
+                            <button class="reply-cancel" data-id="${msg.id}">Annuler</button>
+                            <button class="reply-send" data-id="${msg.id}">📤 Envoyer la réponse</button>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+        `;
+        
+        // Copier
+        const copyBtn = card.querySelector('.btn-copy');
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyText(msg.message);
+        });
+        
+        // Marquer comme lu
+        const markReadBtn = card.querySelector('.btn-mark-read');
+        if (markReadBtn) {
+            markReadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                markAsRead(msg.id);
+            });
+        }
+        
+        // Supprimer
+        const deleteBtn = card.querySelector('.btn-delete');
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            messageToDelete = msg.id;
+            document.getElementById('deleteModal').style.display = 'flex';
+        });
+        
+        // Répondre (uniquement pour les messages d'Ursule)
+        const replyBtn = card.querySelector('.btn-reply');
+        if (replyBtn) {
+            replyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const replyForm = document.getElementById(`reply-form-${msg.id}`);
+                
+                if (activeReplyId && activeReplyId !== msg.id) {
+                    const prevForm = document.getElementById(`reply-form-${activeReplyId}`);
+                    if (prevForm) prevForm.classList.remove('show');
+                }
+                
+                replyForm.classList.toggle('show');
+                activeReplyId = replyForm.classList.contains('show') ? msg.id : null;
+                
+                if (replyForm.classList.contains('show')) {
+                    const textarea = document.getElementById(`reply-text-${msg.id}`);
+                    setTimeout(() => textarea.focus(), 100);
+                }
+            });
+        }
+        
+        // Annuler réponse
+        const cancelBtn = card.querySelector('.reply-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const replyForm = document.getElementById(`reply-form-${msg.id}`);
+                replyForm.classList.remove('show');
+                activeReplyId = null;
+                document.getElementById(`reply-text-${msg.id}`).value = '';
+            });
+        }
+        
+        // Envoyer réponse
+        const sendBtn = card.querySelector('.reply-send');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const replyText = document.getElementById(`reply-text-${msg.id}`).value;
+                await sendResponse(msg.id, replyText);
+                
+                const replyForm = document.getElementById(`reply-form-${msg.id}`);
+                replyForm.classList.remove('show');
+                document.getElementById(`reply-text-${msg.id}`).value = '';
+                activeReplyId = null;
+            });
+        }
+        
+        container.appendChild(card);
+    });
+    
+    document.getElementById('messageCount').innerHTML = `${poleMessagesList.length} message${poleMessagesList.length > 1 ? 's' : ''}`;
+}
+
+// Copier texte
+async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        showToast("📋 Message copié !");
+    } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast("📋 Message copié !");
+    }
+}
+
+// Notification toast
+function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = isError ? '#ef4444' : '#10b981';
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+// Échapper HTML
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+// Initialisation
+async function initApp() {
+    await initPoleMessagesDocument();
+    listenToPoleMessages();
+}
+
+// Événements
+document.getElementById('markAllReadBtn').addEventListener('click', markAllAsRead);
+
+// Envoi de nouveau message
+document.getElementById('sendNewMessageBtn').addEventListener('click', async () => {
+    const messageTextarea = document.getElementById('newMessage');
+    const success = await sendNewMessage(messageTextarea.value);
+    if (success) {
+        messageTextarea.value = '';
+    }
+});
+
+// Modal suppression
+document.getElementById('deleteYes').addEventListener('click', async () => {
+    if (messageToDelete) {
+        await deleteMessage(messageToDelete);
+        messageToDelete = null;
+    }
+    document.getElementById('deleteModal').style.display = 'none';
+});
+
+document.getElementById('deleteNo').addEventListener('click', () => {
+    messageToDelete = null;
+    document.getElementById('deleteModal').style.display = 'none';
+});
+
+// Démarrer l'application
+initApp();
+
+// Empêcher les raccourcis indésirables
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'F12' || (e.ctrlKey && e.key === 'u') || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
+        e.preventDefault();
+    }
+});
+</script>
+</body>
+</html>
