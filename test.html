@@ -95,6 +95,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .paiement-card-label{color:#94a3b8;font-size:11px;}
 .paiement-card-value{color:#fff;font-weight:600;}
 .paiement-card-value.paye{color:#10b981;}
+.paiement-card-value.partial{color:#f59e0b;}
 .paiement-card-value.impaye{color:#ef4444;}
 .paiement-card-actions button{padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;border:none;}
 .btn-pay{background:#ffd700;color:#0f172a;}
@@ -481,13 +482,18 @@ async function enregistrerPaiement(eleveId, mois, montant) {
     const snap = await getDoc(ref); 
     if (!snap.exists()) return false; 
     const d = snap.data(); 
-    const actuel = d.paiements[mois] || { montant: 0, date: null, historique: [] }; 
-    const nm = actuel.montant + montant; 
-    const dh = new Date().toISOString().slice(0, 19).replace('T', ' '); 
-    const histItem = { montant: montant, date: dh }; 
+    const actuel = d.paiements?.[mois] || { montant: 0, date: null, historique: [] }; 
+    const nouveauMontant = (actuel.montant || 0) + montant; 
+    const minervalEleve = d.minerval || 45000;
+    const maintenant = new Date();
+    const dateStr = maintenant.toISOString().slice(0, 19).replace('T', ' ');
+    const histItem = { montant: montant, date: dateStr, nouveauTotal: nouveauMontant };
     const nvHist = [...(actuel.historique || []), histItem]; 
-    d.paiements[mois] = { montant: nm, date: dh, historique: nvHist }; 
-    await updateDoc(ref, { paiements: d.paiements }); 
+    const paiementsMisAJour = { ...(d.paiements || {}) };
+    paiementsMisAJour[mois] = { montant: nouveauMontant, date: dateStr, historique: nvHist };
+    await updateDoc(ref, { paiements: paiementsMisAJour }); 
+    const reste = minervalEleve - nouveauMontant;
+    toast(`✅ Paiement de ${formatNbSimple(montant)} FC enregistré pour ${mois}. Reste: ${reste > 0 ? formatNbSimple(reste) : '0'} FC`, "success");
     return true; 
 }
 async function marquerAbandon(eleveId) { 
@@ -524,7 +530,7 @@ async function ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, no
     const newCompta = { _type: "compta_eleve", eleveId: id, nom: nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe: classe, option: option || "", minerval: minerval, anneeScolaire: anneeScolaire, paiements: paiements, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, parentCode: codeParent }; 
     await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta); 
     if (exonere) compteurExoneres++; 
-    toast(`Code parent généré: ${codeParent}`, "success");
+    toast(`✅ Élève inscrit. Code parent: ${codeParent}`, "success");
     return { id, nom, postnom, prenom, classe, option, parentCode: codeParent }; 
 }
 async function modifierParentCode(eleveId, nouveauCode, appliquerFamille = false) {
@@ -618,6 +624,60 @@ async function afficherListeEleves() {
     html += '</div>'; 
     cont.innerHTML = html; 
     await mettreAJourStats(); 
+}
+async function afficherReleve(eleve) { 
+    if (!eleve || eleve.abandon) { 
+        document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`; 
+        return; 
+    } 
+    const elevesFraiches = await getAllComptaEleves();
+    const eleveMaj = elevesFraiches.find(e => e.id === eleve.id);
+    if(!eleveMaj) return;
+    let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option ? `-${eleveMaj.option}` : ""} ${eleveMaj.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode || 'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleveMaj.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; 
+    let totalMin = 0, totalPaye = 0; 
+    const paiements = eleveMaj.paiements || {};
+    for (let mois of moisListe) { 
+        const minervalMensuel = eleveMaj.exonere ? 0 : eleveMaj.minerval;
+        const p = paiements[mois] || { montant: 0, date: null, historique: [] }; 
+        const montantPaye = p.montant || 0;
+        const estPayeTotal = eleveMaj.exonere || montantPaye >= minervalMensuel;
+        const resteMois = eleveMaj.exonere ? 0 : minervalMensuel - montantPaye;
+        if (!eleveMaj.exonere) {
+            totalMin += minervalMensuel;
+            totalPaye += montantPaye;
+        }
+        let cardClass = ""; 
+        if (mois === moisCourant) cardClass = "mois-courant"; 
+        else if (estMoisPasse(mois) && !estPayeTotal && !eleveMaj.exonere) cardClass = "mois-impaye"; 
+        let statut = "", txt = "", resteText = "";
+        if (eleveMaj.exonere) { 
+            statut = "paye"; 
+            txt = "EXONÉRÉ"; 
+            resteText = "0 FC";
+        } 
+        else if (estPayeTotal) { 
+            statut = "paye"; 
+            txt = `${formatNbSimple(minervalMensuel)} FC`; 
+            resteText = "0 FC";
+        } 
+        else if (montantPaye > 0) { 
+            statut = "partial"; 
+            txt = `${formatNbSimple(montantPaye)} FC`; 
+            resteText = `<span style="color:#ef4444;">${formatNbSimple(resteMois)} FC</span>`;
+        } 
+        else { 
+            statut = "impaye"; 
+            txt = "0 FC"; 
+            resteText = `<span style="color:#ef4444;">${formatNbSimple(minervalMensuel)} FC</span>`;
+        }
+        let historiqueHtml = '';
+        if(p.historique && p.historique.length > 0) {
+            historiqueHtml = `<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h => `${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
+        }
+        html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleveMaj.exonere ? "0" : formatNbSimple(minervalMensuel)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${(!eleveMaj.exonere && !estPayeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? `<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>` : `<span style="color:#10b981;">✓ COMPLET</span>`}</div></div>${historiqueHtml}</div>`; 
+    } 
+    html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPaye)} FC</span></div></div>`; 
+    document.getElementById("releveContainer").innerHTML = html; 
 }
 window.ouvrirEditParentCode = function(eleveId, eleveNom, codeActuel) {
     const modal = document.getElementById('editParentCodeModal');
@@ -733,29 +793,6 @@ window.voirDetails = async function(id, nom, classe, option) {
     document.getElementById("tab2").classList.add("active"); 
 };
 window.reintegrerAbandon = async function(id, nom) { if (await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)) { await annulerAbandon(id); toast(`${nom} a été réintégré`, "success"); } };
-async function afficherReleve(eleve) { 
-    if (!eleve || eleve.abandon) { document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`; return; } 
-    let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleve.nom} ${eleve.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleve.classe} ${eleve.option ? `-${eleve.option}` : ""} ${eleve.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleve.parentCode || 'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleve.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleve.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; 
-    let totalMin = 0, totalPay = 0; 
-    for (let mois of moisListe) { 
-        const p = eleve.paiements?.[mois] || { montant: 0, date: null, historique: [] }; 
-        const payeTotal = eleve.exonere || p.montant >= eleve.minerval; 
-        const reste = eleve.exonere ? 0 : eleve.minerval - p.montant; 
-        totalMin += eleve.exonere ? 0 : eleve.minerval; 
-        totalPay += p.montant; 
-        let cardClass = ""; 
-        if (mois === moisCourant) cardClass = "mois-courant"; 
-        else if (estMoisPasse(mois) && !payeTotal && !eleve.exonere) cardClass = "mois-impaye"; 
-        let statut = "", txt = ""; 
-        if (eleve.exonere) { statut = "paye"; txt = "EXONÉRÉ"; } 
-        else if (payeTotal) { statut = "paye"; txt = `${formatNbSimple(eleve.minerval)} FC`; } 
-        else if (p.montant > 0) { statut = ""; txt = `${formatNbSimple(p.montant)} FC`; } 
-        else { statut = "impaye"; txt = "0 FC"; } 
-        html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleve.exonere ? "0" : formatNbSimple(eleve.minerval)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${reste > 0 ? `<span style="color:#ef4444;">${formatNbSimple(reste)} FC</span>` : '0 FC'}</span></div><div class="paiement-card-actions">${(!eleve.exonere && !payeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? `<button class="btn-pay" onclick="openPaiement('${mois}',${eleve.minerval},${p.montant})">💰 PAYER</button>` : `<span style="color:#10b981;">✓ COMPLET</span>`}</div></div></div>`; 
-    } 
-    html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPay)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPay)} FC</span></div></div>`; 
-    document.getElementById("releveContainer").innerHTML = html; 
-}
 window.openPaiement = async function(mois, minerval, dejaPaye) { if (!await verifierCode("paiement")) { toast("Annulé", "warning"); return; } const reste = minerval - dejaPaye; document.getElementById("modalInfo").innerHTML = `<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`; document.getElementById("paymentAmount").value = reste; window.paiementData = { mois, minerval, dejaPaye, reste, eleveId: currentEleve.id }; document.getElementById("paymentModal").classList.add("show"); };
 function verifierCode(action) { return new Promise((resolve) => { pendingAction = { resolve, action }; document.getElementById("codeInput").value = ""; document.getElementById("codeModal").classList.add("show"); }); }
 function showConfirm(message) { return new Promise((resolve) => { pendingAction = { resolve, action: "confirm" }; document.getElementById("confirmMessage").innerHTML = message; document.getElementById("confirmModal").classList.add("show"); }); }
@@ -763,7 +800,7 @@ document.getElementById("confirmCode").onclick = async () => { const code = docu
 document.getElementById("cancelCode").onclick = () => { document.getElementById("codeModal").classList.remove("show"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } };
 document.getElementById("confirmYes").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(true); pendingAction = null; } };
 document.getElementById("confirmNo").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(false); pendingAction = null; } };
-document.getElementById("confirmPayment").onclick = async () => { const montant = parseInt(document.getElementById("paymentAmount").value); if (!montant || montant <= 0) { toast("Montant invalide", "error"); return; } if (montant > window.paiementData.reste) { toast("Dépasse le reste", "error"); return; } if (await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)) { await enregistrerPaiement(window.paiementData.eleveId, window.paiementData.mois, montant); toast(`Paiement de ${formatNbSimple(montant)} FC enregistré`, "success"); document.getElementById("paymentModal").classList.remove("show"); await afficherReleve(currentEleve); await afficherListeEleves(); await mettreAJourStats(); } };
+document.getElementById("confirmPayment").onclick = async () => { const montant = parseInt(document.getElementById("paymentAmount").value); if (!montant || montant <= 0) { toast("Montant invalide", "error"); return; } if (montant > window.paiementData.reste) { toast("Dépasse le reste", "error"); return; } if (await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)) { await enregistrerPaiement(window.paiementData.eleveId, window.paiementData.mois, montant); document.getElementById("paymentModal").classList.remove("show"); await afficherReleve(currentEleve); await afficherListeEleves(); await mettreAJourStats(); } };
 document.getElementById("cancelPayment").onclick = () => document.getElementById("paymentModal").classList.remove("show");
 async function changerCodeAcces() { const ancienCode = document.getElementById("oldCode").value; const nouveauCode1 = document.getElementById("newCode1").value; const nouveauCode2 = document.getElementById("newCode2").value; if (ancienCode !== currentSchoolConfig?.codeAcces) { toast("Ancien code incorrect", "error"); return; } if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) { toast("Les nouveaux codes ne correspondent pas", "error"); return; } if (nouveauCode1.length < 4) { toast("Le code doit contenir au moins 4 caractères", "error"); return; } currentSchoolConfig.codeAcces = nouveauCode1; const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); await setDoc(configRef, currentSchoolConfig); toast("Code d'accès modifié avec succès", "success"); document.getElementById("oldCode").value = ""; document.getElementById("newCode1").value = ""; document.getElementById("newCode2").value = ""; }
 async function showDetailModal(title, eleves) { const modal = document.getElementById("detailModal"); const titleEl = document.getElementById("detailModalTitle"); const contentEl = document.getElementById("detailModalContent"); titleEl.innerHTML = `${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`; if (eleves.length === 0) { contentEl.innerHTML = '<div class="empty-state">Aucun élément</div>'; } else { let html = ''; for (let e of eleves) { html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom || ''}</div><div class="detail-info">📚 ${e.classe} ${e.option ? `- ${e.option}` : ''}</div>${e.moisImpayes !== undefined ? `<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>` : ''}<div class="detail-info">🔑 ${e.parentCode || 'Aucun code'}</div></div>`; } contentEl.innerHTML = html; } modal.classList.add("show"); }
