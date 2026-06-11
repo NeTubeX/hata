@@ -219,7 +219,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
                 <h4 style="color:#ffd700;margin-bottom:12px;">🏫 INFORMATIONS DE L'ÉCOLE</h4>
                 <div class="form-group"><label>NOM DE L'ÉCOLE</label><input type="text" id="ecoleNom" placeholder="Ex: Complexe Scolaire Kinshasa"></div>
                 <div class="form-group"><label>ADRESSE</label><input type="text" id="ecoleAdresse" placeholder="Ex: Kinshasa, RDC"></div>
-                <button class="btn btn-primary w-100 mb-12" id="btnSaveEcoleInfo">💾 ENREGISTRER</button>
+                <button class="btn btn-primary w-100 mb-12" id="btnSaveEcoleInfo">💾 ENREGISTRER LES INFOS</button>
                 
                 <hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;">
                 <h4 style="color:#ffd700;margin-bottom:12px;">🔐 CODE D'ACCÈS</h4>
@@ -248,7 +248,14 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="modal-overlay" id="codeModal"><div class="modal-card"><h3>🔐 CODE REQUIS</h3><div class="form-group"><label>ENTREZ LE CODE</label><input type="password" id="codeInput" placeholder="****" inputmode="numeric"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmCode">VALIDER</button><button class="btn btn-outline" id="cancelCode">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="paymentModal"><div class="modal-card"><h3>💰 CONFIRMATION PAIEMENT</h3><div id="modalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="paymentAmount"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmPayment">VALIDER</button><button class="btn btn-outline" id="cancelPayment">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="confirmModal"><div class="modal-card"><h3>⚠️ CONFIRMATION</h3><div id="confirmMessage" style="color:#fff; text-align:center; padding:20px;"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmYes">OUI</button><button class="btn btn-outline" id="confirmNo">NON</button></div></div></div>
-<div class="modal-overlay" id="addEleveModal"><div class="modal-card"><h3>➕ INSCRIPTION</h3><div class="form-group"><label>NOM COMPLET *</label><input type="text" id="newEleveNom" placeholder="Nom et prénom"></div><div class="form-group"><label>CLASSE *</label><select id="newEleveClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div class="form-group"><label>OPTION</label><select id="newEleveOption"><option value="">Sélectionner</option></select></div><div class="form-group"><label>EXONÉRATION</label><select id="newEleveExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div><div class="form-group" id="motifExonGroup" style="display:none;"><label>MOTIF</label><select id="newEleveMotif"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option></select></div><div class="modal-buttons"><button class="btn btn-success" id="confirmAddEleve">INSCRIRE</button><button class="btn btn-outline" id="cancelAddEleve">ANNULER</button></div></div></div>
+<div class="modal-overlay" id="addEleveModal"><div class="modal-card"><h3>➕ INSCRIPTION D'UN NOUVEL ÉLÈVE</h3>
+    <div class="form-group"><label>NOM COMPLET *</label><input type="text" id="newEleveNom" placeholder="Nom et prénom"></div>
+    <div class="form-group"><label>CLASSE *</label><select id="newEleveClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div>
+    <div class="form-group"><label>OPTION</label><select id="newEleveOption"><option value="">Sélectionner</option></select></div>
+    <div class="form-group"><label>EXONÉRATION</label><select id="newEleveExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div>
+    <div class="form-group" id="motifExonGroup" style="display:none;"><label>MOTIF D'EXONÉRATION</label><select id="newEleveMotif"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option></select></div>
+    <div class="modal-buttons"><button class="btn btn-success" id="confirmAddEleve">✅ INSCRIRE</button><button class="btn btn-outline" id="cancelAddEleve">❌ ANNULER</button></div>
+</div></div>
 <div class="modal-overlay" id="detailModal"><div class="modal-card"><h3 id="detailModalTitle"></h3><div id="detailModalContent" class="detail-list"></div><div class="modal-buttons"><button class="btn btn-outline" id="closeDetailModal">FERMER</button></div></div></div>
 
 <script type="module">
@@ -365,14 +372,6 @@ function estMoisPasse(mois) {
 }
 
 // ========== FONCTIONS FIREBASE ==========
-function getSchoolRef(collectionName, docId = null) {
-    if (docId) {
-        return doc(db, "ecoles", SCHOOL_PREFIX, collectionName, docId);
-    } else {
-        return collection(db, "ecoles", SCHOOL_PREFIX, collectionName);
-    }
-}
-
 async function chargerOptions() {
     try {
         const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data");
@@ -443,6 +442,11 @@ async function chargerConfigEcole() {
             };
             await setDoc(configRef, currentSchoolConfig);
         }
+        
+        // Remplir les champs du formulaire
+        document.getElementById("ecoleNom").value = currentSchoolConfig.nom || "";
+        document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || "";
+        
         return currentSchoolConfig;
     } catch (error) {
         console.error("Erreur chargement config:", error);
@@ -451,35 +455,56 @@ async function chargerConfigEcole() {
 }
 
 async function sauvegarderInfosEcole() {
-    const nouveauNom = document.getElementById("ecoleNom").value.trim();
-    const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim();
-    
-    if (nouveauNom) currentSchoolConfig.nom = nouveauNom;
-    if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse;
-    
-    const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
-    await setDoc(configRef, currentSchoolConfig);
-    
-    document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`;
-    toast("Informations de l'école mises à jour", "success");
+    try {
+        const nouveauNom = document.getElementById("ecoleNom").value.trim();
+        const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim();
+        
+        if (!nouveauNom) {
+            toast("Le nom de l'école est requis", "error");
+            return;
+        }
+        
+        if (nouveauNom) currentSchoolConfig.nom = nouveauNom;
+        if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse;
+        
+        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+        await setDoc(configRef, currentSchoolConfig);
+        
+        document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`;
+        toast("Informations de l'école enregistrées avec succès", "success");
+    } catch (error) {
+        console.error("Erreur sauvegarde infos:", error);
+        toast("Erreur lors de l'enregistrement", "error");
+    }
 }
 
 async function chargerTarifs() {
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-        tarifsConfig = snap.data();
-    } else {
+    try {
+        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+            tarifsConfig = snap.data();
+        } else {
+            tarifsConfig = {};
+            await setDoc(ref, tarifsConfig);
+        }
+        afficherTableTarifs();
+    } catch (error) {
+        console.error("Erreur chargement tarifs:", error);
         tarifsConfig = {};
-        await setDoc(ref, tarifsConfig);
+        afficherTableTarifs();
     }
-    afficherTableTarifs();
 }
 
 async function sauverTarifs() {
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
-    await setDoc(ref, tarifsConfig);
-    toast("Minervaux enregistrés avec succès", "success");
+    try {
+        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
+        await setDoc(ref, tarifsConfig);
+        toast("Minervaux enregistrés avec succès", "success");
+    } catch (error) {
+        console.error("Erreur sauvegarde tarifs:", error);
+        toast("Erreur lors de l'enregistrement des minervaux", "error");
+    }
 }
 
 function afficherTableTarifs() {
@@ -600,6 +625,7 @@ async function marquerAbandon(eleveId) {
     await mettreAJourStats();
     await afficherListeEleves();
     await afficherAbandons();
+    toast("Élève marqué comme abandonné", "warning");
 }
 
 async function annulerAbandon(eleveId) {
@@ -610,6 +636,7 @@ async function annulerAbandon(eleveId) {
     await mettreAJourStats();
     await afficherListeEleves();
     await afficherAbandons();
+    toast("Élève réintégré avec succès", "success");
 }
 
 async function ajouterEleveCompta(nom, classe, option, exonere, motifExon) {
@@ -671,7 +698,6 @@ async function getAbandons() {
     return res;
 }
 
-// ========== FONCTION STATS CORRIGÉE ==========
 async function mettreAJourStats() {
     try {
         const tousLesEleves = await getAllComptaEleves();
@@ -751,7 +777,7 @@ async function afficherListeEleves() {
             badge = '<span class="badge badge-impaye">IMPAYÉ</span>';
         }
         
-        html += `<div class="eleve-card ${classeSpec}" onclick="window.voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">
+        html += `<div class="eleve-card ${classeSpec}" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">
                     <div class="eleve-card-nom">${e.nom} ${badge}</div>
                     <div class="eleve-card-info">
                         <span>${e.classe}</span>
@@ -759,8 +785,8 @@ async function afficherListeEleves() {
                         <span>${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span>
                     </div>
                     <div class="flex-between" style="margin-top:10px;">
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); window.voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 VOIR</button>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); window.marquerAbandonPrompt('${e.id}','${e.nom}')">❌ ABANDON</button>
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 VOIR</button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ ABANDON</button>
                     </div>
                 </div>`;
     }
@@ -772,7 +798,6 @@ async function afficherListeEleves() {
 window.marquerAbandonPrompt = async function(id, nom) {
     if (await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)) {
         await marquerAbandon(id);
-        toast(`${nom} a été abandonné`, "warning");
     }
 };
 
@@ -794,8 +819,8 @@ async function afficherAbandons() {
                         <span>📅 ${e.dateAbandon || "-"}</span>
                     </div>
                     <div class="flex-between">
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); window.voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">VOIR</button>
-                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); window.reintegrerAbandon('${e.id}','${e.nom}')">RÉINTÉGRER</button>
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">VOIR</button>
+                        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">RÉINTÉGRER</button>
                     </div>
                 </div>`;
     }
@@ -815,7 +840,6 @@ window.voirDetails = async function(id, nom, classe, option) {
 window.reintegrerAbandon = async function(id, nom) {
     if (await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)) {
         await annulerAbandon(id);
-        toast(`${nom} a été réintégré`, "success");
     }
 };
 
@@ -875,7 +899,7 @@ async function afficherReleve(eleve) {
                         </div>
                         <div class="paiement-card-actions">
                             ${(!compta.exonere && !payeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? 
-                                `<button class="btn-pay" onclick="window.openPaiement('${mois}',${compta.minerval},${p.montant})">💰 PAYER</button>` : 
+                                `<button class="btn-pay" onclick="openPaiement('${mois}',${compta.minerval},${p.montant})">💰 PAYER</button>` : 
                                 `<span style="color:#10b981;">✓ COMPLET</span>`}
                         </div>
                     </div>
@@ -1016,7 +1040,7 @@ async function showDetailModal(title, eleves) {
     } else {
         let html = '';
         for (let e of eleves) {
-            html += `<div class="detail-item" onclick="window.voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">
+            html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">
                         <div class="detail-nom">👤 ${e.nom}</div>
                         <div class="detail-info">📚 ${e.classe} ${e.option ? `- ${e.option}` : ""}</div>
                         ${e.moisImpayes !== undefined ? `<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>` : ''}
@@ -1299,19 +1323,35 @@ async function initApp() {
     isAppInitialized = true;
 }
 
-// ========== ÉVÉNEMENTS UI ==========
+// ========== ÉVÉNEMENTS UI - TOUS LES BOUTONS ==========
 document.getElementById("btnSearch").onclick = () => afficherListeEleves();
 document.getElementById("btnSearchAbandon").onclick = () => afficherAbandons();
 
+// Bouton INSCRIRE - OUVERTURE DU MODAL
 document.getElementById("btnAddEleve").onclick = () => {
+    console.log("Clic sur bouton inscrire");
     document.getElementById("addEleveModal").classList.add("show");
     document.getElementById("motifExonGroup").style.display = "none";
 };
 
+// Bouton ANNULER dans le modal
+document.getElementById("cancelAddEleve").onclick = () => {
+    document.getElementById("addEleveModal").classList.remove("show");
+};
+
+// Fermeture du modal en cliquant en dehors
+document.getElementById("addEleveModal").onclick = (e) => {
+    if (e.target === document.getElementById("addEleveModal")) {
+        document.getElementById("addEleveModal").classList.remove("show");
+    }
+};
+
+// Gestion de l'exonération
 document.getElementById("newEleveExonere").onchange = function() {
     document.getElementById("motifExonGroup").style.display = this.value === "oui" ? "block" : "none";
 };
 
+// Confirmation d'inscription
 document.getElementById("confirmAddEleve").onclick = async () => {
     const nom = document.getElementById("newEleveNom").value.trim();
     const classe = document.getElementById("newEleveClasse").value;
@@ -1337,9 +1377,15 @@ document.getElementById("confirmAddEleve").onclick = async () => {
     }
 };
 
-document.getElementById("cancelAddEleve").onclick = () => document.getElementById("addEleveModal").classList.remove("show");
+// Bouton CHANGER LE CODE
 document.getElementById("btnChangeCode").onclick = () => changerCodeAcces();
-document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); };
+
+// Bouton ENREGISTRER LES MINERVAUX
+document.getElementById("btnSaveTarifs").onclick = async () => { 
+    await sauverTarifs(); 
+};
+
+// Bouton ENREGISTRER LES INFOS ECOLE
 document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
 
 // Démarrer
