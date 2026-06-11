@@ -49,7 +49,10 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .message-nom{font-weight:800;color:#facc15;font-size:0.9rem;margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .message-badge{font-size:0.7rem;background:#1e3a5f;padding:2px 8px;border-radius:20px;color:#94a3b8;}
 .message-texte{font-size:0.9rem;color:#e0f2fe;line-height:1.5;margin-bottom:8px;white-space:pre-wrap;word-break:break-word;}
-.message-meta{font-size:0.7rem;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;}
+.message-meta{font-size:0.7rem;color:#94a3b8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.message-actions{display:flex;gap:8px;}
+.copy-btn{background:#3b82f6;border:none;color:white;cursor:pointer;font-size:0.7rem;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;transition:0.2s;}
+.copy-btn:hover{background:#2563eb;transform:scale(1.02);}
 .delete-btn{background:#ef4444;border:none;color:white;cursor:pointer;font-size:0.7rem;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;transition:0.2s;}
 .delete-btn:hover{background:#dc2626;transform:scale(1.02);}
 .messages-footer{background:#071a2c;padding:12px 18px;display:flex;justify-content:space-between;font-size:0.7rem;}
@@ -145,7 +148,7 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 </div>
 <div id="messagesGrid" class="messages-grid"><div class="loading-text">Chargement des messages...</div></div>
 <div class="messages-footer">
-<span>💬 Tous les messages échangés (🗑️ supprimer)</span>
+<span>💬 Tous les messages échangés (📋 copier | 🗑️ supprimer)</span>
 <span class="message-count" id="messageCount">0 message(s)</span>
 </div>
 </div>
@@ -314,6 +317,15 @@ await updateDoc(messagesDocRef, { messages: arrayRemove(messageToDelete) });
 showToast("✅ Message supprimé avec succès");
 } catch(err) { console.error("Erreur suppression:", err); showToast("❌ Erreur lors de la suppression", true); }
 }
+async function copyMessageText(text) {
+try {
+await navigator.clipboard.writeText(text);
+showToast("📋 Message copié dans le presse-papiers");
+} catch(err) {
+console.error("Erreur copie:", err);
+showToast("❌ Erreur lors de la copie", true);
+}
+}
 function listenToMessages() {
 onSnapshot(messagesDocRef, (docSnap) => {
 if(docSnap.exists()) {
@@ -334,10 +346,23 @@ messagesList.forEach((msg) => {
 const date = new Date(msg.date).toLocaleString('fr-FR');
 const card = document.createElement('div');
 card.className = 'message-card';
-card.innerHTML = `<div class="message-nom">📨 ${escapeHtml(msg.nom || 'Anonyme')}<span class="message-badge">${msg.app === 'calendrier' ? '📅 Calendrier' : '📋 Plans'}</span></div><div class="message-texte">${escapeHtml(msg.message || '')}</div><div class="message-meta"><span>📅 ${date}</span><button class="delete-btn" data-id="${msg.id}">🗑️ Supprimer</button></div>`;
+card.innerHTML = `<div class="message-nom">📨 ${escapeHtml(msg.nom || 'Anonyme')}<span class="message-badge">${msg.app === 'calendrier' ? '📅 Calendrier' : '📋 Plans'}</span></div><div class="message-texte">${escapeHtml(msg.message || '')}</div><div class="message-meta"><span>📅 ${date}</span><div class="message-actions"><button class="copy-btn" data-id="${msg.id}" data-text="${escapeHtml(msg.message || '').replace(/"/g, '&quot;')}">📋 Copier</button><button class="delete-btn" data-id="${msg.id}">🗑️ Supprimer</button></div></div>`;
 container.appendChild(card);
 });
-document.querySelectorAll('.delete-btn').forEach(btn => { btn.addEventListener('click', (e) => { e.stopPropagation(); messageToDeleteId = btn.getAttribute('data-id'); document.getElementById('deleteModal').style.display = 'flex'; }); });
+document.querySelectorAll('.copy-btn').forEach(btn => {
+btn.addEventListener('click', (e) => {
+e.stopPropagation();
+const text = btn.getAttribute('data-text');
+copyMessageText(text);
+});
+});
+document.querySelectorAll('.delete-btn').forEach(btn => {
+btn.addEventListener('click', (e) => {
+e.stopPropagation();
+messageToDeleteId = btn.getAttribute('data-id');
+document.getElementById('deleteModal').style.display = 'flex';
+});
+});
 document.getElementById('messageCount').innerHTML = `${messagesList.length} message${messagesList.length > 1 ? 's' : ''}`;
 }
 document.getElementById('deleteYes').addEventListener('click', async () => { if(messageToDeleteId) { await deleteMessage(messageToDeleteId); messageToDeleteId = null; } document.getElementById('deleteModal').style.display = 'none'; });
