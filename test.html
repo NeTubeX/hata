@@ -1,4 +1,6 @@
+Voici le code complet intégrant Firebase pour les données (notes, épreuves, frais) et Cloudflare Worker pour l'IA naturelle.
 
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -6,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0e1a">
-<title>Gloria Dei - Gestion Scolaire</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>GESTION SCOLAIRE - IA Parentale</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
@@ -128,7 +130,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .parent-msg{display:flex;width:100%;}
 .parent-msg.user{justify-content:flex-end;}
 .parent-msg.bot{justify-content:flex-start;}
-.parent-msg .bubble{max-width:85%;padding:12px 16px;border-radius:20px;font-size:14px;line-height:1.5;word-wrap:break-word;}
+.parent-msg .bubble{max-width:80%;padding:12px 16px;border-radius:20px;font-size:14px;line-height:1.5;word-wrap:break-word;}
 .parent-msg.user .bubble{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-bottom-right-radius:6px;}
 .parent-msg.bot .bubble{background:#1e293b;color:#e2e8f0;border-bottom-left-radius:6px;border:1px solid #334155;}
 .parent-input-area{flex-shrink:0;display:flex;gap:12px;background:#0f172a;padding:16px;border-top:1px solid #334155;}
@@ -171,7 +173,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div id="tab2" class="tab-panel"><div class="card"><div class="card-header">📊 RELEVÉ DE PAIEMENTS</div><div class="p-16" id="releveContainer"><div class="empty-state">Sélectionnez un élève</div></div></div></div>
 <div id="tab3" class="tab-panel"><div class="card"><div class="card-header">❌ ÉLÈVES ABANDONNÉS</div><div class="p-16"><div class="form-group"><label>🔍 RECHERCHER</label><input type="text" id="searchAbandon" placeholder="Nom"></div><div id="abandonsContainer"></div></div></div></div>
 <div id="tab4" class="tab-panel"><div class="card"><div class="card-header">📄 RAPPORTS PDF</div><div class="p-16"><div class="pdf-buttons-grid"><div class="pdf-btn-card" onclick="genererPDFRecouvrement()"><div class="pdf-icon">📊</div><div class="pdf-title">RECOUVREMENT</div></div><div class="pdf-btn-card" onclick="genererPDFListeNoire()"><div class="pdf-icon">⚠️</div><div class="pdf-title">LISTE NOIRE</div></div><div class="pdf-btn-card" onclick="genererPDFTousEleves()"><div class="pdf-icon">📋</div><div class="pdf-title">LISTE COMPLÈTE</div></div><div class="pdf-btn-card" onclick="genererPDFExoneres()"><div class="pdf-icon">🌟</div><div class="pdf-title">EXONÉRÉS</div></div></div></div></div></div>
-<div id="tab5" class="tab-panel"><div class="card"><div class="card-header">👪 CODES PARENTS</div><div class="p-16"><div class="form-group"><label>🔍 Rechercher un élève</label><input type="text" id="searchParentCode" placeholder="Nom, classe ou code parent..."></div><div id="parentCodesList"></div><div class="footer-note" style="margin-top:16px; color:#94a3b8; text-align:center; font-size:12px;">📌 Chaque élève a son propre code parent. Transmettez ces codes aux parents.</div></div></div></div>
+<div id="tab5" class="tab-panel"><div class="card"><div class="card-header">👪 GESTION DES CODES PARENTS</div><div class="p-16"><div class="form-group"><label>🔍 Rechercher un élève</label><input type="text" id="searchParentCode" placeholder="Nom, classe ou code parent..."></div><div id="parentCodesList"></div><div class="footer-note" style="margin-top:16px; color:#94a3b8; text-align:center; font-size:12px;">📌 Chaque élève a son propre code parent. Transmettez ces codes aux parents.</div></div></div></div>
 <div id="tab6" class="tab-panel"><div class="card"><div class="card-header">⚙️ CONFIGURATION</div><div class="p-16"><h4 style="color:#ffd700;margin-bottom:12px;">🏫 INFORMATIONS DE L'ÉCOLE</h4><div class="form-group"><label>NOM DE L'ÉCOLE</label><input type="text" id="ecoleNom" placeholder="Ex: Complexe Scolaire Kinshasa"></div><div class="form-group"><label>ADRESSE</label><input type="text" id="ecoleAdresse" placeholder="Ex: Kinshasa, RDC"></div><div class="form-group"><label>💰 FRAIS D'INSCRIPTION (FC)</label><input type="number" id="fraisInscription" placeholder="Ex: 50000" step="1000"></div><button class="btn btn-primary w-100 mb-12" id="btnSaveEcoleInfo">💾 ENREGISTRER</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">🔐 CODE D'ACCÈS</h4><div class="form-group"><label>ANCIEN CODE</label><input type="password" id="oldCode" maxlength="6" inputmode="numeric" placeholder="Ancien code"></div><div class="form-group"><label>NOUVEAU CODE</label><input type="password" id="newCode1" maxlength="6" inputmode="numeric" placeholder="4 à 6 chiffres"></div><div class="form-group"><label>CONFIRMER NOUVEAU CODE</label><input type="password" id="newCode2" maxlength="6" inputmode="numeric" placeholder="Confirmer le code"></div><button class="btn btn-primary w-100" id="btnChangeCode">🔄 CHANGER LE CODE</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">💰 MINERVAUX PAR CLASSE & OPTION</h4><div style="overflow-x:auto;" id="tarifsOptionsContainer"></div><button class="btn btn-success w-100 mt-12" id="btnSaveTarifs">💾 ENREGISTRER MINERVAUX</button></div></div></div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
@@ -191,10 +193,10 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 </div>
 </div>
 <div id="parentChatMessages" class="parent-messages">
-<div class="parent-msg bot"><div class="bubble">Bonjour ! 👋 Comment puis-je vous aider ?</div></div>
+<div class="parent-msg bot"><div class="bubble">Bonjour ! 👋</div></div>
 </div>
 <div class="parent-input-area">
-<input type="text" id="parentQuestionInput" class="parent-input" placeholder="Votre message...">
+<input type="text" id="parentQuestionInput" class="parent-input" placeholder="Écrivez votre message...">
 <button id="parentSendBtn" class="parent-send">Envoyer</button>
 </div>
 </div>
@@ -208,7 +210,7 @@ document.addEventListener('selectstart', e => e.preventDefault());
 function toast(msg, type){ const c=document.getElementById('toastContainer'); if(!c) return; const e=document.createElement('div'); e.className=`toast ${type}`; e.innerHTML=`<div class="toast-icon">${type==='success'?'✓':'⚠'}</div><div class="toast-content"><div class="toast-title">${type==='success'?'Succès':'Attention'}</div><div class="toast-message">${msg}</div></div>`; c.appendChild(e); setTimeout(()=>e.classList.add('show'),10); setTimeout(()=>{ e.classList.remove('show'); setTimeout(()=>e.remove(),300); },3000); }
 function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>]/g,m=>{return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];}); }
 function formatNbSimple(n){ if(isNaN(n)||n===null||n===undefined) return "0"; let r="", a=Math.abs(n), s=a.toString(), c=0; for(let i=s.length-1;i>=0;i--){ c++; r=s[i]+r; if(c%3===0&&i!==0) r=" "+r; } return n<0?"-"+r:r; }
-async function typeWriterEffect(element, text, speed=15){ element.innerHTML = ''; for(let i=0; i<text.length; i++){ element.innerHTML += text.charAt(i); await new Promise(r => setTimeout(r, speed)); } }
+async function typeWriterEffect(element, text, speed=12){ element.innerHTML = ''; for(let i=0; i<text.length; i++){ element.innerHTML += text.charAt(i); await new Promise(r => setTimeout(r, speed)); } }
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -224,7 +226,7 @@ const SCHOOL_DISPLAY_NAME = schoolId;
 document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
-let currentSchoolConfig = null, currentEleve = null, currentFilter = "all", tarifsOptionsConfig = {}, optionsConfig = {}, anneeScolaire = "2026-2027", compteurExoneres = 0, pendingAction = null, isAppInitialized = false, localEleves = [];
+let currentSchoolConfig = null, currentEleve = null, currentFilter = "all", tarifsOptionsConfig = {}, optionsConfig = {}, anneeScolaire = "2026-2027", compteurExoneres = 0, isAppInitialized = false, localEleves = [], toutesFiches = [];
 const classesListe = ["7eme EB","8eme EB","1ere Annee","2eme Annee","3eme Annee","4eme Annee"];
 const optionsParDefaut = { "7eme EB":[], "8eme EB":[], "1ere Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"], "2eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"], "3eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"], "4eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"] };
 const moisListe = ["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
@@ -236,108 +238,6 @@ if (moisActuelNum >= 8) { moisCourant = moisListe[moisActuelNum - 8]; } else { m
 function estMoisPasse(mois) { return moisIndexMap[mois] < moisIndexMap[moisCourant]; }
 function genererCodeParent() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
-async function chargerOptions() { 
-    try { 
-        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data"); 
-        const snap = await getDoc(ref); 
-        if (snap.exists()) { optionsConfig = snap.data(); } 
-        else { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); await setDoc(ref, optionsConfig); }
-        mettreAJourSelectsOptions(); 
-    } catch (error) { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); mettreAJourSelectsOptions(); } 
-}
-function mettreAJourSelectsOptions() { 
-    const filterOption = document.getElementById("filterOption"); 
-    if (filterOption) { 
-        let optsUniques = new Set(); 
-        for (let classe of classesListe) { let opts = optionsConfig[classe] || []; opts.forEach(o => optsUniques.add(o)); } 
-        filterOption.innerHTML = '<option value="">Toutes</option>' + Array.from(optsUniques).map(opt => `<option value="${opt}">${opt}</option>`).join(''); 
-    } 
-}
-async function chargerConfigEcole() { 
-    try { 
-        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
-        const configSnap = await getDoc(configRef); 
-        if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } 
-        else { currentSchoolConfig = { nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, adresse: "", codeAcces: "1234", maxExonerations: 10, fraisInscription: 50000 }; await setDoc(configRef, currentSchoolConfig); } 
-        document.getElementById("ecoleNom").value = currentSchoolConfig.nom || ""; 
-        document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || ""; 
-        document.getElementById("fraisInscription").value = currentSchoolConfig.fraisInscription || 50000; 
-        return currentSchoolConfig; 
-    } catch (error) { return null; } 
-}
-async function sauvegarderInfosEcole() { 
-    try { 
-        const nouveauNom = document.getElementById("ecoleNom").value.trim(); 
-        const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim(); 
-        const frais = parseInt(document.getElementById("fraisInscription").value) || 50000; 
-        if (!nouveauNom) { toast("Le nom de l'école est requis", "error"); return; } 
-        if (nouveauNom) currentSchoolConfig.nom = nouveauNom; 
-        if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse; 
-        currentSchoolConfig.fraisInscription = frais; 
-        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
-        await setDoc(configRef, currentSchoolConfig); 
-        document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`; 
-        toast("Informations de l'école enregistrées", "success"); 
-    } catch (error) { toast("Erreur", "error"); } 
-}
-async function chargerTarifs() { 
-    try { 
-        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
-        const snapOpt = await getDoc(refOpt); 
-        if (snapOpt.exists()) { tarifsOptionsConfig = snapOpt.data(); } 
-        else { 
-            tarifsOptionsConfig = {}; 
-            for (let classe of classesListe) { 
-                tarifsOptionsConfig[classe] = {}; 
-                for (let opt of (optionsConfig[classe] || [])) { tarifsOptionsConfig[classe][opt] = 45000; } 
-                tarifsOptionsConfig[classe]["default"] = 45000; 
-            } 
-            await setDoc(refOpt, tarifsOptionsConfig); 
-        } 
-        afficherTableTarifsOptions(); 
-    } catch (error) { 
-        for (let classe of classesListe) { if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; tarifsOptionsConfig[classe]["default"] = 45000; } 
-        afficherTableTarifsOptions(); 
-    } 
-}
-async function sauverTarifs() { 
-    try { 
-        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
-        await setDoc(refOpt, tarifsOptionsConfig); 
-        toast("Minervaux enregistrés", "success"); 
-    } catch (error) { toast("Erreur", "error"); } 
-}
-function afficherTableTarifsOptions() { 
-    const container = document.getElementById("tarifsOptionsContainer"); 
-    if (!container) return; 
-    let html = '<table class="config-table"><thead><th>Classe</th><th>Option</th><th>Minerval (FC)</th></thead><tbody>'; 
-    for (let classe of classesListe) { 
-        const opts = optionsConfig[classe] || []; 
-        if (opts.length === 0) { 
-            let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) || 45000; 
-            html += `<tr><td>${classe}</td><td>Sans option</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="default" value="${val}" step="500"></td></tr>`; 
-        } else { 
-            for (let opt of opts) { 
-                let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][opt]) || 45000; 
-                html += `<tr><td>${classe}</td><td>${opt}</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="${opt}" value="${val}" step="500"></td></tr>`; 
-            } 
-        } 
-    } 
-    html += '</tbody></table>'; 
-    container.innerHTML = html; 
-    document.querySelectorAll(".tarif-opt-input").forEach(inp => { 
-        inp.onchange = () => { 
-            const classe = inp.dataset.classe, option = inp.dataset.option; 
-            if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; 
-            tarifsOptionsConfig[classe][option] = parseInt(inp.value) || 45000; 
-        }; 
-    }); 
-}
-async function getMinervalEleve(classe, option) { 
-    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][option]) return tarifsOptionsConfig[classe][option]; 
-    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) return tarifsOptionsConfig[classe]["default"]; 
-    return 45000; 
-}
 async function getAllComptaEleves() { 
     try { 
         const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
@@ -345,127 +245,48 @@ async function getAllComptaEleves() {
         localEleves = []; 
         for (const ds of snap.docs) { 
             const d = ds.data(); 
-            localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false }); 
+            localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20 }); 
         } 
         return localEleves; 
     } catch (error) { return localEleves; } 
 }
-async function getTousElevesAvecInfos() { 
-    const tous = await getAllComptaEleves(); 
-    const resultats = []; 
-    for (let e of tous) { 
-        if (e.abandon) continue; 
-        let moisImpayes = 0, totalPaye = 0, totalMin = e.minerval * 10; 
-        const paiements = e.paiements || {}; 
-        for (let m of moisListe) totalPaye += paiements[m]?.montant || 0; 
-        for (let m of moisListe) { if (estMoisPasse(m)) { const mt = paiements[m]?.montant || 0; if (mt < (e.minerval || 45000)) moisImpayes++; } } 
-        resultats.push({ ...e, moisImpayes, totalPaye, totalMin }); 
-    } 
-    return resultats; 
+async function getAllFiches() {
+    try {
+        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "fiches"));
+        const snap = await getDocs(q);
+        toutesFiches = [];
+        for(const ds of snap.docs) {
+            const d = ds.data();
+            toutesFiches.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' });
+        }
+        return toutesFiches;
+    } catch(e) { return []; }
 }
-async function ajouterEleveCompta(nom, prenom, classe, option, exonere) { 
-    if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { toast("Limite d'exonérations atteinte", "error"); return null; } 
-    const id = "eleve_" + Date.now(); 
-    const minerval = exonere ? 0 : await getMinervalEleve(classe, option); 
-    const parentCode = genererCodeParent(); 
-    const paiements = {}; for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] }; 
-    const newCompta = { _type: "compta_eleve", eleveId: id, nom, prenom, classe, option: option || "", minerval, paiements, exonere: exonere || false, parentCode, abandon: false }; 
-    await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${id}`), newCompta); 
-    if (exonere) compteurExoneres++; 
-    toast(`📱 Code parent: ${parentCode}`, "success"); 
-    return { id, nom, prenom, classe, parentCode }; 
-}
-async function getElevesFiltres(incAbandons = false) { 
-    let res = await getTousElevesAvecInfos(); 
-    if (!incAbandons) res = res.filter(e => !e.abandon); 
-    const nom = document.getElementById("searchNom")?.value.trim() || ""; 
-    const cls = document.getElementById("filterClasse")?.value || ""; 
-    if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase()) || (e.prenom && e.prenom.toLowerCase().includes(nom.toLowerCase()))); 
-    if (cls) res = res.filter(e => e.classe === cls); 
-    if (currentFilter === "normal") return res.filter(e => !e.exonere && e.moisImpayes < 3); 
-    if (currentFilter === "exonere") return res.filter(e => e.exonere === true); 
-    if (currentFilter === "listenoir") return res.filter(e => !e.exonere && e.moisImpayes >= 3); 
-    return res; 
+async function chargerConfigEcole() { 
+    try { 
+        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
+        const configSnap = await getDoc(configRef); 
+        if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } 
+        else { currentSchoolConfig = { nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, adresse: "", codeAcces: "1234", maxExonerations: 10, fraisInscription: 50000 }; await setDoc(configRef, currentSchoolConfig); } 
+        return currentSchoolConfig; 
+    } catch (error) { return null; } 
 }
 async function mettreAJourStats() { 
-    const tous = await getAllComptaEleves(), infos = await getTousElevesAvecInfos(); 
+    const tous = await getAllComptaEleves(); 
     let totalActifs = 0, exoneres = 0, listeNoire = 0, abandons = 0; 
     for (let eleve of tous) { 
         if (eleve.abandon) { abandons++; continue; } 
         totalActifs++; 
         if (eleve.exonere) { exoneres++; continue; } 
-        const info = infos.find(i => i.id === eleve.id); 
-        if (info && info.moisImpayes >= 3) listeNoire++; 
+        let moisImpayes = 0; const paiements = eleve.paiements || {}; 
+        for (let m of moisListe) { if (estMoisPasse(m)) { const mt = paiements[m]?.montant || 0; if (mt < (eleve.minerval || 45000)) moisImpayes++; } } 
+        if (moisImpayes >= 3) listeNoire++; 
     } 
     document.getElementById("statTotal").innerText = totalActifs; 
     document.getElementById("statExoneres").innerText = exoneres; 
     document.getElementById("statListeNoire").innerText = listeNoire; 
     document.getElementById("statAbandons").innerText = abandons; 
 }
-async function afficherListeEleves() { 
-    const eleves = await getElevesFiltres(); 
-    const cont = document.getElementById("elevesContainer"); 
-    if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun élève</div>'; return; } 
-    let html = '<div class="eleve-cards">'; 
-    for (let e of eleves) { 
-        const estLN = (!e.exonere && e.moisImpayes >= 3); 
-        let badge = ''; 
-        if (e.exonere) badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; 
-        else if (estLN) badge = '<span class="badge badge-listenoire">LISTE NOIRE</span>'; 
-        else if (e.moisImpayes > 0) badge = '<span class="badge badge-impaye">IMPAYÉ</span>'; 
-        else badge = '<span class="badge badge-en-ordre">EN ORDRE</span>'; 
-        html += `<div class="eleve-card" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}')"><div class="eleve-card-nom">${e.nom} ${e.prenom || ''} ${badge}</div><div class="eleve-card-info"><span>${e.classe}</span><span>${e.option || "Sans"}</span><span>${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span></div></div>`; 
-    } 
-    html += '</div>'; 
-    cont.innerHTML = html; 
-}
-window.voirDetails = async function(id, nom, classe) { 
-    currentEleve = localEleves.find(e => e.id === id); 
-    await afficherReleve(currentEleve); 
-    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); 
-    document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); 
-    document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active"); 
-    document.getElementById("tab2").classList.add("active"); 
-};
-async function afficherReleve(eleve) { 
-    if (!eleve) { document.getElementById("releveContainer").innerHTML = '<div class="empty-state">Sélectionnez un élève</div>'; return; } 
-    let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleve.nom} ${eleve.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleve.classe} ${eleve.option ? `-${eleve.option}` : ""} ${eleve.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleve.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleve.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; 
-    let totalMin = 0, totalPay = 0; 
-    for (let mois of moisListe) { 
-        const p = eleve.paiements?.[mois] || { montant: 0, date: null }; 
-        const payeTotal = eleve.exonere || p.montant >= eleve.minerval; 
-        const reste = eleve.exonere ? 0 : eleve.minerval - p.montant; 
-        totalMin += eleve.exonere ? 0 : eleve.minerval; 
-        totalPay += p.montant; 
-        let cardClass = ""; 
-        if (mois === moisCourant) cardClass = "mois-courant"; 
-        else if (estMoisPasse(mois) && !payeTotal && !eleve.exonere) cardClass = "mois-impaye"; 
-        let txt = ""; 
-        if (eleve.exonere) { txt = "EXONÉRÉ"; } 
-        else if (payeTotal) { txt = `${formatNbSimple(eleve.minerval)} FC`; } 
-        else if (p.montant > 0) { txt = `${formatNbSimple(p.montant)} FC`; } 
-        else { txt = "0 FC"; } 
-        html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleve.exonere ? "0" : formatNbSimple(eleve.minerval)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${reste > 0 ? `<span style="color:#ef4444;">${formatNbSimple(reste)} FC</span>` : '0 FC'}</span></div></div></div>`; 
-    } 
-    html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPay)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPay)} FC</span></div></div>`; 
-    document.getElementById("releveContainer").innerHTML = html; 
-}
-function initTabsEvents() { 
-    const tabs = document.querySelectorAll(".tab-btn"); 
-    tabs.forEach(btn => { btn.onclick = () => { document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active")); document.getElementById(btn.dataset.tab).classList.add("active"); if(btn.dataset.tab === "tab5") afficherParentCodes(); }; }); 
-}
-function initFilterEvents() { 
-    document.querySelectorAll(".filter-btn").forEach(btn => { btn.onclick = () => { document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentFilter = btn.dataset.filter; afficherListeEleves(); }; }); 
-}
-document.getElementById("loginBtn").onclick = async () => { 
-    const code = document.getElementById("loginCode").value.trim(); 
-    if (code === "1234") { 
-        document.getElementById("loginOverlay").style.display = "none"; 
-        document.getElementById("mainApp").style.display = "block"; 
-        await initApp(); 
-        toast("Connexion réussie", "success"); 
-    } else { toast("Code incorrect", "error"); } 
-};
 async function afficherParentCodes() {
     const eleves = await getAllComptaEleves();
     const searchTerm = document.getElementById("searchParentCode")?.value.toLowerCase() || "";
@@ -478,8 +299,15 @@ async function afficherParentCodes() {
 }
 document.getElementById("searchParentCode")?.addEventListener("input", () => afficherParentCodes());
 document.getElementById("logoutBtn").onclick = () => { document.getElementById("mainApp").style.display = "none"; document.getElementById("loginOverlay").style.display = "flex"; document.getElementById("loginCode").value = ""; toast("Déconnexion réussie", "success"); };
-document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); };
-document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
+document.getElementById("loginBtn").onclick = async () => { 
+    const code = document.getElementById("loginCode").value.trim(); 
+    if (code === "1234") { 
+        document.getElementById("loginOverlay").style.display = "none"; 
+        document.getElementById("mainApp").style.display = "block"; 
+        await getAllComptaEleves(); await getAllFiches(); await mettreAJourStats(); await afficherParentCodes();
+        toast("Connexion réussie", "success"); 
+    } else { toast("Code incorrect", "error"); } 
+};
 window.genererPDFRecouvrement = async function() { toast("Fonction PDF", "info"); };
 window.genererPDFListeNoire = async function() { toast("Fonction PDF", "info"); };
 window.genererPDFTousEleves = async function() { toast("Fonction PDF", "info"); };
@@ -488,7 +316,7 @@ const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
 let parentCodeValide = null;
 let parentEnfantActif = null;
 let parentAttenteCode = true;
-let parentHistorique = [];
+let parentConversationHistory = [];
 
 async function chercherInfosFinancieres(eleveId) {
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
@@ -506,113 +334,87 @@ async function chercherInfosFinancieres(eleveId) {
     }
     return { exonere: data.exonere || false, minerval, totalAnnuel, totalPaye, reste: totalAnnuel - totalPaye, moisImpayes, classe: data.classe };
 }
-async function chercherNotesEleve(nomEleve) {
-    const toutesFiches = await getAllComptaEleves();
+async function chercherNotesEleve(eleveId, eleveNom) {
     const resultats = [];
-    for(const f of toutesFiches) {
-        if(f.id !== parentEnfantActif?.id) continue;
-        for(let periode = 1; periode <= 4; periode++) {
-            const epreuves = f.epreuvesParPeriode?.[periode] || [];
-            const notesPeriode = f.notes?.[`p${periode}`] || [];
-            for(let i=0; i<epreuves.length; i++) {
-                resultats.push({ matiere: f.cours, epreuve: epreuves[i].nom, note: notesPeriode[i] || 0, max: epreuves[i].max, professeur: f.titulaire || "?" });
+    for(const fiche of toutesFiches) {
+        const eleveDansFiche = fiche.eleves?.find(e => {
+            const nomEleve = (e.nom || '').toLowerCase();
+            return nomEleve.includes((eleveNom || '').toLowerCase().split(' ')[0]) || (eleveNom && nomEleve.includes(eleveNom.toLowerCase().split(' ')[0]));
+        });
+        if(eleveDansFiche && eleveDansFiche.notes) {
+            for(let periode = 1; periode <= 4; periode++) {
+                const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
+                const notesPeriode = eleveDansFiche.notes[`p${periode}`] || [];
+                for(let i = 0; i < epreuves.length; i++) {
+                    resultats.push({
+                        matiere: fiche.cours,
+                        epreuve: epreuves[i].nom,
+                        note: notesPeriode[i] || 0,
+                        max: epreuves[i].max,
+                        professeur: fiche.titulaire || "?",
+                        periode: periode
+                    });
+                }
+            }
+            if(eleveDansFiche.notes.exam1 > 0) {
+                resultats.push({ matiere: fiche.cours, epreuve: "Examen Semestre 1", note: eleveDansFiche.notes.exam1, max: (fiche.p1Max || 20) * 2, professeur: fiche.titulaire || "?", periode: "S1" });
+            }
+            if(eleveDansFiche.notes.exam2 > 0) {
+                resultats.push({ matiere: fiche.cours, epreuve: "Examen Semestre 2", note: eleveDansFiche.notes.exam2, max: (fiche.p1Max || 20) * 2, professeur: fiche.titulaire || "?", periode: "S2" });
             }
         }
     }
     return resultats;
 }
-async function repondreAvecIA(question, contexte) {
-    const prompt = `Tu es un assistant scolaire pour parents. Réponds de manière naturelle, courte (max 2-3 phrases), sans formules robotiques.
-
-INFORMATIONS SUR L'ÉLÈVE :
-- Nom: ${contexte.nom}
-- Classe: ${contexte.classe}
-- Minerval mensuel: ${contexte.minerval || 45000} FC
-- Total annuel: ${contexte.totalAnnuel || 0} FC
-- Déjà payé: ${contexte.totalPaye || 0} FC
-- Reste à payer: ${contexte.reste || 0} FC
-- Mois impayés: ${(contexte.moisImpayes || []).join(", ") || "Aucun"}
-- Notes récentes: ${contexte.notesResume || "Aucune"}
-
-QUESTION: ${question}
-
-RÈGLES: Réponse très courte, naturelle. Si l'élève est exonéré, dis-le. Si l'utilisateur dit "merci" réponds "De rien". Si "au revoir" réponds "À bientôt".`;
-
+async function demanderIA(question) {
     try {
-        const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) });
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: question })
+        });
         const data = await response.json();
-        let reply = data.answer || "Désolé, je n'ai pas pu générer de réponse.";
-        reply = reply.replace(/^(Bonjour|Bonsoir|Salut|Cher parent)[ ,!]*/i, '');
-        return reply;
-    } catch(e) { return "❌ Erreur de connexion. Réessayez plus tard."; }
-}
-async function preparerContexteEleve(id) {
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${id}`);
-    const snap = await getDoc(ref);
-    if(!snap.exists()) return null;
-    const data = snap.data();
-    const paiements = data.paiements || {};
-    const minerval = data.minerval || 45000;
-    const totalAnnuel = minerval * 10;
-    let totalPaye = 0, moisImpayes = [];
-    for(let mois of moisListe) {
-        const montant = paiements[mois]?.montant || 0;
-        totalPaye += montant;
-        if(montant < minerval && !data.exonere) moisImpayes.push(mois);
+        return data.answer || "Désolé, je n'ai pas pu générer de réponse.";
+    } catch(e) {
+        console.error("Erreur IA:", e);
+        return "❌ Erreur de connexion. Réessayez.";
     }
-    return {
-        id: data.eleveId, nom: `${data.nom} ${data.prenom||''}`.trim(), classe: data.classe,
-        minerval, totalAnnuel, totalPaye, reste: totalAnnuel - totalPaye, moisImpayes,
-        exonere: data.exonere || false, notesResume: "Aucune note trouvée"
-    };
 }
-async function traiterMessageParent(message) {
+async function preparerContexteEtRepondre(message, isCodeRequest = false) {
     const msg = message.trim().toLowerCase();
-    if(!parentCodeValide && !parentAttenteCode) parentAttenteCode = true;
-    if(parentAttenteCode) {
+    
+    if(parentAttenteCode && !isCodeRequest) {
         const codeMatch = message.match(/^\d{6}$/);
         if(codeMatch) {
             const code = codeMatch[0];
             const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
             const snap = await getDocs(q);
-            if(snap.empty) return "Code incorrect. Vérifiez et réessayez.";
+            if(snap.empty) {
+                return await demanderIA(`L'utilisateur a entré le code ${code} mais il n'existe pas. Réponds de manière naturelle: "Désolé, ce code ne correspond à aucun enfant. Voulez-vous réessayer ?"`);
+            }
             const eleveData = snap.docs[0].data();
-            parentEnfantActif = { id: eleveData.eleveId, nom: `${eleveData.nom} ${eleveData.prenom||''}`.trim(), classe: eleveData.classe };
+            parentEnfantActif = { id: eleveData.eleveId, nom: `${eleveData.nom} ${eleveData.prenom || ''}`.trim(), classe: eleveData.classe };
             parentCodeValide = code;
             parentAttenteCode = false;
-            return `✅ Code accepté. Bonjour ${parentEnfantActif.nom} ! Que voulez-vous savoir sur sa scolarité ? (notes ou frais)`;
-        } else {
-            if(msg.includes("bonjour") || msg.includes("bonsoir") || msg.includes("salut")) return "Bonjour ! Pour accéder aux informations de votre enfant, veuillez entrer son code à 6 chiffres.";
-            if(msg.includes("merci")) return "Je vous en prie ! Pour consulter les informations, veuillez entrer le code à 6 chiffres.";
-            if(msg.includes("au revoir")) return "Au revoir ! N'oubliez pas d'entrer votre code à 6 chiffres la prochaine fois.";
-            return "Pour accéder aux informations, veuillez entrer le code à 6 chiffres de votre enfant.";
+            return await demanderIA(`Le parent vient de se connecter avec succès. Son enfant s'appelle ${parentEnfantActif.nom}. Réponds naturellement, dis que c'est bon et demande ce qu'il veut savoir (notes ou frais). Sois chaleureux mais pas trop long.`);
         }
+        return await demanderIA(`L'utilisateur dit: "${message}". L'utilisateur n'a pas encore donné son code. Réponds naturellement (pas de "je suis un assistant"), demande-lui son code à 6 chiffres de manière sympa. Sois bref.`);
     }
-    if(msg.includes("merci")) return "De rien ! À votre service.";
-    if(msg.includes("au revoir")) return "Au revoir ! N'hésitez pas à revenir.";
-    if(msg.includes("bonjour") || msg.includes("bonsoir") || msg.includes("salut")) return `Bonjour ! Comment puis-je vous aider pour ${parentEnfantActif.nom} ?`;
-    const contexte = await preparerContexteEleve(parentEnfantActif.id);
-    if(!contexte) return "Désolé, je n'ai pas trouvé les informations de votre enfant.";
-    if(msg.includes("payer") || msg.includes("frais") || msg.includes("reste") || msg.includes("solde") || msg.includes("impayé") || msg.includes("minerval")) {
-        if(contexte.exonere) return `📌 ${parentEnfantActif.nom} est exonéré(e) des frais scolaires. Aucun paiement à effectuer.`;
-        return `💰 ${parentEnfantActif.nom} (${contexte.classe}) : Il reste ${contexte.reste.toLocaleString()} FC sur ${contexte.totalAnnuel.toLocaleString()} FC. ${contexte.moisImpayes.length > 0 ? `Mois impayés : ${contexte.moisImpayes.join(", ")}.` : "Tout est payé !"}`;
-    }
-    if(msg.includes("note") || msg.includes("point") || msg.includes("épreuve") || msg.includes("examen") || msg.includes("résultat")) {
-        const notes = await chercherNotesEleve(parentEnfantActif.nom);
-        if(notes.length === 0) return `📚 Aucune note trouvée pour ${parentEnfantActif.nom} pour le moment.`;
-        const matchMatiere = msg.match(/(math|maths|français|anglais|physique|chimie|histoire|géo|biologie)/);
-        if(matchMatiere) {
-            const notesFiltrees = notes.filter(n => n.matiere.toLowerCase().includes(matchMatiere[0]));
-            if(notesFiltrees.length > 0) {
-                const n = notesFiltrees[0];
-                return `📖 ${parentEnfantActif.nom} a eu ${n.note}/${n.max} à ${n.epreuve} de ${n.matiere}. Professeur: ${n.professeur}.`;
-            }
-            return `Aucune note en ${matchMatiere[0]} pour ${parentEnfantActif.nom}.`;
-        }
-        const dernieres = notes.slice(0,2);
-        return `📋 Notes récentes de ${parentEnfantActif.nom} : ${dernieres.map(n => `${n.matiere}: ${n.note}/${n.max}`).join(", ")}.`;
-    }
-    return await repondreAvecIA(message, contexte);
+    
+    const infos = await chercherInfosFinancieres(parentEnfantActif.id);
+    const notes = await chercherNotesEleve(parentEnfantActif.id, parentEnfantActif.nom);
+    const notesResume = notes.slice(0, 5).map(n => `${n.matiere}: ${n.note}/${n.max} (${n.epreuve})`).join(", ");
+    
+    const prompt = `Tu es un assistant scolaire. Contexte:
+- Élève: ${parentEnfantActif.nom} (${parentEnfantActif.classe})
+- Frais: ${infos ? (infos.exonere ? "Exonéré" : `Minerval mensuel: ${infos.minerval} FC, Payé: ${infos.totalPaye} FC, Reste: ${infos.reste} FC, Mois impayés: ${infos.moisImpayes.join(", ")}`) : "Non trouvé"}
+- Notes: ${notesResume || "Aucune"}
+
+Message du parent: "${message}"
+
+RÈGLES: Réponds comme un humain, très court (max 2 phrases), naturel. Pas de "je suis un assistant". Si question sur notes, donne les notes. Si question sur frais, donne les infos frais. Si "merci" réponds "De rien". Si "au revoir" réponds "À bientôt".`;
+
+    return await demanderIA(prompt);
 }
 async function afficherReponseAvecEffet(reponse, element) {
     element.innerHTML = '';
@@ -629,13 +431,18 @@ const parentQuestionInput = document.getElementById('parentQuestionInput');
 const parentSendBtn = document.getElementById('parentSendBtn');
 const parentInfoEleve = document.getElementById('parentInfoEleve');
 if(parentFloatingBtn) {
-    parentFloatingBtn.onclick = () => {
+    parentFloatingBtn.onclick = async () => {
         parentModalOverlay.classList.add('active');
         document.body.style.overflow = 'hidden';
         parentCodeValide = null; parentEnfantActif = null; parentAttenteCode = true;
-        parentChatMessages.innerHTML = `<div class="parent-msg bot"><div class="bubble">Bonjour ! 👋 Comment puis-je vous aider ?</div></div>`;
+        parentChatMessages.innerHTML = `<div class="parent-msg bot"><div class="bubble">👋</div></div>`;
         parentInfoEleve.innerHTML = "";
         parentQuestionInput.value = ''; parentQuestionInput.focus();
+        const msgBotDiv = document.createElement('div'); msgBotDiv.className = 'parent-msg bot'; const bubbleBot = document.createElement('div'); bubbleBot.className = 'bubble'; bubbleBot.innerHTML = '<span class="loader"></span>';
+        msgBotDiv.appendChild(bubbleBot); parentChatMessages.appendChild(msgBotDiv); parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+        const reponse = await preparerContexteEtRepondre("", true);
+        bubbleBot.innerHTML = ''; await typeWriterEffect(bubbleBot, reponse, 12);
+        parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
     };
 }
 if(closeParentModal) closeParentModal.onclick = () => { parentModalOverlay.classList.remove('active'); document.body.style.overflow = ''; };
@@ -648,23 +455,16 @@ if(parentSendBtn) {
         parentQuestionInput.value = ''; parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
         const msgBotDiv = document.createElement('div'); msgBotDiv.className = 'parent-msg bot'; const bubbleBot = document.createElement('div'); bubbleBot.className = 'bubble'; bubbleBot.innerHTML = '<span class="loader"></span>';
         msgBotDiv.appendChild(bubbleBot); parentChatMessages.appendChild(msgBotDiv); parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
-        const reponse = await traiterMessageParent(message);
-        bubbleBot.innerHTML = ''; await afficherReponseAvecEffet(reponse, bubbleBot);
+        const reponse = await preparerContexteEtRepondre(message, false);
+        bubbleBot.innerHTML = ''; await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+        if(parentEnfantActif && parentInfoEleve.innerHTML === "") {
+            parentInfoEleve.innerHTML = `👤 ${parentEnfantActif.nom} | ${parentEnfantActif.classe}`;
+        }
     };
 }
-async function initApp() {
-    if(isAppInitialized) return;
-    await chargerOptions(); await chargerTarifs(); await getAllComptaEleves();
-    if(localEleves.length === 0) {
-        await ajouterEleveCompta("KASONGO", "Jean", "4eme Annee", "CG", false);
-        await ajouterEleveCompta("KASONGO", "Marie", "2eme Annee", "Sciences", false);
-    }
-    await afficherListeEleves(); await mettreAJourStats(); await afficherParentCodes();
-    initTabsEvents(); initFilterEvents();
-    isAppInitialized = true;
-}
-await chargerConfigEcole(); await initApp();
+await chargerConfigEcole();
+document.getElementById("loginCode").focus();
 </script>
 </body>
 </html>
