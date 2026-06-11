@@ -260,23 +260,25 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ========== RÉCUPÉRER L'ÉCOLE DEPUIS L'URL ==========
+// ========== RÉCUPÉRER L'ÉCOLE DEPUIS L'URL (IMMÉDIAT) ==========
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
 if (!schoolId) {
     window.location.href = '/school-choice.html';
-    throw new Error('Redirection vers sélection école');
+    throw new Error('Redirection');
 }
 
 const SCHOOL_PREFIX = schoolId.replace(/[^a-zA-Z0-9]/g, '_');
 const SCHOOL_DISPLAY_NAME = schoolId;
 
-console.log(`🏫 École: ${SCHOOL_DISPLAY_NAME}`);
-
-// Mettre à jour l'affichage immédiatement
+// AFFICHAGE IMMÉDIAT (sans attendre Firebase)
 document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
+document.getElementById("loginSchoolSub").innerHTML = "Entrez votre code d'accès";
+
+console.log(`🏫 École: ${SCHOOL_DISPLAY_NAME}`);
 
 // ========== VARIABLES GLOBALES ==========
 let currentSchoolConfig = null;
@@ -379,11 +381,6 @@ async function chargerConfigEcole() {
             };
             await setDoc(configRef, currentSchoolConfig);
         }
-        
-        document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`;
-        document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL ${currentSchoolConfig.adresse ? `| ${currentSchoolConfig.adresse}` : ''}`;
-        document.getElementById("loginSchoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`;
-        document.getElementById("loginSchoolSub").innerHTML = "Accès comptabilité";
         
         return currentSchoolConfig;
     } catch (error) {
@@ -962,7 +959,7 @@ window.genererPDFRecouvrement = async function() {
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 215, 0);
-        doc.text(currentSchoolConfig?.nom || "GLORIA DEI", 105, 20, { align: "center" });
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
         doc.setFontSize(10);
         doc.setTextColor(200, 200, 200);
         doc.text("LISTE DE RECOUVREMENT", 105, 32, { align: "center" });
@@ -1000,7 +997,7 @@ window.genererPDFListeNoire = async function() {
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 215, 0);
-        doc.text(currentSchoolConfig?.nom || "GLORIA DEI", 105, 20, { align: "center" });
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
         doc.setFontSize(10);
         doc.setTextColor(200, 200, 200);
         doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS", 105, 32, { align: "center" });
@@ -1036,7 +1033,7 @@ window.genererPDFTousEleves = async function() {
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 215, 0);
-        doc.text(currentSchoolConfig?.nom || "GLORIA DEI", 105, 20, { align: "center" });
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
         doc.setFontSize(10);
         doc.setTextColor(200, 200, 200);
         doc.text("LISTE COMPLÈTE DES ÉLÈVES", 105, 32, { align: "center" });
@@ -1069,7 +1066,7 @@ window.genererPDFExoneres = async function() {
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 215, 0);
-        doc.text(currentSchoolConfig?.nom || "GLORIA DEI", 105, 20, { align: "center" });
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
         doc.setFontSize(10);
         doc.setTextColor(200, 200, 200);
         doc.text("LISTE DES ÉLÈVES EXONÉRÉS", 105, 32, { align: "center" });
@@ -1103,6 +1100,7 @@ document.getElementById("loginBtn").onclick = async () => {
     btn.textContent = "⏳ VÉRIFICATION...";
     
     try {
+        // Charger la configuration SEULEMENT au moment du clic
         await chargerConfigEcole();
         
         if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) {
@@ -1110,7 +1108,7 @@ document.getElementById("loginBtn").onclick = async () => {
             document.getElementById("loginOverlay").style.display = "none";
             document.getElementById("mainApp").style.display = "block";
             await initApp();
-            toast(`Bienvenue au ${currentSchoolConfig.nom}`, "success");
+            toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success");
         } else {
             errorDiv.innerHTML = "❌ Code d'accès incorrect";
             toast("Code d'accès incorrect", "error");
@@ -1159,15 +1157,6 @@ async function initApp() {
 // ========== ÉVÉNEMENTS UI ==========
 document.getElementById("btnSearch").onclick = () => afficherListeEleves();
 document.getElementById("btnSearchAbandon").onclick = () => afficherAbandons();
-document.getElementById("btnResetFiltres").onclick = () => {
-    document.getElementById("searchNom").value = "";
-    document.getElementById("filterClasse").value = "";
-    currentFilter = "all";
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    document.querySelector('.filter-btn[data-filter="all"]').classList.add("active");
-    afficherListeEleves();
-    toast("Filtres réinitialisés", "info");
-};
 
 document.querySelectorAll(".filter-btn").forEach(btn => {
     btn.onclick = () => {
@@ -1237,8 +1226,7 @@ document.getElementById("btnChangeCode").onclick = () => changerCodeAcces();
 document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); toast("Minervaux enregistrés", "success"); };
 document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
 
-// DÉMARRAGE
-await chargerConfigEcole();
+// Le focus sur le champ code
 document.getElementById("loginCode").focus();
 </script>
 </body>
