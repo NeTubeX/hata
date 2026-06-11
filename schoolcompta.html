@@ -17,7 +17,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .school-name{font-size:22px;font-weight:700;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .school-sub{font-size:11px;opacity:0.8;margin-top:4px;color:#cbd5e1;}
 .tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;}
-.tab-btn{background:rgba(30,41,59,0.8);border:1px solid rgba(255,215,0,0.2);padding:9px 18px;border-radius:40px;color:#94a3b8;cursor:pointer;font-weight:600;font-size:13px;}
+.tab-btn{background:rgba(30,41,59,0.8);border:1px solid rgba(255,215,0,0.2);padding:9px 18px;border-radius:40px;color:#94a3b8;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;}
 .tab-btn.active{background:#ffd700;color:#0f172a;}
 .tab-panel{display:none;}
 .tab-panel.active{display:block;}
@@ -120,6 +120,8 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .detail-item:hover{background:rgba(30,41,59,0.8);transform:translateX(3px);}
 .detail-item .detail-nom{font-weight:700;color:#ffd700;font-size:14px;}
 .detail-item .detail-info{color:#94a3b8;font-size:11px;margin-top:4px;}
+.status-online{position:fixed;bottom:10px;left:10px;background:#10b981;color:white;padding:4px 10px;border-radius:20px;font-size:10px;z-index:9999;}
+.status-offline{position:fixed;bottom:10px;left:10px;background:#ef4444;color:white;padding:4px 10px;border-radius:20px;font-size:10px;z-index:9999;}
 </style>
 </head>
 <body>
@@ -138,6 +140,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
     <div class="school-header">
         <div class="school-name" id="schoolName">🏫 CHARGEMENT...</div>
         <div class="school-sub" id="schoolSub">COMPTABILITÉ - GESTION DU MINERVAL</div>
+        <div id="syncStatus" style="font-size:10px;margin-top:5px;"></div>
     </div>
 
     <div class="stat-row">
@@ -148,7 +151,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
         <div class="stat-card" data-stat="abandons"><div class="stat-number" id="statAbandons">0</div><div class="stat-label">ABANDONS</div></div>
     </div>
 
-    <div class="tabs">
+    <div class="tabs" id="tabsContainer">
         <button class="tab-btn active" data-tab="tab1">📋 ÉLÈVES</button>
         <button class="tab-btn" data-tab="tab2">💰 PAIEMENTS</button>
         <button class="tab-btn" data-tab="tab3">❌ ABANDONS</button>
@@ -246,9 +249,9 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ========== CONFIGURATION ==========
+// ========== CONFIGURATION FIREBASE ==========
 const firebaseConfig = { 
     apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA", 
     authDomain: "netubexmoney.firebaseapp.com", 
@@ -272,7 +275,7 @@ if (!schoolId) {
 const SCHOOL_PREFIX = schoolId.replace(/[^a-zA-Z0-9]/g, '_');
 const SCHOOL_DISPLAY_NAME = schoolId;
 
-// AFFICHAGE IMMÉDIAT (sans attendre Firebase)
+// AFFICHAGE IMMÉDIAT
 document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
@@ -289,6 +292,8 @@ let anneeScolaire = "2026-2027";
 let compteurExoneres = 0;
 let pendingAction = null;
 let isAppInitialized = false;
+let dbReady = false;
+let pendingSync = [];
 
 const classesListe = ["7eme EB", "8eme EB", "1ere Annee", "2eme Annee", "3eme Annee", "4eme Annee"];
 const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
@@ -299,6 +304,166 @@ const moisActuelNum = dateRef.getMonth();
 let moisCourant = "Septembre";
 if (moisActuelNum >= 8) { moisCourant = moisListe[moisActuelNum - 8]; } 
 else { moisCourant = moisListe[moisActuelNum + 4]; }
+
+// ========== INDEXEDDB ==========
+let dbRequest = null;
+
+function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('GloriaDeiComptaDB', 1);
+        
+        request.onerror = () => {
+            console.error("Erreur IndexedDB:", request.error);
+            reject(request.error);
+        };
+        
+        request.onsuccess = () => {
+            dbRequest = request.result;
+            console.log("✅ IndexedDB ouverte");
+            resolve(dbRequest);
+        };
+        
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            
+            if (!db.objectStoreNames.contains('eleves')) {
+                db.createObjectStore('eleves', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('config')) {
+                db.createObjectStore('config', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('tarifs')) {
+                db.createObjectStore('tarifs', { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains('pendingSync')) {
+                db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true });
+            }
+            console.log("✅ Object stores créés");
+        };
+    });
+}
+
+async function saveToIndexedDB(storeName, data) {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const request = store.put(data);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        tx.oncomplete = () => resolve();
+    });
+}
+
+async function getAllFromIndexedDB(storeName) {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getFromIndexedDB(storeName, key) {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const store = tx.objectStore(storeName);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function deleteFromIndexedDB(storeName, key) {
+    const db = await initIndexedDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function addToPendingSync(action, data) {
+    await saveToIndexedDB('pendingSync', {
+        id: Date.now(),
+        action: action,
+        data: data,
+        timestamp: Date.now()
+    });
+    updateSyncStatus();
+}
+
+async function syncToFirebase() {
+    if (!navigator.onLine) {
+        updateSyncStatus(false);
+        return;
+    }
+    
+    const pending = await getAllFromIndexedDB('pendingSync');
+    if (pending.length === 0) {
+        updateSyncStatus(true);
+        return;
+    }
+    
+    updateSyncStatus('syncing');
+    
+    for (const item of pending) {
+        try {
+            if (item.action === 'saveEleve') {
+                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${item.data.eleveId}`);
+                await setDoc(ref, item.data);
+            } else if (item.action === 'updateEleve') {
+                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${item.data.eleveId}`);
+                await updateDoc(ref, item.data.updates);
+            } else if (item.action === 'deleteEleve') {
+                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${item.data}`);
+                await deleteDoc(ref);
+            } else if (item.action === 'saveConfig') {
+                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+                await setDoc(ref, item.data);
+            } else if (item.action === 'saveTarifs') {
+                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
+                await setDoc(ref, item.data);
+            }
+            await deleteFromIndexedDB('pendingSync', item.id);
+        } catch (e) {
+            console.error("Sync failed:", e);
+        }
+    }
+    
+    updateSyncStatus(true);
+}
+
+function updateSyncStatus(connected = null) {
+    const statusDiv = document.getElementById('syncStatus');
+    if (!statusDiv) return;
+    
+    if (connected === true) {
+        statusDiv.innerHTML = '<span style="color:#10b981;">✅ Synchronisé avec le cloud</span>';
+        statusDiv.style.color = '#10b981';
+    } else if (connected === false) {
+        statusDiv.innerHTML = '<span style="color:#f59e0b;">⚠️ Mode hors ligne - Les modifications seront synchronisées plus tard</span>';
+        statusDiv.style.color = '#f59e0b';
+    } else if (connected === 'syncing') {
+        statusDiv.innerHTML = '<span style="color:#ffd700;">🔄 Synchronisation en cours...</span>';
+        statusDiv.style.color = '#ffd700';
+    }
+}
+
+window.addEventListener('online', () => {
+    toast("Connexion rétablie - Synchronisation en cours", "success");
+    syncToFirebase();
+});
+
+window.addEventListener('offline', () => {
+    toast("Mode hors ligne - Les modifications seront sauvegardées localement", "warning");
+    updateSyncStatus(false);
+});
 
 // ========== FONCTIONS UTILITAIRES ==========
 function formaterNombre(n) {
@@ -351,27 +516,36 @@ function estMoisPasse(mois) {
     return moisIndexMap[mois] < moisIndexMap[moisCourant];
 }
 
-function estMoisCourant(mois) {
-    return mois === moisCourant;
-}
-
-// ========== FONCTIONS FIREBASE ==========
-function getSchoolRef(collectionName, docId = null) {
-    if (docId) {
-        return doc(db, "ecoles", SCHOOL_PREFIX, collectionName, docId);
-    } else {
-        return collection(db, "ecoles", SCHOOL_PREFIX, collectionName);
-    }
-}
-
+// ========== FONCTIONS FIREBASE + INDEXEDDB ==========
 async function chargerConfigEcole() {
     try {
-        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
-        const configSnap = await getDoc(configRef);
+        // D'abord essayer IndexedDB
+        const localConfig = await getFromIndexedDB('config', 'settings');
         
-        if (configSnap.exists()) {
-            currentSchoolConfig = configSnap.data();
-        } else {
+        if (localConfig) {
+            currentSchoolConfig = localConfig;
+        }
+        
+        // Ensuite essayer Firebase si online
+        if (navigator.onLine) {
+            const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+            const configSnap = await getDoc(configRef);
+            
+            if (configSnap.exists()) {
+                currentSchoolConfig = configSnap.data();
+                await saveToIndexedDB('config', { id: 'settings', ...currentSchoolConfig });
+            } else if (!currentSchoolConfig) {
+                currentSchoolConfig = {
+                    nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,
+                    adresse: "",
+                    codeAcces: "1234",
+                    maxExonerations: 10,
+                    fraisInscription: 50000
+                };
+                await setDoc(configRef, currentSchoolConfig);
+                await saveToIndexedDB('config', { id: 'settings', ...currentSchoolConfig });
+            }
+        } else if (!currentSchoolConfig) {
             currentSchoolConfig = {
                 nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,
                 adresse: "",
@@ -379,13 +553,21 @@ async function chargerConfigEcole() {
                 maxExonerations: 10,
                 fraisInscription: 50000
             };
-            await setDoc(configRef, currentSchoolConfig);
         }
         
         return currentSchoolConfig;
     } catch (error) {
         console.error("Erreur chargement config:", error);
-        return null;
+        if (!currentSchoolConfig) {
+            currentSchoolConfig = {
+                nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,
+                adresse: "",
+                codeAcces: "1234",
+                maxExonerations: 10,
+                fraisInscription: 50000
+            };
+        }
+        return currentSchoolConfig;
     }
 }
 
@@ -396,32 +578,82 @@ async function sauvegarderInfosEcole() {
     if (nouveauNom) currentSchoolConfig.nom = nouveauNom;
     if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse;
     
-    const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
-    await setDoc(configRef, currentSchoolConfig);
+    // Sauvegarde locale
+    await saveToIndexedDB('config', { id: 'settings', ...currentSchoolConfig });
+    
+    // Sauvegarde cloud si online
+    if (navigator.onLine) {
+        try {
+            const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+            await setDoc(configRef, currentSchoolConfig);
+        } catch (e) {
+            await addToPendingSync('saveConfig', currentSchoolConfig);
+        }
+    } else {
+        await addToPendingSync('saveConfig', currentSchoolConfig);
+    }
     
     document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`;
-    document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL ${currentSchoolConfig.adresse ? `| ${currentSchoolConfig.adresse}` : ''}`;
     toast("Informations de l'école mises à jour", "success");
 }
 
 async function chargerTarifs() {
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-        tarifsConfig = snap.data();
-    } else {
-        tarifsConfig = {};
-        for (let classe of classesListe) {
-            tarifsConfig[classe] = 45000;
+    try {
+        // D'abord IndexedDB
+        const localTarifs = await getFromIndexedDB('tarifs', 'data');
+        if (localTarifs) {
+            tarifsConfig = localTarifs;
         }
-        await setDoc(ref, tarifsConfig);
+        
+        // Ensuite Firebase si online
+        if (navigator.onLine) {
+            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
+            const snap = await getDoc(ref);
+            if (snap.exists()) {
+                tarifsConfig = snap.data();
+                await saveToIndexedDB('tarifs', { id: 'data', ...tarifsConfig });
+            } else if (Object.keys(tarifsConfig).length === 0) {
+                for (let classe of classesListe) {
+                    tarifsConfig[classe] = 45000;
+                }
+                await setDoc(ref, tarifsConfig);
+                await saveToIndexedDB('tarifs', { id: 'data', ...tarifsConfig });
+            }
+        } else if (Object.keys(tarifsConfig).length === 0) {
+            for (let classe of classesListe) {
+                tarifsConfig[classe] = 45000;
+            }
+        }
+        
+        afficherTableTarifs();
+    } catch (error) {
+        console.error("Erreur chargement tarifs:", error);
+        if (Object.keys(tarifsConfig).length === 0) {
+            for (let classe of classesListe) {
+                tarifsConfig[classe] = 45000;
+            }
+        }
+        afficherTableTarifs();
     }
-    afficherTableTarifs();
 }
 
 async function sauverTarifs() {
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs", "data");
-    await setDoc(ref, tarifsConfig);
+    
+    // Sauvegarde locale
+    await saveToIndexedDB('tarifs', { id: 'data', ...tarifsConfig });
+    
+    // Sauvegarde cloud si online
+    if (navigator.onLine) {
+        try {
+            await setDoc(ref, tarifsConfig);
+        } catch (e) {
+            await addToPendingSync('saveTarifs', tarifsConfig);
+        }
+    } else {
+        await addToPendingSync('saveTarifs', tarifsConfig);
+    }
+    
     toast("Minervaux enregistrés", "success");
 }
 
@@ -453,29 +685,39 @@ async function getMinervalEleve(classe) {
 
 async function getAllComptaEleves() {
     try {
-        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve"));
-        const snap = await getDocs(q);
-        let eleves = [];
-        for (const ds of snap.docs) {
-            const d = ds.data();
-            eleves.push({
-                id: d.eleveId,
-                nom: d.nom,
-                prenom: d.prenom || "",
-                phone: d.phone || "",
-                adresse: d.adresse || "",
-                classe: d.classe,
-                minerval: d.minerval,
-                exonere: d.exonere || false,
-                motifExon: d.motifExon || "",
-                abandon: d.abandon || false,
-                dateAbandon: d.dateAbandon || null
-            });
+        const localEleves = await getAllFromIndexedDB('eleves');
+        
+        if (navigator.onLine) {
+            const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve"));
+            const snap = await getDocs(q);
+            let eleves = [];
+            for (const ds of snap.docs) {
+                const d = ds.data();
+                const eleve = {
+                    id: d.eleveId,
+                    nom: d.nom,
+                    prenom: d.prenom || "",
+                    phone: d.phone || "",
+                    adresse: d.adresse || "",
+                    classe: d.classe,
+                    minerval: d.minerval,
+                    exonere: d.exonere || false,
+                    motifExon: d.motifExon || "",
+                    abandon: d.abandon || false,
+                    dateAbandon: d.dateAbandon || null,
+                    paiements: d.paiements || {}
+                };
+                eleves.push(eleve);
+                await saveToIndexedDB('eleves', { id: d.eleveId, ...eleve });
+            }
+            return eleves;
+        } else {
+            return localEleves.map(e => ({ ...e, paiements: e.paiements || {} }));
         }
-        return eleves;
     } catch (error) {
         console.error("Erreur getAllComptaEleves:", error);
-        return [];
+        const localEleves = await getAllFromIndexedDB('eleves');
+        return localEleves;
     }
 }
 
@@ -484,85 +726,99 @@ async function getTousElevesAvecInfos() {
     const resultats = [];
     for (let e of tous) {
         if (e.abandon) continue;
-        try {
-            const snap = await getDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${e.id}`));
-            let moisImpayes = 0, totalPaye = 0, totalMin = 0, estEnOrdreMoisCourant = false;
-            if (snap.exists()) {
-                const d = snap.data();
-                totalMin = d.minerval * 10;
-                for (let m of moisListe) totalPaye += d.paiements?.[m]?.montant || 0;
-                for (let m of moisListe) {
-                    if (estMoisPasse(m)) {
-                        const mt = d.paiements?.[m]?.montant || 0;
-                        if (mt < (d.minerval || 45000)) moisImpayes++;
-                    }
-                }
-                const pc = d.paiements?.[moisCourant]?.montant || 0;
-                estEnOrdreMoisCourant = e.exonere || pc >= (d.minerval || 45000);
+        let moisImpayes = 0, totalPaye = 0, totalMin = 0, estEnOrdreMoisCourant = false;
+        const paiements = e.paiements || {};
+        totalMin = e.minerval * 10;
+        for (let m of moisListe) totalPaye += paiements[m]?.montant || 0;
+        for (let m of moisListe) {
+            if (estMoisPasse(m)) {
+                const mt = paiements[m]?.montant || 0;
+                if (mt < (e.minerval || 45000)) moisImpayes++;
             }
-            resultats.push({ ...e, moisImpayes, totalPaye, totalMin, estEnOrdreMoisCourant });
-        } catch (error) {
-            console.error("Erreur getTousElevesAvecInfos pour", e.nom, error);
-            resultats.push({ ...e, moisImpayes: 0, totalPaye: 0, totalMin: 0, estEnOrdreMoisCourant: false });
         }
+        const pc = paiements[moisCourant]?.montant || 0;
+        estEnOrdreMoisCourant = e.exonere || pc >= (e.minerval || 45000);
+        resultats.push({ ...e, moisImpayes, totalPaye, totalMin, estEnOrdreMoisCourant });
     }
     return resultats;
 }
 
-async function chargerOuCreerCompta(eleve) {
-    const id = `compta_${eleve.id}`;
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
-    const snap = await getDoc(ref);
-    if (snap.exists()) return snap.data();
-    
-    const minerval = eleve.exonere ? 0 : await getMinervalEleve(eleve.classe);
-    const paiements = {};
-    for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] };
-    
-    const newCompta = {
-        _type: "compta_eleve",
-        eleveId: eleve.id,
-        nom: eleve.nom,
-        prenom: eleve.prenom || "",
-        classe: eleve.classe,
-        minerval: minerval,
-        anneeScolaire: anneeScolaire,
-        paiements: paiements,
-        exonere: eleve.exonere || false,
-        abandon: false,
-        dateAbandon: null
-    };
-    await setDoc(ref, newCompta);
-    return newCompta;
-}
-
 async function enregistrerPaiement(eleveId, mois, montant) {
-    const id = `compta_${eleveId}`;
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return false;
+    const eleves = await getAllComptaEleves();
+    const eleveIndex = eleves.findIndex(e => e.id === eleveId);
+    if (eleveIndex === -1) return false;
     
-    const d = snap.data();
-    const actuel = d.paiements[mois] || { montant: 0, date: null, historique: [] };
+    const eleve = eleves[eleveIndex];
+    if (!eleve.paiements) eleve.paiements = {};
+    if (!eleve.paiements[mois]) eleve.paiements[mois] = { montant: 0, date: null, historique: [] };
+    
+    const actuel = eleve.paiements[mois];
     const nm = actuel.montant + montant;
     const dh = new Date().toISOString().slice(0, 19).replace('T', ' ');
     const histItem = { montant: montant, date: dh };
     const nvHist = [...(actuel.historique || []), histItem];
-    d.paiements[mois] = { montant: nm, date: dh, historique: nvHist };
-    await updateDoc(ref, { paiements: d.paiements });
+    eleve.paiements[mois] = { montant: nm, date: dh, historique: nvHist };
+    
+    // Sauvegarde locale
+    await saveToIndexedDB('eleves', { id: eleveId, ...eleve });
+    
+    // Sauvegarde cloud si online
+    if (navigator.onLine) {
+        try {
+            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
+            await updateDoc(ref, { paiements: eleve.paiements });
+        } catch (e) {
+            await addToPendingSync('updateEleve', { eleveId, updates: { paiements: eleve.paiements } });
+        }
+    } else {
+        await addToPendingSync('updateEleve', { eleveId, updates: { paiements: eleve.paiements } });
+    }
+    
     return true;
 }
 
 async function marquerAbandon(eleveId) {
-    const id = `compta_${eleveId}`;
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
-    await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() });
+    const eleves = await getAllComptaEleves();
+    const eleve = eleves.find(e => e.id === eleveId);
+    if (!eleve) return;
+    
+    eleve.abandon = true;
+    eleve.dateAbandon = formatDateYMD();
+    
+    await saveToIndexedDB('eleves', { id: eleveId, ...eleve });
+    
+    if (navigator.onLine) {
+        try {
+            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
+            await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() });
+        } catch (e) {
+            await addToPendingSync('updateEleve', { eleveId, updates: { abandon: true, dateAbandon: formatDateYMD() } });
+        }
+    } else {
+        await addToPendingSync('updateEleve', { eleveId, updates: { abandon: true, dateAbandon: formatDateYMD() } });
+    }
 }
 
 async function annulerAbandon(eleveId) {
-    const id = `compta_${eleveId}`;
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
-    await updateDoc(ref, { abandon: false, dateAbandon: null });
+    const eleves = await getAllComptaEleves();
+    const eleve = eleves.find(e => e.id === eleveId);
+    if (!eleve) return;
+    
+    eleve.abandon = false;
+    eleve.dateAbandon = null;
+    
+    await saveToIndexedDB('eleves', { id: eleveId, ...eleve });
+    
+    if (navigator.onLine) {
+        try {
+            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
+            await updateDoc(ref, { abandon: false, dateAbandon: null });
+        } catch (e) {
+            await addToPendingSync('updateEleve', { eleveId, updates: { abandon: false, dateAbandon: null } });
+        }
+    } else {
+        await addToPendingSync('updateEleve', { eleveId, updates: { abandon: false, dateAbandon: null } });
+    }
 }
 
 async function ajouterEleveCompta(nom, classe, phone, adresse, exonere, motifExon) {
@@ -576,7 +832,6 @@ async function ajouterEleveCompta(nom, classe, phone, adresse, exonere, motifExo
     const paiements = {};
     for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] };
     
-    const docId = `compta_${id}`;
     const newCompta = {
         _type: "compta_eleve",
         eleveId: id,
@@ -593,7 +848,21 @@ async function ajouterEleveCompta(nom, classe, phone, adresse, exonere, motifExo
         abandon: false,
         dateAbandon: null
     };
-    await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta);
+    
+    // Sauvegarde locale
+    await saveToIndexedDB('eleves', { id: id, ...newCompta });
+    
+    // Sauvegarde cloud si online
+    if (navigator.onLine) {
+        try {
+            await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${id}`), newCompta);
+        } catch (e) {
+            await addToPendingSync('saveEleve', newCompta);
+        }
+    } else {
+        await addToPendingSync('saveEleve', newCompta);
+    }
+    
     if (exonere) compteurExoneres++;
     return { id, nom, classe };
 }
@@ -709,7 +978,11 @@ async function afficherAbandons() {
 window.voirDetails = async function(id, nom, classe) {
     currentEleve = { id, nom, classe };
     await afficherReleve(currentEleve);
-    document.querySelector(".tab-btn[data-tab='tab2']").click();
+    // Activer l'onglet PAIEMENTS
+    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active"));
+    document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active");
+    document.getElementById("tab2").classList.add("active");
 };
 
 window.reintegrerAbandon = async function(id, nom) {
@@ -723,7 +996,10 @@ window.reintegrerAbandon = async function(id, nom) {
 };
 
 async function afficherReleve(eleve) {
-    const compta = await chargerOuCreerCompta(eleve);
+    const eleves = await getAllComptaEleves();
+    const compta = eleves.find(e => e.id === eleve.id);
+    if (!compta) return;
+    
     if (compta.abandon) {
         document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${compta.dateAbandon || "?"}</div>`;
         return;
@@ -740,7 +1016,7 @@ async function afficherReleve(eleve) {
     
     let totalMin = 0, totalPay = 0;
     for (let mois of moisListe) {
-        const p = compta.paiements[mois] || { montant: 0, date: null, historique: [] };
+        const p = compta.paiements?.[mois] || { montant: 0, date: null, historique: [] };
         const payeTotal = compta.exonere || p.montant >= compta.minerval;
         const reste = compta.exonere ? 0 : compta.minerval - p.montant;
         totalMin += compta.exonere ? 0 : compta.minerval;
@@ -881,7 +1157,21 @@ async function changerCodeAcces() {
     
     currentSchoolConfig.codeAcces = a;
     const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
-    await setDoc(configRef, currentSchoolConfig);
+    
+    // Sauvegarde locale
+    await saveToIndexedDB('config', { id: 'settings', ...currentSchoolConfig });
+    
+    // Sauvegarde cloud
+    if (navigator.onLine) {
+        try {
+            await setDoc(configRef, currentSchoolConfig);
+        } catch (e) {
+            await addToPendingSync('saveConfig', currentSchoolConfig);
+        }
+    } else {
+        await addToPendingSync('saveConfig', currentSchoolConfig);
+    }
+    
     toast("Code modifié avec succès", "success");
     document.getElementById("newCode1").value = "";
     document.getElementById("newCode2").value = "";
@@ -1089,6 +1379,33 @@ window.genererPDFExoneres = async function() {
     } catch (e) { toast("Erreur", "error"); }
 };
 
+// ========== INITIALISATION DES ONGLETS ==========
+function initTabsEvents() {
+    const tabs = document.querySelectorAll(".tab-btn");
+    
+    tabs.forEach(btn => {
+        btn.removeEventListener("click", handleTabClick);
+        btn.addEventListener("click", handleTabClick);
+    });
+}
+
+function handleTabClick() {
+    const tabId = this.dataset.tab;
+    
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+    });
+    this.classList.add("active");
+    
+    document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.remove("active");
+    });
+    const activePanel = document.getElementById(tabId);
+    if (activePanel) {
+        activePanel.classList.add("active");
+    }
+}
+
 // ========== CONNEXION ==========
 document.getElementById("loginBtn").onclick = async () => {
     const btn = document.getElementById("loginBtn");
@@ -1100,7 +1417,6 @@ document.getElementById("loginBtn").onclick = async () => {
     btn.textContent = "⏳ VÉRIFICATION...";
     
     try {
-        // Charger la configuration SEULEMENT au moment du clic
         await chargerConfigEcole();
         
         if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) {
@@ -1131,7 +1447,7 @@ document.getElementById("loginCode").onkeypress = (e) => {
     }
 };
 
-// ========== INITIALISATION ==========
+// ========== INITIALISATION DE L'APPLICATION ==========
 async function initApp() {
     if (isAppInitialized) return;
     
@@ -1151,6 +1467,16 @@ async function initApp() {
     await mettreAJourStats();
     await setupStatCards();
     
+    // Initialiser les événements des onglets
+    initTabsEvents();
+    
+    // Synchroniser avec Firebase si online
+    if (navigator.onLine) {
+        await syncToFirebase();
+    } else {
+        updateSyncStatus(false);
+    }
+    
     isAppInitialized = true;
 }
 
@@ -1164,25 +1490,6 @@ document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.classList.add("active");
         currentFilter = btn.dataset.filter;
         afficherListeEleves();
-    };
-});
-
-document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.onclick = async () => {
-        if (btn.dataset.tab === "tab5" && !(await verifierCode("config"))) {
-            toast("Accès refusé", "error");
-            return;
-        }
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
-        document.getElementById(btn.dataset.tab).classList.add("active");
-        if (btn.dataset.tab === "tab1") afficherListeEleves();
-        if (btn.dataset.tab === "tab3") afficherAbandons();
-        if (btn.dataset.tab === "tab5") {
-            document.getElementById("ecoleNom").value = currentSchoolConfig?.nom || "";
-            document.getElementById("ecoleAdresse").value = currentSchoolConfig?.adresse || "";
-        }
     };
 });
 
@@ -1226,8 +1533,15 @@ document.getElementById("btnChangeCode").onclick = () => changerCodeAcces();
 document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); toast("Minervaux enregistrés", "success"); };
 document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
 
-// Le focus sur le champ code
+// Démarrer
+await initIndexedDB();
+await chargerConfigEcole();
 document.getElementById("loginCode").focus();
+
+// Mettre à jour le statut de connexion
+setInterval(() => {
+    updateSyncStatus(navigator.onLine);
+}, 5000);
 </script>
 </body>
 </html>
