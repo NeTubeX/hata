@@ -223,8 +223,9 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
                 
                 <hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;">
                 <h4 style="color:#ffd700;margin-bottom:12px;">🔐 CODE D'ACCÈS</h4>
+                <div class="form-group"><label>ANCIEN CODE</label><input type="password" id="oldCode" maxlength="6" inputmode="numeric" placeholder="Ancien code"></div>
                 <div class="form-group"><label>NOUVEAU CODE</label><input type="password" id="newCode1" maxlength="6" inputmode="numeric" placeholder="4 à 6 chiffres"></div>
-                <div class="form-group"><label>CONFIRMER</label><input type="password" id="newCode2" maxlength="6" inputmode="numeric" placeholder="Confirmer le code"></div>
+                <div class="form-group"><label>CONFIRMER NOUVEAU CODE</label><input type="password" id="newCode2" maxlength="6" inputmode="numeric" placeholder="Confirmer le code"></div>
                 <button class="btn btn-primary w-100" id="btnChangeCode">🔄 CHANGER LE CODE</button>
                 
                 <hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;">
@@ -595,12 +596,22 @@ async function marquerAbandon(eleveId) {
     const id = `compta_${eleveId}`;
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
     await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() });
+    
+    // Forcer la mise à jour des compteurs
+    await mettreAJourStats();
+    await afficherListeEleves();
+    await afficherAbandons();
 }
 
 async function annulerAbandon(eleveId) {
     const id = `compta_${eleveId}`;
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id);
     await updateDoc(ref, { abandon: false, dateAbandon: null });
+    
+    // Forcer la mise à jour des compteurs
+    await mettreAJourStats();
+    await afficherListeEleves();
+    await afficherAbandons();
 }
 
 async function ajouterEleveCompta(nom, classe, option, exonere, motifExon) {
@@ -712,12 +723,23 @@ async function afficherListeEleves() {
                         <span>${e.option || "Sans option"}</span>
                         <span>${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span>
                     </div>
+                    <div class="flex-between" style="margin-top:10px;">
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); window.voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 VOIR</button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); window.marquerAbandonPrompt('${e.id}','${e.nom}')">❌ ABANDON</button>
+                    </div>
                 </div>`;
     }
     html += '</div>';
     cont.innerHTML = html;
     await mettreAJourStats();
 }
+
+window.marquerAbandonPrompt = async function(id, nom) {
+    if (await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)) {
+        await marquerAbandon(id);
+        toast(`${nom} a été abandonné`, "warning");
+    }
+};
 
 async function afficherAbandons() {
     const eleves = await getAbandons();
@@ -759,9 +781,6 @@ window.reintegrerAbandon = async function(id, nom) {
     if (await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)) {
         await annulerAbandon(id);
         toast(`${nom} réintégré`, "success");
-        await afficherListeEleves();
-        await afficherAbandons();
-        await mettreAJourStats();
     }
 };
 
@@ -920,15 +939,31 @@ document.getElementById("cancelPayment").onclick = () => document.getElementById
 
 // ========== GESTION CODE D'ACCÈS ==========
 async function changerCodeAcces() {
-    const a = document.getElementById("newCode1").value;
-    const b = document.getElementById("newCode2").value;
-    if (!a || a !== b) { toast("Codes non identiques", "error"); return; }
-    if (a.length < 4) { toast("4 caractères minimum", "error"); return; }
+    const ancienCode = document.getElementById("oldCode").value;
+    const nouveauCode1 = document.getElementById("newCode1").value;
+    const nouveauCode2 = document.getElementById("newCode2").value;
     
-    currentSchoolConfig.codeAcces = a;
+    if (ancienCode !== currentSchoolConfig?.codeAcces) {
+        toast("Ancien code incorrect", "error");
+        return;
+    }
+    
+    if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) {
+        toast("Les nouveaux codes ne correspondent pas", "error");
+        return;
+    }
+    
+    if (nouveauCode1.length < 4) {
+        toast("Le code doit contenir au moins 4 caractères", "error");
+        return;
+    }
+    
+    currentSchoolConfig.codeAcces = nouveauCode1;
     const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
     await setDoc(configRef, currentSchoolConfig);
-    toast("Code modifié", "success");
+    
+    toast("Code modifié avec succès", "success");
+    document.getElementById("oldCode").value = "";
     document.getElementById("newCode1").value = "";
     document.getElementById("newCode2").value = "";
 }
