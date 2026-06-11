@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0e1a">
-<title>Gloria Dei - Comptabilité Multi-Enfants</title>
+<title>Gloria Dei - Comptabilité</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -160,7 +160,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .parent-msg.bot{justify-content:flex-start;}
 .parent-msg .bubble{max-width:80%;padding:12px 16px;border-radius:20px;font-size:14px;line-height:1.5;word-wrap:break-word;}
 .parent-msg.user .bubble{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border-bottom-right-radius:6px;}
-.parent-msg.bot .bubble{background:#1e293b;color:#e2e8f0;border-bottom-left-radius:6px;border:1px solid #334155;}
+.parent-msg.bot .bubble{background:#1e293b;color:#e2e8f0;border-bottom-left-radius:6px;border:1px solid #334155;min-height:40px;}
 .parent-input-area{flex-shrink:0;display:flex;gap:12px;background:#0f172a;padding:16px;border-top:1px solid #334155;}
 .parent-input{flex:1;padding:14px 18px;background:#0f172a;border:1px solid #334155;border-radius:40px;color:#fff;font-size:14px;outline:none;}
 .parent-input:focus{border-color:#3b82f6;}
@@ -168,6 +168,8 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .parent-send:active{transform:scale(0.97);}
 .loader{display:inline-block;width:18px;height:18px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:8px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.typing-cursor{display:inline-block;width:2px;height:16px;background:#e2e8f0;margin-left:2px;animation:blink 1s step-end infinite;vertical-align:middle;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 </style>
 </head>
 <body>
@@ -194,6 +196,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <button class="tab-btn" data-tab="tab4">📄 RAPPORTS</button>
 <button class="tab-btn" data-tab="tab5">👪 CODES PARENTS</button>
 <button class="tab-btn" data-tab="tab6">⚙️ CONFIG</button>
+<button class="tab-btn" data-tab="tab7">🎓 ASSISTANT PÉDAGOGIQUE</button>
 </div>
 <div id="tab1" class="tab-panel active">
 <div class="card"><div class="card-header">📋 LISTE DES ÉLÈVES</div><div class="p-16">
@@ -216,6 +219,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div id="tab4" class="tab-panel"><div class="card"><div class="card-header">📄 RAPPORTS PDF</div><div class="p-16"><div class="pdf-buttons-grid"><div class="pdf-btn-card" onclick="genererPDFRecouvrement()"><div class="pdf-icon">📊</div><div class="pdf-title">RECOUVREMENT</div></div><div class="pdf-btn-card" onclick="genererPDFListeNoire()"><div class="pdf-icon">⚠️</div><div class="pdf-title">LISTE NOIRE</div></div><div class="pdf-btn-card" onclick="genererPDFTousEleves()"><div class="pdf-icon">📋</div><div class="pdf-title">LISTE COMPLÈTE</div></div><div class="pdf-btn-card" onclick="genererPDFExoneres()"><div class="pdf-icon">🌟</div><div class="pdf-title">EXONÉRÉS</div></div></div></div></div></div>
 <div id="tab5" class="tab-panel"><div class="card"><div class="card-header">👪 GESTION DES CODES PARENTS</div><div class="p-16"><div class="form-group"><label>🔍 Rechercher un élève</label><input type="text" id="searchParentCode" placeholder="Nom, classe ou code parent..."></div><div id="parentCodesList"></div><div class="footer-note" style="margin-top:16px; color:#94a3b8; text-align:center; font-size:12px;">📌 Chaque élève a son propre code parent. Transmettez ces codes aux parents.<br>👨‍👩‍👧‍👦 Un parent avec plusieurs enfants peut utiliser n'importe lequel de ses codes, puis taper "mes enfants" pour voir la liste complète.</div></div></div></div>
 <div id="tab6" class="tab-panel"><div class="card"><div class="card-header">⚙️ CONFIGURATION</div><div class="p-16"><h4 style="color:#ffd700;margin-bottom:12px;">🏫 INFORMATIONS DE L'ÉCOLE</h4><div class="form-group"><label>NOM DE L'ÉCOLE</label><input type="text" id="ecoleNom" placeholder="Ex: Complexe Scolaire Kinshasa"></div><div class="form-group"><label>ADRESSE</label><input type="text" id="ecoleAdresse" placeholder="Ex: Kinshasa, RDC"></div><div class="form-group"><label>💰 FRAIS D'INSCRIPTION (FC)</label><input type="number" id="fraisInscription" placeholder="Ex: 50000" step="1000"></div><button class="btn btn-primary w-100 mb-12" id="btnSaveEcoleInfo">💾 ENREGISTRER</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">🔐 CODE D'ACCÈS</h4><div class="form-group"><label>ANCIEN CODE</label><input type="password" id="oldCode" maxlength="6" inputmode="numeric" placeholder="Ancien code"></div><div class="form-group"><label>NOUVEAU CODE</label><input type="password" id="newCode1" maxlength="6" inputmode="numeric" placeholder="4 à 6 chiffres"></div><div class="form-group"><label>CONFIRMER NOUVEAU CODE</label><input type="password" id="newCode2" maxlength="6" inputmode="numeric" placeholder="Confirmer le code"></div><button class="btn btn-primary w-100" id="btnChangeCode">🔄 CHANGER LE CODE</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">💰 MINERVAUX PAR CLASSE & OPTION</h4><div style="overflow-x:auto;" id="tarifsOptionsContainer"></div><button class="btn btn-success w-100 mt-12" id="btnSaveTarifs">💾 ENREGISTRER MINERVAUX</button></div></div></div>
+<div id="tab7" class="tab-panel"><div class="card"><div class="card-header">🎓 ASSISTANT PÉDAGOGIQUE</div><div class="p-16"><div class="form-group"><label>📚 MATIÈRE</label><input type="text" id="assistantMatiere" placeholder="Ex: Mathématiques, Français..."></div><div class="form-group"><label>🎯 CLASSE</label><select id="assistantClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div class="form-group"><label>📖 THÈME / CHAPITRE</label><input type="text" id="assistantTheme" placeholder="Ex: Les fractions, La Révolution française..."></div><div class="form-row"><div class="form-group"><label>🔢 NOMBRE DE QUESTIONS</label><select id="assistantNbQuestions"><option>3</option><option>5</option><option>8</option><option>10</option><option>15</option></select></div><div class="form-group"><label>⭐ BARÈME TOTAL</label><select id="assistantBareme"><option>20</option><option>30</option><option>40</option><option>50</option><option>100</option></select></div></div><div class="form-row"><div class="form-group"><label>📝 TYPE DE QUESTIONS</label><select id="assistantType"><option value="standard">Standard</option><option value="qcm">QCM</option><option value="vf">Vrai/Faux</option></select></div><div class="form-group"><label>🎯 DIFFICULTÉ</label><select id="assistantDifficulte"><option value="facile">Facile</option><option value="moyen">Moyen</option><option value="difficile">Difficile</option></select></div></div><button class="btn btn-primary w-100" id="assistantGenererBtn">🤖 GÉNÉRER L'ÉPREUVE</button><div id="assistantResultArea" style="display:none; margin-top:20px;"><div id="assistantResultContent" class="confirm-preview" style="white-space:pre-wrap;"></div><button class="btn btn-success w-100 mt-12" id="assistantPdfBtn">📄 EXPORTER EN PDF</button><button class="btn btn-outline w-100 mt-12" id="closeAssistantBtn">❌ FERMER</button></div></div></div></div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="codeModal"><div class="modal-card"><h3>🔐 CODE REQUIS</h3><div class="form-group"><label>ENTREZ LE CODE</label><input type="password" id="codeInput" placeholder="****" inputmode="numeric"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmCode">VALIDER</button><button class="btn btn-outline" id="cancelCode">ANNULER</button></div></div></div>
@@ -242,14 +246,14 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <button class="parent-modal-close" id="closeParentModal">&times;</button>
 </div>
 <div class="parent-modal-body">
-<div id="parentChatContainer" class="parent-chat" style="display:flex; height:100%;">
+<div class="parent-chat">
 <div class="parent-info">
 <div class="parent-info-left">
 <span>🏫 ESPACE PARENT</span>
 <span id="parentInfoEleve" style="font-size:11px; color:#94a3b8;"></span>
 </div>
 <div class="parent-info-right">
-<button class="parent-switch-btn" id="parentSwitchBtn" style="display:none;">👥 Changer d'enfant</button>
+<button class="parent-switch-btn" id="parentSwitchBtn" style="display:none;">👥 Changer</button>
 </div>
 </div>
 <div id="parentChatMessages" class="parent-messages">
@@ -267,35 +271,31 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <script>
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
 document.addEventListener('selectstart', function(e) { e.preventDefault(); return false; });
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.shiftKey && e.key === 'C') || (e.ctrlKey && e.key === 'u') || (e.ctrlKey && e.key === 's') || (e.ctrlKey && e.shiftKey && e.key === 'J')) {
-        e.preventDefault();
-        return false;
-    }
-});
-let activeToasts = [];
 function toast(message, type){
     const c = document.getElementById('toastContainer');
     if(!c) return;
-    const ic = {success:'✓', error:'✕', warning:'⚠'};
-    const ti = {success:'Succès', error:'Erreur', warning:'Attention'};
+    const icons = {success:'✓', error:'✕', warning:'⚠'};
+    const titles = {success:'Succès', error:'Erreur', warning:'Attention'};
     const e = document.createElement('div');
     e.className = `toast ${type}`;
-    e.innerHTML = `<div class="toast-icon">${ic[type]||'✓'}</div><div class="toast-content"><div class="toast-title">${ti[type]||'Succès'}</div><div class="toast-message">${message}</div></div>`;
+    e.innerHTML = `<div class="toast-icon">${icons[type]||'✓'}</div><div class="toast-content"><div class="toast-title">${titles[type]||'Succès'}</div><div class="toast-message">${message}</div></div>`;
     c.appendChild(e);
-    activeToasts.push(e);
     setTimeout(() => e.classList.add('show'), 10);
-    const timeoutId = setTimeout(() => {
-        e.classList.remove('show');
-        setTimeout(() => { if(e.parentNode) e.remove(); const index = activeToasts.indexOf(e); if(index > -1) activeToasts.splice(index, 1); }, 300);
-    }, 3000);
-    e._timeoutId = timeoutId;
+    setTimeout(() => { e.classList.remove('show'); setTimeout(() => e.remove(), 300); }, 3000);
 }
-function formatNumero(n){return n?'F'+String(n).padStart(3,'0'):'???';}
 function escapeHtml(s){if(!s)return '';return s.replace(/[&<>]/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[m];});}
+function formatNumero(n){return n?'F'+String(n).padStart(3,'0'):'???';}
+function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return "0";let r="",a=Math.abs(n),s=a.toString(),c=0;for(let i=s.length-1;i>=0;i--){c++;r=s[i]+r;if(c%3===0&&i!==0)r=" "+r;}return n<0?"-"+r:r;}
 function showConfirm(msg,onOk){let d=document.createElement('div');d.className='modal-fullscreen';d.innerHTML='<div class="modal-content" style="max-width:350px;text-align:center"><p style="color:#fff;margin-bottom:20px">'+msg+'</p><div style="display:flex;gap:12px;margin-top:20px;justify-content:center"><button class="btn" id="confirmOk" style="background:#ef4444">Confirmer</button><button class="btn btn-outline" id="confirmCancel">Annuler</button></div></div>';document.body.appendChild(d);setTimeout(function(){d.classList.add('show');},10);d.querySelector('#confirmOk').onclick=function(){d.remove();onOk();};d.querySelector('#confirmCancel').onclick=function(){d.remove();};}
-function showPrompt(msg, placeholder, onConfirm){
-    let d=document.createElement('div');d.className='modal-fullscreen';d.innerHTML='<div class="modal-content" style="max-width:400px"><p style="color:#fff;margin-bottom:20px">'+msg+'</p><input type="text" id="promptInput" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;margin-bottom:20px"><div style="display:flex;gap:12px"><button class="btn btn-success" id="promptOk">Valider</button><button class="btn btn-outline" id="promptCancel">Annuler</button></div></div>';document.body.appendChild(d);setTimeout(function(){d.classList.add('show');},10);d.querySelector('#promptOk').onclick=function(){let val=d.querySelector('#promptInput').value.trim();d.remove();if(onConfirm)onConfirm(val);};d.querySelector('#promptCancel').onclick=function(){d.remove();if(onConfirm)onConfirm(null);};}
+async function typeWriter(element, text, speed=20){
+    element.innerHTML = '';
+    for(let i=0; i<text.length; i++){
+        element.innerHTML += text.charAt(i);
+        await new Promise(r => setTimeout(r, speed));
+    }
+    element.style.borderRight = 'none';
+}
+const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -312,99 +312,491 @@ document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHO
 document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
 document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
 document.getElementById("loginSchoolSub").innerHTML = "Entrez votre code d'accès";
-let currentSchoolConfig = null;
-let currentEleve = null;
-let currentFilter = "all";
-let tarifsOptionsConfig = {};
-let optionsConfig = {};
-let anneeScolaire = "2026-2027";
-let compteurExoneres = 0;
-let pendingAction = null;
-let isAppInitialized = false;
-let localEleves = [];
+let currentSchoolConfig = null, currentEleve = null, currentFilter = "all", tarifsOptionsConfig = {}, optionsConfig = {}, anneeScolaire = "2026-2027", compteurExoneres = 0, pendingAction = null, isAppInitialized = false, localEleves = [];
 const classesListe = ["7eme EB", "8eme EB", "1ere Annee", "2eme Annee", "3eme Annee", "4eme Annee"];
-const optionsParDefaut = { "7eme EB": [], "8eme EB": [], "1ere Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "2eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "3eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "4eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"] };
-const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
+const optionsParDefaut = { "7eme EB": [], "8eme EB": [], "1ere Annee": ["CG","HP","TCC","ELEC","MG","SCIENCES"], "2eme Annee": ["CG","HP","TCC","ELEC","MG","SCIENCES"], "3eme Annee": ["CG","HP","TCC","ELEC","MG","SCIENCES"], "4eme Annee": ["CG","HP","TCC","ELEC","MG","SCIENCES"] };
+const moisListe = ["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
 const moisIndexMap = { "Septembre":0, "Octobre":1, "Novembre":2, "Decembre":3, "Janvier":4, "Fevrier":5, "Mars":6, "Avril":7, "Mai":8, "Juin":9 };
 const dateRef = new Date();
 const moisActuelNum = dateRef.getMonth();
 let moisCourant = "Septembre";
 if (moisActuelNum >= 8) { moisCourant = moisListe[moisActuelNum - 8]; } else { moisCourant = moisListe[moisActuelNum + 4]; }
-function formaterNombre(n) { if (n === 0) return "0"; let resultat = "", nombre = Math.abs(n), strNombre = nombre.toString(), compteur = 0; for (let i = strNombre.length - 1; i >= 0; i--) { compteur++; resultat = strNombre[i] + resultat; if (compteur % 3 === 0 && i !== 0) resultat = " " + resultat; } return n < 0 ? "-" + resultat : resultat; }
-function formatNb(n) { if (isNaN(n) || n === null || n === undefined) return "0 FC"; return formaterNombre(Math.floor(Number(n))) + " FC"; }
-function formatNbSimple(n) { if (isNaN(n) || n === null || n === undefined) return "0"; return formaterNombre(Math.floor(Number(n))); }
-function formatDateYMD(date = new Date()) { return date.toISOString().split('T')[0]; }
-function formatDateFr(date) { const d = new Date(date); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`; }
 function estMoisPasse(mois) { return moisIndexMap[mois] < moisIndexMap[moisCourant]; }
-async function chargerOptions() { try { const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data"); const snap = await getDoc(ref); if (snap.exists()) { optionsConfig = snap.data(); } else { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); await setDoc(ref, optionsConfig); } mettreAJourSelectsOptions(); } catch (error) { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); mettreAJourSelectsOptions(); } }
-function mettreAJourSelectsOptions() { const filterOption = document.getElementById("filterOption"); const newEleveOption = document.getElementById("newEleveOption"); if (filterOption) { let optionsHtml = '<option value="">Toutes</option>'; let optsUniques = new Set(); for (let classe of classesListe) { let opts = optionsConfig[classe] || []; opts.forEach(o => optsUniques.add(o)); } optsUniques.forEach(opt => { optionsHtml += `<option value="${opt}">${opt}</option>`; }); filterOption.innerHTML = optionsHtml; } if (newEleveOption) { const updateSelect = () => { let classe = document.getElementById("newEleveClasse").value; let opts = optionsConfig[classe] || []; let optHtml = '<option value="">Sans option</option>'; opts.forEach(opt => { optHtml += `<option value="${opt}">${opt}</option>`; }); newEleveOption.innerHTML = optHtml; }; let classeSelect = document.getElementById("newEleveClasse"); if (classeSelect) { classeSelect.onchange = function() { updateSelect(); if(window.updatePreview) window.updatePreview(); }; updateSelect(); } } }
-async function chargerConfigEcole() { try { const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); const configSnap = await getDoc(configRef); if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } else { currentSchoolConfig = { nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, adresse: "", codeAcces: "1234", maxExonerations: 10, fraisInscription: 50000 }; await setDoc(configRef, currentSchoolConfig); } document.getElementById("ecoleNom").value = currentSchoolConfig.nom || ""; document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || ""; document.getElementById("fraisInscription").value = currentSchoolConfig.fraisInscription || 50000; return currentSchoolConfig; } catch (error) { return null; } }
-async function sauvegarderInfosEcole() { try { const nouveauNom = document.getElementById("ecoleNom").value.trim(); const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim(); const frais = parseInt(document.getElementById("fraisInscription").value) || 50000; if (!nouveauNom) { toast("Le nom de l'école est requis", "error"); return; } if (nouveauNom) currentSchoolConfig.nom = nouveauNom; if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse; currentSchoolConfig.fraisInscription = frais; const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); await setDoc(configRef, currentSchoolConfig); document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`; toast("Informations de l'école enregistrées", "success"); } catch (error) { toast("Erreur lors de l'enregistrement", "error"); } }
-async function chargerTarifs() { try { const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); const snapOpt = await getDoc(refOpt); if (snapOpt.exists()) { tarifsOptionsConfig = snapOpt.data(); } else { tarifsOptionsConfig = {}; for (let classe of classesListe) { tarifsOptionsConfig[classe] = {}; for (let opt of (optionsConfig[classe] || [])) { tarifsOptionsConfig[classe][opt] = 45000; } tarifsOptionsConfig[classe]["default"] = 45000; } await setDoc(refOpt, tarifsOptionsConfig); } afficherTableTarifsOptions(); } catch (error) { for (let classe of classesListe) { if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; tarifsOptionsConfig[classe]["default"] = 45000; } afficherTableTarifsOptions(); } }
-async function sauverTarifs() { try { const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); await setDoc(refOpt, tarifsOptionsConfig); toast("Minervaux par option enregistrés avec succès", "success"); } catch (error) { toast("Erreur lors de l'enregistrement", "error"); } }
-function afficherTableTarifsOptions() { const container = document.getElementById("tarifsOptionsContainer"); if (!container) return; let html = '<table class="config-table"><thead><th>Classe</th><th>Option</th><th>Minerval (FC)</th></thead><tbody>'; for (let classe of classesListe) { const opts = optionsConfig[classe] || []; if (opts.length === 0) { let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) || 45000; html += `<tr><td>${classe}</td><td>Sans option</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="default" value="${val}" step="500"></td></tr>`; } else { for (let opt of opts) { let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][opt]) || 45000; html += `<tr><td>${classe}</td><td>${opt}</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="${opt}" value="${val}" step="500"></td></tr>`; } } } html += '</tbody></table>'; container.innerHTML = html; document.querySelectorAll(".tarif-opt-input").forEach(inp => { inp.onchange = () => { const classe = inp.dataset.classe; const option = inp.dataset.option; if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; tarifsOptionsConfig[classe][option] = parseInt(inp.value) || 45000; }; }); }
-async function getMinervalEleve(classe, option) { if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][option]) return tarifsOptionsConfig[classe][option]; if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) return tarifsOptionsConfig[classe]["default"]; return 45000; }
 function genererCodeParent() { return Math.floor(100000 + Math.random() * 900000).toString(); }
-async function getAllComptaEleves() { try { const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); const snap = await getDocs(q); let eleves = []; for (const ds of snap.docs) { const d = ds.data(); eleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", dateNaiss: d.dateNaiss || "", lieuNaiss: d.lieuNaiss || "", nomPere: d.nomPere || "", nomMere: d.nomMere || "", adresse: d.adresse || "", sexe: d.sexe || "M", phone: d.phone || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, motifExon: d.motifExon || "", approbateur: d.approbateur || "", abandon: d.abandon || false, dateAbandon: d.dateAbandon || null, paiements: d.paiements || {}, parentCode: d.parentCode || "" }); } localEleves = eleves; return eleves; } catch (error) { return localEleves.length ? localEleves : []; } }
-async function getTousElevesAvecInfos() { const tous = await getAllComptaEleves(); const resultats = []; for (let e of tous) { if (e.abandon) continue; let moisImpayes = 0, totalPaye = 0, totalMin = 0, estEnOrdreMoisCourant = false; const paiements = e.paiements || {}; totalMin = e.minerval * 10; for (let m of moisListe) totalPaye += paiements[m]?.montant || 0; for (let m of moisListe) { if (estMoisPasse(m)) { const mt = paiements[m]?.montant || 0; if (mt < (e.minerval || 45000)) moisImpayes++; } } const pc = paiements[moisCourant]?.montant || 0; estEnOrdreMoisCourant = e.exonere || pc >= (e.minerval || 45000); resultats.push({ ...e, moisImpayes, totalPaye, totalMin, estEnOrdreMoisCourant }); } return resultats; }
-async function enregistrerPaiement(eleveId, mois, montant) { const id = `compta_${eleveId}`; const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); const snap = await getDoc(ref); if (!snap.exists()) return false; const d = snap.data(); const actuel = d.paiements[mois] || { montant: 0, date: null, historique: [] }; const nm = actuel.montant + montant; const dh = new Date().toISOString().slice(0, 19).replace('T', ' '); const histItem = { montant: montant, date: dh }; const nvHist = [...(actuel.historique || []), histItem]; d.paiements[mois] = { montant: nm, date: dh, historique: nvHist }; await updateDoc(ref, { paiements: d.paiements }); return true; }
-async function marquerAbandon(eleveId) { const id = `compta_${eleveId}`; const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() }); await mettreAJourStats(); await afficherListeEleves(); await afficherAbandons(); }
-async function annulerAbandon(eleveId) { const id = `compta_${eleveId}`; const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); await updateDoc(ref, { abandon: false, dateAbandon: null }); await mettreAJourStats(); await afficherListeEleves(); await afficherAbandons(); }
-async function ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, nomPere, nomMere, adresse, sexe, phone, classe, option, exonere, motifExon, approbateur) { if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { toast("Limite d'exonérations atteinte", "error"); return null; } const id = "eleve_" + Date.now(); const minerval = exonere ? 0 : await getMinervalEleve(classe, option); const parentCode = genererCodeParent(); const paiements = {}; for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] }; const docId = `compta_${id}`; const newCompta = { _type: "compta_eleve", eleveId: id, nom: nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe: classe, option: option || "", minerval: minerval, anneeScolaire: anneeScolaire, paiements: paiements, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, parentCode: parentCode }; await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta); if (exonere) compteurExoneres++; toast(`📱 Code parent pour ${nom} ${prenom}: ${parentCode}`, "success"); return { id, nom, postnom, prenom, classe, option, parentCode }; }
-async function getElevesFiltres(incAbandons = false) { let res = await getTousElevesAvecInfos(); if (!incAbandons) res = res.filter(e => !e.abandon); const nom = document.getElementById("searchNom")?.value.trim() || ""; const cls = document.getElementById("filterClasse")?.value || ""; const opt = document.getElementById("filterOption")?.value || ""; if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase()) || (e.postnom && e.postnom.toLowerCase().includes(nom.toLowerCase()))); if (cls) res = res.filter(e => e.classe === cls); if (opt) res = res.filter(e => e.option === opt); if (currentFilter === "normal") return res.filter(e => !e.exonere && e.moisImpayes < 3); if (currentFilter === "exonere") return res.filter(e => e.exonere === true); if (currentFilter === "listenoir") return res.filter(e => !e.exonere && e.moisImpayes >= 3); if (currentFilter === "enordre") return res.filter(e => e.exonere || e.estEnOrdreMoisCourant); return res; }
-async function getAbandons() { let res = await getAllComptaEleves(); res = res.filter(e => e.abandon === true); const nom = document.getElementById("searchAbandon")?.value.trim() || ""; if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase())); return res; }
-async function mettreAJourStats() { try { const tousLesEleves = await getAllComptaEleves(); let totalActifs = 0, exoneres = 0, listeNoire = 0, reguliers = 0, abandons = 0; const infos = await getTousElevesAvecInfos(); for (let eleve of tousLesEleves) { if (eleve.abandon === true) { abandons++; continue; } totalActifs++; if (eleve.exonere === true) { exoneres++; continue; } const info = infos.find(i => i.id === eleve.id); const moisImpayes = info ? info.moisImpayes : 0; if (moisImpayes >= 3) { listeNoire++; } else { reguliers++; } } document.getElementById("statTotal").innerText = totalActifs; document.getElementById("statExoneres").innerText = exoneres; document.getElementById("statListeNoire").innerText = listeNoire; document.getElementById("statReguliers").innerText = reguliers; document.getElementById("statAbandons").innerText = abandons; } catch (error) { console.error("Erreur mise à jour stats:", error); } }
-async function afficherListeEleves() { const eleves = await getElevesFiltres(); const cont = document.getElementById("elevesContainer"); if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun élève</div>'; return; } let html = '<div class="eleve-cards">'; for (let e of eleves) { const estLN = (!e.exonere && e.moisImpayes >= 3); const estOrdre = (e.exonere || e.estEnOrdreMoisCourant); let badge = '', classeSpec = ''; if (e.exonere) { badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; } else if (estLN) { badge = '<span class="badge badge-listenoire">LISTE NOIRE</span>'; classeSpec = 'liste-noire'; } else if (estOrdre) { badge = '<span class="badge badge-en-ordre">EN ORDRE</span>'; classeSpec = 'en-ordre'; } else if (e.moisImpayes > 0) { badge = '<span class="badge badge-impaye">IMPAYÉ</span>'; } html += `<div class="eleve-card ${classeSpec}" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')"><div class="eleve-card-nom">${e.nom} ${e.postnom || ''} ${e.prenom || ''} ${badge}</div><div class="eleve-card-info"><span>${e.classe}</span><span>${e.option || "Sans"}</span><span>${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span>${e.phone ? `<span>📞 ${e.phone}</span>` : ''}</div><div class="flex-between" style="margin-top:10px;"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 VOIR</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ ABANDON</button></div></div>`; } html += '</div>'; cont.innerHTML = html; await mettreAJourStats(); }
-window.marquerAbandonPrompt = async function(id, nom) { if (await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)) { await marquerAbandon(id); toast(`${nom} a été abandonné`, "warning"); } };
-async function afficherAbandons() { const eleves = await getAbandons(); const cont = document.getElementById("abandonsContainer"); if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun abandon</div>'; return; } let html = '<div class="eleve-cards">'; for (let e of eleves) { html += `<div class="eleve-card abandon"><div class="eleve-card-nom">${e.nom} ${e.postnom || ''} ${e.prenom || ''} <span class="badge badge-abandon">ABANDON</span></div><div class="eleve-card-info"><span>${e.classe}</span><span>${e.option || "Sans"}</span><span>📅 ${e.dateAbandon || "-"}</span></div><div class="flex-between"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">VOIR</button><button class="btn btn-sm btn-success" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">RÉINTÉGRER</button></div></div>`; } html += '</div>'; cont.innerHTML = html; }
-window.voirDetails = async function(id, nom, classe, option) { currentEleve = localEleves.find(e => e.id === id); await afficherReleve(currentEleve); document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active"); document.getElementById("tab2").classList.add("active"); };
-window.reintegrerAbandon = async function(id, nom) { if (await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)) { await annulerAbandon(id); toast(`${nom} a été réintégré`, "success"); } };
-async function afficherReleve(eleve) { if (!eleve || eleve.abandon) { document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`; return; } let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleve.nom} ${eleve.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleve.classe} ${eleve.option ? `-${eleve.option}` : ""} ${eleve.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleve.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleve.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; let totalMin = 0, totalPay = 0; for (let mois of moisListe) { const p = eleve.paiements?.[mois] || { montant: 0, date: null, historique: [] }; const payeTotal = eleve.exonere || p.montant >= eleve.minerval; const reste = eleve.exonere ? 0 : eleve.minerval - p.montant; totalMin += eleve.exonere ? 0 : eleve.minerval; totalPay += p.montant; let cardClass = ""; if (mois === moisCourant) cardClass = "mois-courant"; else if (estMoisPasse(mois) && !payeTotal && !eleve.exonere) cardClass = "mois-impaye"; let statut = "", txt = ""; if (eleve.exonere) { statut = "paye"; txt = "EXONÉRÉ"; } else if (payeTotal) { statut = "paye"; txt = `${formatNbSimple(eleve.minerval)} FC`; } else if (p.montant > 0) { statut = ""; txt = `${formatNbSimple(p.montant)} FC`; } else { statut = "impaye"; txt = "0 FC"; } html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleve.exonere ? "0" : formatNbSimple(eleve.minerval)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${reste > 0 ? `<span style="color:#ef4444;">${formatNbSimple(reste)} FC</span>` : '0 FC'}</span></div><div class="paiement-card-actions">${(!eleve.exonere && !payeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? `<button class="btn-pay" onclick="openPaiement('${mois}',${eleve.minerval},${p.montant})">💰 PAYER</button>` : `<span style="color:#10b981;">✓ COMPLET</span>`}</div></div></div>`; } html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPay)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPay)} FC</span></div></div>`; document.getElementById("releveContainer").innerHTML = html; }
-window.openPaiement = async function(mois, minerval, dejaPaye) { if (!await verifierCode("paiement")) { toast("Annulé", "warning"); return; } const reste = minerval - dejaPaye; document.getElementById("modalInfo").innerHTML = `<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`; document.getElementById("paymentAmount").value = reste; window.paiementData = { mois, minerval, dejaPaye, reste, eleveId: currentEleve.id }; document.getElementById("paymentModal").classList.add("show"); };
+
+async function chargerOptions() { 
+    try { 
+        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data"); 
+        const snap = await getDoc(ref); 
+        if (snap.exists()) { optionsConfig = snap.data(); } 
+        else { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); await setDoc(ref, optionsConfig); }
+        mettreAJourSelectsOptions(); 
+    } catch (error) { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); mettreAJourSelectsOptions(); } 
+}
+function mettreAJourSelectsOptions() { 
+    const filterOption = document.getElementById("filterOption"); 
+    const newEleveOption = document.getElementById("newEleveOption"); 
+    if (filterOption) { 
+        let optsUniques = new Set(); 
+        for (let classe of classesListe) { let opts = optionsConfig[classe] || []; opts.forEach(o => optsUniques.add(o)); } 
+        filterOption.innerHTML = '<option value="">Toutes</option>' + Array.from(optsUniques).map(opt => `<option value="${opt}">${opt}</option>`).join(''); 
+    } 
+    if (newEleveOption) { 
+        const updateSelect = () => { 
+            let classe = document.getElementById("newEleveClasse").value; 
+            let opts = optionsConfig[classe] || []; 
+            newEleveOption.innerHTML = '<option value="">Sans option</option>' + opts.map(opt => `<option value="${opt}">${opt}</option>`).join(''); 
+        }; 
+        document.getElementById("newEleveClasse").onchange = () => { updateSelect(); if(window.updatePreview) window.updatePreview(); }; 
+        updateSelect(); 
+    } 
+}
+async function chargerConfigEcole() { 
+    try { 
+        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
+        const configSnap = await getDoc(configRef); 
+        if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } 
+        else { currentSchoolConfig = { nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, adresse: "", codeAcces: "1234", maxExonerations: 10, fraisInscription: 50000 }; await setDoc(configRef, currentSchoolConfig); } 
+        document.getElementById("ecoleNom").value = currentSchoolConfig.nom || ""; 
+        document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || ""; 
+        document.getElementById("fraisInscription").value = currentSchoolConfig.fraisInscription || 50000; 
+        return currentSchoolConfig; 
+    } catch (error) { return null; } 
+}
+async function sauvegarderInfosEcole() { 
+    try { 
+        const nouveauNom = document.getElementById("ecoleNom").value.trim(); 
+        const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim(); 
+        const frais = parseInt(document.getElementById("fraisInscription").value) || 50000; 
+        if (!nouveauNom) { toast("Le nom de l'école est requis", "error"); return; } 
+        if (nouveauNom) currentSchoolConfig.nom = nouveauNom; 
+        if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse; 
+        currentSchoolConfig.fraisInscription = frais; 
+        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
+        await setDoc(configRef, currentSchoolConfig); 
+        document.getElementById("schoolName").innerHTML = `🏫 ${currentSchoolConfig.nom}`; 
+        toast("Informations de l'école enregistrées", "success"); 
+    } catch (error) { toast("Erreur", "error"); } 
+}
+async function chargerTarifs() { 
+    try { 
+        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
+        const snapOpt = await getDoc(refOpt); 
+        if (snapOpt.exists()) { tarifsOptionsConfig = snapOpt.data(); } 
+        else { 
+            tarifsOptionsConfig = {}; 
+            for (let classe of classesListe) { 
+                tarifsOptionsConfig[classe] = {}; 
+                for (let opt of (optionsConfig[classe] || [])) { tarifsOptionsConfig[classe][opt] = 45000; } 
+                tarifsOptionsConfig[classe]["default"] = 45000; 
+            } 
+            await setDoc(refOpt, tarifsOptionsConfig); 
+        } 
+        afficherTableTarifsOptions(); 
+    } catch (error) { 
+        for (let classe of classesListe) { if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; tarifsOptionsConfig[classe]["default"] = 45000; } 
+        afficherTableTarifsOptions(); 
+    } 
+}
+async function sauverTarifs() { 
+    try { 
+        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
+        await setDoc(refOpt, tarifsOptionsConfig); 
+        toast("Minervaux enregistrés", "success"); 
+    } catch (error) { toast("Erreur", "error"); } 
+}
+function afficherTableTarifsOptions() { 
+    const container = document.getElementById("tarifsOptionsContainer"); 
+    if (!container) return; 
+    let html = '<table class="config-table"><thead><th>Classe</th><th>Option</th><th>Minerval (FC)</th></thead><tbody>'; 
+    for (let classe of classesListe) { 
+        const opts = optionsConfig[classe] || []; 
+        if (opts.length === 0) { 
+            let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) || 45000; 
+            html += `<tr><td>${classe}</td><td>Sans option</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="default" value="${val}" step="500"></td></tr>`; 
+        } else { 
+            for (let opt of opts) { 
+                let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][opt]) || 45000; 
+                html += `<tr><td>${classe}</td><td>${opt}</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="${opt}" value="${val}" step="500"></td></tr>`; 
+            } 
+        } 
+    } 
+    html += '</tbody></table>'; 
+    container.innerHTML = html; 
+    document.querySelectorAll(".tarif-opt-input").forEach(inp => { 
+        inp.onchange = () => { 
+            const classe = inp.dataset.classe, option = inp.dataset.option; 
+            if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; 
+            tarifsOptionsConfig[classe][option] = parseInt(inp.value) || 45000; 
+        }; 
+    }); 
+}
+async function getMinervalEleve(classe, option) { 
+    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][option]) return tarifsOptionsConfig[classe][option]; 
+    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) return tarifsOptionsConfig[classe]["default"]; 
+    return 45000; 
+}
+async function getAllComptaEleves() { 
+    try { 
+        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
+        const snap = await getDocs(q); 
+        localEleves = []; 
+        for (const ds of snap.docs) { 
+            const d = ds.data(); 
+            localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", dateNaiss: d.dateNaiss || "", lieuNaiss: d.lieuNaiss || "", nomPere: d.nomPere || "", nomMere: d.nomMere || "", adresse: d.adresse || "", sexe: d.sexe || "M", phone: d.phone || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, motifExon: d.motifExon || "", approbateur: d.approbateur || "", abandon: d.abandon || false, dateAbandon: d.dateAbandon || null, paiements: d.paiements || {}, parentCode: d.parentCode || "" }); 
+        } 
+        return localEleves; 
+    } catch (error) { return localEleves; } 
+}
+async function getTousElevesAvecInfos() { 
+    const tous = await getAllComptaEleves(); 
+    const resultats = []; 
+    for (let e of tous) { 
+        if (e.abandon) continue; 
+        let moisImpayes = 0, totalPaye = 0, totalMin = 0, estEnOrdreMoisCourant = false; 
+        const paiements = e.paiements || {}; 
+        totalMin = e.minerval * 10; 
+        for (let m of moisListe) totalPaye += paiements[m]?.montant || 0; 
+        for (let m of moisListe) { if (estMoisPasse(m)) { const mt = paiements[m]?.montant || 0; if (mt < (e.minerval || 45000)) moisImpayes++; } } 
+        const pc = paiements[moisCourant]?.montant || 0; 
+        estEnOrdreMoisCourant = e.exonere || pc >= (e.minerval || 45000); 
+        resultats.push({ ...e, moisImpayes, totalPaye, totalMin, estEnOrdreMoisCourant }); 
+    } 
+    return resultats; 
+}
+async function enregistrerPaiement(eleveId, mois, montant) { 
+    const id = `compta_${eleveId}`, ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
+    const snap = await getDoc(ref); 
+    if (!snap.exists()) return false; 
+    const d = snap.data(); 
+    const actuel = d.paiements[mois] || { montant: 0, date: null, historique: [] }; 
+    const nm = actuel.montant + montant; 
+    const dh = new Date().toISOString().slice(0, 19).replace('T', ' '); 
+    const histItem = { montant: montant, date: dh }; 
+    d.paiements[mois] = { montant: nm, date: dh, historique: [...(actuel.historique || []), histItem] }; 
+    await updateDoc(ref, { paiements: d.paiements }); 
+    return true; 
+}
+async function marquerAbandon(eleveId) { 
+    const id = `compta_${eleveId}`, ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
+    await updateDoc(ref, { abandon: true, dateAbandon: new Date().toISOString().split('T')[0] }); 
+    await afficherListeEleves(); await afficherAbandons(); await mettreAJourStats(); 
+}
+async function annulerAbandon(eleveId) { 
+    const id = `compta_${eleveId}`, ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
+    await updateDoc(ref, { abandon: false, dateAbandon: null }); 
+    await afficherListeEleves(); await afficherAbandons(); await mettreAJourStats(); 
+}
+async function ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, nomPere, nomMere, adresse, sexe, phone, classe, option, exonere, motifExon, approbateur) { 
+    if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { toast("Limite d'exonérations atteinte", "error"); return null; } 
+    const id = "eleve_" + Date.now(); 
+    const minerval = exonere ? 0 : await getMinervalEleve(classe, option); 
+    const parentCode = genererCodeParent(); 
+    const paiements = {}; for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] }; 
+    const docId = `compta_${id}`, newCompta = { _type: "compta_eleve", eleveId: id, nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe, option: option || "", minerval, anneeScolaire, paiements, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, parentCode }; 
+    await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta); 
+    if (exonere) compteurExoneres++; 
+    toast(`📱 Code parent: ${parentCode}`, "success"); 
+    return { id, nom, postnom, prenom, classe, option, parentCode }; 
+}
+async function getElevesFiltres(incAbandons = false) { 
+    let res = await getTousElevesAvecInfos(); 
+    if (!incAbandons) res = res.filter(e => !e.abandon); 
+    const nom = document.getElementById("searchNom")?.value.trim() || "", cls = document.getElementById("filterClasse")?.value || "", opt = document.getElementById("filterOption")?.value || ""; 
+    if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase()) || (e.postnom && e.postnom.toLowerCase().includes(nom.toLowerCase()))); 
+    if (cls) res = res.filter(e => e.classe === cls); 
+    if (opt) res = res.filter(e => e.option === opt); 
+    if (currentFilter === "normal") return res.filter(e => !e.exonere && e.moisImpayes < 3); 
+    if (currentFilter === "exonere") return res.filter(e => e.exonere === true); 
+    if (currentFilter === "listenoir") return res.filter(e => !e.exonere && e.moisImpayes >= 3); 
+    if (currentFilter === "enordre") return res.filter(e => e.exonere || e.estEnOrdreMoisCourant); 
+    return res; 
+}
+async function getAbandons() { return localEleves.filter(e => e.abandon === true); }
+async function mettreAJourStats() { 
+    const tous = await getAllComptaEleves(), infos = await getTousElevesAvecInfos(); 
+    let totalActifs = 0, exoneres = 0, listeNoire = 0, reguliers = 0, abandons = 0; 
+    for (let eleve of tous) { 
+        if (eleve.abandon) { abandons++; continue; } 
+        totalActifs++; 
+        if (eleve.exonere) { exoneres++; continue; } 
+        const info = infos.find(i => i.id === eleve.id); 
+        if (info && info.moisImpayes >= 3) listeNoire++; else if (info) reguliers++; 
+    } 
+    document.getElementById("statTotal").innerText = totalActifs; 
+    document.getElementById("statExoneres").innerText = exoneres; 
+    document.getElementById("statListeNoire").innerText = listeNoire; 
+    document.getElementById("statReguliers").innerText = reguliers; 
+    document.getElementById("statAbandons").innerText = abandons; 
+}
+async function afficherListeEleves() { 
+    const eleves = await getElevesFiltres(); 
+    const cont = document.getElementById("elevesContainer"); 
+    if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun élève</div>'; return; } 
+    let html = '<div class="eleve-cards">'; 
+    for (let e of eleves) { 
+        const estLN = (!e.exonere && e.moisImpayes >= 3), estOrdre = (e.exonere || e.estEnOrdreMoisCourant); 
+        let badge = '', classeSpec = ''; 
+        if (e.exonere) badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; 
+        else if (estLN) { badge = '<span class="badge badge-listenoire">LISTE NOIRE</span>'; classeSpec = 'liste-noire'; } 
+        else if (estOrdre) { badge = '<span class="badge badge-en-ordre">EN ORDRE</span>'; classeSpec = 'en-ordre'; } 
+        else if (e.moisImpayes > 0) badge = '<span class="badge badge-impaye">IMPAYÉ</span>'; 
+        html += `<div class="eleve-card ${classeSpec}" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="eleve-card-nom">${e.nom} ${e.postnom||''} ${e.prenom||''} ${badge}</div><div class="eleve-card-info"><span>${e.classe}</span><span>${e.option||"Sans"}</span><span>${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span>${e.phone ? `<span>📞 ${e.phone}</span>` : ''}</div><div class="flex-between" style="margin-top:10px;"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 VOIR</button><button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ ABANDON</button></div></div>`; 
+    } 
+    html += '</div>'; cont.innerHTML = html; 
+    await mettreAJourStats(); 
+}
+window.marquerAbandonPrompt = async function(id, nom) { if (await showConfirm(`⚠️ Abandonner ${nom} ?`)) { await marquerAbandon(id); toast(`${nom} abandonné`, "warning"); } };
+async function afficherAbandons() { 
+    const eleves = await getAbandons(); 
+    const cont = document.getElementById("abandonsContainer"); 
+    if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun abandon</div>'; return; } 
+    let html = '<div class="eleve-cards">'; 
+    for (let e of eleves) { 
+        html += `<div class="eleve-card abandon"><div class="eleve-card-nom">${e.nom} ${e.postnom||''} ${e.prenom||''} <span class="badge badge-abandon">ABANDON</span></div><div class="eleve-card-info"><span>${e.classe}</span><span>${e.option||"Sans"}</span><span>📅 ${e.dateAbandon||"-"}</span></div><div class="flex-between"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">VOIR</button><button class="btn btn-sm btn-success" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">RÉINTÉGRER</button></div></div>`; 
+    } 
+    html += '</div>'; cont.innerHTML = html; 
+}
+window.voirDetails = async function(id, nom, classe, option) { 
+    currentEleve = localEleves.find(e => e.id === id); 
+    await afficherReleve(currentEleve); 
+    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); 
+    document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); 
+    document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active"); 
+    document.getElementById("tab2").classList.add("active"); 
+};
+window.reintegrerAbandon = async function(id, nom) { if (await showConfirm(`🔄 Réintégrer ${nom} ?`)) { await annulerAbandon(id); toast(`${nom} réintégré`, "success"); } };
+async function afficherReleve(eleve) { 
+    if (!eleve || eleve.abandon) { document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`; return; } 
+    let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleve.nom} ${eleve.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleve.classe} ${eleve.option ? `-${eleve.option}` : ""} ${eleve.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleve.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleve.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; 
+    let totalMin = 0, totalPay = 0; 
+    for (let mois of moisListe) { 
+        const p = eleve.paiements?.[mois] || { montant: 0, date: null, historique: [] }; 
+        const payeTotal = eleve.exonere || p.montant >= eleve.minerval; 
+        const reste = eleve.exonere ? 0 : eleve.minerval - p.montant; 
+        totalMin += eleve.exonere ? 0 : eleve.minerval; 
+        totalPay += p.montant; 
+        let cardClass = ""; 
+        if (mois === moisCourant) cardClass = "mois-courant"; 
+        else if (estMoisPasse(mois) && !payeTotal && !eleve.exonere) cardClass = "mois-impaye"; 
+        let statut = "", txt = ""; 
+        if (eleve.exonere) { statut = "paye"; txt = "EXONÉRÉ"; } 
+        else if (payeTotal) { statut = "paye"; txt = `${formatNbSimple(eleve.minerval)} FC`; } 
+        else if (p.montant > 0) { statut = ""; txt = `${formatNbSimple(p.montant)} FC`; } 
+        else { statut = "impaye"; txt = "0 FC"; } 
+        html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleve.exonere ? "0" : formatNbSimple(eleve.minerval)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${reste > 0 ? `<span style="color:#ef4444;">${formatNbSimple(reste)} FC</span>` : '0 FC'}</span></div><div class="paiement-card-actions">${(!eleve.exonere && !payeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? `<button class="btn-pay" onclick="openPaiement('${mois}',${eleve.minerval},${p.montant})">💰 PAYER</button>` : `<span style="color:#10b981;">✓ COMPLET</span>`}</div></div></div>`; 
+    } 
+    html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPay)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPay)} FC</span></div></div>`; 
+    document.getElementById("releveContainer").innerHTML = html; 
+}
+window.openPaiement = async function(mois, minerval, dejaPaye) { 
+    if (!await verifierCode("paiement")) { toast("Annulé", "warning"); return; } 
+    const reste = minerval - dejaPaye; 
+    document.getElementById("modalInfo").innerHTML = `<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`; 
+    document.getElementById("paymentAmount").value = reste; 
+    window.paiementData = { mois, minerval, dejaPaye, reste, eleveId: currentEleve.id }; 
+    document.getElementById("paymentModal").classList.add("show"); 
+};
 function verifierCode(action) { return new Promise((resolve) => { pendingAction = { resolve, action }; document.getElementById("codeInput").value = ""; document.getElementById("codeModal").classList.add("show"); }); }
 function showConfirm(message) { return new Promise((resolve) => { pendingAction = { resolve, action: "confirm" }; document.getElementById("confirmMessage").innerHTML = message; document.getElementById("confirmModal").classList.add("show"); }); }
-document.getElementById("confirmCode").onclick = async () => { const code = document.getElementById("codeInput").value; if (code === currentSchoolConfig?.codeAcces) { document.getElementById("codeModal").classList.remove("show"); if (pendingAction) { pendingAction.resolve(true); pendingAction = null; } } else { toast("Code incorrect", "error"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } document.getElementById("codeModal").classList.remove("show"); } };
+document.getElementById("confirmCode").onclick = async () => { 
+    const code = document.getElementById("codeInput").value; 
+    if (code === currentSchoolConfig?.codeAcces) { 
+        document.getElementById("codeModal").classList.remove("show"); 
+        if (pendingAction) { pendingAction.resolve(true); pendingAction = null; } 
+    } else { toast("Code incorrect", "error"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } document.getElementById("codeModal").classList.remove("show"); } 
+};
 document.getElementById("cancelCode").onclick = () => { document.getElementById("codeModal").classList.remove("show"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } };
 document.getElementById("confirmYes").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(true); pendingAction = null; } };
 document.getElementById("confirmNo").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(false); pendingAction = null; } };
-document.getElementById("confirmPayment").onclick = async () => { const montant = parseInt(document.getElementById("paymentAmount").value); if (!montant || montant <= 0) { toast("Montant invalide", "error"); return; } if (montant > window.paiementData.reste) { toast("Dépasse le reste", "error"); return; } if (await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)) { await enregistrerPaiement(window.paiementData.eleveId, window.paiementData.mois, montant); toast(`Paiement de ${formatNbSimple(montant)} FC enregistré`, "success"); document.getElementById("paymentModal").classList.remove("show"); await afficherReleve(currentEleve); await afficherListeEleves(); await mettreAJourStats(); } };
+document.getElementById("confirmPayment").onclick = async () => { 
+    const montant = parseInt(document.getElementById("paymentAmount").value); 
+    if (!montant || montant <= 0) { toast("Montant invalide", "error"); return; } 
+    if (montant > window.paiementData.reste) { toast("Dépasse le reste", "error"); return; } 
+    if (await showConfirm(`Confirmer ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)) { 
+        await enregistrerPaiement(window.paiementData.eleveId, window.paiementData.mois, montant); 
+        toast(`Paiement de ${formatNbSimple(montant)} FC enregistré`, "success"); 
+        document.getElementById("paymentModal").classList.remove("show"); 
+        await afficherReleve(currentEleve); 
+        await afficherListeEleves(); 
+        await mettreAJourStats(); 
+    } 
+};
 document.getElementById("cancelPayment").onclick = () => document.getElementById("paymentModal").classList.remove("show");
-async function changerCodeAcces() { const ancienCode = document.getElementById("oldCode").value; const nouveauCode1 = document.getElementById("newCode1").value; const nouveauCode2 = document.getElementById("newCode2").value; if (ancienCode !== currentSchoolConfig?.codeAcces) { toast("Ancien code incorrect", "error"); return; } if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) { toast("Les nouveaux codes ne correspondent pas", "error"); return; } if (nouveauCode1.length < 4) { toast("Le code doit contenir au moins 4 caractères", "error"); return; } currentSchoolConfig.codeAcces = nouveauCode1; const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); await setDoc(configRef, currentSchoolConfig); toast("Code d'accès modifié avec succès", "success"); document.getElementById("oldCode").value = ""; document.getElementById("newCode1").value = ""; document.getElementById("newCode2").value = ""; }
-async function showDetailModal(title, eleves) { const modal = document.getElementById("detailModal"); const titleEl = document.getElementById("detailModalTitle"); const contentEl = document.getElementById("detailModalContent"); titleEl.innerHTML = `${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`; if (eleves.length === 0) { contentEl.innerHTML = '<div class="empty-state">Aucun élément</div>'; } else { let html = ''; for (let e of eleves) { html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom || ''}</div><div class="detail-info">📚 ${e.classe} ${e.option ? `- ${e.option}` : ''}</div>${e.moisImpayes !== undefined ? `<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>` : ''}</div>`; } contentEl.innerHTML = html; } modal.classList.add("show"); }
+async function changerCodeAcces() { 
+    const ancienCode = document.getElementById("oldCode").value, nouveauCode1 = document.getElementById("newCode1").value, nouveauCode2 = document.getElementById("newCode2").value; 
+    if (ancienCode !== currentSchoolConfig?.codeAcces) { toast("Ancien code incorrect", "error"); return; } 
+    if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) { toast("Les codes ne correspondent pas", "error"); return; } 
+    if (nouveauCode1.length < 4) { toast("Le code doit contenir au moins 4 caractères", "error"); return; } 
+    currentSchoolConfig.codeAcces = nouveauCode1; 
+    const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
+    await setDoc(configRef, currentSchoolConfig); 
+    toast("Code d'accès modifié", "success"); 
+    document.getElementById("oldCode").value = ""; document.getElementById("newCode1").value = ""; document.getElementById("newCode2").value = ""; 
+}
+async function showDetailModal(title, eleves) { 
+    const modal = document.getElementById("detailModal"), titleEl = document.getElementById("detailModalTitle"), contentEl = document.getElementById("detailModalContent"); 
+    titleEl.innerHTML = `${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`; 
+    if (eleves.length === 0) { contentEl.innerHTML = '<div class="empty-state">Aucun élément</div>'; } 
+    else { 
+        let html = ''; 
+        for (let e of eleves) { html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''}</div>${e.moisImpayes !== undefined ? `<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>` : ''}</div>`; } 
+        contentEl.innerHTML = html; 
+    } 
+    modal.classList.add("show"); 
+}
 document.getElementById("closeDetailModal").onclick = () => document.getElementById("detailModal").classList.remove("show");
-async function setupStatCards() { const tous = await getAllComptaEleves(); const infos = await getTousElevesAvecInfos(); const totalCard = document.querySelector('[data-stat="total"]'); const exoneresCard = document.querySelector('[data-stat="exoneres"]'); const listenoirCard = document.querySelector('[data-stat="listenoir"]'); const reguliersCard = document.querySelector('[data-stat="reguliers"]'); const abandonsCard = document.querySelector('[data-stat="abandons"]'); if (totalCard) totalCard.onclick = async () => { const actifs = tous.filter(e => !e.abandon); showDetailModal("📋 TOTAL ÉLÈVES", actifs); }; if (exoneresCard) exoneresCard.onclick = async () => { const ex = tous.filter(e => e.exonere && !e.abandon); showDetailModal("🌟 EXONÉRÉS", ex); }; if (listenoirCard) listenoirCard.onclick = async () => { const ln = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes >= 3); showDetailModal("⚠️ LISTE NOIRE", ln); }; if (reguliersCard) reguliersCard.onclick = async () => { const reg = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes > 0 && e.moisImpayes < 3); showDetailModal("💰 RÉGULIERS", reg); }; if (abandonsCard) abandonsCard.onclick = async () => { const ab = tous.filter(e => e.abandon); showDetailModal("❌ ABANDONS", ab); }; }
-window.genererPDFRecouvrement = async function() { try { toast("Génération du PDF...", "warning"); const { jsPDF } = window.jspdf; const tous = await getTousElevesAvecInfos(); const recouv = tous.filter(e => !e.exonere && e.moisImpayes > 0); const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE DE RECOUVREMENT", 105, 32, { align: "center" }); doc.text(`Date: ${formatDateFr(new Date())}`, 20, 55); doc.text(`Année: ${anneeScolaire}`, 20, 62); if (recouv.length === 0) { doc.text("Aucun élève à recouvrer", 105, 100, { align: "center" }); } else { const body = recouv.map(e => [e.nom, `${e.classe} ${e.option || ""}`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", `${e.moisImpayes} mois`]); doc.autoTable({ startY: 72, head: [["ÉLÈVE", "CLASSE", "MONTANT DÛ", "MOIS IMPAYÉS"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4, textColor: [0, 0, 0] }, headStyles: { fillColor: [255, 215, 0], textColor: [0, 0, 0], fontStyle: "bold" } }); } doc.save(`Recouvrement_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-window.genererPDFListeNoire = async function() { try { toast("Génération du PDF...", "warning"); const { jsPDF } = window.jspdf; const tous = await getTousElevesAvecInfos(); const ln = tous.filter(e => !e.exonere && e.moisImpayes >= 3); const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS", 105, 32, { align: "center" }); if (ln.length === 0) { doc.text("Aucun élève en liste noire", 105, 100, { align: "center" }); } else { const body = ln.map(e => [e.nom, `${e.classe} ${e.option || ""}`, `${e.moisImpayes} mois`, formatNbSimple(e.totalMin - e.totalPaye) + " FC"]); doc.autoTable({ startY: 55, head: [["ÉLÈVE", "CLASSE", "MOIS IMPAYÉS", "MONTANT DÛ"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: "bold" } }); } doc.save(`ListeNoire_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-window.genererPDFTousEleves = async function() { try { toast("Génération du PDF...", "warning"); const tous = await getAllComptaEleves(); const actifs = tous.filter(e => !e.abandon); const { jsPDF } = window.jspdf; const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE COMPLÈTE DES ÉLÈVES", 105, 32, { align: "center" }); doc.text(`Total: ${actifs.length} élèves`, 20, 55); const body = actifs.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.exonere ? "OUI" : "NON", e.phone || "-"]); doc.autoTable({ startY: 62, head: [["NOM", "CLASSE", "EXONÉRÉ", "TÉLÉPHONE"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: "bold" } }); doc.save(`ListeEleves_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-window.genererPDFExoneres = async function() { try { toast("Génération du PDF...", "warning"); const tous = await getAllComptaEleves(); const ex = tous.filter(e => e.exonere && !e.abandon); const { jsPDF } = window.jspdf; const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE DES ÉLÈVES EXONÉRÉS", 105, 32, { align: "center" }); if (ex.length === 0) { doc.text("Aucun élève exonéré", 105, 100, { align: "center" }); } else { const body = ex.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.motifExon || "-"]); doc.autoTable({ startY: 55, head: [["NOM", "CLASSE", "MOTIF"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" } }); } doc.save(`Exoneres_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-function initTabsEvents() { const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach(btn => { btn.removeEventListener("click", handleTabClick); btn.addEventListener("click", handleTabClick); }); }
-function handleTabClick() { const tabId = this.dataset.tab; document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); this.classList.add("active"); document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); const activePanel = document.getElementById(tabId); if (activePanel) activePanel.classList.add("active"); if(tabId === "tab5") afficherParentCodes(); }
-function initFilterEvents() { document.querySelectorAll(".filter-btn").forEach(btn => { btn.onclick = () => { document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentFilter = btn.dataset.filter; afficherListeEleves(); }; }); }
-document.getElementById("loginBtn").onclick = async () => { const btn = document.getElementById("loginBtn"); const codeInput = document.getElementById("loginCode"); const code = codeInput.value.trim(); const errorDiv = document.getElementById("loginError"); btn.disabled = true; btn.textContent = "⏳ VÉRIFICATION..."; try { await chargerConfigEcole(); if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) { errorDiv.innerHTML = ""; document.getElementById("loginOverlay").style.display = "none"; document.getElementById("mainApp").style.display = "block"; await initApp(); toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success"); } else { errorDiv.innerHTML = "❌ Code d'accès incorrect"; toast("Code d'accès incorrect", "error"); codeInput.value = ""; codeInput.focus(); } } catch (error) { errorDiv.innerHTML = "❌ Erreur de connexion"; toast("Erreur de connexion", "error"); } finally { btn.disabled = false; btn.textContent = "🔐 SE CONNECTER"; } };
+async function setupStatCards() { 
+    const tous = await getAllComptaEleves(), infos = await getTousElevesAvecInfos(); 
+    const totalCard = document.querySelector('[data-stat="total"]'), exoneresCard = document.querySelector('[data-stat="exoneres"]'), listenoirCard = document.querySelector('[data-stat="listenoir"]'), reguliersCard = document.querySelector('[data-stat="reguliers"]'), abandonsCard = document.querySelector('[data-stat="abandons"]'); 
+    if (totalCard) totalCard.onclick = async () => { const actifs = tous.filter(e => !e.abandon); showDetailModal("📋 TOTAL ÉLÈVES", actifs); }; 
+    if (exoneresCard) exoneresCard.onclick = async () => { const ex = tous.filter(e => e.exonere && !e.abandon); showDetailModal("🌟 EXONÉRÉS", ex); }; 
+    if (listenoirCard) listenoirCard.onclick = async () => { const ln = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes >= 3); showDetailModal("⚠️ LISTE NOIRE", ln); }; 
+    if (reguliersCard) reguliersCard.onclick = async () => { const reg = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes > 0 && e.moisImpayes < 3); showDetailModal("💰 RÉGULIERS", reg); }; 
+    if (abandonsCard) abandonsCard.onclick = async () => { const ab = tous.filter(e => e.abandon); showDetailModal("❌ ABANDONS", ab); }; 
+}
+window.genererPDFRecouvrement = async function() { 
+    try { 
+        toast("Génération PDF...", "warning"); 
+        const { jsPDF } = window.jspdf; 
+        const tous = await getTousElevesAvecInfos(); 
+        const recouv = tous.filter(e => !e.exonere && e.moisImpayes > 0); 
+        const doc = new jsPDF("p", "mm", "a4"); 
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); 
+        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); 
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); 
+        doc.setFontSize(10); doc.setTextColor(200, 200, 200); 
+        doc.text("LISTE DE RECOUVREMENT", 105, 32, { align: "center" }); 
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 55); 
+        doc.text(`Année: ${anneeScolaire}`, 20, 62); 
+        if (recouv.length === 0) { doc.text("Aucun élève à recouvrer", 105, 100, { align: "center" }); } 
+        else { 
+            const body = recouv.map(e => [e.nom, `${e.classe} ${e.option || ""}`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", `${e.moisImpayes} mois`]); 
+            doc.autoTable({ startY: 72, head: [["ÉLÈVE", "CLASSE", "MONTANT DÛ", "MOIS IMPAYÉS"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4, textColor: [0, 0, 0] }, headStyles: { fillColor: [255, 215, 0], textColor: [0, 0, 0], fontStyle: "bold" } }); 
+        } 
+        doc.save(`Recouvrement_${new Date().toISOString().split('T')[0]}.pdf`); 
+        toast("PDF généré", "success"); 
+    } catch (e) { toast("Erreur", "error"); } 
+};
+window.genererPDFListeNoire = async function() { 
+    try { 
+        toast("Génération PDF...", "warning"); 
+        const { jsPDF } = window.jspdf; 
+        const tous = await getTousElevesAvecInfos(); 
+        const ln = tous.filter(e => !e.exonere && e.moisImpayes >= 3); 
+        const doc = new jsPDF("p", "mm", "a4"); 
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); 
+        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); 
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); 
+        doc.setFontSize(10); doc.setTextColor(200, 200, 200); 
+        doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS", 105, 32, { align: "center" }); 
+        if (ln.length === 0) { doc.text("Aucun élève en liste noire", 105, 100, { align: "center" }); } 
+        else { 
+            const body = ln.map(e => [e.nom, `${e.classe} ${e.option || ""}`, `${e.moisImpayes} mois`, formatNbSimple(e.totalMin - e.totalPaye) + " FC"]); 
+            doc.autoTable({ startY: 55, head: [["ÉLÈVE", "CLASSE", "MOIS IMPAYÉS", "MONTANT DÛ"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: "bold" } }); 
+        } 
+        doc.save(`ListeNoire_${new Date().toISOString().split('T')[0]}.pdf`); 
+        toast("PDF généré", "success"); 
+    } catch (e) { toast("Erreur", "error"); } 
+};
+window.genererPDFTousEleves = async function() { 
+    try { 
+        toast("Génération PDF...", "warning"); 
+        const { jsPDF } = window.jspdf; 
+        const tous = await getAllComptaEleves(); 
+        const actifs = tous.filter(e => !e.abandon); 
+        const doc = new jsPDF("p", "mm", "a4"); 
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); 
+        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); 
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); 
+        doc.setFontSize(10); doc.setTextColor(200, 200, 200); 
+        doc.text("LISTE COMPLÈTE DES ÉLÈVES", 105, 32, { align: "center" }); 
+        doc.text(`Total: ${actifs.length} élèves`, 20, 55); 
+        const body = actifs.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.exonere ? "OUI" : "NON", e.phone || "-"]); 
+        doc.autoTable({ startY: 62, head: [["NOM", "CLASSE", "EXONÉRÉ", "TÉLÉPHONE"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: "bold" } }); 
+        doc.save(`ListeEleves_${new Date().toISOString().split('T')[0]}.pdf`); 
+        toast("PDF généré", "success"); 
+    } catch (e) { toast("Erreur", "error"); } 
+};
+window.genererPDFExoneres = async function() { 
+    try { 
+        toast("Génération PDF...", "warning"); 
+        const { jsPDF } = window.jspdf; 
+        const tous = await getAllComptaEleves(); 
+        const ex = tous.filter(e => e.exonere && !e.abandon); 
+        const doc = new jsPDF("p", "mm", "a4"); 
+        doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); 
+        doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); 
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); 
+        doc.setFontSize(10); doc.setTextColor(200, 200, 200); 
+        doc.text("LISTE DES ÉLÈVES EXONÉRÉS", 105, 32, { align: "center" }); 
+        if (ex.length === 0) { doc.text("Aucun élève exonéré", 105, 100, { align: "center" }); } 
+        else { 
+            const body = ex.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.motifExon || "-"]); 
+            doc.autoTable({ startY: 55, head: [["NOM", "CLASSE", "MOTIF"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" } }); 
+        } 
+        doc.save(`Exoneres_${new Date().toISOString().split('T')[0]}.pdf`); 
+        toast("PDF généré", "success"); 
+    } catch (e) { toast("Erreur", "error"); } 
+};
+function initTabsEvents() { 
+    const tabs = document.querySelectorAll(".tab-btn"); 
+    tabs.forEach(btn => { btn.removeEventListener("click", handleTabClick); btn.addEventListener("click", handleTabClick); }); 
+}
+function handleTabClick() { 
+    const tabId = this.dataset.tab; 
+    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); 
+    this.classList.add("active"); 
+    document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); 
+    const activePanel = document.getElementById(tabId); 
+    if (activePanel) activePanel.classList.add("active"); 
+    if(tabId === "tab5") afficherParentCodes(); 
+}
+function initFilterEvents() { 
+    document.querySelectorAll(".filter-btn").forEach(btn => { 
+        btn.onclick = () => { 
+            document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active")); 
+            btn.classList.add("active"); 
+            currentFilter = btn.dataset.filter; 
+            afficherListeEleves(); 
+        }; 
+    }); 
+}
+document.getElementById("loginBtn").onclick = async () => { 
+    const btn = document.getElementById("loginBtn"), codeInput = document.getElementById("loginCode"), code = codeInput.value.trim(), errorDiv = document.getElementById("loginError"); 
+    btn.disabled = true; btn.textContent = "⏳ VÉRIFICATION..."; 
+    try { 
+        await chargerConfigEcole(); 
+        if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) { 
+            errorDiv.innerHTML = ""; 
+            document.getElementById("loginOverlay").style.display = "none"; 
+            document.getElementById("mainApp").style.display = "block"; 
+            await initApp(); 
+            toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success"); 
+        } else { 
+            errorDiv.innerHTML = "❌ Code d'accès incorrect"; 
+            toast("Code incorrect", "error"); 
+            codeInput.value = ""; codeInput.focus(); 
+        } 
+    } catch (error) { errorDiv.innerHTML = "❌ Erreur de connexion"; toast("Erreur", "error"); } 
+    finally { btn.disabled = false; btn.textContent = "🔐 SE CONNECTER"; } 
+};
 document.getElementById("loginCode").onkeypress = (e) => { if (e.key === "Enter") document.getElementById("loginBtn").click(); };
-async function initApp() { if (isAppInitialized) return; await chargerOptions(); await chargerTarifs(); const existants = await getAllComptaEleves(); compteurExoneres = existants.filter(e => e.exonere === true && !e.abandon).length; if (existants.length === 0) { const code1 = await ajouterEleveCompta("NGENDA", "Flory", "Jean", "2005-01-01", "Kinshasa", "Jean Pierre", "Marie Claire", "Kinshasa", "M", "0812345678", "4eme Annee", "CG", false, "", ""); const code2 = await ajouterEleveCompta("NGENDA", "Flory", "Marie", "2008-03-15", "Kinshasa", "Jean Pierre", "Marie Claire", "Kinshasa", "F", "0812345679", "2eme Annee", "Sciences", false, "", ""); toast("Élèves démo créés", "success"); } await afficherListeEleves(); await mettreAJourStats(); await setupStatCards(); initTabsEvents(); initFilterEvents(); isAppInitialized = true; }
-function validateInscriptionForm() { const nom = document.getElementById("newEleveNom").value.trim(); const prenom = document.getElementById("newElevePrenom").value.trim(); const dateNaiss = document.getElementById("newEleveDateNaiss").value; const lieuNaiss = document.getElementById("newEleveLieuNaiss").value.trim(); const sexe = document.getElementById("newEleveSexe").value; const adresse = document.getElementById("newEleveAdresse").value.trim(); const phone = document.getElementById("newElevePhone").value.trim(); const classe = document.getElementById("newEleveClasse").value; const option = document.getElementById("newEleveOption").value; const exonere = document.getElementById("newEleveExonere").value === "oui"; if (!nom) { toast("Le nom est requis", "error"); return false; } if (!prenom) { toast("Le prénom est requis", "error"); return false; } if (!dateNaiss) { toast("La date de naissance est requise", "error"); return false; } if (!lieuNaiss) { toast("Le lieu de naissance est requis", "error"); return false; } if (!sexe) { toast("Le sexe est requis", "error"); return false; } if (!adresse) { toast("L'adresse est requise", "error"); return false; } if (!phone) { toast("Le téléphone est requis", "error"); return false; } if (!classe) { toast("La classe est requise", "error"); return false; } if (classe !== "7eme EB" && classe !== "8eme EB" && !option) { toast("L'option est requise pour cette classe", "error"); return false; } if (exonere) { const motif = document.getElementById("newEleveMotifExon").value; const approbateur = document.getElementById("newEleveApprobateur").value; if (!motif) { toast("Le motif d'exonération est requis", "error"); return false; } if (!approbateur) { toast("L'approbateur est requis", "error"); return false; } } return true; }
-document.getElementById("confirmAddEleve").onclick = async () => { if (!validateInscriptionForm()) return; const nom = document.getElementById("newEleveNom").value.trim(); const postnom = document.getElementById("newElevePostnom").value.trim(); const prenom = document.getElementById("newElevePrenom").value.trim(); const dateNaiss = document.getElementById("newEleveDateNaiss").value; const lieuNaiss = document.getElementById("newEleveLieuNaiss").value.trim(); const nomPere = document.getElementById("newEleveNomPere").value.trim(); const nomMere = document.getElementById("newEleveNomMere").value.trim(); const adresse = document.getElementById("newEleveAdresse").value.trim(); const sexe = document.getElementById("newEleveSexe").value; const phone = document.getElementById("newElevePhone").value.trim(); const classe = document.getElementById("newEleveClasse").value; const option = document.getElementById("newEleveOption").value; const exonere = document.getElementById("newEleveExonere").value === "oui"; const motif = document.getElementById("newEleveMotifExon").value; const approbateur = document.getElementById("newEleveApprobateur").value; if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { toast(`Limite d'exonérations atteinte (${currentSchoolConfig?.maxExonerations || 10})`, "error"); return; } if (await showConfirm(`Confirmez-vous l'inscription de ${nom} ${postnom} ${prenom} en ${classe} ?`)) { const result = await ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, nomPere, nomMere, adresse, sexe, phone, classe, option, exonere, motif, approbateur); if (result) { toast(`Élève ${nom} ${postnom} ${prenom} inscrit avec succès. Code parent: ${result.parentCode}`, "success"); document.getElementById("addEleveModal").classList.remove("show"); document.getElementById("newEleveNom").value = ""; document.getElementById("newElevePostnom").value = ""; document.getElementById("newElevePrenom").value = ""; document.getElementById("newEleveDateNaiss").value = ""; document.getElementById("newEleveLieuNaiss").value = ""; document.getElementById("newEleveNomPere").value = ""; document.getElementById("newEleveNomMere").value = ""; document.getElementById("newEleveAdresse").value = ""; document.getElementById("newEleveSexe").value = ""; document.getElementById("newElevePhone").value = ""; document.getElementById("newEleveClasse").value = ""; document.getElementById("newEleveOption").value = ""; document.getElementById("newEleveExonere").value = "non"; document.getElementById("newEleveMotifExon").value = ""; document.getElementById("newEleveApprobateur").value = ""; document.getElementById("motifExonerationGroup").style.display = "none"; document.getElementById("approbateurGroup").style.display = "none"; document.getElementById("previewInscription").style.display = "none"; await afficherListeEleves(); await afficherParentCodes(); await mettreAJourStats(); } } };
-document.getElementById("cancelAddEleve").onclick = () => { document.getElementById("addEleveModal").classList.remove("show"); };
-document.getElementById("btnChangeCode").onclick = () => changerCodeAcces();
-document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); };
-document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
-document.getElementById("logoutBtn").onclick = () => { showConfirm("Déconnecter ?", () => { document.getElementById("mainApp").style.display = "none"; document.getElementById("loginOverlay").style.display = "flex"; document.getElementById("loginCode").value = ""; toast("Déconnexion réussie", "success"); }); };
+document.getElementById("logoutBtn").onclick = () => { 
+    showConfirm("Déconnecter ?", () => { 
+        document.getElementById("mainApp").style.display = "none"; 
+        document.getElementById("loginOverlay").style.display = "flex"; 
+        document.getElementById("loginCode").value = ""; 
+        toast("Déconnexion réussie", "success"); 
+    }); 
+};
 window.ouvrirModalInscription = function() { document.getElementById("addEleveModal").classList.add("show"); };
 document.getElementById("btnInscrirePrincipal").onclick = () => window.ouvrirModalInscription();
-document.getElementById("searchParentCode").addEventListener("input", () => afficherParentCodes());
 async function afficherParentCodes() {
     const eleves = await getAllComptaEleves();
     const searchTerm = document.getElementById("searchParentCode")?.value.toLowerCase() || "";
     let filtered = eleves.filter(e => !e.abandon);
-    if(searchTerm) {
-        filtered = filtered.filter(e => 
-            e.nom.toLowerCase().includes(searchTerm) ||
-            (e.prenom && e.prenom.toLowerCase().includes(searchTerm)) ||
-            e.classe.toLowerCase().includes(searchTerm) ||
-            (e.parentCode && e.parentCode.includes(searchTerm))
-        );
-    }
+    if(searchTerm) filtered = filtered.filter(e => e.nom.toLowerCase().includes(searchTerm) || (e.prenom && e.prenom.toLowerCase().includes(searchTerm)) || e.classe.toLowerCase().includes(searchTerm) || (e.parentCode && e.parentCode.includes(searchTerm)));
     let html = `<table class="config-table"><thead><th>👤 ÉLÈVE</th><th>📚 CLASSE</th><th>🔑 CODE PARENT</th><th>🔄 ACTIONS</th></thead><tbody>`;
     for(let e of filtered) {
         const parentCode = e.parentCode || "Non généré";
@@ -419,25 +811,14 @@ window.regenererCodeParent = async function(eleveId) {
         const nouveauCode = Math.floor(100000 + Math.random() * 900000).toString();
         const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
         await updateDoc(ref, { parentCode: nouveauCode });
-        toast(`📱 Nouveau code parent: ${nouveauCode}`, "success");
+        toast(`📱 Nouveau code: ${nouveauCode}`, "success");
         afficherParentCodes();
     }
 };
 function updatePreview() {
-    var nom = document.getElementById('newEleveNom').value.trim();
-    var postnom = document.getElementById('newElevePostnom').value.trim();
-    var prenom = document.getElementById('newElevePrenom').value.trim();
-    var classe = document.getElementById('newEleveClasse').value;
-    var option = document.getElementById('newEleveOption').value;
-    var exonere = document.getElementById('newEleveExonere').value === 'oui';
-    var phone = document.getElementById('newElevePhone').value.trim();
-    var lieuNaiss = document.getElementById('newEleveLieuNaiss').value.trim();
-    var dateNaiss = document.getElementById('newEleveDateNaiss').value;
-    var nomPere = document.getElementById('newEleveNomPere').value.trim();
-    var nomMere = document.getElementById('newEleveNomMere').value.trim();
+    var nom = document.getElementById('newEleveNom').value.trim(), postnom = document.getElementById('newElevePostnom').value.trim(), prenom = document.getElementById('newElevePrenom').value.trim(), classe = document.getElementById('newEleveClasse').value, option = document.getElementById('newEleveOption').value, exonere = document.getElementById('newEleveExonere').value === 'oui', phone = document.getElementById('newElevePhone').value.trim(), lieuNaiss = document.getElementById('newEleveLieuNaiss').value.trim(), dateNaiss = document.getElementById('newEleveDateNaiss').value, nomPere = document.getElementById('newEleveNomPere').value.trim(), nomMere = document.getElementById('newEleveNomMere').value.trim();
     if(!nom && !prenom && !classe) { document.getElementById('previewInscription').style.display = 'none'; return; }
-    var preview = document.getElementById('previewInscription');
-    var html = '<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
+    var preview = document.getElementById('previewInscription'), html = '<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
     html += '<p>👤 <strong>' + (nom || '?') + '</strong> ' + (postnom || '') + ' <strong>' + (prenom || '') + '</strong></p>';
     if(dateNaiss || lieuNaiss) html += '<p>📅 Né(e) le <strong>' + (dateNaiss || '?') + '</strong> à <strong>' + (lieuNaiss || '?') + '</strong></p>';
     if(nomPere) html += '<p>👨 Père: <strong>' + nomPere + '</strong></p>';
@@ -445,64 +826,146 @@ function updatePreview() {
     html += '<p>📚 Classe: <strong>' + classe + '</strong>' + (option ? ' - ' + option : '') + '</p>';
     html += '<p>' + (exonere ? '🌟 <strong>EXONÉRATION TOTALE</strong>' : '💰 Minerval standard') + '</p>';
     if(phone) html += '<p>📞 ' + phone + '</p>';
-    preview.innerHTML = html;
-    preview.style.display = 'block';
+    preview.innerHTML = html; preview.style.display = 'block';
 }
 document.getElementById('newEleveNom').oninput = updatePreview;
 document.getElementById('newElevePostnom').oninput = updatePreview;
 document.getElementById('newElevePrenom').oninput = updatePreview;
 document.getElementById('newEleveClasse').onchange = updatePreview;
 document.getElementById('newEleveOption').onchange = updatePreview;
-document.getElementById('newEleveExonere').onchange = function() {
-    var s = this.value === 'oui';
-    document.getElementById('motifExonerationGroup').style.display = s ? 'block' : 'none';
-    document.getElementById('approbateurGroup').style.display = s ? 'block' : 'none';
-    updatePreview();
+document.getElementById('newEleveExonere').onchange = function() { 
+    var s = this.value === 'oui'; 
+    document.getElementById('motifExonerationGroup').style.display = s ? 'block' : 'none'; 
+    document.getElementById('approbateurGroup').style.display = s ? 'block' : 'none'; 
+    updatePreview(); 
 };
 document.getElementById('newElevePhone').oninput = updatePreview;
 document.getElementById('newEleveLieuNaiss').oninput = updatePreview;
 document.getElementById('newEleveDateNaiss').oninput = updatePreview;
 document.getElementById('newEleveNomPere').oninput = updatePreview;
 document.getElementById('newEleveNomMere').oninput = updatePreview;
-// ========== IA PARENTALE MULTI-ENFANTS ==========
-let parentEnfantsList = [];
-let parentEnfantActif = null;
-let parentAttenteCode = true;
-let parentCodeValide = null;
-const parentModalOverlay = document.getElementById('parentModalOverlay');
-const parentFloatingBtn = document.getElementById('parentFloatingBtn');
-const closeParentModal = document.getElementById('closeParentModal');
-const parentChatMessages = document.getElementById('parentChatMessages');
-const parentQuestionInput = document.getElementById('parentQuestionInput');
-const parentSendBtn = document.getElementById('parentSendBtn');
-const parentInfoEleve = document.getElementById('parentInfoEleve');
-const parentSwitchBtn = document.getElementById('parentSwitchBtn');
+document.getElementById('cancelAddEleve').onclick = () => document.getElementById('addEleveModal').classList.remove('show');
+document.getElementById('btnChangeCode').onclick = () => changerCodeAcces();
+document.getElementById('btnSaveTarifs').onclick = async () => { await sauverTarifs(); };
+document.getElementById('btnSaveEcoleInfo').onclick = () => sauvegarderInfosEcole();
+document.getElementById('searchParentCode')?.addEventListener('input', () => afficherParentCodes());
+
+// ========== IA PÉDAGOGIQUE ==========
+document.getElementById('assistantGenererBtn').onclick = async () => {
+    const matiere = document.getElementById('assistantMatiere').value, classe = document.getElementById('assistantClasse').value, theme = document.getElementById('assistantTheme').value, nbQuestions = document.getElementById('assistantNbQuestions').value, bareme = document.getElementById('assistantBareme').value, type = document.getElementById('assistantType').value, difficulte = document.getElementById('assistantDifficulte').value;
+    if(!matiere || !classe) { toast("Veuillez sélectionner une matière et une classe", 'error'); return; }
+    const prompt = `Génère une épreuve de ${matiere} pour la classe de ${classe}. Thème: ${theme || "Général"}. ${nbQuestions} questions. Barème total: ${bareme} points. Type: ${type}. Difficulté: ${difficulte}. Format: liste numérotée.`;
+    try {
+        const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) });
+        const data = await response.json();
+        document.getElementById('assistantResultContent').innerHTML = `<div style="white-space:pre-wrap;">${escapeHtml(data.answer || "Erreur de génération")}</div>`;
+        document.getElementById('assistantResultArea').style.display = 'block';
+        window.derniereEpreuve = { content: data.answer, matiere, classe, theme, nbQuestions, bareme };
+        toast("Épreuve générée !", 'success');
+    } catch(e) { toast("Erreur IA", 'error'); }
+};
+document.getElementById('assistantPdfBtn').onclick = () => {
+    if(!window.derniereEpreuve) return;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('portrait', 'mm', 'a4');
+    pdf.setFontSize(16); pdf.text(`Épreuve de ${window.derniereEpreuve.matiere}`, 105, 20, { align: 'center' });
+    pdf.setFontSize(12); pdf.text(`Classe: ${window.derniereEpreuve.classe}`, 20, 35);
+    pdf.text(`Thème: ${window.derniereEpreuve.theme || "Général"}`, 20, 43);
+    pdf.text(`Barème: ${window.derniereEpreuve.bareme} points`, 20, 51);
+    const lines = pdf.splitTextToSize(window.derniereEpreuve.content, 170);
+    pdf.text(lines, 20, 65);
+    pdf.save(`Epreuve_${window.derniereEpreuve.matiere}.pdf`);
+    toast("PDF téléchargé", 'success');
+};
+document.getElementById('closeAssistantBtn').onclick = () => { document.getElementById('assistantResultArea').style.display = 'none'; window.derniereEpreuve = null; };
+
+// ========== IA PARENTALE AVEC EFFET MACHINE À ÉCRIRE ==========
+let parentEnfantsList = [], parentEnfantActif = null, parentAttenteCode = true, parentCodeValide = null;
+const parentModalOverlay = document.getElementById('parentModalOverlay'), parentFloatingBtn = document.getElementById('parentFloatingBtn'), closeParentModal = document.getElementById('closeParentModal'), parentChatMessages = document.getElementById('parentChatMessages'), parentQuestionInput = document.getElementById('parentQuestionInput'), parentSendBtn = document.getElementById('parentSendBtn'), parentInfoEleve = document.getElementById('parentInfoEleve'), parentSwitchBtn = document.getElementById('parentSwitchBtn');
+
 if(parentFloatingBtn) {
     parentFloatingBtn.onclick = () => {
         parentModalOverlay.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentAttenteCode = true;
-        parentCodeValide = null;
-        parentEnfantActif = null;
-        parentEnfantsList = [];
+        parentAttenteCode = true; parentCodeValide = null; parentEnfantActif = null; parentEnfantsList = [];
         parentChatMessages.innerHTML = `<div class="parent-msg bot"><div class="bubble">Bonjour ! Entrez votre code à 6 chiffres.</div></div>`;
-        parentInfoEleve.innerHTML = "";
-        parentSwitchBtn.style.display = "none";
-        parentQuestionInput.value = '';
-        parentQuestionInput.focus();
+        parentInfoEleve.innerHTML = ""; parentSwitchBtn.style.display = "none";
+        parentQuestionInput.value = ''; parentQuestionInput.focus();
     };
 }
 if(closeParentModal) closeParentModal.onclick = () => { parentModalOverlay.classList.remove('active'); document.body.style.overflow = ''; };
 parentModalOverlay.onclick = (e) => { if(e.target === parentModalOverlay) { parentModalOverlay.classList.remove('active'); document.body.style.overflow = ''; } };
 if(parentSwitchBtn) {
     parentSwitchBtn.onclick = () => {
-        let liste = "👨‍👩‍👧‍👦 Vos enfants:\n";
-        for(let i=0; i<parentEnfantsList.length; i++) {
-            liste += `${i+1}. ${parentEnfantsList[i].nom} (${parentEnfantsList[i].classe}) - code ${parentEnfantsList[i].code}\n`;
+        let liste = "👨‍👩‍👧‍👦 Vos enfants:\n\n";
+        for(let i=0; i<parentEnfantsList.length; i++) liste += `${i+1}. ${parentEnfantsList[i].nom} (${parentEnfantsList[i].classe})\n`;
+        liste += "\nPour changer, tapez 'changer 1' ou 'changer 482917'";
+        const msgDiv = document.createElement('div'); msgDiv.className = 'parent-msg bot'; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.innerText = liste;
+        msgDiv.appendChild(bubble); parentChatMessages.appendChild(msgDiv); parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+    };
+}
+async function typeWriterEffect(element, text, speed=15){
+    element.innerHTML = '';
+    for(let i=0; i<text.length; i++){
+        element.innerHTML += text.charAt(i);
+        await new Promise(r => setTimeout(r, speed));
+    }
+}
+async function repondreAvecIA(question, contexte) {
+    const prompt = `Tu es un assistant scolaire pour parents. Réponds de manière naturelle, courte (max 2-3 phrases), sans formules robotiques.
+
+INFORMATIONS SUR L'ÉLÈVE :
+- Nom: ${contexte.nom}
+- Classe: ${contexte.classe}
+- Minerval mensuel: ${contexte.minerval || 45000} FC
+- Total annuel: ${contexte.totalAnnuel || 0} FC
+- Déjà payé: ${contexte.totalPaye || 0} FC
+- Reste à payer: ${contexte.reste || 0} FC
+- Mois impayés: ${(contexte.moisImpayes || []).join(", ") || "Aucun"}
+- Notes récentes: ${contexte.notesResume || "Aucune"}
+
+QUESTION: ${question}
+
+RÈGLES: Réponse très courte, pas de "Bonjour", pas de listes, pas de "Je suis un assistant". Si exonéré, dis-le simplement. Si impayés, mentionne-les. Si "merci" réponds "De rien". Si "au revoir" réponds "À bientôt".`;
+
+    try {
+        const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) });
+        const data = await response.json();
+        let reply = data.answer || "Désolé, erreur.";
+        reply = reply.replace(/^(Bonjour|Bonsoir|Salut|Cher parent)[ ,!]*/i, '');
+        reply = reply.replace(/^(Je suis un assistant|Je suis votre assistant)[ ,!]*/i, '');
+        if(reply.length > 300) reply = reply.substring(0, 297) + '...';
+        return reply;
+    } catch(e) { return "❌ Erreur de connexion. Réessayez."; }
+}
+async function preparerContexteEleve(id) {
+    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${id}`);
+    const snap = await getDoc(ref);
+    if(!snap.exists()) return null;
+    const data = snap.data();
+    const paiements = data.paiements || {};
+    const minerval = data.minerval || 45000;
+    const totalAnnuel = minerval * 10;
+    let totalPaye = 0, moisImpayes = [];
+    for(let mois of moisListe) {
+        const montant = paiements[mois]?.montant || 0;
+        totalPaye += montant;
+        if(montant < minerval && !data.exonere) moisImpayes.push(mois);
+    }
+    const toutesFiches = await getAllComptaEleves();
+    let notesResume = "";
+    for(const f of toutesFiches) {
+        if(f.id === id) {
+            for(let periode=1; periode<=4; periode++) {
+                const epreuves = f.epreuvesParPeriode?.[periode] || [];
+                if(epreuves.length) notesResume = `${epreuves.length} épreuve(s) enregistrée(s)`;
+            }
         }
-        liste += "\nPour changer, tapez 'changer X' (X = numéro ou code)";
-        parentChatMessages.innerHTML += `<div class="parent-msg bot"><div class="bubble">${liste}</div></div>`;
-        parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+    }
+    return {
+        id: data.eleveId, nom: `${data.nom} ${data.prenom||''}`.trim(), classe: data.classe,
+        minerval, totalAnnuel, totalPaye, reste: totalAnnuel - totalPaye, moisImpayes,
+        exonere: data.exonere || false, notesResume: notesResume || "Aucune note"
     };
 }
 if(parentSendBtn) {
@@ -510,188 +973,69 @@ if(parentSendBtn) {
         const message = parentQuestionInput.value.trim();
         if(!message) return;
         parentChatMessages.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-        parentQuestionInput.value = '';
-        parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
-        parentChatMessages.innerHTML += `<div class="parent-msg bot"><div class="bubble"><span class="loader"></span></div></div>`;
-        parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+        parentQuestionInput.value = ''; parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
+        const msgBotDiv = document.createElement('div'); msgBotDiv.className = 'parent-msg bot'; const bubbleBot = document.createElement('div'); bubbleBot.className = 'bubble'; bubbleBot.innerHTML = '<span class="loader"></span>';
+        msgBotDiv.appendChild(bubbleBot); parentChatMessages.appendChild(msgBotDiv); parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
         if(parentAttenteCode) {
             const codeMatch = message.match(/^\d{6}$/);
-            if(!codeMatch) {
-                const bubbles = parentChatMessages.querySelectorAll('.parent-msg.bot .bubble');
-                bubbles[bubbles.length-1].innerHTML = "Le code doit faire 6 chiffres. Réessayez.";
-                parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
-                return;
-            }
+            if(!codeMatch) { bubbleBot.innerHTML = "Le code doit faire 6 chiffres. Réessayez."; parentChatMessages.scrollTop = parentChatMessages.scrollHeight; return; }
             const code = codeMatch[0];
             const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
             const snap = await getDocs(q);
-            if(snap.empty) {
-                const bubbles = parentChatMessages.querySelectorAll('.parent-msg.bot .bubble');
-                bubbles[bubbles.length-1].innerHTML = "Code incorrect. Vérifiez et réessayez.";
-                parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
-                return;
-            }
+            if(snap.empty) { bubbleBot.innerHTML = "Code incorrect. Vérifiez et réessayez."; parentChatMessages.scrollTop = parentChatMessages.scrollHeight; return; }
             const eleveData = snap.docs[0].data();
             const nomFamille = eleveData.nom;
             const qFamille = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("nom", "==", nomFamille), where("_type", "==", "compta_eleve"));
             const snapFamille = await getDocs(qFamille);
             parentEnfantsList = [];
-            for(const doc of snapFamille.docs) {
-                const d = doc.data();
-                parentEnfantsList.push({
-                    id: d.eleveId,
-                    nom: `${d.nom} ${d.postnom || ''} ${d.prenom || ''}`.trim(),
-                    classe: d.classe,
-                    code: d.parentCode
-                });
+            for(const docF of snapFamille.docs) {
+                const d = docF.data();
+                parentEnfantsList.push({ id: d.eleveId, nom: `${d.nom} ${d.prenom||''}`.trim(), classe: d.classe, code: d.parentCode });
             }
             parentEnfantActif = parentEnfantsList.find(e => e.code === code);
-            parentCodeValide = code;
-            parentAttenteCode = false;
+            parentAttenteCode = false; parentCodeValide = code;
             parentInfoEleve.innerHTML = `👤 ${parentEnfantActif.nom} | ${parentEnfantActif.classe}`;
             parentSwitchBtn.style.display = "flex";
-            const bubbles = parentChatMessages.querySelectorAll('.parent-msg.bot .bubble');
-            const nbEnfants = parentEnfantsList.length;
-            let messageEnfants = "";
-            if(nbEnfants > 1) {
-                messageEnfants = ` J'ai trouvé ${nbEnfants} enfant(s). Tapez "mes enfants" pour voir la liste complète.`;
-            }
-            bubbles[bubbles.length-1].innerHTML = `Code accepté. Vous consultez ${parentEnfantActif.nom} (${parentEnfantActif.classe}).${messageEnfants}`;
+            let messageEnfants = parentEnfantsList.length > 1 ? ` J'ai trouvé ${parentEnfantsList.length} enfant(s). Tapez "mes enfants" pour voir la liste.` : "";
+            bubbleBot.innerHTML = `Code accepté. Vous consultez ${parentEnfantActif.nom} (${parentEnfantActif.classe}).${messageEnfants}`;
             parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
             return;
         }
         const question = message.toLowerCase();
         let reponse = "";
-        const switchMatch = message.match(/changer\s+(\d{6}|\d+)/i);
-        if(switchMatch) {
-            const target = switchMatch[1];
-            let nouvelEnfant = null;
-            if(target.length === 6) {
-                nouvelEnfant = parentEnfantsList.find(e => e.code === target);
-            } else {
-                const index = parseInt(target) - 1;
-                if(index >= 0 && index < parentEnfantsList.length) nouvelEnfant = parentEnfantsList[index];
-            }
-            if(nouvelEnfant) {
-                parentEnfantActif = nouvelEnfant;
-                parentInfoEleve.innerHTML = `👤 ${parentEnfantActif.nom} | ${parentEnfantActif.classe}`;
-                reponse = `Vous consultez maintenant ${parentEnfantActif.nom} (${parentEnfantActif.classe}).`;
-            } else {
-                reponse = `Enfant non trouvé. Tapez "mes enfants" pour voir la liste.`;
-            }
-        }
-        else if(question.includes("mes enfants") || question.includes("mes gosses") || question.includes("liste enfants")) {
+        if(question === "mes enfants" || question === "mes gosses") {
             let liste = "👨‍👩‍👧‍👦 Vos enfants :\n\n";
             for(let i=0; i<parentEnfantsList.length; i++) {
-                const e = parentEnfantsList[i];
-                const actuel = (e.code === parentEnfantActif.code) ? " ✅ (actuel)" : "";
-                liste += `${i+1}. ${e.nom} (${e.classe}) - code ${e.code}${actuel}\n`;
+                const e = parentEnfantsList[i]; const actuel = (e.code === parentEnfantActif.code) ? " ✅ (actuel)" : "";
+                liste += `${i+1}. ${e.nom} (${e.classe})${actuel}\n`;
             }
-            liste += "\nPour changer, dites 'changer 1' ou 'changer 482917'";
+            liste += "\nPour changer, tapez 'changer 1' ou 'changer 482917'";
             reponse = liste;
         }
-        else if(question.includes("payer") || question.includes("frais") || question.includes("reste") || question.includes("solde") || question.includes("impayé") || question.includes("minerval")) {
-            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${parentEnfantActif.id}`);
-            const snap = await getDoc(ref);
-            if(snap.exists()) {
-                const data = snap.data();
-                const paiements = data.paiements || {};
-                const minerval = data.minerval || 45000;
-                const totalAnnuel = minerval * 10;
-                let totalPaye = 0;
-                const moisImpayes = [];
-                for(let mois of moisListe) {
-                    const montant = paiements[mois]?.montant || 0;
-                    totalPaye += montant;
-                    if(montant < minerval && !data.exonere) moisImpayes.push(mois);
-                }
-                const reste = totalAnnuel - totalPaye;
-                if(data.exonere) {
-                    reponse = `${parentEnfantActif.nom} est exonéré. Aucun frais à payer.`;
-                } else {
-                    reponse = `Il reste ${reste.toLocaleString()} FC sur ${totalAnnuel.toLocaleString()} FC. ${moisImpayes.length > 0 ? `Mois impayés : ${moisImpayes.join(", ")}.` : "Tout est payé."}`;
-                }
-            } else {
-                reponse = `Aucune info financière trouvée.`;
-            }
+        else if(question.includes("merci")) reponse = "De rien.";
+        else if(question.includes("au revoir") || question.includes("bye")) { reponse = "À bientôt !"; setTimeout(() => parentModalOverlay.classList.remove('active'), 2000); }
+        else {
+            const contexte = await preparerContexteEleve(parentEnfantActif.id);
+            reponse = await repondreAvecIA(message, contexte);
         }
-        else if(question.includes("note") || question.includes("point") || question.includes("épreuve") || question.includes("examen") || question.includes("résultat")) {
-            const matchMatiere = question.match(/(math|maths|français|anglais|physique|chimie|histoire|géo|biologie|philo)/i);
-            const toutesFiches = await getAllComptaEleves();
-            const notes = [];
-            for(const f of toutesFiches) {
-                if(f.school !== SCHOOL_PREFIX) continue;
-                if(f.id !== parentEnfantActif.id) continue;
-                for(let periode = 1; periode <= 4; periode++) {
-                    const epreuves = f.epreuvesParPeriode?.[periode] || [];
-                    const notesPeriode = f.notes?.[`p${periode}`] || [];
-                    for(let i=0; i<epreuves.length; i++) {
-                        notes.push({
-                            matiere: f.cours,
-                            epreuve: epreuves[i].nom,
-                            note: notesPeriode[i] || 0,
-                            max: epreuves[i].max
-                        });
-                    }
-                }
-            }
-            if(notes.length === 0) {
-                reponse = `Aucune note trouvée pour ${parentEnfantActif.nom}.`;
-            } else if(matchMatiere) {
-                const notesFiltrees = notes.filter(n => n.matiere.toLowerCase().includes(matchMatiere[0].toLowerCase()));
-                if(notesFiltrees.length > 0) {
-                    const n = notesFiltrees[0];
-                    reponse = `${n.note}/${n.max} à ${n.epreuve} de ${n.matiere}.`;
-                } else {
-                    reponse = `Rien trouvé en ${matchMatiere[0]}.`;
-                }
-            } else {
-                const toutesNotes = notes.map(n => `${n.matiere} : ${n.note}/${n.max}`).slice(0,3).join(", ");
-                reponse = `Notes récentes : ${toutesNotes}.${notes.length > 3 ? "..." : ""}`;
-            }
-        }
-        else if(question.includes("moyenne") || question.includes("p1") || question.includes("p2") || question.includes("p3") || question.includes("p4")) {
-            reponse = `Les moyennes ne sont pas encore calculées. Le professeur s'en occupe.`;
-        }
-        else if(question.includes("prochaine") || question.includes("échéance") || question.includes("quand payer")) {
-            const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${parentEnfantActif.id}`);
-            const snap = await getDoc(ref);
-            if(snap.exists()) {
-                const data = snap.data();
-                const paiements = data.paiements || {};
-                const minerval = data.minerval || 45000;
-                for(let mois of moisListe) {
-                    const montant = paiements[mois]?.montant || 0;
-                    if(montant < minerval && !data.exonere) {
-                        reponse = `Prochain paiement : ${mois} (${minerval.toLocaleString()} FC).`;
-                        break;
-                    }
-                }
-                if(!reponse) reponse = `Tout est à jour. Prochaine échéance le mois prochain.`;
-            } else {
-                reponse = `Info non disponible.`;
-            }
-        }
-        else if(question.includes("merci")) {
-            reponse = `De rien. À bientôt !`;
-        }
-        else if(question.includes("au revoir") || question.includes("bye")) {
-            reponse = `À bientôt !`;
-            setTimeout(() => parentModalOverlay.classList.remove('active'), 2000);
-        }
-        else if(!reponse && (question.includes("météo") || question.includes("foot") || question.includes("recette"))) {
-            reponse = `Je ne peux répondre qu'aux questions sur l'école. Notes, frais, paiements...`;
-        }
-        else if(!reponse) {
-            reponse = `Je n'ai pas compris. Vous pouvez demander les notes, les paiements, ou taper "mes enfants".`;
-        }
-        const bubbles = parentChatMessages.querySelectorAll('.parent-msg.bot .bubble');
-        bubbles[bubbles.length-1].innerHTML = reponse;
+        bubbleBot.innerHTML = ''; await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessages.scrollTop = parentChatMessages.scrollHeight;
     };
 }
-await chargerConfigEcole();
-await getAllComptaEleves();
+async function initApp() {
+    if(isAppInitialized) return;
+    await chargerOptions(); await chargerTarifs();
+    await getAllComptaEleves();
+    if(localEleves.length === 0) {
+        await ajouterEleveCompta("NGENDA", "Flory", "Jean", "2005-01-01", "Kinshasa", "Jean Pierre", "Marie Claire", "Kinshasa", "M", "0812345678", "4eme Annee", "CG", false, "", "");
+        await ajouterEleveCompta("NGENDA", "Flory", "Marie", "2008-03-15", "Kinshasa", "Jean Pierre", "Marie Claire", "Kinshasa", "F", "0812345679", "2eme Annee", "Sciences", false, "", "");
+        await ajouterEleveCompta("KAMANDA", "Jeanne", "Paul", "2006-02-02", "Lubumbashi", "Paul", "Joséphine", "Lubumbashi", "M", "0898765432", "3eme Annee", "CG", false, "", "");
+    }
+    await afficherListeEleves(); await mettreAJourStats(); await setupStatCards();
+    initTabsEvents(); initFilterEvents(); await afficherParentCodes();
+    isAppInitialized = true;
+}
+await chargerConfigEcole(); await initApp();
 document.getElementById("loginCode").focus();
 window.updatePreview = updatePreview;
 </script>
