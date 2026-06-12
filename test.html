@@ -1,4 +1,6 @@
-html
+Voici le code HTML modifié avec l'intégration complète des instructions pour l'espace parent :
+
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -523,7 +525,7 @@ function afficherModalCours(p){let m=document.createElement('div');m.className='
 async function sauvegarderHoraireFirebase(){if(!currentProf)return;try{await setDoc(doc(db, `${SCHOOL_PREFIX}_horaires`, "horaire_"+currentProf.id),{profId:currentProf.id,horaire:horaireProf,lastUpdated:new Date()});toast("Horaire sauvegardé dans le cloud",'success');}catch(e){console.error(e);await addPendingSync('saveHoraire',{profId:currentProf.id,horaire:horaireProf});toast("Sauvegarde en attente (hors ligne)",'warning');}}
 async function chargerHoraireFirebase(){if(!currentProf)return;try{const docRef=await getDoc(doc(db, `${SCHOOL_PREFIX}_horaires`, "horaire_"+currentProf.id));if(docRef.exists()){const data=docRef.data();horaireProf=data.horaire||horaireProf;}else if(localStorage.getItem('gloria_horaire_'+currentProf.id)){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);horaireProf=JSON.parse(s);await sauvegarderHoraireFirebase();}}catch(e){console.error(e);if(localStorage.getItem('gloria_horaire_'+currentProf.id)){horaireProf=JSON.parse(localStorage.getItem('gloria_horaire_'+currentProf.id));}}afficherHoraire();afficherConfigHoraire();}
 function afficherHoraire(){let c=document.getElementById('horaireContainer');if(!c)return;let j=getJourActuel();if(j.estWeekend){c.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:64px;margin-bottom:16px;">🎉</div><div style="font-size:24px;font-weight:bold;color:#60a5fa;">WEEK-END</div><div style="color:#cbd5e1;margin-top:8px;">Aucun cours</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let h=horaireProf[j.code]||[];if(h.length===0){c.innerHTML='<div class="empty-state">Aucun horaire configuré<br><small>Allez dans Paramètres</small><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let html='<div class="horaire-list-container">';h.forEach(p=>{let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){html+='<div class="horaire-item horaire-pause"><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">PAUSE</div></div>';}else{let classeAffichee=p.classe||"Non définie";let optionAffichee=p.option||"-";let coursAffiche=p.cours||"Non défini";html+='<div class="horaire-item" onclick=\'window.afficherModalCours('+JSON.stringify({libelle:ht+" HEURE",classe:classeAffichee,option:optionAffichee,cours:coursAffiche})+')\'><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">'+classeAffichee+' | '+optionAffichee+' | '+coursAffiche+'</div></div>';}});html+='</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div>';c.innerHTML=html;}
-function afficherConfigHoraire(){let c=document.getElementById('configHoraireList');if(!c)return;let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];c.innerHTML='';h.sort((a,b)=>a.heure-b.heure);h.forEach((p,idx)=>{let div=document.createElement('div');div.className='horaire-config-item';let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';}else{div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><select id="conf_classe_'+idx+'" style="width:110px;"><option value="">Classe</option>'+document.getElementById('classeSelect').innerHTML+'</select><select id="conf_option_'+idx+'" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_'+idx+'" placeholder="Cours" value="'+escapeHtml(p.cours||'')+'" style="width:120px;"><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';let clsSel=div.querySelector('#conf_classe_'+idx);if(clsSel&&p.classe)clsSel.value=p.classe;let optSel=div.querySelector('#conf_option_'+idx);if(optSel){let opts=optionsParClasse[p.classe]||[];optSel.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optSel.innerHTML+='<option value="'+escapeHtml(o)+'" '+(p.option===o?'selected':'')+'>'+escapeHtml(o)+'</option>';});}}c.appendChild(div);div.querySelector('.btn-danger')?.addEventListener('click',()=>{horaireProf[jour].splice(idx,1);horaireProf[jour].forEach((h2,i2)=>h2.heure=i2+1);afficherConfigHoraire();});let cls=div.querySelector('#conf_classe_'+idx);if(cls)cls.onchange=function(){let optDiv=div.querySelector('#conf_option_'+idx);if(optDiv){let opts=optionsParClasse[this.value]||[];optDiv.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optDiv.innerHTML+='<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>');});}};});}
+function afficherConfigHoraire(){let c=document.getElementById('configHoraireList');if(!c)return;let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];c.innerHTML='';h.sort((a,b)=>a.heure-b.heure);h.forEach((p,idx)=>{let div=document.createElement('div');div.className='horaire-config-item';let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';}else{div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><select id="conf_classe_'+idx+'" style="width:110px;"><option value="">Classe</option>'+document.getElementById('classeSelect').innerHTML+'</select><select id="conf_option_'+idx+'" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_'+idx+'" placeholder="Cours" value="'+escapeHtml(p.cours||'')+'" style="width:120px;"><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';let clsSel=div.querySelector('#conf_classe_'+idx);if(clsSel&&p.classe)clsSel.value=p.classe;let optSel=div.querySelector('#conf_option_'+idx);if(optSel){let opts=optionsParClasse[p.classe]||[];optSel.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optSel.innerHTML+='<option value="'+escapeHtml(o)+'" '+(p.option===o?'selected':'')+'>'+escapeHtml(o)+'</option>';});}}c.appendChild(div);div.querySelector('.btn-danger')?.addEventListener('click',()=>{horaireProf[jour].splice(idx,1);horaireProf[jour].forEach((h2,i2)=>h2.heure=i2+1);afficherConfigHoraire();});let cls=div.querySelector('#conf_classe_'+idx);if(cls)cls.onchange=function(){let optDiv=div.querySelector('#conf_option_'+idx);if(optDiv){let opts=optionsParClasse[this.value]||[];optDiv.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optDiv.innerHTML+='<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>';});}};});}
 function sauvegarderHoraireAuto(){let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];for(let i=0;i<h.length;i++){if(!h[i].pause){let cls=document.getElementById('conf_classe_'+i);let opt=document.getElementById('conf_option_'+i);let crs=document.getElementById('conf_cours_'+i);if(cls)h[i].classe=cls.value;if(opt)h[i].option=opt.value;if(crs)h[i].cours=crs.value;}}if(currentProf){localStorage.setItem('gloria_horaire_'+currentProf.id,JSON.stringify(horaireProf));sauvegarderHoraireFirebase();}afficherHoraire();toast("Horaire mis à jour",'success');}
 function ajouterHeure(){let jour=document.getElementById('configJourSelect').value;let nh=(horaireProf[jour]?.length||0)+1;horaireProf[jour].push({heure:nh,classe:"",option:"",cours:"",pause:false});afficherConfigHoraire();}
 function chargerHoraireProf(){if(currentProf){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);if(s){try{let p=JSON.parse(s);Object.assign(horaireProf,p);}catch(e){}}}if(horaireProf.lundi.length===0){horaireProf={lundi:[{heure:1,classe:"4ème Année",option:"CG",cours:"Mathématiques",pause:false},{heure:2,classe:"3ème Année",option:"HP",cours:"Français",pause:false},{heure:3,pause:true},{heure:4,classe:"2ème Année",option:"Sciences",cours:"Physique",pause:false},{heure:5,classe:"1ère Année",option:"TCC",cours:"Anglais",pause:false}],mardi:[],mercredi:[],jeudi:[],vendredi:[]};}afficherHoraire();afficherConfigHoraire();}
@@ -557,7 +559,7 @@ function getExamMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2);else re
 function getTotalSemestreMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2)+getExamMax(1);else return getPeriodeMax(3)+getPeriodeMax(4)+getExamMax(2);}
 function getTotalAnnuelMax(){return getTotalSemestreMax(1)+getTotalSemestreMax(2);}
 function calcMoy(p, notes){let eps = currentFiche.epreuvesParPeriode?.[p] || [];if(!eps.length || !notes?.length) return 0;let sommeNotes = 0, sommeMax = 0;for(let i = 0; i < eps.length; i++){sommeNotes += (notes[i] || 0);sommeMax += (eps[i].max || 1);}if(sommeMax === 0) return 0;let noteMaxPeriode = currentFiche.p1Max || 20;let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;return Math.min(noteMaxPeriode, Math.round(moyenne));}
-function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<tr><td class="empty-state">Aucun élève inscrit</td></tr>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</tr>';tb.innerHTML+=r;}}
+function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<tr><td class="empty-state">Aucun élève inscrit</td></tr>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</table>';tb.innerHTML+=r;}}
 window.updNoteField=function(i,f,v){if(f==='nom'&&(!v||v.trim()==='')){toast("Le nom ne peut pas être vide",'error');return;}currentFiche.eleves[i][f]=v;debounceSave();updateExportSelect();refreshGroupes();rafraichirGroupesPourCotation();};
 window.updNote=function(i,p,epi,v){let va=parseFloat(v)||0;let me=currentFiche.epreuvesParPeriode[p]?.[epi]?.max||20;if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[i].notes['p'+p])currentFiche.eleves[i].notes['p'+p]=[];currentFiche.eleves[i].notes['p'+p][epi]=va;afficherCotation();debounceSave();refreshGroupes();};
 window.updExam=function(i,s,v){let va=parseFloat(v)||0;let me=(s===1)?getExamMax(1):getExamMax(2);if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(s===1)currentFiche.eleves[i].notes.exam1=va;else currentFiche.eleves[i].notes.exam2=va;afficherCotation();debounceSave();refreshGroupes();};
@@ -747,7 +749,7 @@ function mettreAJourEpreuvesSelect(){let s=document.getElementById('groupeEpreuv
 document.getElementById('groupePeriodeSelect')?.addEventListener('change',function(){mettreAJourEpreuvesSelect();});
 document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click',function(){if(!groupesActuels.length){toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord",'error');return;}let p=parseInt(document.getElementById('groupePeriodeSelect').value);let ei=parseInt(document.getElementById('groupeEpreuveSelect').value);let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(ei>=eps.length){toast("Épreuve non valide",'error');return;}let nme=eps[ei].max;let app=0;groupesActuels.forEach(function(g,gIdx){let inp=document.getElementById('groupeNote_'+gIdx);let nr=parseFloat(inp?.value);if(isNaN(nr))return;let nf=Math.min(nr,nme);if(nf<0)nf=0;localStorage.setItem('groupe_note_'+currentFicheId+'_'+gIdx,nf);g.forEach(function(eleve){let eIdx=currentFiche.eleves.findIndex(function(e){return e.id===eleve.id;});if(eIdx!==-1){if(!currentFiche.eleves[eIdx].notes)currentFiche.eleves[eIdx].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[eIdx].notes['p'+p])currentFiche.eleves[eIdx].notes['p'+p]=[];currentFiche.eleves[eIdx].notes['p'+p][ei]=nf;app++;}});});if(app>0){saveCurrentFiche();afficherCotation();toast(app+" élève(s) noté(s)",'success');}else{toast("Aucune note appliquée",'warning');}});
 function alimenterClassement(){let s=document.getElementById('epreuveClassementSelect');if(!s||!currentFiche)return;s.innerHTML='<option value="">-- Sélectionner une période --</option>';for(let p=1;p<=4;p++){if(currentFiche.epreuvesParPeriode?.[p]?.length)s.innerHTML+='<option value="'+p+'">Période '+p+'</option>';}s.onchange=function(){if(s.value)afficherClassement(parseInt(s.value));};}
-function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead><tr><th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th><tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)+'</td><td style="text-align:center">'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></tr>';document.getElementById('classementEpreuve').innerHTML=h;}
+function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead><tr><th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th></tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)+'</td><td style="text-align:center">'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></table>';document.getElementById('classementEpreuve').innerHTML=h;}
 document.getElementById('configJourSelect')?.addEventListener('change',()=>afficherConfigHoraire());
 document.getElementById('ajouterHeureBtn')?.addEventListener('click',()=>ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click',()=>sauvegarderHoraireAuto());
@@ -1521,7 +1523,16 @@ ${liste.join('\n')}
     for(const ep of epreuves) sommeNotes += ep.noteSur20;
     const moyenne = Math.round((sommeNotes / epreuves.length) * 10) / 10;
     
+    let appreciation = "";
+    if(moyenne >= 16) appreciation = "Félicitations ! Excellents résultats";
+    else if(moyenne >= 14) appreciation = "Très bien ! Continuez comme ça";
+    else if(moyenne >= 12) appreciation = "Bien ! Peut mieux faire avec un peu plus d'effort";
+    else if(moyenne >= 10) appreciation = "Passable. Encore des progrès possibles";
+    else appreciation = "Des efforts à fournir. On peut y arriver ensemble";
+    
     resultat += `📊 Moyenne générale : ${moyenne}/20
+
+${appreciation}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1562,6 +1573,70 @@ Que souhaitez-vous faire ?`;
         return await chercherNotesParNom(msg);
     }
     
+    const msgLower = msg.toLowerCase();
+    
+    if(msgLower === "bonjour" || msgLower === "salut" || msgLower === "coucou" || msgLower === "hello") {
+        const heures = new Date().getHours();
+        let salutation = "Bonjour";
+        if(heures >= 18 || heures < 5) salutation = "Bonsoir";
+        else if(heures >= 12) salutation = "Bon après-midi";
+        return `${salutation} 👋
+
+Rappel : vous pouvez obtenir vos informations de deux façons :
+🔑 Entrez un code à 6 chiffres pour voir les frais
+📝 Entrez le nom complet d'un élève pour voir ses notes
+
+Que souhaitez-vous faire ?`;
+    }
+    
+    if(msgLower === "merci" || msgLower === "merci beaucoup" || msgLower === "c'est gentil") {
+        return `De rien ! Avec plaisir. 😊
+
+Avez-vous besoin d'autre chose ?
+🔑 Code 6 chiffres pour les frais
+📝 Nom complet d'élève pour les notes`;
+    }
+    
+    if(msgLower === "au revoir" || msgLower === "bye" || msgLower === "à bientôt" || msgLower === "ciao") {
+        return `Au revoir ! 👋
+
+N'hésitez pas à revenir si vous avez besoin d'informations sur les frais ou les notes de votre enfant.
+
+Bonne journée ! 😊`;
+    }
+    
+    if(msgLower === "aide" || msgLower === "help" || msgLower === "je comprends pas" || msgLower === "quoi faire" || msgLower === "comment ça marche") {
+        return `Pas d'inquiétude, c'est très simple ! 😊
+
+Deux possibilités :
+
+1️⃣ Tapez un CODE À 6 CHIFFRES (exemple : 123456)
+   → Vous verrez la situation financière (minerval, paiements, etc.)
+
+2️⃣ Tapez le NOM COMPLET de l'élève (exemple : KASONGO Jean)
+   → Vous verrez les notes de l'élève
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Que souhaitez-vous faire ?`;
+    }
+    
+    if(msgLower.includes("frais") || msgLower.includes("argent") || msgLower.includes("minerval") || msgLower.includes("paiement") || msgLower.includes("facture")) {
+        return `Pour voir les frais scolaires, veuillez entrer un code à 6 chiffres.
+
+Exemple : 123456
+
+Entrez votre code maintenant.`;
+    }
+    
+    if(msgLower.includes("note") || msgLower.includes("notes") || msgLower.includes("résultat") || msgLower.includes("bulletin")) {
+        return `Pour voir les notes d'un élève, veuillez entrer son nom complet.
+
+Exemple : KASONGO Jean
+
+Entrez le nom de l'élève maintenant.`;
+    }
+    
     return `👋 Bienvenue dans l'espace d'information
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1582,6 +1657,41 @@ Exemples :
 Que souhaitez-vous faire ?`;
 }
 
+// Fonctions pour la comptabilité
+async function getAllComptaEleves() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"));
+        const eleves = [];
+        snap.forEach(doc => {
+            const data = doc.data();
+            if(data._type === "compta_eleve") {
+                eleves.push({ id: doc.id, ...data });
+            }
+        });
+        return eleves;
+    } catch(e) {
+        console.error("Erreur chargement compta:", e);
+        return [];
+    }
+}
+
+async function getAllFiches() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles", SCHOOL_PREFIX, "fiches"));
+        const fiches = [];
+        snap.forEach(doc => {
+            const data = doc.data();
+            if(!data._type && data.profId) {
+                fiches.push({ id: doc.id, ...data });
+            }
+        });
+        return fiches;
+    } catch(e) {
+        console.error("Erreur chargement fiches:", e);
+        return [];
+    }
+}
+
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -1594,24 +1704,8 @@ if(parentFloatingBtnNew) {
     parentFloatingBtnNew.onclick = async () => {
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">👋 Bienvenue dans l'espace d'information
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Deux façons d'obtenir des informations :
-
-🔑 Entrez un code à 6 chiffres → Frais scolaires
-📝 Entrez un nom complet d'élève → Notes
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Exemples :
-   Code : 123456
-   Nom : KASONGO Jean
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Que souhaitez-vous faire ?</div></div>`;
+        const reponse = await preparerContexteEtRepondre("", true);
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">${reponse.replace(/\n/g, '<br>')}</div></div>`;
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
     };
@@ -1638,9 +1732,17 @@ if(parentSendBtnNew) {
         
         const reponse = await preparerContexteEtRepondre(message);
         bubbleBot.innerHTML = '';
-        await typeWriterEffect(bubbleBot, reponse.replace(/\n/g, '<br>'), 12);
+        bubbleBot.innerHTML = reponse.replace(/\n/g, '<br>');
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
     };
+}
+if(parentQuestionInputNew) {
+    parentQuestionInputNew.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            parentSendBtnNew.click();
+        }
+    });
 }
 
 document.getElementById('assistantGenererBtn').addEventListener('click', function() {
@@ -1722,6 +1824,40 @@ document.getElementById('assistantPdfBtn').addEventListener('click', function() 
     pdf.save("Epreuve_generée.pdf");
     toast("PDF de l'épreuve généré !", "success");
 });
+
+async function getAllComptaEleves() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"));
+        const eleves = [];
+        snap.forEach(doc => {
+            const data = doc.data();
+            if(data._type === "compta_eleve") {
+                eleves.push({ id: doc.id, ...data });
+            }
+        });
+        return eleves;
+    } catch(e) {
+        console.error("Erreur chargement compta:", e);
+        return [];
+    }
+}
+
+async function getAllFiches() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles", SCHOOL_PREFIX, "fiches"));
+        const fiches = [];
+        snap.forEach(doc => {
+            const data = doc.data();
+            if(!data._type && data.profId) {
+                fiches.push({ id: doc.id, ...data });
+            }
+        });
+        return fiches;
+    } catch(e) {
+        console.error("Erreur chargement fiches:", e);
+        return [];
+    }
+}
 
 </script>
 </body>
