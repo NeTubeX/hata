@@ -1495,7 +1495,90 @@ if(parentSendBtnNew) {
         }
     };
 }
+
+// ========== AJOUT DU COMPORTEMENT POUR LE BOUTON GÉNÉRER L'ÉPREUVE ==========
+document.getElementById('assistantGenererBtn').addEventListener('click', function() {
+    const matiere = document.getElementById('assistantMatiere').value;
+    const classe = document.getElementById('assistantClasse').value;
+    const theme = document.getElementById('assistantTheme').value;
+    const nbQuestions = document.getElementById('assistantNbQuestions').value;
+    const bareme = document.getElementById('assistantBareme').value;
+    const type = document.getElementById('assistantType').value;
+    const difficulte = document.getElementById('assistantDifficulte').value;
+
+    if (!matiere || !classe) {
+        toast("Veuillez sélectionner la matière et la classe", "error");
+        return;
+    }
+
+    let epreuveHtml = `<div style="font-family: 'Inter', sans-serif; padding: 10px;">`;
+    epreuveHtml += `<h2 style="color: #fff; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">📄 Épreuve de ${matiere}</h2>`;
+    epreuveHtml += `<p style="color: #cbd5e1;"><strong>Classe :</strong> ${classe}</p>`;
+    if(theme) epreuveHtml += `<p style="color: #cbd5e1;"><strong>Thème :</strong> ${theme}</p>`;
+    epreuveHtml += `<p style="color: #cbd5e1;"><strong>Barème total :</strong> ${bareme} points</p>`;
+    epreuveHtml += `<p style="color: #cbd5e1;"><strong>Nombre de questions :</strong> ${nbQuestions}</p>`;
+    epreuveHtml += `<p style="color: #cbd5e1;"><strong>Type :</strong> ${type === 'standard' ? 'Réponse courte' : type === 'qcm' ? 'QCM' : type === 'vf' ? 'Vrai/Faux' : 'Mixte'}</p>`;
+    epreuveHtml += `<p style="color: #cbd5e1;"><strong>Difficulté :</strong> ${difficulte}</p>`;
+    epreuveHtml += `<hr style="border-color: #334155; margin: 20px 0;">`;
+
+    for(let i=1; i<=nbQuestions; i++) {
+        let pointsParQuestion = Math.round(bareme / nbQuestions);
+        if(i === nbQuestions) {
+            let total = pointsParQuestion * (nbQuestions-1);
+            pointsParQuestion = bareme - total;
+        }
+        epreuveHtml += `<div style="margin-bottom: 20px; background: #1e293b; padding: 15px; border-radius: 12px;">`;
+        epreuveHtml += `<p style="color: #60a5fa; font-weight: bold;">Question ${i} (${pointsParQuestion} points)</p>`;
+        
+        if(type === 'qcm') {
+            epreuveHtml += `<p style="color: #e2e8f0;">[Question QCM à définir en fonction du thème]</p>`;
+            epreuveHtml += `<div style="margin-left: 20px; color: #cbd5e1;"><input type="radio" name="q${i}" id="q${i}_a"><label for="q${i}_a"> Option A</label><br>`;
+            epreuveHtml += `<input type="radio" name="q${i}" id="q${i}_b"><label for="q${i}_b"> Option B</label><br>`;
+            epreuveHtml += `<input type="radio" name="q${i}" id="q${i}_c"><label for="q${i}_c"> Option C</label><br>`;
+            epreuveHtml += `<input type="radio" name="q${i}" id="q${i}_d"><label for="q${i}_d"> Option D</label></div>`;
+        } 
+        else if(type === 'vf') {
+            epreuveHtml += `<p style="color: #e2e8f0;">[Affirmation à définir en fonction du thème]</p>`;
+            epreuveHtml += `<div style="margin-left: 20px; color: #cbd5e1;"><input type="radio" name="vf${i}" value="vrai"> Vrai<br>`;
+            epreuveHtml += `<input type="radio" name="vf${i}" value="faux"> Faux</div>`;
+        }
+        else {
+            epreuveHtml += `<p style="color: #e2e8f0;">[Question ${i} à définir en fonction du thème]</p>`;
+            epreuveHtml += `<textarea rows="2" style="width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #fff; padding: 8px;" placeholder="Réponse de l'élève..."></textarea>`;
+        }
+        epreuveHtml += `</div>`;
+    }
+    epreuveHtml += `<p style="color: #cbd5e1; text-align: center; margin-top: 20px;">📅 Année scolaire 2026-2027</p>`;
+    epreuveHtml += `</div>`;
+
+    document.getElementById('assistantResultContent').innerHTML = epreuveHtml;
+    document.getElementById('assistantResultArea').style.display = 'block';
+    toast("Épreuve générée avec succès !", "success");
+});
+
+document.getElementById('closeEpreuveBtn').addEventListener('click', function() {
+    document.getElementById('assistantResultArea').style.display = 'none';
+    document.getElementById('assistantResultContent').innerHTML = '';
+});
+
+document.getElementById('assistantPdfBtn').addEventListener('click', function() {
+    const contenu = document.getElementById('assistantResultContent').innerHTML;
+    if(!contenu) {
+        toast("Aucune épreuve à exporter", "error");
+        return;
+    }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    pdf.setFont("helvetica");
+    pdf.setFontSize(12);
+    let yPosition = 20;
+    const lignes = pdf.splitTextToSize(contenu.replace(/<[^>]*>/g, ''), 170);
+    pdf.text(lignes, 20, yPosition);
+    pdf.save("Epreuve_generée.pdf");
+    toast("PDF de l'épreuve généré !", "success");
+});
+// ========== FIN DE L'AJOUT ==========
+
 </script>
 </body>
 </html>
-```
