@@ -1,213 +1,564 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Test IA - Vision</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0a0e1a; font-family: system-ui, -apple-system, sans-serif; padding: 20px; min-height: 100vh; }
-.container { max-width: 500px; margin: 0 auto; }
-h1 { color: #fff; font-size: 24px; text-align: center; margin-bottom: 8px; }
-.sub { color: #94a3b8; font-size: 14px; text-align: center; margin-bottom: 30px; }
-.card { background: #1e293b; border-radius: 24px; padding: 24px; border: 1px solid #334155; margin-bottom: 20px; }
-.label { color: #94a3b8; font-size: 12px; margin-bottom: 12px; letter-spacing: 1px; }
-.image-preview { 
-    background: #0f172a; 
-    border-radius: 16px; 
-    padding: 20px; 
-    text-align: center; 
-    margin: 15px 0;
-    min-height: 150px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px dashed #334155;
-}
-.image-preview img { max-width: 100%; border-radius: 12px; max-height: 250px; }
-input[type="file"] { 
-    width: 100%; 
-    padding: 12px; 
-    background: #0f172a; 
-    border: 1px solid #334155; 
-    border-radius: 12px;
-    color: #e2e8f0;
-    cursor: pointer;
-}
-.btn { 
-    padding: 14px 20px; 
-    border-radius: 60px; 
-    border: none; 
-    font-weight: 600; 
-    font-size: 15px;
-    cursor: pointer; 
-    width: 100%;
-    margin-top: 12px;
-    transition: opacity 0.2s;
-}
-.btn:active { opacity: 0.7; }
-.btn-primary { background: #3b82f6; color: #fff; }
-.btn-success { background: #10b981; color: #fff; }
-.btn-secondary { background: #475569; color: #fff; }
-.reponse { 
-    background: #0f172a; 
-    border-radius: 16px; 
-    padding: 16px; 
-    margin-top: 20px;
-    color: #e2e8f0; 
-    line-height: 1.5;
-    font-size: 14px;
-}
-.loader {
-    display: inline-block;
-    width: 18px;
-    height: 18px;
-    border: 2px solid #3b82f6;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    margin-right: 8px;
-    vertical-align: middle;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.succes { color: #10b981; }
-.erreur { color: #ef4444; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>NETUBEX - Calendrier Stratégique Officiel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #e2e8f0;
+            padding: 20px 16px 100px 16px;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Bouton d'export */
+        .pdf-fab {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a5d3c;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 1.3rem;
+            border-radius: 60px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            font-family: inherit;
+        }
+        .pdf-fab:active { transform: translateX(-50%) scale(0.97); }
+
+        /* Document */
+        #document {
+            background: white;
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            color: black;
+        }
+
+        .page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto 10mm auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            page-break-after: always;
+            break-after: page;
+        }
+        .page:last-child { page-break-after: auto; break-after: auto; margin-bottom: 0; }
+        .page-content { padding: 12mm 14mm; }
+
+        /* ========== POLICES TRÈS GRANDES ========== */
+        
+        .header {
+            text-align: center;
+            margin-bottom: 12mm;
+            padding-bottom: 8mm;
+            border-bottom: 3px solid black;
+        }
+        .header h1 { 
+            font-size: 38px; 
+            font-weight: 800; 
+            color: black; 
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .header h2 { 
+            font-size: 20px; 
+            font-weight: 700; 
+            color: black; 
+            letter-spacing: 1.5px; 
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .separator-line {
+            border: none;
+            border-top: 2px solid black;
+            margin: 7mm 0;
+        }
+        
+        .double-separator {
+            border: none;
+            border-top: 3px double black;
+            margin: 7mm 0;
+        }
+
+        .section-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: black;
+            margin: 10mm 0 6mm 0;
+            letter-spacing: 1px;
+        }
+
+        .subsection-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: black;
+            background: #e0e0e0;
+            padding: 6px 12px;
+            margin: 7mm 0 5mm 0;
+            border-left: 5px solid black;
+        }
+
+        .phase-title {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 6mm 0 4mm 0;
+            color: black;
+            border-bottom: 1px solid #aaa;
+            padding-bottom: 3px;
+        }
+
+        .date-line {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 4mm 0 5mm 0;
+            color: black;
+        }
+
+        .poles-block {
+            margin: 5mm 0 4mm 0;
+            padding-left: 4mm;
+        }
+
+        .pole-item {
+            margin: 5mm 0;
+        }
+
+        .pole-name {
+            font-weight: 800;
+            font-size: 18px;
+            margin-bottom: 3mm;
+            color: black;
+        }
+
+        .pole-list {
+            list-style: none;
+            padding-left: 8mm;
+        }
+        .pole-list li {
+            font-size: 16px;
+            margin-bottom: 4px;
+            line-height: 1.45;
+            color: black;
+            position: relative;
+        }
+        .pole-list li::before {
+            content: "-";
+            position: absolute;
+            left: -6mm;
+            color: black;
+            font-weight: bold;
+        }
+
+        .result-line {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 5mm 0 3mm 0;
+            color: black;
+        }
+
+        .result-check {
+            font-size: 16px;
+            font-weight: 700;
+            margin-top: 4mm;
+            color: black;
+        }
+
+        .synth-list {
+            margin: 6mm 0;
+        }
+        .synth-item {
+            font-size: 17px;
+            margin: 4mm 0;
+            line-height: 1.45;
+        }
+
+        .closure-block {
+            margin: 6mm 0;
+        }
+
+        .conclusion-poles {
+            margin: 7mm 0;
+        }
+        .conclusion-pole {
+            margin: 6mm 0;
+            padding: 5mm;
+            background: #f5f5f5;
+            border-left: 5px solid black;
+        }
+        .conclusion-pole-name {
+            font-weight: 800;
+            font-size: 20px;
+            margin-bottom: 4mm;
+        }
+        .conclusion-sub {
+            font-size: 16px;
+            margin-left: 6mm;
+            line-height: 1.55;
+            margin-bottom: 2px;
+        }
+
+        .signature-line {
+            margin-top: 10mm;
+            text-align: right;
+            font-size: 17px;
+            border-top: 1.5px solid black;
+            padding-top: 6mm;
+        }
+
+        .footer-page {
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+            margin-top: 14mm;
+            padding-top: 5mm;
+            border-top: 1px solid #ccc;
+        }
+
+        hr {
+            margin: 6mm 0;
+            border: none;
+            border-top: 1px solid #aaa;
+        }
+
+        /* Texte normal dans les blocs info */
+        .info-text {
+            font-size: 17px;
+            margin: 4mm 0;
+            line-height: 1.5;
+        }
+        .vision-text {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .pdf-fab {
+                display: none;
+            }
+            .page {
+                box-shadow: none;
+                margin: 0;
+                page-break-after: always;
+                break-after: page;
+            }
+            @page {
+                size: A4;
+                margin: 12mm;
+            }
+            .page-content {
+                padding: 0;
+            }
+            * {
+                background-color: white !important;
+                background: white !important;
+                color: black !important;
+                border-color: black !important;
+            }
+            .conclusion-pole {
+                background: white !important;
+                border: 1px solid black !important;
+            }
+            .subsection-title {
+                background: #e0e0e0 !important;
+            }
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-    <h1>🧠 IA Vision</h1>
-    <div class="sub">📸 L'IA lit et analyse vos images</div>
-    
-    <div class="card">
-        <div class="label">📤 1. CHOISISSEZ UNE IMAGE</div>
-        <input type="file" id="imageInput" accept="image/*">
-        <div class="image-preview" id="preview">
-            <span style="color:#64748b;">Aucune image sélectionnée</span>
+
+<button class="pdf-fab" id="exportPdfBtn">
+    📄 EXPORTER EN PDF
+    <span>🖨️</span>
+</button>
+
+<div id="document">
+    <!-- PAGE 1 -->
+    <div class="page">
+        <div class="page-content">
+            <!-- EN-TÊTE -->
+            <div class="header">
+                <h1>NETUBEX SARL</h1>
+                <h2>CALENDRIER STRATÉGIQUE · VERSION OFFICIELLE FINALE</h2>
+            </div>
+
+            <div class="double-separator"></div>
+
+            <!-- SECTION 1 : IDENTIFICATION -->
+            <div class="section-title">1. IDENTIFICATION</div>
+            <div class="double-separator"></div>
+
+            <div style="margin: 5mm 0;">
+                <div class="info-text"><strong>Entreprise :</strong> NETUBEX SARL</div>
+                <div class="info-text"><strong>Projet :</strong> Gestion de scolarité</div>
+                <div class="info-text"><strong>Initiateur :</strong> Flory Ngenda</div>
+                <hr>
+                <div class="info-text">📌 <strong>Début du projet :</strong> 13/06/2026</div>
+                <div class="info-text">📌 <strong>Présentation du projet au CVP :</strong> 18/07/2026</div>
+                <div style="margin-top: 6mm; padding: 6mm; background: #f5f5f5; border-left: 5px solid black;">
+                    <strong style="font-size: 18px;">Vision :</strong><br>
+                    <span class="vision-text">Développer un produit numérique de gestion scolaire fiable, sécurisé et évolutif pour les établissements scolaires.</span>
+                </div>
+            </div>
+
+            <div class="double-separator"></div>
+
+            <!-- SECTION 2 : PHASES STRATÉGIQUES -->
+            <div class="section-title">2. PHASES STRATÉGIQUES</div>
+            <div class="double-separator"></div>
+
+            <!-- 2.1 DÉMARRAGE -->
+            <div class="subsection-title">📊 2.1 DÉMARRAGE DU PROJET</div>
+            <div class="date-line">📅 13/06/2026</div>
+            <div class="poles-block">
+                <div class="pole-item">
+                    <div class="pole-name">🔵 PSI :</div>
+                    <ul class="pole-list">
+                        <li>Définition du produit et architecture du projet</li>
+                        <li>Planification stratégique initiale</li>
+                    </ul>
+                </div>
+                <div class="pole-item">
+                    <div class="pole-name">🟡 PAFCO :</div>
+                    <ul class="pole-list">
+                        <li>Mise en place du cadre budgétaire initial</li>
+                        <li>Préparation des règles de contrôle financier</li>
+                    </ul>
+                </div>
+                <div class="pole-item">
+                    <div class="pole-name">🔴 PMGAJ :</div>
+                    <ul class="pole-list">
+                        <li>Structuration juridique du projet</li>
+                        <li>Préparation du cadre de conformité</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="result-check">✔ Résultat : Projet NETUBEX activé</div>
+
+            <!-- 2.2 LANCEMENT PLANNINGS -->
+            <div class="subsection-title">📊 2.2 LANCEMENT DES PLANNINGS OPÉRATIONNELS</div>
+            <div class="date-line">📅 20/06/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Planning de développement du produit</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Planning financier et organisationnel</li><li>Définition des règles de validation budgétaire</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Planning marketing, juridique et terrain</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Organisation interne opérationnelle</div>
+
+            <!-- 2.3 CARTOGRAPHIE -->
+            <div class="subsection-title">🗺️ 2.3 CARTOGRAPHIE DES ÉTABLISSEMENTS SCOLAIRES</div>
+            <div class="date-line">📅 02/07/2026 → 15/07/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Mise en place des outils techniques de collecte</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Validation du budget de terrain</li><li>Contrôle des dépenses de cartographie</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Recensement des établissements scolaires</li><li>Analyse des besoins numériques</li><li>Triage des établissements scolaires</li><li>Création de la base de données</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Base de données des établissements scolaires constituée</div>
+
+            <!-- 2.4 PRÉSENTATION CVP -->
+            <div class="subsection-title">🎤 2.4 PRÉSENTATION AU CVP</div>
+            <div class="date-line">📅 18/07/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Présentation du produit et démonstration technique</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Analyse financière du projet</li><li>Évaluation de la viabilité économique</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Présentation juridique et organisationnelle</li><li>Analyse des risques et conformité</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Validation CVP ou recommandations</div>
+
+            <div class="footer-page">NETUBEX SARL — Document confidentiel — Page 1/3</div>
         </div>
     </div>
-    
-    <div class="card">
-        <div class="label">🤖 2. QUESTION POUR L'IA</div>
-        <button class="btn btn-primary" id="describeBtn">🔍 Décrire l'image</button>
-        <button class="btn btn-success" id="analyzeBtn">💬 Analyser en profondeur</button>
-        <button class="btn btn-secondary" id="questionBtn">❓ Question IA (texte)</button>
-        
-        <div class="reponse" id="reponse">
-            <span style="color:#64748b;">Sélectionnez une image et cliquez sur un bouton...</span>
+
+    <!-- PAGE 2 -->
+    <div class="page">
+        <div class="page-content">
+            <!-- 2.5 RCCM -->
+            <div class="subsection-title">⚖️ 2.5 FINALISATION JURIDIQUE (RCCM)</div>
+            <div class="date-line">📅 15/07/2026 → 31/07/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Support technique et structuration du produit</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Validation des coûts juridiques</li><li>Préparation des contrats et documents financiers</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Dépôt RCCM</li><li>Enregistrement légal de NETUBEX</li><li>Mise en conformité juridique</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : NETUBEX légalement enregistré</div>
+
+            <!-- 2.6 DÉPLOIEMENT -->
+            <div class="subsection-title">🚀 2.6 DÉPLOIEMENT DU PRODUIT</div>
+            <div class="date-line">📅 25/07/2026 → 26/08/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Mise en production du produit dans les établissements scolaires</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Contrôle budgétaire du déploiement</li><li>Suivi des dépenses</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Coordination terrain avec les établissements scolaires</li><li>Relations institutionnelles</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Produit opérationnel dans les établissements scolaires</div>
+
+            <!-- 2.7 LANCEMENT OFFICIEL -->
+            <div class="subsection-title">🎯 2.7 LANCEMENT OFFICIEL DU PRODUIT</div>
+            <div class="date-line">📅 27/07/2026 → 21/08/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Dépôt du dossier du projet</li><li>Déploiement du produit dans les établissements scolaires</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Gestion des contrats et facturations</li><li>Suivi des revenus du produit</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Communication et marketing du produit</li><li>Relations avec les établissements scolaires</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Produit officiellement lancé</div>
+
+            <!-- 2.8 MARKETING EXPANSION -->
+            <div class="subsection-title">📢 2.8 MARKETING · SENSIBILISATION · EXPANSION</div>
+            <div class="date-line">📅 01/08/2026 → 30/09/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Amélioration continue du produit</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Suivi des revenus</li><li>Validation des budgets marketing</li><li>Gestion des contrats des établissements scolaires</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Marketing terrain et sensibilisation</li><li>Triage et prospection des établissements scolaires</li><li>Expansion du réseau scolaire</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Réseau d'établissements scolaires structuré et actif</div>
+
+            <div class="double-separator"></div>
+
+            <!-- SECTION 3 : SYNTHÈSE -->
+            <div class="section-title">3. SYNTHÈSE DES DATES CLÉS</div>
+            <div class="double-separator"></div>
+
+            <div class="synth-list">
+                <div class="synth-item">📌 13/06/2026 → Début du projet</div>
+                <div class="synth-item">📌 20/06/2026 → Lancement des plannings internes</div>
+                <div class="synth-item">📌 02–15/07/2026 → Cartographie des établissements scolaires</div>
+                <div class="synth-item">📌 15–31/07/2026 → RCCM juridique</div>
+                <div class="synth-item">📌 18/07/2026 → CVP</div>
+                <div class="synth-item">📌 25/07/2026 → Déploiement du produit</div>
+                <div class="synth-item">📌 27/07/2026 → Lancement officiel du produit</div>
+                <div class="synth-item">📌 01/08/2026 → Marketing terrain</div>
+                <div class="synth-item">📌 30/09/2026 → Clôture du cycle</div>
+            </div>
+
+            <div class="footer-page">NETUBEX SARL — Document confidentiel — Page 2/3</div>
+        </div>
+    </div>
+
+    <!-- PAGE 3 -->
+    <div class="page">
+        <div class="page-content">
+            <!-- SECTION 4 : CLÔTURE -->
+            <div class="section-title">4. CLÔTURE DE CYCLE</div>
+            <div class="double-separator"></div>
+
+            <div class="date-line">📅 30/09/2026</div>
+            <div class="poles-block">
+                <div class="pole-item"><div class="pole-name">🔵 PSI :</div><ul class="pole-list"><li>Analyse du produit et des performances</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🟡 PAFCO :</div><ul class="pole-list"><li>Bilan financier complet et rentabilité</li></ul></div>
+                <div class="pole-item"><div class="pole-name">🔴 PMGAJ :</div><ul class="pole-list"><li>Bilan terrain, marketing et juridique</li></ul></div>
+            </div>
+            <div class="result-check">✔ Résultat : Cycle 1 terminé</div>
+            <div class="result-check">✔ Cycle 2 préparé</div>
+
+            <div class="double-separator"></div>
+
+            <!-- SECTION 5 : CONCLUSION -->
+            <div class="section-title">5. CONCLUSION (STRUCTURE OFFICIELLE NETUBEX)</div>
+            <div class="double-separator"></div>
+
+            <div class="conclusion-poles">
+                <div class="conclusion-pole">
+                    <div class="conclusion-pole-name">🔵 PSI</div>
+                    <div class="conclusion-sub">PÔLE STRATÉGIE ET INNOVATION</div>
+                    <div class="conclusion-sub">01 Stratégie & Planification</div>
+                    <div class="conclusion-sub">02 Innovation & Recherche</div>
+                    <div class="conclusion-sub">03 Développement & Projets</div>
+                </div>
+
+                <div class="conclusion-pole">
+                    <div class="conclusion-pole-name">🟡 PAFCO</div>
+                    <div class="conclusion-sub">PÔLE ADMINISTRATION, FINANCES, COMPTABILITÉ ET ORGANISATION</div>
+                    <div class="conclusion-sub">01 Administration & Organisation</div>
+                    <div class="conclusion-sub">02 Finances & Comptabilité</div>
+                    <div class="conclusion-sub">03 Développement Commercial & Formation</div>
+                </div>
+
+                <div class="conclusion-pole">
+                    <div class="conclusion-pole-name">🔴 PMGAJ</div>
+                    <div class="conclusion-sub">PÔLE MARKETING, GOUVERNANCE ET AFFAIRES JURIDIQUES</div>
+                    <div class="conclusion-sub">01 Marketing & Communication</div>
+                    <div class="conclusion-sub">02 Gouvernance & Conformité</div>
+                    <div class="conclusion-sub">03 Affaires Juridiques & Relations Institutionnelles</div>
+                </div>
+            </div>
+
+            <div class="double-separator"></div>
+
+            <div style="margin: 7mm 0; font-size: 17px; line-height: 1.6;">
+                NETUBEX SARL est un système structuré où :<br>
+                - 🔵 PSI construit le produit<br>
+                - 🟡 PAFCO contrôle les finances et la stabilité<br>
+                - 🔴 PMGAJ développe le marché et la conformité
+            </div>
+
+            <div class="signature-line">
+                Signature : — <strong>Flory Ngenda</strong>
+            </div>
+
+            <div class="footer-page">NETUBEX SARL — Calendrier stratégique officiel — Page 3/3</div>
         </div>
     </div>
 </div>
 
 <script>
-const GEMINI_API_KEY = 'AQ.Ab8RN6LSjmyJiQOys6ydeCNPrWQQa-59cZCuI-5qtgEs9lmztg';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
-
-const reponseDiv = document.getElementById('reponse');
-let currentImageBase64 = null;
-let currentMimeType = 'image/jpeg';
-
-// Prévisualisation
-document.getElementById('imageInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        currentMimeType = file.type;
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            currentImageBase64 = event.target.result.split(',')[1];
-            document.getElementById('preview').innerHTML = `<img src="${event.target.result}" alt="Aperçu">`;
-        };
-        reader.readAsDataURL(file);
-    }
-});
-
-// Appel à l'API Gemini
-async function callGemini(prompt) {
-    if (!currentImageBase64) {
-        reponseDiv.innerHTML = '<span class="erreur">⚠️ Veuillez d\'abord sélectionner une image</span>';
-        return null;
-    }
-    
-    reponseDiv.innerHTML = '<span class="loader"></span> L\'IA analyse votre image...';
-    
-    try {
-        const response = await fetch(GEMINI_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inline_data: {
-                                mime_type: currentMimeType,
-                                data: currentImageBase64
-                            }
-                        }
-                    ]
-                }]
-            })
-        });
+    (function() {
+        const exportBtn = document.getElementById('exportPdfBtn');
         
-        const data = await response.json();
+        function exportAsPDF() {
+            const originalText = exportBtn.innerHTML;
+            exportBtn.innerHTML = "⏳ PRÉPARATION IMPRESSION...";
+            exportBtn.disabled = true;
+            
+            const printStyle = document.createElement('style');
+            printStyle.textContent = `
+                @media print {
+                    body { margin: 0; padding: 0; }
+                    .pdf-fab { display: none !important; }
+                    .page { page-break-after: always; break-after: page; margin: 0; box-shadow: none; }
+                    .page-content { padding: 0; }
+                    * { background-color: white !important; background: white !important; color: black !important; border-color: black !important; }
+                    .conclusion-pole { background: white !important; border: 1px solid black !important; }
+                    .subsection-title { background: #e0e0e0 !important; }
+                }
+                @page { size: A4; margin: 12mm; }
+            `;
+            document.head.appendChild(printStyle);
+            
+            setTimeout(() => {
+                window.print();
+                setTimeout(() => {
+                    exportBtn.innerHTML = originalText;
+                    exportBtn.disabled = false;
+                    document.head.removeChild(printStyle);
+                }, 600);
+            }, 200);
+        }
         
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-            const text = data.candidates[0].content.parts[0].text;
-            return text;
-        } else if (data.error) {
-            throw new Error(data.error.message);
-        } else {
-            return "L'IA n'a pas pu analyser l'image.";
-        }
-    } catch(e) {
-        reponseDiv.innerHTML = `<span class="erreur">❌ Erreur API: ${e.message}</span>`;
-        return null;
-    }
-}
-
-// Décrire l'image
-async function describeImage() {
-    const result = await callGemini("Décris précisément ce que tu vois sur cette image en français. Sois détaillé mais concis.");
-    if (result) {
-        reponseDiv.innerHTML = `<span class="succes">📷 DESCRIPTION :</span><br><br>${result}`;
-    }
-}
-
-// Analyser en profondeur
-async function analyzeImageDeep() {
-    const result = await callGemini("Analyse cette image en profondeur. Dis-moi ce qu'elle représente, les objets, les personnes, les couleurs, l'ambiance, et ce que tu trouves intéressant. Réponds en français.");
-    if (result) {
-        reponseDiv.innerHTML = `<span class="succes">🔬 ANALYSE DÉTAILLÉE :</span><br><br>${result}`;
-    }
-}
-
-// Question texte normale (sans image)
-async function askTextQuestion() {
-    reponseDiv.innerHTML = '<span class="loader"></span> Appel en cours...';
-    try {
-        const res = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: "Donne un conseil utile pour un professeur en quelques phrases" })
-        });
-        const data = await res.json();
-        if(data.answer) {
-            reponseDiv.innerHTML = `<span class="succes">💬 RÉPONSE IA :</span><br><br>${data.answer}`;
-        } else if(data.error) {
-            reponseDiv.innerHTML = `<span class="erreur">❌ Erreur: ${data.error}</span>`;
-        } else {
-            reponseDiv.innerHTML = `<span class="erreur">⚠️ Réponse inattendue</span>`;
-        }
-    } catch(e) {
-        reponseDiv.innerHTML = `<span class="erreur">❌ Échec: ${e.message}</span>`;
-    }
-}
-
-// Événements
-document.getElementById('describeBtn').onclick = describeImage;
-document.getElementById('analyzeBtn').onclick = analyzeImageDeep;
-document.getElementById('questionBtn').onclick = askTextQuestion;
+        exportBtn.addEventListener('click', exportAsPDF);
+    })();
 </script>
+
 </body>
 </html>
