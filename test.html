@@ -83,7 +83,7 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .login-card{background:rgba(18,18,31,0.95);border-radius:32px;padding:32px;width:90%;max-width:380px;text-align:center;border:1px solid rgba(59,130,246,0.3);}
 .login-card h2{font-size:22px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .login-card p{color:#cbd5e1;font-size:13px;margin-bottom:20px;}
-.login-card input,.login-card select{width:100%;padding:12px;margin-bottom:14px;border-radius:40px;border:1px solid #334155;background:#2d3748;color:#fff;}
+.login-card input,.login-card select{width:100%;padding:12px;margin-bottom:14px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;}
 .login-card button{width:100%;padding:12px;border-radius:40px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;font-weight:600;border:none;cursor:pointer;}
 .eleve-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
 .eleve-row input{flex:2;padding:8px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;}
@@ -392,6 +392,10 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <button class="btn btn-sm btn-success" id="ajouterHeureBtn" style="margin-top:10px;width:100%">AJOUTER UNE HEURE</button>
 <button class="btn btn-sm btn-primary" id="sauvegarderHoraireBtn" style="margin-top:10px;width:100%">SAUVEGARDER L'HORAIRE</button></div>
 <div style="border-top:1px solid #334155;padding-top:15px"><h3 style="font-size:13px;margin-bottom:12px;color:#fff;">CHANGER LE CODE</h3><input type="password" id="oldCode" placeholder="Ancien code" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><input type="password" id="newCode1" placeholder="Nouveau code" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><input type="password" id="newCode2" placeholder="Confirmer" style="width:100%;padding:10px;margin-bottom:8px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155"><button class="btn btn-sm" id="changeCodeBtn" style="width:100%">CHANGER</button></div>
+<div style="border-top:1px solid #334155;padding-top:15px;margin-top:15px;"><h3 style="font-size:13px;margin-bottom:12px;color:#fff;">🔍 DIAGNOSTIC</h3>
+<button class="btn btn-warning" id="debugFichesBtn" style="width:100%">TESTER LA LECTURE DES FICHES</button>
+<div id="debugResultat" style="margin-top:12px;background:#0f172a;padding:12px;border-radius:12px;font-size:11px;color:#e2e8f0;max-height:300px;overflow-y:auto;"></div>
+</div>
 </div></div></div>
 <div class="footer-note" id="footerNote">CHARGEMENT... | Année scolaire 2026-2027</div>
 </div>
@@ -487,41 +491,63 @@ async function getAllComptaEleves() {
     } catch (error) { return localEleves; } 
 }
 
+// CORRECTION: Chemin vers les fiches = ${SCHOOL_PREFIX}_fiches
 async function getAllFiches() {
     try {
-        const snap = await getDocs(collection(db, "ecoles", SCHOOL_PREFIX, "fiches"));
-        toutesFichesCompletes = [];
+        const snap = await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));
+        const fiches = [];
         for(const ds of snap.docs) {
             const d = ds.data();
-            toutesFichesCompletes.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' });
+            if(!d._type && d.eleves) {
+                fiches.push({ 
+                    id: ds.id, 
+                    cours: d.cours, 
+                    classe: d.classe, 
+                    option: d.option || '', 
+                    eleves: d.eleves || [], 
+                    epreuvesParPeriode: d.epreuvesParPeriode || {}, 
+                    p1Max: d.p1Max || 20, 
+                    titulaire: d.titulaire || '' 
+                });
+            }
         }
-        return toutesFichesCompletes;
+        return fiches;
     } catch(e) { return []; }
 }
 
 async function chercherInfosFinancieresParCode(code) {
-    const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
-    const snap = await getDocs(q);
-    if(snap.empty) return null;
-    const data = snap.docs[0].data();
-    const paiements = data.paiements || {};
-    const minerval = data.minerval || 45000;
-    const totalAnnuel = minerval * 10;
-    let totalPaye = 0, moisImpayes = [];
-    const moisListe = ["Septembre","Octobre","Novembre","Décembre","Janvier","Février","Mars","Avril","Mai","Juin"];
-    for(let mois of moisListe) {
-        const montant = paiements[mois]?.montant || 0;
-        totalPaye += montant;
-        if(montant < minerval && !data.exonere) moisImpayes.push(mois);
-    }
-    const reste = totalAnnuel - totalPaye;
-    let statut = "En ordre";
-    if(data.exonere) statut = "Exonéré";
-    else if(moisImpayes.length >= 3) statut = "Liste noire";
-    else if(moisImpayes.length > 0) statut = "Paiement partiel";
-    return { nom: data.nom, prenom: data.prenom || "", classe: data.classe, option: data.option || "", exonere: data.exonere || false, minerval, totalAnnuel, totalPaye, reste, moisImpayes, statut };
+    try {
+        let q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
+        let snap = await getDocs(q);
+        
+        if(snap.empty) {
+            q = query(collection(db, `${SCHOOL_PREFIX}_compta_eleves`), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
+            snap = await getDocs(q);
+        }
+        
+        if(snap.empty) return null;
+        
+        const data = snap.docs[0].data();
+        const paiements = data.paiements || {};
+        const minerval = data.minerval || 45000;
+        const totalAnnuel = minerval * 10;
+        let totalPaye = 0, moisImpayes = [];
+        const moisListe = ["Septembre","Octobre","Novembre","Décembre","Janvier","Février","Mars","Avril","Mai","Juin"];
+        for(let mois of moisListe) {
+            const montant = paiements[mois]?.montant || 0;
+            totalPaye += montant;
+            if(montant < minerval && !data.exonere) moisImpayes.push(mois);
+        }
+        const reste = totalAnnuel - totalPaye;
+        let statut = "En ordre";
+        if(data.exonere) statut = "Exonéré";
+        else if(moisImpayes.length >= 3) statut = "Liste noire";
+        else if(moisImpayes.length > 0) statut = "Paiement partiel";
+        return { nom: data.nom, prenom: data.prenom || "", classe: data.classe, option: data.option || "", exonere: data.exonere || false, minerval, totalAnnuel, totalPaye, reste, moisImpayes, statut };
+    } catch(e) { return null; }
 }
 
+// CORRECTION: Recherche insensible à la casse
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -563,6 +589,8 @@ async function chercherNotesParNom(nom) {
                 }
                 if(notes.length > 0) {
                     resultats.push({ eleveNom: eleve.nom, classe: fiche.classe, option: fiche.option || '', notes });
+                } else {
+                    resultats.push({ eleveNom: eleve.nom, classe: fiche.classe, option: fiche.option || '', notes: [] });
                 }
             }
         }
@@ -585,58 +613,6 @@ async function demanderIA(question) {
     }
 }
 
-// ==================== ASSISTANTE PÉDAGOGIQUE AVEC VRAIE IA ====================
-
-async function genererEpreuveIA() {
-    const matiere = document.getElementById('assistantMatiere').value;
-    const classe = document.getElementById('assistantClasse').value;
-    const theme = document.getElementById('assistantTheme').value;
-    const nbQuestions = document.getElementById('assistantNbQuestions').value;
-    const bareme = document.getElementById('assistantBareme').value;
-    const type = document.getElementById('assistantType').value;
-    const difficulte = document.getElementById('assistantDifficulte').value;
-
-    if (!matiere || !classe) {
-        toast("Veuillez sélectionner la matière et la classe", "error");
-        return null;
-    }
-
-    let typeTexte = "";
-    if(type === "qcm") typeTexte = "QCM (4 options par question)";
-    else if(type === "vf") typeTexte = "Vrai ou Faux";
-    else if(type === "standard") typeTexte = "Réponse courte";
-    else typeTexte = "Mixte (mélange de QCM, Vrai/Faux et réponse courte)";
-
-    let prompt = `Génère une épreuve scolaire complète et réaliste avec les caractéristiques suivantes:
-- Matière: ${matiere}
-- Classe: ${classe}
-- Thème: ${theme || "Général"}
-- Nombre de questions: ${nbQuestions}
-- Barème total: ${bareme} points
-- Type de questions: ${typeTexte}
-- Difficulté: ${difficulte}
-
-IMPORTANT: 
-1. Chaque question doit avoir un énoncé clair et précis.
-2. Pour les QCM, donne 4 options (A, B, C, D) avec la bonne réponse indiquée.
-3. Pour Vrai/Faux, donne une affirmation avec la réponse correcte.
-4. Pour réponse courte, donne une question et une réponse attendue.
-5. Calcule la répartition des points (ex: si 5 questions pour 20 points = 4 points par question).
-6. Formate la réponse en HTML avec les balises appropriées (h3 pour titre, p pour consignes, div pour chaque question, strong pour les points).
-7. Ajoute un en-tête avec le nom de l'épreuve, la classe, la matière.
-8. Sois pédagogique et adapté au niveau ${classe}.
-
-Génère directement le contenu HTML de l'épreuve.`;
-
-    try {
-        const reponse = await demanderIA(prompt);
-        return reponse;
-    } catch(e) {
-        console.error("Erreur génération:", e);
-        return `<p style="color: red;">❌ Erreur lors de la génération de l'épreuve. Veuillez réessayer.</p>`;
-    }
-}
-
 // ==================== ESPACE PARENT ====================
 
 async function traiterMessage(message) {
@@ -644,81 +620,87 @@ async function traiterMessage(message) {
     
     // Priorité 1: Aide
     if(msg === "aide" || msg === "help") {
-        return await demanderIA("L'utilisateur demande de l'aide. Explique très brièvement (2 phrases max) qu'il peut taper un code à 6 chiffres pour voir les frais scolaires, ou un nom d'élève pour voir les notes. Sois clair et sympa.");
+        return `📖 AIDE\n\nTapez un code à 6 chiffres pour voir la situation financière.\n\nTapez un nom d'élève pour voir les notes.\n\nExemple: 123456 ou KASONGO Jean`;
     }
     
     // Priorité 2: Salutations
-    if(msg === "bonjour" || msg === "salut" || msg === "coucou" || msg === "hello" || msg === "hey") {
-        return await demanderIA("L'utilisateur dit bonjour. Réponds chaleureusement en 1 phrase et rappelle brièvement qu'il peut taper un code à 6 chiffres ou un nom d'élève.");
+    if(msg === "bonjour" || msg === "salut" || msg === "coucou" || msg === "hello") {
+        return `👋 Bonjour !\n\nTapez un code à 6 chiffres pour les frais, ou un nom d'élève pour les notes.`;
     }
     
     // Priorité 3: Remerciements
-    if(msg === "merci" || msg === "merci beaucoup" || msg === "c'est gentil") {
-        return await demanderIA("L'utilisateur dit merci. Réponds poliment en 1 phrase, avec le sourire.");
+    if(msg === "merci" || msg === "merci beaucoup") {
+        return `🙏 De rien ! À votre service.`;
     }
     
     // Priorité 4: Au revoir
-    if(msg === "au revoir" || msg === "bye" || msg === "à bientôt" || msg === "ciao") {
-        return await demanderIA("L'utilisateur dit au revoir. Réponds poliment en 1 phrase et souhaite une bonne journée.");
+    if(msg === "au revoir" || msg === "bye" || msg === "à bientôt") {
+        return `👋 Au revoir ! N'hésitez pas à revenir.`;
     }
     
-    // Priorité 5: Code à 6 chiffres
+    // Priorité 5: Code à 6 chiffres (frais)
     if(message.trim().match(/^\d{6}$/)) {
         const infos = await chercherInfosFinancieresParCode(message.trim());
         if(!infos) {
-            return `❌ Code ${message.trim()} non trouvé. Vérifiez votre code ou contactez l'école.`;
+            return `❌ Code ${message.trim()} non trouvé.\n\nVérifiez votre code ou contactez l'école.\n\nTapez "aide" pour plus d'informations.`;
         }
-        const prompt = `Voici les informations financières d'un élève:
-- Nom: ${infos.nom} ${infos.prenom}
-- Classe: ${infos.classe} ${infos.option}
-- Minerval mensuel: ${infos.minerval.toLocaleString()} FC
-- Total annuel: ${infos.totalAnnuel.toLocaleString()} FC
-- Déjà payé: ${infos.totalPaye.toLocaleString()} FC
-- Reste à payer: ${infos.reste.toLocaleString()} FC
-- Mois impayés: ${infos.moisImpayes.join(", ") || "Aucun"}
-- Statut: ${infos.statut}
-
-Réponds au parent de façon courte (max 3 phrases), claire et chaleureuse. Donne le montant restant à payer. Si liste noire, conseille gentiment de régulariser. Utilise des émoticônes.`;
-        return await demanderIA(prompt);
+        
+        let reponse = `🔑 Code validé\n\n💰 SITUATION FINANCIÈRE\n\n👤 Élève: ${infos.nom} ${infos.prenom}\n📚 Classe: ${infos.classe} ${infos.option || ''}\n\n`;
+        
+        if(infos.exonere) {
+            reponse += `🌟 Élève exonéré - Aucun frais à payer\n`;
+        } else {
+            reponse += `💰 Minerval mensuel: ${infos.minerval.toLocaleString()} FC\n💰 Total annuel: ${infos.totalAnnuel.toLocaleString()} FC\n✅ Déjà payé: ${infos.totalPaye.toLocaleString()} FC\n⚠️ Reste à payer: ${infos.reste.toLocaleString()} FC\n\n`;
+            
+            if(infos.moisImpayes.length > 0) {
+                reponse += `📅 Mois impayés: ${infos.moisImpayes.join(", ")}\n`;
+                if(infos.statut === "Liste noire") {
+                    reponse += `🔴 Statut: LISTE NOIRE - Veuillez régulariser\n`;
+                } else {
+                    reponse += `🟠 Statut: Paiement partiel\n`;
+                }
+            } else {
+                reponse += `✅ Statut: En ordre - Tout est à jour\n`;
+            }
+        }
+        return reponse;
     }
     
-    // Priorité 6: Nom d'élève (tout le reste)
+    // Priorité 6: Nom d'élève (notes)
     const resultats = await chercherNotesParNom(message);
     if(resultats.length === 0) {
-        return `❌ Aucun élève trouvé pour "${message}". Essayez "aide" pour savoir comment faire.`;
+        return `❌ Aucun élève trouvé pour "${message}".\n\nVérifiez l'orthographe (exemple: KASONGO Jean) ou tapez "aide".`;
     }
     if(resultats.length === 1) {
         const r = resultats[0];
+        if(r.notes.length === 0) {
+            return `📚 ${r.eleveNom} - ${r.classe}\n\nAucune note enregistrée pour le moment.`;
+        }
         let notesTexte = "";
         let sommeNotes = 0;
         for(const n of r.notes) {
-            notesTexte += `- ${n.matiere} / ${n.epreuve}: ${n.note}/${n.max} (${n.noteSur20}/20)\n`;
+            notesTexte += `📖 ${n.matiere} / ${n.epreuve}: ${n.note}/${n.max} (${n.noteSur20}/20)\n`;
             sommeNotes += n.noteSur20;
         }
         const moyenne = Math.round((sommeNotes / r.notes.length) * 10) / 10;
         let appreciation = "";
-        if(moyenne >= 16) appreciation = "Félicitations !";
-        else if(moyenne >= 14) appreciation = "Très bien !";
-        else if(moyenne >= 12) appreciation = "Bien !";
-        else if(moyenne >= 10) appreciation = "Passable.";
-        else appreciation = "Des efforts à fournir.";
+        if(moyenne >= 16) appreciation = "Félicitations ! Excellents résultats";
+        else if(moyenne >= 14) appreciation = "Très bien ! Continuez comme ça";
+        else if(moyenne >= 12) appreciation = "Bien ! Peut mieux faire";
+        else if(moyenne >= 10) appreciation = "Passable. Encore des progrès possibles";
+        else appreciation = "Des efforts à fournir. On peut y arriver ensemble";
         
-        const prompt = `Voici les notes de l'élève ${r.eleveNom} (${r.classe}):
-${notesTexte}
-Moyenne générale: ${moyenne}/20
-Appréciation: ${appreciation}
-
-Réponds au parent de façon très courte (max 3 phrases), donne la moyenne et l'appréciation. Sois encourageant. Utilise des émoticônes.`;
-        return await demanderIA(prompt);
+        return `📚 NOTES DE ${r.eleveNom.toUpperCase()}\n📖 ${r.classe}\n\n${notesTexte}\n📊 Moyenne générale: ${moyenne}/20\n\n${appreciation}`;
     } else {
         let liste = "";
         for(let i = 0; i < Math.min(resultats.length, 5); i++) {
             liste += `${i+1}. ${resultats[i].eleveNom} (${resultats[i].classe})\n`;
         }
-        if(resultats.length > 5) liste += `... et ${resultats.length - 5} autre(s)`;
-        return `${resultats.length} élève(s) trouvé(s):\n${liste}\nTapez le nom exact pour voir les détails.`;
+        return `${resultats.length} élève(s) trouvé(s):\n\n${liste}\nTapez le nom exact pour voir les détails.`;
     }
 }
+
+// ==================== FONCTIONS EXISTANTES (professeurs, etc.) ====================
 
 function sauvegarderSession(prof) { if(prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: SCHOOL_PREFIX })); } else { localStorage.removeItem('gloria_session_prof'); } }
 async function restaurerSession() {
@@ -990,7 +972,7 @@ function mettreAJourEpreuvesSelect(){let s=document.getElementById('groupeEpreuv
 document.getElementById('groupePeriodeSelect')?.addEventListener('change',function(){mettreAJourEpreuvesSelect();});
 document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click',function(){if(!groupesActuels.length){toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord",'error');return;}let p=parseInt(document.getElementById('groupePeriodeSelect').value);let ei=parseInt(document.getElementById('groupeEpreuveSelect').value);let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(ei>=eps.length){toast("Épreuve non valide",'error');return;}let nme=eps[ei].max;let app=0;groupesActuels.forEach(function(g,gIdx){let inp=document.getElementById('groupeNote_'+gIdx);let nr=parseFloat(inp?.value);if(isNaN(nr))return;let nf=Math.min(nr,nme);if(nf<0)nf=0;localStorage.setItem('groupe_note_'+currentFicheId+'_'+gIdx,nf);g.forEach(function(eleve){let eIdx=currentFiche.eleves.findIndex(function(e){return e.id===eleve.id;});if(eIdx!==-1){if(!currentFiche.eleves[eIdx].notes)currentFiche.eleves[eIdx].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[eIdx].notes['p'+p])currentFiche.eleves[eIdx].notes['p'+p]=[];currentFiche.eleves[eIdx].notes['p'+p][ei]=nf;app++;}});});if(app>0){saveCurrentFiche();afficherCotation();toast(app+" élève(s) noté(s)",'success');}else{toast("Aucune note appliquée",'warning');}});
 function alimenterClassement(){let s=document.getElementById('epreuveClassementSelect');if(!s||!currentFiche)return;s.innerHTML='<option value="">-- Sélectionner une période --</option>';for(let p=1;p<=4;p++){if(currentFiche.epreuvesParPeriode?.[p]?.length)s.innerHTML+='<option value="'+p+'">Période '+p+'</option>';}s.onchange=function(){if(s.value)afficherClassement(parseInt(s.value));};}
-function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead><tr><th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th></tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)+'</td><td style="text-align:center">'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></table>';document.getElementById('classementEpreuve').innerHTML=h;}
+function afficherClassement(p){let eps=currentFiche.epreuvesParPeriode?.[p]||[];if(!eps.length)return;let ev=currentFiche.eleves||[];let rs=[];let pm=getPeriodeMax(p);for(let i=0;i<ev.length;i++){let e=ev[i];let tn=0,tm=0;for(let j=0;j<eps.length;j++){tn+=e.notes?.['p'+p]?.[j]||0;tm+=eps[j].max||1;}let nsm=tm?Math.round((tn/tm)*pm):0;let ns20=Math.round((nsm/pm)*20);let st="Faible";if(ns20<=7)st="Faible";else if(ns20<=12)st="Moyen";else if(ns20<=16)st="Fort";else st="Très fort";rs.push({nom:e.nom||"Élève "+(i+1),note:nsm,max:pm,noteSur20:ns20,statut:st});}rs.sort(function(a,b){return b.noteSur20-a.noteSur20;});let h='<table class="ranking-table"><thead><tr><th>Rang</th><th>Élève</th><th>Note/20</th><th>Statut</th><tr></thead><tbody>';rs.forEach(function(r,i){let co='#ef4444';if(r.statut==='Moyen')co='#f59e0b';else if(r.statut==='Fort')co='#22c55e';else if(r.statut==='Très fort')co='#10b981';h+='<tr><td style="text-align:center">'+(i+1)+'</td><td style="text-align:center">'+r.nom+'</td><td style="text-align:center">'+r.noteSur20+'/20</td><td style="color:'+co+'">'+r.statut+'</td></tr>';});h+='</tbody></table>';document.getElementById('classementEpreuve').innerHTML=h;}
 document.getElementById('configJourSelect')?.addEventListener('change',()=>afficherConfigHoraire());
 document.getElementById('ajouterHeureBtn')?.addEventListener('click',()=>ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click',()=>sauvegarderHoraireAuto());
@@ -1162,7 +1144,7 @@ function renderFicheCardTitu(fiche){
     for(let i=0; i<eleves.length; i++){
         let e = eleves[i];
         let notes = getNotesByPeriodTitu(fiche, e, currentPeriodTitu);
-        tableRows += '<tr>';
+        tableRows += '</table>';
         tableRows += `<td style="text-align:center; font-weight:600;">${String(i+1).padStart(2,'0')}</td>`;
         tableRows += `<td style="text-align:left; font-weight:500;">${e.nom||'-'}</td>`;
         tableRows += `<td style="text-align:center;">${e.sexe||'-'}</td>`;
@@ -1187,7 +1169,7 @@ function renderFicheCardTitu(fiche){
             tableRows += `<td class="note-cell">${notes.p4}</td>`;
             tableRows += `<td class="note-cell">${notes.exam2}</td>`;
             tableRows += `<td class="total-s2">${notes.totalS2}</td>`;
-            tableRows += `<td class="total-final">${notes.total}<td>`;
+            tableRows += `<td class="total-final">${notes.total}</td>`;
         }
         tableRows += '</tr>';
     }
@@ -1598,6 +1580,42 @@ if(parentQuestionInputNew) {
     });
 }
 
+// ========== BOUTON DE DIAGNOSTIC ==========
+document.getElementById('debugFichesBtn').addEventListener('click', async function() {
+    const debugDiv = document.getElementById('debugResultat');
+    debugDiv.innerHTML = '<span class="loader"></span> Chargement...';
+    
+    try {
+        const snap = await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));
+        let html = `<strong>📚 Fiches trouvées dans ${SCHOOL_PREFIX}_fiches : ${snap.size}</strong><br><br>`;
+        
+        if(snap.size === 0) {
+            html += `❌ AUCUNE FICHE TROUVÉE !<br>`;
+            html += `💡 Vérifiez que la collection s'appelle bien "${SCHOOL_PREFIX}_fiches"<br>`;
+        }
+        
+        for(const doc of snap.docs) {
+            const fiche = doc.data();
+            html += `<strong>📄 ${fiche.cours || '?'} - ${fiche.classe || '?'}</strong><br>`;
+            
+            if(fiche.eleves && fiche.eleves.length > 0) {
+                for(const eleve of fiche.eleves) {
+                    html += `&nbsp;&nbsp;👤 ${eleve.nom || 'NOM NON TROUVÉ'}<br>`;
+                }
+            } else {
+                html += `&nbsp;&nbsp;⚠️ Aucun élève dans cette fiche<br>`;
+            }
+            html += `<br>`;
+        }
+        
+        debugDiv.innerHTML = html;
+        toast("Diagnostic terminé", "success");
+    } catch(e) {
+        debugDiv.innerHTML = `❌ ERREUR: ${e.message}<br><br>Vérifiez que vous êtes connecté à Internet.`;
+        toast("Erreur diagnostic", "error");
+    }
+});
+
 // ========== ASSISTANTE PÉDAGOGIQUE AVEC VRAIE IA ==========
 document.getElementById('assistantGenererBtn').addEventListener('click', async function() {
     const matiere = document.getElementById('assistantMatiere').value;
@@ -1613,7 +1631,6 @@ document.getElementById('assistantGenererBtn').addEventListener('click', async f
         return;
     }
 
-    // Afficher le loader
     const resultArea = document.getElementById('assistantResultArea');
     const resultContent = document.getElementById('assistantResultContent');
     resultArea.style.display = 'block';
@@ -1623,40 +1640,16 @@ document.getElementById('assistantGenererBtn').addEventListener('click', async f
     if(type === "qcm") typeTexte = "QCM (4 options par question)";
     else if(type === "vf") typeTexte = "Vrai ou Faux";
     else if(type === "standard") typeTexte = "Réponse courte";
-    else typeTexte = "Mixte (mélange de QCM, Vrai/Faux et réponse courte)";
+    else typeTexte = "Mixte";
 
-    let prompt = `Génère une épreuve scolaire complète et réaliste avec les caractéristiques suivantes:
-- Matière: ${matiere}
-- Classe: ${classe}
-- Thème: ${theme || "Général"}
-- Nombre de questions: ${nbQuestions}
-- Barème total: ${bareme} points
-- Type de questions: ${typeTexte}
-- Difficulté: ${difficulte}
-
-IMPORTANT: 
-1. Chaque question doit avoir un énoncé clair et précis, adapté au niveau ${classe}.
-2. Pour les QCM, donne 4 options (A, B, C, D) avec la bonne réponse indiquée à la fin de la question.
-3. Pour Vrai/Faux, donne une affirmation avec la réponse correcte.
-4. Pour réponse courte, donne une question et la réponse attendue.
-5. Calcule et indique le nombre de points par question.
-6. Formate la réponse en HTML avec les balises suivantes:
-   - <h2> pour le titre de l'épreuve
-   - <p> pour les consignes
-   - <div class="question"> pour chaque question
-   - <strong> pour les points
-7. Ajoute un en-tête avec le nom de l'épreuve, la classe, la matière et la date.
-8. Sois pédagogique et adapté au niveau.
-
-Génère directement le contenu HTML de l'épreuve.`;
+    let prompt = `Génère une épreuve scolaire de ${matiere} niveau ${classe} sur le thème "${theme || 'Général'}". ${nbQuestions} questions. Barème total: ${bareme} points. Type: ${typeTexte}. Difficulté: ${difficulte}. Format: HTML avec <h2> pour titre, <p> pour consignes, <div class="question"> pour chaque question. Sois pédagogique.`;
 
     try {
         const reponse = await demanderIA(prompt);
         resultContent.innerHTML = reponse;
         toast("Épreuve générée avec succès !", "success");
     } catch(e) {
-        console.error("Erreur:", e);
-        resultContent.innerHTML = '<p style="color: red;">❌ Erreur lors de la génération de l\'épreuve. Veuillez réessayer.</p>';
+        resultContent.innerHTML = '<p style="color: red;">❌ Erreur lors de la génération.</p>';
         toast("Erreur de génération", "error");
     }
 });
