@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -655,15 +654,14 @@ async function demanderIA(question) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                question: question,
-                contexte: "Assistant scolaire. Réponses très courtes, max 2-3 lignes. Focus uniquement sur la scolarité (notes, cours, orientation, conseils pédagogiques)."
+                question: question + " (réponds en max 2 lignes, uniquement sur frais scolaires ou notes. Si hors sujet, dis: Je suis l'assistant scolaire, je réponds uniquement sur les notes et les frais.)"
             })
         });
         const data = await response.json();
-        return data.answer || "❌ Je n'ai pas compris. Tapez 'aide' pour voir ce que je peux faire.";
+        return data.answer || "❌ Je n'ai pas compris. Tapez 'aide'";
     } catch(e) {
         console.error("Erreur IA:", e);
-        return "❌ Problème de connexion. Réessayez plus tard.";
+        return "❌ Problème de connexion. Réessayez.";
     }
 }
 
@@ -671,23 +669,19 @@ async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     
     if(msg === "aide" || msg === "help") {
-        return `📖 AIDE - ${schoolNameForDisplay}\n\n🔑 Code 6 chiffres → Situation financière\n📝 Nom élève → Notes détaillées\n💬 Autre question → IA scolaire\n\n✨ Service disponible 24h/24`;
+        return `📖 AIDE\n\n🔑 Code 6 chiffres → Frais\n📝 Nom élève → Notes\n❓ Autre question → IA scolaire`;
     }
     
-    if(msg === "bonjour" || msg === "salut" || msg === "coucou" || msg === "hello" || msg === "hey") {
-        const heure = new Date().getHours();
-        let salutation = "Bonjour";
-        if(heure >= 18) salutation = "Bonsoir";
-        else if(heure >= 12) salutation = "Bon après-midi";
-        return `${salutation} 👋\n\nBienvenue sur l'espace parent.\n🔑 Code 6 chiffres\n📝 Nom élève\n❓ Autre question`;
+    if(msg === "bonjour" || msg === "salut") {
+        return `👋 Bonjour!\n🔑 Code 6 chiffres\n📝 Nom élève`;
     }
     
-    if(msg === "merci" || msg === "merci beaucoup") {
-        return `🙏 De rien !\n\nN'hésitez pas si besoin.`;
+    if(msg === "merci") {
+        return `🙏 De rien!`;
     }
     
     if(msg === "au revoir" || msg === "bye") {
-        return `👋 Au revoir !\n\nÀ bientôt sur ${schoolNameForDisplay}.`;
+        return `👋 Au revoir!`;
     }
     
     if(message.trim().match(/^\d{6}$/)) {
@@ -696,16 +690,11 @@ async function traiterMessage(message) {
             return `❌ Code ${message.trim()} introuvable\n📞 Contactez la comptabilité`;
         }
         
-        let reponse = `🔑 ${infos.nom} ${infos.prenom}\n📚 ${infos.classe}`;
         if(infos.exonere) {
-            reponse += `\n🌟 Élève exonéré - Aucun frais`;
+            return `👤 ${infos.nom}\n📚 ${infos.classe}\n🌟 Exonéré - Aucun frais`;
         } else {
-            reponse += `\n💰 Reste: ${infos.reste.toLocaleString()} FC\n✅ Statut: ${infos.statut}`;
-            if(infos.moisImpayes.length > 0) {
-                reponse += `\n📅 Mois: ${infos.moisImpayes.slice(0,3).join(", ")}`;
-            }
+            return `👤 ${infos.nom}\n📚 ${infos.classe}\n💰 Reste: ${infos.reste.toLocaleString()} FC\n✅ Statut: ${infos.statut}`;
         }
-        return reponse;
     }
     
     const resultats = await chercherNotesParNom(message);
@@ -716,10 +705,10 @@ async function traiterMessage(message) {
     if(resultats.length === 1) {
         const r = resultats[0];
         if(r.epreuves.length === 0) {
-            return `📚 ${r.eleveNom}\n📖 ${r.classe}\n📭 Aucune épreuve enregistrée`;
+            return `📚 ${r.eleveNom}\n📖 ${r.classe}\n📭 Aucune épreuve`;
         }
         
-        let resultat = `📚 ${r.eleveNom.toUpperCase()}\n📖 ${r.classe}\n\n`;
+        let resultat = `📚 ${r.eleveNom.toUpperCase()}\n📖 ${r.classe}\n`;
         const parMatiere = {};
         for(const ep of r.epreuves) {
             if(!parMatiere[ep.matiere]) parMatiere[ep.matiere] = [];
@@ -727,10 +716,8 @@ async function traiterMessage(message) {
         }
         
         for(const [matiere, epreuves] of Object.entries(parMatiere)) {
-            resultat += `📖 ${matiere}\n`;
-            for(const ep of epreuves.slice(0,3)) {
-                resultat += `   • ${ep.epreuve}: ${ep.noteSur20}/20\n`;
-            }
+            resultat += `📖 ${matiere}: `;
+            resultat += epreuves.map(ep => `${ep.epreuve}:${ep.noteSur20}/20`).join(', ');
             resultat += `\n`;
         }
         return resultat;
@@ -789,7 +776,7 @@ function afficherModalCours(p){let m=document.createElement('div');m.className='
 async function sauvegarderHoraireFirebase(){if(!currentProf)return;try{await setDoc(doc(db, `${SCHOOL_PREFIX}_horaires`, "horaire_"+currentProf.id),{profId:currentProf.id,horaire:horaireProf,lastUpdated:new Date()});toast("Horaire sauvegardé dans le cloud",'success');}catch(e){console.error(e);await addPendingSync('saveHoraire',{profId:currentProf.id,horaire:horaireProf});toast("Sauvegarde en attente (hors ligne)",'warning');}}
 async function chargerHoraireFirebase(){if(!currentProf)return;try{const docRef=await getDoc(doc(db, `${SCHOOL_PREFIX}_horaires`, "horaire_"+currentProf.id));if(docRef.exists()){const data=docRef.data();horaireProf=data.horaire||horaireProf;}else if(localStorage.getItem('gloria_horaire_'+currentProf.id)){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);horaireProf=JSON.parse(s);await sauvegarderHoraireFirebase();}}catch(e){console.error(e);if(localStorage.getItem('gloria_horaire_'+currentProf.id)){horaireProf=JSON.parse(localStorage.getItem('gloria_horaire_'+currentProf.id));}}afficherHoraire();afficherConfigHoraire();}
 function afficherHoraire(){let c=document.getElementById('horaireContainer');if(!c)return;let j=getJourActuel();if(j.estWeekend){c.innerHTML='<div style="text-align:center;padding:40px"><div style="font-size:64px;margin-bottom:16px;">🎉</div><div style="font-size:24px;font-weight:bold;color:#60a5fa;">WEEK-END</div><div style="color:#cbd5e1;margin-top:8px;">Aucun cours</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let h=horaireProf[j.code]||[];if(h.length===0){c.innerHTML='<div class="empty-state">Aucun horaire configuré<br><small>Allez dans Paramètres</small><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>';return;}let html='<div class="horaire-list-container">';h.forEach(p=>{let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){html+='<div class="horaire-item horaire-pause"><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">PAUSE</div></div>';}else{let classeAffichee=p.classe||"Non définie";let optionAffichee=p.option||"-";let coursAffiche=p.cours||"Non défini";html+='<div class="horaire-item" onclick=\'window.afficherModalCours('+JSON.stringify({libelle:ht+" HEURE",classe:classeAffichee,option:optionAffichee,cours:coursAffiche})+')\'><div class="horaire-numero">'+ht+' HEURE</div><div class="horaire-info-hidden">'+classeAffichee+' | '+optionAffichee+' | '+coursAffiche+'</div></div>';}});html+='</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div>';c.innerHTML=html;}
-function afficherConfigHoraire(){let c=document.getElementById('configHoraireList');if(!c)return;let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];c.innerHTML='';h.sort((a,b)=>a.heure-b.heure);h.forEach((p,idx)=>{let div=document.createElement('div');div.className='horaire-config-item';let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';}else{div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><select id="conf_classe_'+idx+'" style="width:110px;"><option value="">Classe</option>'+document.getElementById('classeSelect').innerHTML+'</select><select id="conf_option_'+idx+'" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_'+idx+'" placeholder="Cours" value="'+escapeHtml(p.cours||'')+'" style="width:120px;"><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';let clsSel=div.querySelector('#conf_classe_'+idx);if(clsSel&&p.classe)clsSel.value=p.classe;let optSel=div.querySelector('#conf_option_'+idx);if(optSel){let opts=optionsParClasse[p.classe]||[];optSel.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optSel.innerHTML+='<option value="'+escapeHtml(o)+'" '+(p.option===o?'selected':'')+'>'+escapeHtml(o)+'</option>';});}}c.appendChild(div);div.querySelector('.btn-danger')?.addEventListener('click',()=>{horaireProf[jour].splice(idx,1);horaireProf[jour].forEach((h2,i2)=>h2.heure=i2+1);afficherConfigHoraire();});let cls=div.querySelector('#conf_classe_'+idx);if(cls)cls.onchange=function(){let optDiv=div.querySelector('#conf_option_'+idx);if(optDiv){let opts=optionsParClasse[this.value]||[];optDiv.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optDiv.innerHTML+='<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>';});}};});}
+function afficherConfigHoraire(){let c=document.getElementById('configHoraireList');if(!c)return;let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];c.innerHTML='';h.sort((a,b)=>a.heure-b.heure);h.forEach((p,idx)=>{let div=document.createElement('div');div.className='horaire-config-item';let ht={1:"1ère",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",7:"7ème",8:"8ème"}[p.heure]||p.heure+"ème";if(p.pause){div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';}else{div.innerHTML='<strong style="min-width:70px;color:#60a5fa;">'+ht+'</strong><select id="conf_classe_'+idx+'" style="width:110px;"><option value="">Classe</option>'+document.getElementById('classeSelect').innerHTML+'</select><select id="conf_option_'+idx+'" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_'+idx+'" placeholder="Cours" value="'+escapeHtml(p.cours||'')+'" style="width:120px;"><button class="btn-sm btn-danger" data-idx="'+idx+'">X</button>';let clsSel=div.querySelector('#conf_classe_'+idx);if(clsSel&&p.classe)clsSel.value=p.classe;let optSel=div.querySelector('#conf_option_'+idx);if(optSel){let opts=optionsParClasse[p.classe]||[];optSel.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optSel.innerHTML+='<option value="'+escapeHtml(o)+'" '+(p.option===o?'selected':'')+'>'+escapeHtml(o)+'</option>';});}}c.appendChild(div);div.querySelector('.btn-danger')?.addEventListener('click',()=>{horaireProf[jour].splice(idx,1);horaireProf[jour].forEach((h2,i2)=>h2.heure=i2+1);afficherConfigHoraire();});let cls=div.querySelector('#conf_classe_'+idx);if(cls)cls.onchange=function(){let optDiv=div.querySelector('#conf_option_'+idx);if(optDiv){let opts=optionsParClasse[this.value]||[];optDiv.innerHTML='<option value="">Option</option>';opts.forEach(o=>{optDiv.innerHTML+='<option value="'+escapeHtml(o)+'">'+escapeHtml(o)+'</option>');});}};});}
 function sauvegarderHoraireAuto(){let jour=document.getElementById('configJourSelect').value;let h=horaireProf[jour]||[];for(let i=0;i<h.length;i++){if(!h[i].pause){let cls=document.getElementById('conf_classe_'+i);let opt=document.getElementById('conf_option_'+i);let crs=document.getElementById('conf_cours_'+i);if(cls)h[i].classe=cls.value;if(opt)h[i].option=opt.value;if(crs)h[i].cours=crs.value;}}if(currentProf){localStorage.setItem('gloria_horaire_'+currentProf.id,JSON.stringify(horaireProf));sauvegarderHoraireFirebase();}afficherHoraire();toast("Horaire mis à jour",'success');}
 function ajouterHeure(){let jour=document.getElementById('configJourSelect').value;let nh=(horaireProf[jour]?.length||0)+1;horaireProf[jour].push({heure:nh,classe:"",option:"",cours:"",pause:false});afficherConfigHoraire();}
 function chargerHoraireProf(){if(currentProf){let s=localStorage.getItem('gloria_horaire_'+currentProf.id);if(s){try{let p=JSON.parse(s);Object.assign(horaireProf,p);}catch(e){}}}if(horaireProf.lundi.length===0){horaireProf={lundi:[{heure:1,classe:"4ème Année",option:"CG",cours:"Mathématiques",pause:false},{heure:2,classe:"3ème Année",option:"HP",cours:"Français",pause:false},{heure:3,pause:true},{heure:4,classe:"2ème Année",option:"Sciences",cours:"Physique",pause:false},{heure:5,classe:"1ère Année",option:"TCC",cours:"Anglais",pause:false}],mardi:[],mercredi:[],jeudi:[],vendredi:[]};}afficherHoraire();afficherConfigHoraire();}
@@ -1204,7 +1191,7 @@ function renderFicheCardTitu(fiche){
         else {
             tableRows += `<td class="note-cell">${notes.p1}</td>`;
             tableRows += `<td class="note-cell">${notes.p2}</td>`;
-            tableRows += `<td class="note-cell">${notes.exam1}</td>`;
+            tableRows += `<td class="note-cell">${notes.exam1}<td>`;
             tableRows += `<td class="total-s1">${notes.totalS1}</td>`;
             tableRows += `<td class="note-cell">${notes.p3}</td>`;
             tableRows += `<td class="note-cell">${notes.p4}</td>`;
@@ -1212,13 +1199,13 @@ function renderFicheCardTitu(fiche){
             tableRows += `<td class="total-s2">${notes.totalS2}</td>`;
             tableRows += `<td class="total-final">${notes.total}</td>`;
         }
-        tableRows += '</table>';
+        tableRows += '</tr>';
     }
     if(eleves.length === 0) {
         let colSpan = headers.length;
-        tableRows = `<tr><td colspan="${colSpan}" style="text-align:center;padding:40px;">📭 Aucun élève inscrit dans cette fiche</td></tr>`;
+        tableRows = `<table><td colspan="${colSpan}" style="text-align:center;padding:40px;">📭 Aucun élève inscrit dans cette fiche</td></tr>`;
     }
-    let headerRow = ' hilab';
+    let headerRow = '<tr>';
     for(let h of headers) {
         headerRow += `<th>${h}</th>`;
     }
@@ -1595,7 +1582,7 @@ if(parentSendBtnNew) {
         
         if (!canAskQuestion()) {
             toast("⚠️ Limite quotidienne atteinte : vous avez utilisé vos 10 questions aujourd'hui. Revenez demain !", "warning");
-            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ **Limite atteinte**\n\nVous avez utilisé vos 10 questions pour aujourd'hui.\n\n📅 Revenez demain pour poser de nouvelles questions !</div></div>`;
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite atteinte\n\nVous avez utilisé vos 10 questions pour aujourd'hui.\n\n📅 Revenez demain</div></div>`;
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             return;
         }
@@ -1653,23 +1640,17 @@ document.getElementById('assistantGenererBtn').addEventListener('click', async f
     const resultArea = document.getElementById('assistantResultArea');
     const resultContent = document.getElementById('assistantResultContent');
     resultArea.style.display = 'block';
-    resultContent.innerHTML = '<div style="text-align:center;padding:40px;"><span class="loader"></span> Génération de l\'épreuve en cours...</div>';
+    resultContent.innerHTML = '<div style="text-align:center;padding:40px;"><span class="loader"></span> Génération...</div>';
 
-    let typeTexte = "";
-    if(type === "qcm") typeTexte = "QCM (4 options par question)";
-    else if(type === "vf") typeTexte = "Vrai ou Faux";
-    else if(type === "standard") typeTexte = "Réponse courte";
-    else typeTexte = "Mixte";
-
-    let prompt = `Génère une épreuve scolaire de ${matiere} niveau ${classe} sur le thème "${theme || 'Général'}". ${nbQuestions} questions. Barème total: ${bareme} points. Type: ${typeTexte}. Difficulté: ${difficulte}. Format: HTML avec <h2> pour titre, <p> pour consignes, <div class="question"> pour chaque question. Sois pédagogique.`;
+    let prompt = `Génère une épreuve de ${matiere} niveau ${classe} sur "${theme || 'Général'}" avec ${nbQuestions} questions. Barème: ${bareme} points. Format texte simple.`;
 
     try {
         const reponse = await demanderIA(prompt);
         resultContent.innerHTML = reponse;
-        toast("Épreuve générée avec succès !", "success");
+        toast("Épreuve générée !", "success");
     } catch(e) {
-        resultContent.innerHTML = '<p style="color: red;">❌ Erreur lors de la génération.</p>';
-        toast("Erreur de génération", "error");
+        resultContent.innerHTML = '<p style="color: red;">❌ Erreur</p>';
+        toast("Erreur", "error");
     }
 });
 document.getElementById('closeEpreuveBtn').addEventListener('click', function() {
@@ -1678,8 +1659,8 @@ document.getElementById('closeEpreuveBtn').addEventListener('click', function() 
 });
 document.getElementById('assistantPdfBtn').addEventListener('click', function() {
     const contenu = document.getElementById('assistantResultContent').innerHTML;
-    if(!contenu || contenu.includes("Génération de l'épreuve en cours")) {
-        toast("Aucune épreuve générée", "error");
+    if(!contenu || contenu.includes("Génération")) {
+        toast("Aucune épreuve", "error");
         return;
     }
     const { jsPDF } = window.jspdf;
@@ -1688,10 +1669,9 @@ document.getElementById('assistantPdfBtn').addEventListener('click', function() 
     pdf.setFontSize(12);
     const lignes = pdf.splitTextToSize(contenu.replace(/<[^>]*>/g, ''), 170);
     pdf.text(lignes, 20, 20);
-    pdf.save("Epreuve_generée.pdf");
+    pdf.save("Epreuve.pdf");
     toast("PDF généré !", "success");
 });
 </script>
 </body>
 </html>
-```
