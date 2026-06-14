@@ -34,7 +34,7 @@ th{background:#0f172a;color:#94a3b8;}
 .gesture-zone{background:#0f172a;border-radius:50px;padding:40px;text-align:center;cursor:pointer;border:2px solid #f59e0b;margin:15px 0;}
 .gesture-value{font-size:70px;font-weight:bold;color:#f59e0b;}
 .gesture-hint{font-size:11px;color:#94a3b8;margin-top:10px;}
-.voice-feedback{background:#0f172a;border-radius:20px;padding:15px;margin:15px 0;min-height:100px;font-size:12px;color:#cbd5e1;overflow-y:auto;}
+.voice-feedback{background:#0f172a;border-radius:20px;padding:15px;margin:15px 0;min-height:80px;font-size:12px;color:#cbd5e1;overflow-y:auto;}
 .voice-status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;margin-bottom:10px;}
 .voice-status.active{background:#10b981;}
 .voice-status.inactive{background:#334155;}
@@ -44,18 +44,16 @@ th{background:#0f172a;color:#94a3b8;}
 .btn-warning{background:#f59e0b;}
 .btn-danger{background:#ef4444;}
 .progress{font-size:11px;color:#94a3b8;text-align:center;margin-top:15px;}
-.voice-selector{background:#0f172a;padding:10px;border-radius:12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-.voice-selector select{background:#334155;color:white;border:none;padding:8px 12px;border-radius:20px;font-size:12px;}
 </style>
 </head>
 <body>
 
-<h2>🎯 3 MODES DE SAISIE - Voix Féminine Française</h2>
+<h2>🎯 3 MODES DE SAISIE</h2>
 
 <div class="modes-bar">
-<button class="mode-btn mode-quick" id="btnQuick">⚡ MODE RAPIDE (Pavé)</button>
-<button class="mode-btn mode-voice" id="btnVoice">🎙️ MODE VOCAL (Dictée)</button>
-<button class="mode-btn mode-gesture" id="btnGesture">👆 MODE GESTUEL (Swipe)</button>
+<button class="mode-btn mode-quick" id="btnQuick">⚡ MODE RAPIDE</button>
+<button class="mode-btn mode-voice" id="btnVoice">🎙️ MODE VOCAL</button>
+<button class="mode-btn mode-gesture" id="btnGesture">👆 MODE GESTUEL</button>
 </div>
 
 <div style="margin-top:20px">
@@ -63,19 +61,14 @@ th{background:#0f172a;color:#94a3b8;}
 <table id="studentTable">
 <thead><tr><th>Élève</th><th>Note /20</th></tr></thead>
 <tbody id="tableBody"></tbody>
-</table>
+月底
 </div>
 
 <div id="toast" class="toast"></div>
 
-<!-- MODAL UNIQUE POUR LES 3 MODES -->
+<!-- MODAL -->
 <div id="modal" class="modal">
 <div class="modal-box">
-<div class="voice-selector" id="voiceSelector" style="display:none;">
-<span style="font-size:12px;">🔊 Voix féminine:</span>
-<select id="voiceSelect"></select>
-<button id="testVoiceBtn" style="background:#3b82f6;padding:5px 10px;border-radius:20px;font-size:11px;">Tester</button>
-</div>
 <div id="modalTitle" class="modal-title">⚡ MODE RAPIDE</div>
 <div id="modalStudent" class="modal-student">---</div>
 <div class="modal-note" id="modalNote">0</div>
@@ -102,57 +95,19 @@ let currentIndex = 0;
 let currentNote = 0;
 let maxNote = 20;
 
-// ============ VOIX FÉMININE ============
-let availableVoices = [];
+// ============ VOIX FÉMININE ==========
 let currentVoice = null;
 
 function loadVoices() {
-    availableVoices = window.speechSynthesis.getVoices();
+    let voices = window.speechSynthesis.getVoices();
+    let frenchVoices = voices.filter(v => v.lang === 'fr-FR');
     
-    // Filtrer les voix françaises
-    let frenchVoices = availableVoices.filter(v => v.lang === 'fr-FR');
-    
-    // Priorité aux voix féminines françaises
-    let priorityVoices = [
-        'Google français',           // Voix Google (neutre tendance féminine)
-        'Samantha',                  // Voix féminine
-        'Amélie',                    // Voix féminine
-        'Chantal',                   // Voix féminine
-        'Marie',                     // Voix féminine
-        'Claire',                    // Voix féminine
-        'Virginie',                  // Voix féminine
-        'Audrey',                    // Voix féminine
-        'Julie'                      // Voix féminine
-    ];
-    
-    // Chercher d'abord une voix avec un nom féminin
-    let feminineVoice = null;
-    for (let pv of priorityVoices) {
-        feminineVoice = frenchVoices.find(v => v.name.includes(pv));
-        if (feminineVoice) break;
+    let priorityNames = ['Google', 'Samantha', 'Amélie', 'Chantal', 'Marie', 'Claire', 'Virginie', 'Audrey', 'Julie'];
+    for (let name of priorityNames) {
+        let found = frenchVoices.find(v => v.name.includes(name));
+        if (found) { currentVoice = found; break; }
     }
-    
-    // Sinon prendre n'importe quelle voix française
-    if (!feminineVoice && frenchVoices.length > 0) {
-        feminineVoice = frenchVoices[0];
-    }
-    
-    currentVoice = feminineVoice;
-    
-    // Remplir le sélecteur de voix
-    let select = document.getElementById('voiceSelect');
-    if (select) {
-        select.innerHTML = '';
-        frenchVoices.forEach(v => {
-            let option = document.createElement('option');
-            option.value = v.name;
-            option.textContent = `${v.name} ${v.lang} ${v.default ? '(défaut)' : ''}`;
-            if (currentVoice && v.name === currentVoice.name) option.selected = true;
-            select.appendChild(option);
-        });
-    }
-    
-    console.log("Voix sélectionnée:", currentVoice?.name);
+    if (!currentVoice && frenchVoices.length > 0) currentVoice = frenchVoices[0];
 }
 window.speechSynthesis.onvoiceschanged = loadVoices;
 setTimeout(loadVoices, 200);
@@ -162,43 +117,16 @@ function speak(text) {
     window.speechSynthesis.cancel();
     let utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.85;  // Un peu plus lent pour une voix plus naturelle
-    utterance.pitch = 1.1;   // Pitch légèrement plus haut pour une voix féminine
-    utterance.volume = 1;
-    
-    if (currentVoice) {
-        utterance.voice = currentVoice;
-    }
-    
+    utterance.rate = 0.85;
+    utterance.pitch = 1.1;
+    if (currentVoice) utterance.voice = currentVoice;
     window.speechSynthesis.speak(utterance);
-    console.log("🔊 Voix féminine parle:", text);
-}
-
-function testVoice() {
-    speak("Bonjour, je suis votre assistante vocale. Comment puis-je vous aider ?");
-}
-
-function changeVoice() {
-    let select = document.getElementById('voiceSelect');
-    let selectedName = select.value;
-    let newVoice = availableVoices.find(v => v.name === selectedName);
-    if (newVoice && newVoice.lang === 'fr-FR') {
-        currentVoice = newVoice;
-        speak("Voix changée. Je suis votre nouvelle assistante.");
-    }
-}
-
-// Afficher le sélecteur de voix seulement en mode vocal
-function showVoiceSelector(show) {
-    let selector = document.getElementById('voiceSelector');
-    if (selector) selector.style.display = show ? 'flex' : 'none';
 }
 
 // ============ AFFICHAGE ============
-function showToast(msg, isError = false) {
+function showToast(msg) {
     let toast = document.getElementById('toast');
     toast.textContent = msg;
-    toast.style.background = isError ? '#7f1d1d' : '#1e293b';
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 2000);
 }
@@ -225,7 +153,7 @@ function updateModalUI() {
 function saveAndNext() {
     students[currentIndex].note = currentNote;
     refreshTable();
-    speak(`${students[currentIndex].nom} a obtenu ${currentNote} sur ${maxNote}`);
+    speak(`${students[currentIndex].nom} a ${currentNote}`);
     showToast(`✅ ${students[currentIndex].nom} : ${currentNote}/20`);
     
     if (currentIndex + 1 < students.length) {
@@ -233,13 +161,12 @@ function saveAndNext() {
         currentNote = students[currentIndex].note;
         updateModalUI();
         if (currentMode === 'gesture') updateGestureValue();
-        speak(`Passage à ${students[currentIndex].nom}`);
+        speak(`${students[currentIndex].nom}`);
     } else {
-        speak("Félicitations, tous les élèves ont été notés !");
-        showToast("🏆 Tous les élèves notés !");
+        speak("Tous notés");
+        showToast("🏆 Terminé !");
         document.getElementById('modal').classList.remove('show');
         currentMode = null;
-        showVoiceSelector(false);
     }
     refreshTable();
 }
@@ -250,22 +177,19 @@ function skipStudent() {
         currentNote = students[currentIndex].note;
         updateModalUI();
         if (currentMode === 'gesture') updateGestureValue();
-        speak(`Passage à ${students[currentIndex].nom}`);
-        showToast(`⏩ Passage à ${students[currentIndex].nom}`);
+        speak(`${students[currentIndex].nom}`);
     } else {
-        speak("Vous êtes déjà au dernier élève");
-        showToast("⚠️ Dernier élève");
+        speak("Dernier élève");
     }
     refreshTable();
 }
 
-// ============ MODE RAPIDE (PAVÉ) ==========
+// ============ MODE RAPIDE ==========
 function startQuickMode() {
     currentMode = 'quick';
     currentIndex = 0;
     currentNote = students[0].note;
-    document.getElementById('modalTitle').innerHTML = '⚡ MODE RAPIDE - Pavé numérique';
-    showVoiceSelector(false);
+    document.getElementById('modalTitle').innerHTML = '⚡ MODE RAPIDE';
     
     let content = `
         <div class="numpad-grid" id="numpadGrid"></div>
@@ -278,7 +202,7 @@ function startQuickMode() {
     updateModalUI();
     buildNumpad();
     document.getElementById('modal').classList.add('show');
-    speak(`Mode rapide activé. Premier élève: ${students[0].nom}`);
+    speak(students[0].nom);
     
     document.getElementById('quickSave').onclick = () => saveAndNext();
     document.getElementById('quickSkip').onclick = () => skipStudent();
@@ -306,37 +230,29 @@ function buildNumpad() {
     });
 }
 
-// ============ MODE VOCAL (DICTÉE) ==========
+// ============ MODE VOCAL ==========
 let voiceRecognition = null;
 let isVoiceActive = false;
 
 function startVoiceMode() {
     if (!('webkitSpeechRecognition' in window)) {
-        showToast("❌ Utilisez Chrome pour la reconnaissance vocale", true);
+        showToast("❌ Utilisez Chrome");
         return;
     }
     
     currentMode = 'voice';
     currentIndex = 0;
     currentNote = students[0].note;
-    document.getElementById('modalTitle').innerHTML = '🎙️ MODE VOCAL - Dictée';
-    showVoiceSelector(true);
+    document.getElementById('modalTitle').innerHTML = '🎙️ MODE VOCAL';
     
     let content = `
-        <div class="voice-status inactive" id="voiceStatusBadge">⏸️ Arrêté</div>
-        <div class="voice-feedback" id="voiceFeedback">
-            💡 Commandes vocales:<br>
-            • "14" ou "quatorze" → changer la note<br>
-            • "VALIDER" → enregistrer et suivant<br>
-            • "PASSER" → passer sans enregistrer<br>
-            • "KASONGO" → changer d'élève<br>
-            • "NOTE" → lire la note actuelle
-        </div>
+        <div class="voice-status inactive" id="voiceStatusBadge">⏸️</div>
+        <div class="voice-feedback" id="voiceFeedback"></div>
         <div class="btn-group">
             <button id="voiceStartBtn" class="btn btn-success">🎙️ DÉMARRER</button>
             <button id="voiceStopBtn" class="btn btn-danger" style="display:none">⏹️ ARRÊTER</button>
-            <button id="voiceManualSave" class="btn btn-success">✓ VALIDER (manuel)</button>
-            <button id="voiceManualSkip" class="btn btn-warning">⏩ PASSER (manuel)</button>
+            <button id="voiceManualSave" class="btn btn-success">✓ VALIDER</button>
+            <button id="voiceManualSkip" class="btn btn-warning">⏩ PASSER</button>
         </div>
     `;
     document.getElementById('modalContent').innerHTML = content;
@@ -349,63 +265,57 @@ function startVoiceMode() {
     voiceRecognition.interimResults = false;
     voiceRecognition.lang = 'fr-FR';
     
-    function addVoiceFeedback(msg, color = '#cbd5e1') {
+    function addVoiceFeedback(msg) {
         let fb = document.getElementById('voiceFeedback');
-        let time = new Date().toLocaleTimeString();
-        fb.innerHTML = `<div style="color:${color};margin-bottom:3px;">[${time}] ${msg}</div>` + fb.innerHTML;
-        let lines = fb.innerHTML.split('</div>');
-        if (lines.length > 18) fb.innerHTML = lines.slice(0, 18).join('</div>');
+        let time = new Date().toLocaleTimeString().slice(0,5);
+        fb.innerHTML = `<div>[${time}] ${msg}</div>` + fb.innerHTML;
+        if (fb.innerHTML.split('</div>').length > 10) {
+            fb.innerHTML = fb.innerHTML.split('</div>').slice(0,10).join('</div>');
+        }
     }
     
-    function processVoiceCommand(text) {
+    function processCommand(text) {
         let lower = text.toLowerCase().trim();
-        addVoiceFeedback(`📝 "${text}"`, '#60a5fa');
+        addVoiceFeedback(`"${text}"`);
         
+        // VALIDER
         if (lower.includes('valide')) {
-            addVoiceFeedback(`🎯 VALIDER détecté ! Enregistrement...`, '#10b981');
-            speak(`Validation, note ${currentNote} pour ${students[currentIndex].nom}`);
             saveAndNext();
             if (currentIndex < students.length) updateModalUI();
             return true;
         }
         
+        // PASSER
         if (lower.includes('passer') || lower.includes('suivant')) {
-            addVoiceFeedback(`⏩ PASSER détecté`, '#f59e0b');
-            speak(`Passage à l'élève suivant`);
             skipStudent();
             if (currentIndex < students.length) updateModalUI();
             return true;
         }
         
-        if (lower.includes('note') || lower.includes('quelle est sa note')) {
-            let msg = `${students[currentIndex].nom} a ${currentNote} sur ${maxNote}`;
-            speak(msg);
-            addVoiceFeedback(`📊 ${msg}`, '#10b981');
+        // NOTE
+        if (lower.includes('note')) {
+            speak(`${currentNote}`);
             return true;
         }
         
-        let foundIndex = -1;
+        // CHANGER ÉLÈVE
         for (let i = 0; i < students.length; i++) {
             let nameClean = students[i].nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             let searchClean = lower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             if (nameClean.includes(searchClean) || searchClean.includes(nameClean.split(' ')[0])) {
-                foundIndex = i;
-                break;
+                if (i !== currentIndex) {
+                    students[currentIndex].note = currentNote;
+                    currentIndex = i;
+                    currentNote = students[currentIndex].note;
+                    updateModalUI();
+                    speak(students[currentIndex].nom);
+                    refreshTable();
+                }
+                return true;
             }
         }
         
-        if (foundIndex !== -1 && foundIndex !== currentIndex) {
-            students[currentIndex].note = currentNote;
-            currentIndex = foundIndex;
-            currentNote = students[currentIndex].note;
-            updateModalUI();
-            let msg = `Changée vers ${students[currentIndex].nom}`;
-            speak(msg);
-            addVoiceFeedback(`🔍 ${msg}`, '#60a5fa');
-            refreshTable();
-            return true;
-        }
-        
+        // DÉTECTION NOTE
         let numbers = { zero:0, un:1, deux:2, trois:3, quatre:4, cinq:5, six:6, sept:7, huit:8, neuf:9, dix:10, onze:11, douze:12, treize:13, quatorze:14, quinze:15, seize:16, "dix-sept":17, "dix-huit":18, "dix-neuf":19, vingt:20 };
         let detected = null;
         for (let [word, val] of Object.entries(numbers)) {
@@ -417,13 +327,10 @@ function startVoiceMode() {
         if (detected !== null && detected <= maxNote) {
             currentNote = detected;
             document.getElementById('modalNote').textContent = currentNote;
-            let msg = `Note mise à ${currentNote}`;
-            speak(msg);
-            addVoiceFeedback(`✅ ${msg} pour ${students[currentIndex].nom}`, '#10b981');
+            speak(`${detected}`);
             return true;
         }
         
-        addVoiceFeedback(`❌ Commande non reconnue`, '#ef4444');
         return false;
     }
     
@@ -432,9 +339,9 @@ function startVoiceMode() {
         document.getElementById('voiceStartBtn').style.display = 'none';
         document.getElementById('voiceStopBtn').style.display = 'inline-block';
         document.getElementById('voiceStatusBadge').className = 'voice-status active';
-        document.getElementById('voiceStatusBadge').textContent = '🎤 ÉCOUTE ACTIVE';
-        addVoiceFeedback(`🎤 Reconnaissance démarrée - Je vous écoute`, '#10b981');
-        speak("Je vous écoute. Dites une note, valider, ou passer.");
+        document.getElementById('voiceStatusBadge').textContent = '🎤';
+        addVoiceFeedback('Écoute active');
+        speak("Je vous écoute");
     };
     
     voiceRecognition.onresult = (e) => {
@@ -442,11 +349,7 @@ function startVoiceMode() {
         for (let i = e.resultIndex; i < e.results.length; i++) {
             if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
         }
-        if (finalText) processVoiceCommand(finalText);
-    };
-    
-    voiceRecognition.onerror = (e) => {
-        addVoiceFeedback(`❌ Erreur: ${e.error}`, '#ef4444');
+        if (finalText) processCommand(finalText);
     };
     
     voiceRecognition.onend = () => {
@@ -462,15 +365,11 @@ function startVoiceMode() {
         document.getElementById('voiceStartBtn').style.display = 'inline-block';
         document.getElementById('voiceStopBtn').style.display = 'none';
         document.getElementById('voiceStatusBadge').className = 'voice-status inactive';
-        document.getElementById('voiceStatusBadge').textContent = '⏸️ Arrêté';
-        addVoiceFeedback(`⏸️ Reconnaissance arrêtée`, '#94a3b8');
-        speak("Reconnaissance vocale arrêtée");
+        document.getElementById('voiceStatusBadge').textContent = '⏸️';
+        addVoiceFeedback('Arrêté');
     };
     document.getElementById('voiceManualSave').onclick = () => saveAndNext();
     document.getElementById('voiceManualSkip').onclick = () => skipStudent();
-    
-    document.getElementById('testVoiceBtn').onclick = () => testVoice();
-    document.getElementById('voiceSelect').onchange = () => changeVoice();
     
     voiceRecognition.start();
 }
@@ -487,25 +386,21 @@ function startGestureMode() {
     currentMode = 'gesture';
     currentIndex = 0;
     currentNote = students[0].note;
-    document.getElementById('modalTitle').innerHTML = '👆 MODE GESTUEL - Swipe & Tap';
-    showVoiceSelector(false);
+    document.getElementById('modalTitle').innerHTML = '👆 MODE GESTUEL';
     
     let content = `
         <div id="gestureZone" class="gesture-zone">
             <div id="gestureValue" class="gesture-value">${currentNote}</div>
-            <div class="gesture-hint">👈 GLISSER GAUCHE → -1</div>
-            <div class="gesture-hint">👉 GLISSER DROITE → +1</div>
-            <div class="gesture-hint">👆 TAP → VALIDER et suivant</div>
-            <div class="gesture-hint">👆👆 DOUBLE TAP → PASSER</div>
+            <div class="gesture-hint">👈 ➖ &nbsp;&nbsp;👉 ➕ &nbsp;&nbsp;👆 ✔️</div>
         </div>
         <div class="btn-group">
-            <button id="gestureSkip" class="btn btn-warning">⏩ PASSER (manuel)</button>
+            <button id="gestureSkip" class="btn btn-warning">⏩ PASSER</button>
         </div>
     `;
     document.getElementById('modalContent').innerHTML = content;
     updateModalUI();
     document.getElementById('modal').classList.add('show');
-    speak(`Mode gestuel activé. Glissez sur l'écran pour changer la note, tapez pour valider.`);
+    speak(students[0].nom);
     
     if (gestureHammer) gestureHammer.destroy();
     let zone = document.getElementById('gestureZone');
@@ -556,7 +451,6 @@ document.getElementById('modalClose').onclick = () => {
     }
     if (gestureHammer) gestureHammer.destroy();
     currentMode = null;
-    showVoiceSelector(false);
     window.speechSynthesis.cancel();
     refreshTable();
 };
@@ -567,10 +461,7 @@ document.getElementById('btnVoice').onclick = startVoiceMode;
 document.getElementById('btnGesture').onclick = startGestureMode;
 
 refreshTable();
-setTimeout(() => {
-    speak("Bonjour, je suis votre assistante. Choisissez un mode de saisie.");
-}, 500);
-showToast("🎯 Voix féminine activée !");
+showToast("🎯 Cliquez sur un mode");
 </script>
 </body>
 </html>
