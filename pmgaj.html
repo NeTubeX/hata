@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ma Localisation GPS</title>
+<title>Localisation GPS</title>
 
 <style>
 body{
     font-family: Arial, sans-serif;
     text-align:center;
-    padding:20px;
+    padding:30px;
 }
 
 button{
-    padding:12px 20px;
+    padding:12px 25px;
     font-size:16px;
     cursor:pointer;
 }
@@ -21,21 +21,21 @@ button{
 #result{
     margin-top:20px;
     padding:15px;
-    border:1px solid #ddd;
+    border:1px solid #ccc;
     border-radius:10px;
 }
 </style>
 </head>
 <body>
 
-<h2>Ma Position GPS</h2>
+<h2>Ma Localisation GPS</h2>
 
 <button onclick="obtenirPosition()">
-    Obtenir ma localisation
+    Obtenir ma position
 </button>
 
 <div id="result">
-    En attente...
+    Cliquez sur le bouton pour commencer.
 </div>
 
 <script>
@@ -44,36 +44,65 @@ function obtenirPosition() {
     const result = document.getElementById("result");
 
     if (!navigator.geolocation) {
-        result.innerHTML = "La géolocalisation n'est pas supportée.";
+        result.innerHTML = "❌ La géolocalisation n'est pas supportée par ce navigateur.";
         return;
     }
 
-    result.innerHTML = "Recherche de votre position...";
+    result.innerHTML = "📍 Recherche de votre position...";
 
     navigator.geolocation.getCurrentPosition(
 
         function(position) {
 
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            const precision = position.coords.accuracy;
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
 
             result.innerHTML = `
-                <h3>Position trouvée</h3>
-                <p><b>Latitude :</b> ${latitude}</p>
-                <p><b>Longitude :</b> ${longitude}</p>
-                <p><b>Précision :</b> ${precision.toFixed(2)} mètres</p>
+                <h3>✅ Position trouvée</h3>
+                <p><strong>Latitude :</strong> ${lat}</p>
+                <p><strong>Longitude :</strong> ${lng}</p>
+                <p><strong>Précision :</strong> ${accuracy.toFixed(2)} mètres</p>
+                <p>
+                    <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank">
+                        Ouvrir dans Google Maps
+                    </a>
+                </p>
             `;
         },
 
         function(error) {
-            result.innerHTML =
-                "Impossible d'obtenir la localisation.";
+
+            let message = "";
+
+            switch(error.code) {
+                case 1:
+                    message = "Permission de localisation refusée.";
+                    break;
+
+                case 2:
+                    message = "Position indisponible. Vérifiez le GPS ou Internet.";
+                    break;
+
+                case 3:
+                    message = "Temps d'attente dépassé.";
+                    break;
+
+                default:
+                    message = error.message;
+            }
+
+            result.innerHTML = `
+                <h3>❌ Erreur</h3>
+                <p>Code : ${error.code}</p>
+                <p>${message}</p>
+                <p>Détail : ${error.message}</p>
+            `;
         },
 
         {
             enableHighAccuracy: true,
-            timeout: 15000,
+            timeout: 20000,
             maximumAge: 0
         }
     );
