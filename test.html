@@ -1,323 +1,500 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>TEST - Mode Vocal Simple</title>
+<title>3 MODES DE SAISIE - Version Complète</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0a0e1a;font-family:system-ui;padding:20px;color:#ffffff;}
-h2{color:#fff;margin-bottom:20px;text-align:center;}
-button{background:#10b981;border:none;padding:15px 30px;border-radius:60px;color:white;font-weight:bold;font-size:18px;cursor:pointer;width:100%;margin-bottom:20px;}
-button:active{transform:scale(0.97);}
-button.stop{background:#ef4444;}
-.card{background:#1e293b;border-radius:24px;padding:20px;margin-bottom:20px;}
-.student-name{font-size:28px;font-weight:bold;color:#60a5fa;text-align:center;margin-bottom:10px;}
-.note-value{font-size:64px;font-weight:bold;color:#10b981;text-align:center;background:#0f172a;padding:20px;border-radius:50px;margin:15px 0;}
-.feedback{background:#0f172a;border-radius:16px;padding:15px;margin:15px 0;min-height:150px;color:#cbd5e1;font-size:13px;overflow-y:auto;font-family:monospace;}
-.status{text-align:center;padding:10px;border-radius:12px;margin:10px 0;font-size:14px;}
-.status.listening{background:#10b981;color:white;}
-.status.stopped{background:#334155;color:#94a3b8;}
-table{width:100%;border-collapse:collapse;margin-top:15px;}
-th,td{padding:8px;text-align:center;border-bottom:1px solid #334155;}
-th{color:#94a3b8;}
-.active{background:#0f2b44;border-left:3px solid #10b981;}
+body{background:#0a0e1a;font-family:system-ui;padding:15px;color:#ffffff;}
+h2{color:#fff;margin-bottom:15px;font-size:18px;}
+h3{color:#60a5fa;margin-bottom:10px;font-size:14px;}
+.modes-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;}
+.mode-btn{padding:12px 20px;border:none;border-radius:40px;font-weight:bold;cursor:pointer;color:white;}
+.mode-quick{background:#8b5cf6;}
+.mode-voice{background:#10b981;}
+.mode-gesture{background:#f59e0b;}
+table{width:100%;border-collapse:collapse;background:#1e293b;border-radius:16px;overflow:hidden;}
+th,td{padding:12px;text-align:center;border-bottom:1px solid #334155;}
+th{background:#0f172a;color:#94a3b8;}
+.active-row{background:#0f2b44;border-left:3px solid #10b981;}
+.note-cell{font-weight:bold;font-size:18px;}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e293b;padding:10px 20px;border-radius:40px;font-size:13px;opacity:0;transition:0.2s;z-index:1000;}
+.toast.show{opacity:1;}
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.96);display:flex;align-items:center;justify-content:center;visibility:hidden;z-index:2000;}
+.modal.show{visibility:visible;}
+.modal-box{background:#1e293b;border-radius:40px;padding:25px;width:90%;max-width:400px;border:1px solid #3b82f6;}
+.modal-title{font-size:20px;font-weight:bold;text-align:center;margin-bottom:15px;}
+.modal-student{font-size:24px;font-weight:bold;color:#60a5fa;text-align:center;margin:10px 0;}
+.modal-note{font-size:60px;font-weight:bold;color:#10b981;text-align:center;background:#0f172a;padding:20px;border-radius:50px;margin:15px 0;}
+.numpad-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:20px 0;}
+.numpad-btn{background:#334155;padding:15px;border-radius:16px;text-align:center;font-size:22px;font-weight:bold;cursor:pointer;}
+.numpad-btn:active{background:#3b82f6;}
+.gesture-zone{background:#0f172a;border-radius:50px;padding:40px;text-align:center;cursor:pointer;border:2px solid #f59e0b;margin:15px 0;}
+.gesture-value{font-size:70px;font-weight:bold;color:#f59e0b;}
+.gesture-hint{font-size:11px;color:#94a3b8;margin-top:10px;}
+.voice-feedback{background:#0f172a;border-radius:20px;padding:15px;margin:15px 0;min-height:100px;font-size:12px;color:#cbd5e1;overflow-y:auto;}
+.voice-status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;margin-bottom:10px;}
+.voice-status.active{background:#10b981;}
+.voice-status.inactive{background:#334155;}
+.btn-group{display:flex;gap:10px;justify-content:center;margin:15px 0;}
+.btn{background:#334155;border:none;padding:10px 20px;border-radius:40px;color:white;cursor:pointer;}
+.btn-success{background:#10b981;}
+.btn-warning{background:#f59e0b;}
+.btn-danger{background:#ef4444;}
+.progress{font-size:11px;color:#94a3b8;text-align:center;margin-top:15px;}
 </style>
 </head>
 <body>
 
-<h2>🎙️ MODE VOCAL - Correction</h2>
+<h2>🎯 3 MODES DE SAISIE INNOVANTS</h2>
 
-<button id="startBtn">🎤 DÉMARRER</button>
-<button id="stopBtn" class="stop" style="display:none">⏹️ ARRÊTER</button>
-
-<div class="card">
-<div class="student-name" id="studentName">KASONGO Jean</div>
-<div class="note-value" id="noteValue">0</div>
-<div style="text-align:center;font-size:12px;color:#94a3b8">/ 20</div>
-<div class="status stopped" id="statusMsg">⏸️ En attente</div>
-<div class="feedback" id="feedback">
-💡 Commandes vocales:<br>
-• "quatorze" ou "14" → changer la note<br>
-• "VALIDER" ou "VALIDÉ" → enregistrer et suivant<br>
-• "PASSER" → passer sans enregistrer<br>
-• "KASONGO" → changer d'élève<br>
-• "NOTE" → lire la note actuelle
-</div>
+<div class="modes-bar">
+<button class="mode-btn mode-quick" id="btnQuick">⚡ MODE RAPIDE (Pavé)</button>
+<button class="mode-btn mode-voice" id="btnVoice">🎙️ MODE VOCAL (Dictée)</button>
+<button class="mode-btn mode-gesture" id="btnGesture">👆 MODE GESTUEL (Swipe)</button>
 </div>
 
-<div id="preview">
-<table id="noteTable">
-<thead><tr><th>Élève</th><th>Note</th></tr></thead>
+<div style="margin-top:20px">
+<h3>📋 Liste des élèves</h3>
+<table id="studentTable">
+<thead><tr><th>Élève</th><th>Note /20</th></tr></thead>
 <tbody id="tableBody"></tbody>
 </table>
 </div>
 
+<div id="toast" class="toast"></div>
+
+<!-- MODAL UNIQUE POUR LES 3 MODES -->
+<div id="modal" class="modal">
+<div class="modal-box">
+<div id="modalTitle" class="modal-title">⚡ MODE RAPIDE</div>
+<div id="modalStudent" class="modal-student">---</div>
+<div class="modal-note" id="modalNote">0</div>
+<div style="text-align:center;font-size:12px;color:#94a3b8">/ <span id="modalMax">20</span></div>
+<div id="modalContent"></div>
+<div id="modalProgress" class="progress">1 / 5</div>
+<div class="btn-group">
+<button id="modalClose" class="btn">Fermer</button>
+</div>
+</div>
+</div>
+
 <script>
-// Données
+// ============ DONNÉES ============
 let students = [
-    { nom: "KASONGO Jean", note: 0 },
-    { nom: "MAMBU Thérèse", note: 0 },
-    { nom: "MUTOMBO Paul", note: 0 },
-    { nom: "KABONGO Marie", note: 0 },
-    { nom: "LUMUMBA David", note: 0 }
+    { id: 0, nom: "KASONGO Jean", note: 0 },
+    { id: 1, nom: "MAMBU Thérèse", note: 0 },
+    { id: 2, nom: "MUTOMBO Paul", note: 0 },
+    { id: 3, nom: "KABONGO Marie", note: 0 },
+    { id: 4, nom: "LUMUMBA David", note: 0 }
 ];
+let currentMode = null;
 let currentIndex = 0;
 let currentNote = 0;
 let maxNote = 20;
-let voiceRecognition = null;
-let isListening = false;
 
-// Synthèse vocale
+// Synthèse vocale (voix féminine française)
+let voices = [];
+let selectedVoice = null;
+
+function loadVoices() {
+    voices = window.speechSynthesis.getVoices();
+    // Chercher une voix française (de préférence féminine)
+    selectedVoice = voices.find(v => v.lang === 'fr-FR' && v.name.includes('Google')) ||
+                    voices.find(v => v.lang === 'fr-FR' && v.name.includes('Samantha')) ||
+                    voices.find(v => v.lang === 'fr-FR');
+    console.log("Voix sélectionnée:", selectedVoice?.name);
+}
+window.speechSynthesis.onvoiceschanged = loadVoices;
+setTimeout(loadVoices, 500);
+
 function speak(text) {
     if (!text) return;
+    window.speechSynthesis.cancel();
     let utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
     utterance.rate = 0.9;
-    window.speechSynthesis.cancel();
+    utterance.pitch = 1.0;
+    if (selectedVoice) utterance.voice = selectedVoice;
     window.speechSynthesis.speak(utterance);
     console.log("🔊:", text);
 }
 
-// Rafraîchir l'affichage
-function refreshUI() {
-    document.getElementById('studentName').textContent = students[currentIndex].nom;
-    document.getElementById('noteValue').textContent = currentNote;
-    
+// ============ AFFICHAGE ============
+function showToast(msg, isError = false) {
+    let toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.style.background = isError ? '#7f1d1d' : '#1e293b';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function refreshTable() {
     let html = '';
     students.forEach((s, i) => {
-        let activeClass = (i === currentIndex) ? 'active' : '';
+        let activeClass = (i === currentIndex && currentMode !== null) ? 'active-row' : '';
         let color = s.note >= 10 ? '#10b981' : (s.note > 0 ? '#f59e0b' : '#94a3b8');
         html += `<tr class="${activeClass}">
-            <td>${s.nom} ${i === currentIndex ? '🎤' : ''}</td>
-            <td style="color:${color};font-weight:bold">${s.note}</td>
+            <td>${s.nom} ${i === currentIndex && currentMode !== null ? '🎯' : ''}</td>
+            <td class="note-cell" style="color:${color}">${s.note}</td>
         </tr>`;
     });
     document.getElementById('tableBody').innerHTML = html;
 }
 
-// Sauvegarder la note
+function updateModalUI() {
+    document.getElementById('modalStudent').textContent = students[currentIndex].nom;
+    document.getElementById('modalNote').textContent = currentNote;
+    document.getElementById('modalProgress').textContent = `${currentIndex+1} / ${students.length}`;
+}
+
 function saveAndNext() {
     students[currentIndex].note = currentNote;
-    let msg = `${students[currentIndex].nom} a ${currentNote}/${maxNote}`;
-    speak(msg);
-    addFeedback(`✅ ${msg}`, '#10b981');
+    refreshTable();
+    speak(`${students[currentIndex].nom} a ${currentNote} sur ${maxNote}`);
+    showToast(`✅ ${students[currentIndex].nom} : ${currentNote}/20`);
     
     if (currentIndex + 1 < students.length) {
         currentIndex++;
         currentNote = students[currentIndex].note;
-        refreshUI();
+        updateModalUI();
+        if (currentMode === 'gesture') updateGestureValue();
         speak(`Passage à ${students[currentIndex].nom}`);
-        addFeedback(`👉 Passage à ${students[currentIndex].nom}`, '#60a5fa');
     } else {
-        speak("Félicitations ! Tous les élèves sont notés.");
-        addFeedback(`🏆 Tous les élèves notés !`, '#f59e0b');
-        if (voiceRecognition) voiceRecognition.stop();
-        isListening = false;
-        document.getElementById('startBtn').style.display = 'block';
-        document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('statusMsg').className = 'status stopped';
-        document.getElementById('statusMsg').textContent = '✅ Terminé';
+        speak("Félicitations, tous les élèves ont été notés !");
+        showToast("🏆 Tous les élèves notés !");
+        document.getElementById('modal').classList.remove('show');
+        currentMode = null;
     }
-    refreshUI();
+    refreshTable();
 }
 
-// Passer sans sauvegarder
-function skip() {
+function skipStudent() {
     if (currentIndex + 1 < students.length) {
-        addFeedback(`⏩ Passage à ${students[currentIndex + 1].nom} (sans sauvegarder)`, '#f59e0b');
-        speak(`Passage à ${students[currentIndex + 1].nom}`);
         currentIndex++;
         currentNote = students[currentIndex].note;
-        refreshUI();
+        updateModalUI();
+        if (currentMode === 'gesture') updateGestureValue();
+        speak(`Passage à ${students[currentIndex].nom} sans enregistrer`);
+        showToast(`⏩ Passage à ${students[currentIndex].nom}`);
     } else {
-        addFeedback(`⚠️ Vous êtes déjà au dernier élève`, '#ef4444');
         speak("Vous êtes déjà au dernier élève");
+        showToast("⚠️ Dernier élève");
     }
+    refreshTable();
 }
 
-// Ajouter un message dans le feedback
-function addFeedback(msg, color = '#cbd5e1') {
-    let feedback = document.getElementById('feedback');
-    let time = new Date().toLocaleTimeString();
-    let line = `<div style="color:${color};margin-bottom:5px;">[${time}] ${msg}</div>`;
-    feedback.innerHTML = line + feedback.innerHTML;
-    // Garder seulement les 20 dernières lignes
-    let lines = feedback.innerHTML.split('</div>');
-    if (lines.length > 25) {
-        feedback.innerHTML = lines.slice(0, 25).join('</div>');
-    }
+// ============ MODE RAPIDE (PAVÉ) ==========
+function startQuickMode() {
+    currentMode = 'quick';
+    currentIndex = 0;
+    currentNote = students[0].note;
+    document.getElementById('modalTitle').innerHTML = '⚡ MODE RAPIDE - Pavé numérique';
+    
+    let content = `
+        <div class="numpad-grid" id="numpadGrid"></div>
+        <div class="btn-group">
+            <button id="quickSave" class="btn btn-success">✓ VALIDER</button>
+            <button id="quickSkip" class="btn btn-warning">⏩ PASSER</button>
+        </div>
+    `;
+    document.getElementById('modalContent').innerHTML = content;
+    updateModalUI();
+    buildNumpad();
+    document.getElementById('modal').classList.add('show');
+    speak(`Mode rapide activé. Premier élève: ${students[0].nom}`);
+    
+    document.getElementById('quickSave').onclick = () => saveAndNext();
+    document.getElementById('quickSkip').onclick = () => skipStudent();
 }
 
-// Trouver un élève par son nom
-function findStudent(text) {
-    let textClean = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    for (let i = 0; i < students.length; i++) {
-        let nameClean = students[i].nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        if (nameClean.includes(textClean) || textClean.includes(nameClean.split(' ')[0])) {
-            return i;
-        }
-    }
-    return -1;
+function buildNumpad() {
+    let pad = document.getElementById('numpadGrid');
+    if (!pad) return;
+    let btns = [7,8,9,'C',4,5,6,'←',1,2,3,0];
+    pad.innerHTML = '';
+    btns.forEach(btn => {
+        let b = document.createElement('div');
+        b.className = 'numpad-btn';
+        b.textContent = btn;
+        b.onclick = () => {
+            if (btn === 'C') currentNote = 0;
+            else if (btn === '←') currentNote = Math.floor(currentNote / 10);
+            else {
+                let newVal = parseFloat(currentNote.toString() + btn.toString());
+                if (newVal <= maxNote) currentNote = newVal;
+            }
+            document.getElementById('modalNote').textContent = currentNote;
+        };
+        pad.appendChild(b);
+    });
 }
 
-// Traiter la commande vocale
-function processCommand(text) {
-    let originalText = text;
-    let textLower = text.toLowerCase().trim();
-    
-    console.log("🔍 Reçu:", textLower);
-    
-    // 1. VALIDER ou VALIDÉ (les deux !)
-    if (textLower.includes('valide') || textLower.includes('valider') || textLower.includes('valider') || textLower === 'valide' || textLower === 'validé') {
-        addFeedback(`🎯 Commande: "VALIDER" détectée ! Enregistrement...`, '#10b981');
-        saveAndNext();
-        return true;
-    }
-    
-    // 2. PASSER ou SUIVANT
-    if (textLower.includes('passer') || textLower.includes('suivant') || textLower.includes('passe')) {
-        addFeedback(`🎯 Commande: "PASSER" détectée`, '#f59e0b');
-        skip();
-        return true;
-    }
-    
-    // 3. LIRE LA NOTE
-    if (textLower.includes('note actuelle') || textLower.includes('quelle est sa note') || textLower.includes('combien') || textLower === 'note') {
-        let msg = `${students[currentIndex].nom} a ${currentNote} sur ${maxNote}`;
-        speak(msg);
-        addFeedback(`📊 ${msg}`, '#60a5fa');
-        return true;
-    }
-    
-    // 4. CHANGER D'ÉLÈVE par nom
-    let foundStudent = findStudent(textLower);
-    if (foundStudent !== -1 && foundStudent !== currentIndex) {
-        addFeedback(`🔍 Élève trouvé: ${students[foundStudent].nom}`, '#60a5fa');
-        if (currentNote !== students[currentIndex].note) {
-            students[currentIndex].note = currentNote;
-            addFeedback(`💾 Note précédente sauvegardée: ${currentNote}`, '#94a3b8');
-        }
-        currentIndex = foundStudent;
-        currentNote = students[currentIndex].note;
-        refreshUI();
-        speak(`${students[currentIndex].nom}, note actuelle ${currentNote}`);
-        addFeedback(`👨‍🎓 Changé vers ${students[currentIndex].nom}`, '#60a5fa');
-        return true;
-    }
-    
-    // 5. DÉTECTION DES NOTES (chiffres ou lettres)
-    let numbers = {
-        'zero':0, 'un':1, 'deux':2, 'trois':3, 'quatre':4, 'cinq':5,
-        'six':6, 'sept':7, 'huit':8, 'neuf':9, 'dix':10, 'onze':11,
-        'douze':12, 'treize':13, 'quatorze':14, 'quinze':15, 'seize':16,
-        'dix-sept':17, 'dix-huit':18, 'dix-neuf':19, 'vingt':20
-    };
-    
-    let detectedNote = null;
-    for (let [word, val] of Object.entries(numbers)) {
-        if (textLower.includes(word)) {
-            detectedNote = val;
-            break;
-        }
-    }
-    
-    // Chercher un nombre écrit en chiffres
-    let numberMatch = textLower.match(/\b([0-9]|1[0-9]|20)\b/);
-    if (numberMatch && detectedNote === null) {
-        detectedNote = parseInt(numberMatch[0]);
-    }
-    
-    if (detectedNote !== null && detectedNote <= maxNote) {
-        currentNote = detectedNote;
-        document.getElementById('noteValue').textContent = currentNote;
-        let msg = `Note mise à ${currentNote}/${maxNote} pour ${students[currentIndex].nom}`;
-        speak(msg);
-        addFeedback(`✅ ${msg}`, '#10b981');
-        refreshUI();
-        return true;
-    }
-    
-    // Commande non reconnue
-    addFeedback(`❌ "${originalText}" - Commande non reconnue. Dites: "valider", "passer", ou un nombre`, '#ef4444');
-    return false;
-}
+// ============ MODE VOCAL (DICTÉE) ==========
+let voiceRecognition = null;
+let isVoiceActive = false;
 
-// Démarrer la reconnaissance vocale
-function startVoice() {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-        alert("Votre navigateur ne supporte pas la reconnaissance vocale. Utilisez Chrome.");
+function startVoiceMode() {
+    if (!('webkitSpeechRecognition' in window)) {
+        showToast("❌ Utilisez Chrome pour la reconnaissance vocale", true);
         return;
     }
     
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    currentMode = 'voice';
+    currentIndex = 0;
+    currentNote = students[0].note;
+    document.getElementById('modalTitle').innerHTML = '🎙️ MODE VOCAL - Dictée';
+    
+    let content = `
+        <div class="voice-status inactive" id="voiceStatusBadge">⏸️ Arrêté</div>
+        <div class="voice-feedback" id="voiceFeedback">
+            💡 Commandes vocales:<br>
+            • "14" ou "quatorze" → changer la note<br>
+            • "VALIDER" → enregistrer et suivant<br>
+            • "PASSER" → passer sans enregistrer<br>
+            • "KASONGO" → changer d'élève<br>
+            • "NOTE" → lire la note actuelle
+        </div>
+        <div class="btn-group">
+            <button id="voiceStartBtn" class="btn btn-success">🎙️ DÉMARRER</button>
+            <button id="voiceStopBtn" class="btn btn-danger" style="display:none">⏹️ ARRÊTER</button>
+            <button id="voiceManualSave" class="btn btn-success">✓ VALIDER (manuel)</button>
+            <button id="voiceManualSkip" class="btn btn-warning">⏩ PASSER (manuel)</button>
+        </div>
+    `;
+    document.getElementById('modalContent').innerHTML = content;
+    updateModalUI();
+    document.getElementById('modal').classList.add('show');
+    
+    const SR = window.SpeechRecognition;
     voiceRecognition = new SR();
     voiceRecognition.continuous = true;
     voiceRecognition.interimResults = false;
     voiceRecognition.lang = 'fr-FR';
     
-    voiceRecognition.onstart = () => {
-        isListening = true;
-        document.getElementById('startBtn').style.display = 'none';
-        document.getElementById('stopBtn').style.display = 'block';
-        document.getElementById('statusMsg').className = 'status listening';
-        document.getElementById('statusMsg').textContent = '🎤 ÉCOUTE ACTIVE - Parlez maintenant';
-        addFeedback(`🎤 Reconnaissance vocale démarrée`, '#10b981');
-        speak("Je vous écoute. Dites valider, une note, ou un nom d'élève.");
-    };
+    function addVoiceFeedback(msg, color = '#cbd5e1') {
+        let fb = document.getElementById('voiceFeedback');
+        let time = new Date().toLocaleTimeString();
+        fb.innerHTML = `<div style="color:${color};margin-bottom:3px;">[${time}] ${msg}</div>` + fb.innerHTML;
+        // Garder seulement 15 lignes
+        let lines = fb.innerHTML.split('</div>');
+        if (lines.length > 18) fb.innerHTML = lines.slice(0, 18).join('</div>');
+    }
     
-    voiceRecognition.onresult = (event) => {
-        let finalText = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            if (event.results[i].isFinal) {
-                finalText += event.results[i][0].transcript;
+    function processVoiceCommand(text) {
+        let lower = text.toLowerCase().trim();
+        addVoiceFeedback(`📝 "${text}"`, '#60a5fa');
+        
+        // 1. VALIDER (accepte valider, valide, validé)
+        if (lower.includes('valide')) {
+            addVoiceFeedback(`🎯 VALIDER détecté ! Enregistrement...`, '#10b981');
+            speak(`Validation, note ${currentNote} pour ${students[currentIndex].nom}`);
+            saveAndNext();
+            if (currentIndex < students.length) updateModalUI();
+            return true;
+        }
+        
+        // 2. PASSER
+        if (lower.includes('passer') || lower.includes('suivant')) {
+            addVoiceFeedback(`⏩ PASSER détecté`, '#f59e0b');
+            speak(`Passage à l'élève suivant`);
+            skipStudent();
+            if (currentIndex < students.length) updateModalUI();
+            return true;
+        }
+        
+        // 3. LIRE LA NOTE
+        if (lower.includes('note') || lower.includes('quelle est sa note')) {
+            let msg = `${students[currentIndex].nom} a ${currentNote} sur ${maxNote}`;
+            speak(msg);
+            addVoiceFeedback(`📊 ${msg}`, '#10b981');
+            return true;
+        }
+        
+        // 4. CHANGER D'ÉLÈVE
+        let foundIndex = -1;
+        for (let i = 0; i < students.length; i++) {
+            let nameClean = students[i].nom.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            let searchClean = lower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (nameClean.includes(searchClean) || searchClean.includes(nameClean.split(' ')[0])) {
+                foundIndex = i;
+                break;
             }
         }
-        if (finalText) {
-            processCommand(finalText);
+        
+        if (foundIndex !== -1 && foundIndex !== currentIndex) {
+            students[currentIndex].note = currentNote;
+            currentIndex = foundIndex;
+            currentNote = students[currentIndex].note;
+            updateModalUI();
+            let msg = `Changé vers ${students[currentIndex].nom}`;
+            speak(msg);
+            addVoiceFeedback(`🔍 ${msg}`, '#60a5fa');
+            refreshTable();
+            return true;
         }
+        
+        // 5. DÉTECTION DES NOTES
+        let numbers = { zero:0, un:1, deux:2, trois:3, quatre:4, cinq:5, six:6, sept:7, huit:8, neuf:9, dix:10, onze:11, douze:12, treize:13, quatorze:14, quinze:15, seize:16, "dix-sept":17, "dix-huit":18, "dix-neuf":19, vingt:20 };
+        let detected = null;
+        for (let [word, val] of Object.entries(numbers)) {
+            if (lower.includes(word)) { detected = val; break; }
+        }
+        let match = lower.match(/\b([0-9]|1[0-9]|20)\b/);
+        if (match && detected === null) detected = parseInt(match[0]);
+        
+        if (detected !== null && detected <= maxNote) {
+            currentNote = detected;
+            document.getElementById('modalNote').textContent = currentNote;
+            let msg = `Note mise à ${currentNote}`;
+            speak(msg);
+            addVoiceFeedback(`✅ ${msg} pour ${students[currentIndex].nom}`, '#10b981');
+            return true;
+        }
+        
+        addVoiceFeedback(`❌ Commande non reconnue`, '#ef4444');
+        return false;
+    }
+    
+    voiceRecognition.onstart = () => {
+        isVoiceActive = true;
+        document.getElementById('voiceStartBtn').style.display = 'none';
+        document.getElementById('voiceStopBtn').style.display = 'inline-block';
+        document.getElementById('voiceStatusBadge').className = 'voice-status active';
+        document.getElementById('voiceStatusBadge').textContent = '🎤 ÉCOUTE ACTIVE';
+        addVoiceFeedback(`🎤 Reconnaissance démarrée - Je vous écoute`, '#10b981');
+        speak("Je vous écoute. Dites une note, valider, ou passer.");
     };
     
-    voiceRecognition.onerror = (event) => {
-        console.error("Erreur:", event.error);
-        addFeedback(`❌ Erreur: ${event.error}`, '#ef4444');
-        if (event.error === 'not-allowed') {
-            speak("Veuillez autoriser le microphone");
+    voiceRecognition.onresult = (e) => {
+        let finalText = "";
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
         }
+        if (finalText) processVoiceCommand(finalText);
+    };
+    
+    voiceRecognition.onerror = (e) => {
+        addVoiceFeedback(`❌ Erreur: ${e.error}`, '#ef4444');
     };
     
     voiceRecognition.onend = () => {
-        if (isListening) {
+        if (isVoiceActive && currentMode === 'voice') {
             voiceRecognition.start();
         }
     };
     
+    document.getElementById('voiceStartBtn').onclick = () => { voiceRecognition.start(); };
+    document.getElementById('voiceStopBtn').onclick = () => { 
+        isVoiceActive = false;
+        voiceRecognition.stop();
+        document.getElementById('voiceStartBtn').style.display = 'inline-block';
+        document.getElementById('voiceStopBtn').style.display = 'none';
+        document.getElementById('voiceStatusBadge').className = 'voice-status inactive';
+        document.getElementById('voiceStatusBadge').textContent = '⏸️ Arrêté';
+        addVoiceFeedback(`⏸️ Reconnaissance arrêtée`, '#94a3b8');
+        speak("Reconnaissance vocale arrêtée");
+    };
+    document.getElementById('voiceManualSave').onclick = () => saveAndNext();
+    document.getElementById('voiceManualSkip').onclick = () => skipStudent();
+    
     voiceRecognition.start();
 }
 
-// Arrêter
-function stopVoice() {
-    isListening = false;
-    if (voiceRecognition) {
-        voiceRecognition.stop();
-    }
-    document.getElementById('startBtn').style.display = 'block';
-    document.getElementById('stopBtn').style.display = 'none';
-    document.getElementById('statusMsg').className = 'status stopped';
-    document.getElementById('statusMsg').textContent = '⏸️ Arrêté';
-    addFeedback(`⏸️ Reconnaissance vocale arrêtée`, '#94a3b8');
-    speak("Reconnaissance vocale arrêtée");
+// ============ MODE GESTUEL ==========
+let gestureHammer = null;
+
+function updateGestureValue() {
+    let val = document.getElementById('gestureValue');
+    if (val) val.textContent = currentNote;
 }
 
-// Boutons
-document.getElementById('startBtn').onclick = startVoice;
-document.getElementById('stopBtn').onclick = stopVoice;
+function startGestureMode() {
+    currentMode = 'gesture';
+    currentIndex = 0;
+    currentNote = students[0].note;
+    document.getElementById('modalTitle').innerHTML = '👆 MODE GESTUEL - Swipe & Tap';
+    
+    let content = `
+        <div id="gestureZone" class="gesture-zone">
+            <div id="gestureValue" class="gesture-value">${currentNote}</div>
+            <div class="gesture-hint">👈 GLISSER GAUCHE → -1</div>
+            <div class="gesture-hint">👉 GLISSER DROITE → +1</div>
+            <div class="gesture-hint">👆 TAP → VALIDER et suivant</div>
+            <div class="gesture-hint">👆👆 DOUBLE TAP → PASSER</div>
+        </div>
+        <div class="btn-group">
+            <button id="gestureSkip" class="btn btn-warning">⏩ PASSER (manuel)</button>
+        </div>
+    `;
+    document.getElementById('modalContent').innerHTML = content;
+    updateModalUI();
+    document.getElementById('modal').classList.add('show');
+    speak(`Mode gestuel activé. Glissez sur l'écran pour changer la note, tapez pour valider.`);
+    
+    if (gestureHammer) gestureHammer.destroy();
+    let zone = document.getElementById('gestureZone');
+    gestureHammer = new Hammer(zone);
+    
+    gestureHammer.on('swipeleft', () => {
+        if (currentNote > 0) {
+            currentNote--;
+            document.getElementById('gestureValue').textContent = currentNote;
+            document.getElementById('modalNote').textContent = currentNote;
+            if (navigator.vibrate) navigator.vibrate(30);
+        }
+    });
+    gestureHammer.on('swiperight', () => {
+        if (currentNote < maxNote) {
+            currentNote++;
+            document.getElementById('gestureValue').textContent = currentNote;
+            document.getElementById('modalNote').textContent = currentNote;
+            if (navigator.vibrate) navigator.vibrate(30);
+        }
+    });
+    gestureHammer.on('tap', () => {
+        if (navigator.vibrate) navigator.vibrate(50);
+        saveAndNext();
+        if (currentIndex < students.length) {
+            updateModalUI();
+            updateGestureValue();
+        }
+    });
+    gestureHammer.on('doubletap', () => {
+        if (navigator.vibrate) navigator.vibrate(50);
+        skipStudent();
+        if (currentIndex < students.length) {
+            updateModalUI();
+            updateGestureValue();
+        }
+    });
+    
+    document.getElementById('gestureSkip').onclick = () => skipStudent();
+}
 
-// Initialisation
-refreshUI();
-speak("Application prête. Cliquez sur démarrer.");
-addFeedback(`🎉 Application prête ! Cliquez sur "DÉMARRER"`, '#10b981');
+// ============ FERMETURE ==========
+document.getElementById('modalClose').onclick = () => {
+    document.getElementById('modal').classList.remove('show');
+    if (voiceRecognition) {
+        isVoiceActive = false;
+        voiceRecognition.stop();
+    }
+    if (gestureHammer) gestureHammer.destroy();
+    currentMode = null;
+    window.speechSynthesis.cancel();
+    refreshTable();
+};
+
+// ============ INIT ============
+document.getElementById('btnQuick').onclick = startQuickMode;
+document.getElementById('btnVoice').onclick = startVoiceMode;
+document.getElementById('btnGesture').onclick = startGestureMode;
+
+refreshTable();
+speak("Application prête. Choisissez un mode de saisie.");
+showToast("🎯 Cliquez sur un mode pour commencer");
 </script>
 </body>
 </html>
