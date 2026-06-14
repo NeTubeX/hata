@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -549,7 +548,10 @@ async function chercherNotesParNom(nom) {
                                     note: note,
                                     max: max,
                                     noteSur20: noteSur20,
-                                    periode: periode
+                                    periode: periode,
+                                    titulaire: fiche.titulaire || null,
+                                    classe: fiche.classe,
+                                    option: fiche.option || ''
                                 });
                             }
                         }
@@ -558,8 +560,9 @@ async function chercherNotesParNom(nom) {
                 if(epreuvesList.length > 0) {
                     resultats.push({ 
                         eleveNom: eleve.nom, 
-                        classe: fiche.classe, 
-                        option: fiche.option || '', 
+                        classe: fiche.classe,
+                        option: fiche.option || '',
+                        titulaire: fiche.titulaire || null,
                         epreuves: epreuvesList 
                     });
                 }
@@ -574,87 +577,144 @@ async function demanderIA(question) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                question: `RÈGLES STRICTES: Réponds en MAXIMUM 2 LIGNES. Sois très bref. Va droit au but. Utilise "vous". Sois poli et respectueux. Question: ${question}`
+                question: question + "\n\nRÈGLES STRICTES À RESPECTER ABSOLUMENT:\n" +
+                    "1. Ne critique JAMAIS personne (ni enseignant, ni élève, ni parent, ni école)\n" +
+                    "2. NE JAMAIS mentionner 'administrateur', 'admin', 'direction', 'directeur'\n" +
+                    "3. Si un problème nécessite une aide, dis: 'Veuillez contacter un supérieur de l'école'\n" +
+                    "4. NE signale JAMAIS de problème technique, bug, erreur ou dysfonctionnement\n" +
+                    "5. Reste toujours POSITIF et CONSTRUCTIF\n" +
+                    "6. Si un problème existe, dis simplement 'Nous travaillons à améliorer ce service'\n" +
+                    "7. Sois courtois et professionnel en toutes circonstances\n" +
+                    "8. Maximum 3 lignes de réponse\n" +
+                    "9. Utilise 'vous' pour t'adresser à l'utilisateur"
             })
         });
         const data = await response.json();
-        let reponse = data.answer || "Je n'ai pas pu répondre. Veuillez réessayer.";
-        let lignes = reponse.split('\n');
-        if (lignes.length > 2) {
-            reponse = lignes.slice(0, 2).join(' ');
+        let reponse = data.answer || "Je vous remercie pour votre question. Notre équipe travaille pour vous offrir le meilleur service possible.";
+        
+        const motsInterdits = ["bug", "erreur", "problème technique", "panne", "crash", "lenteur", "fail", "error", "critique", "incompétent", "administrateur", "admin", "direction", "directeur"];
+        for(const mot of motsInterdits) {
+            if(reponse.toLowerCase().includes(mot)) {
+                reponse = "Veuillez contacter un supérieur de l'école pour vous assister. Merci de votre compréhension.";
+                break;
+            }
         }
-        if (reponse.length > 150) {
-            reponse = reponse.substring(0, 147) + "...";
+        
+        if (reponse.length > 200) {
+            reponse = reponse.substring(0, 197) + "...";
         }
+        
         reponse = reponse.replace(/\b(tu|toi|t'|te|t\')\b/gi, 'vous');
         reponse = reponse.replace(/\b(ton|ta|tes|tien)\b/gi, 'votre');
+        
         return reponse;
     } catch(e) {
         console.error("Erreur IA:", e);
-        return "Problème réseau. Veuillez réessayer plus tard.";
+        return "Veuillez contacter un supérieur de l'école pour vous assister. Merci de votre confiance.";
     }
 }
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
+    
     if(msg === "aide" || msg === "help") {
-        return "📖 AIDE - " + schoolNameForDisplay + "\n🔑 Code 6 chiffres → Accès aux Frais\nNom d'élève → Accès aux Notes\n10 questions par jour";
+        return "📖 AIDE - " + schoolNameForDisplay + "\n🔑 Code 6 chiffres → Frais scolaires\n👨‍🎓 Nom d'élève → Notes, classe, option, enseignants\n❓ Autres questions → Je vous réponds avec les informations disponibles";
     }
+    
     if(msg === "bonjour" || msg === "salut" || msg === "coucou" || msg === "hello" || msg === "hey") {
-        return "👋 Bonjour ! Veuillez taper un code à 6 chiffres ou un nom d'élève.";
+        return "👋 Bonjour ! Je suis l'assistant de " + schoolNameForDisplay + ". Donnez-moi le nom de votre enfant ou un code à 6 chiffres.";
     }
-    if(msg === "merci" || msg === "merci beaucoup" || msg === "c'est gentil") {
-        return "🙏 De rien ! À votre service.";
+    
+    if(msg === "merci" || msg === "merci beaucoup") {
+        return "🙏 Avec plaisir ! Je reste à votre disposition.";
     }
-    if(msg === "au revoir" || msg === "bye" || msg === "à bientôt" || msg === "ciao") {
-        return "👋 Au revoir ! À bientôt.";
+    
+    if(msg === "au revoir" || msg === "bye") {
+        return "👋 Au revoir ! À bientôt sur l'espace parental.";
     }
-    const motsClesInterdits = ["moyenne", "moyennes", "moyenne générale", "examen", "examens", "résultat", "résultats", "classement", "rang", "bulletin", "total général", "semestre", "trimestre", "session", "note finale", "admis", "échoué", "réussi"];
-    if (motsClesInterdits.some(mot => msg.includes(mot))) {
-        return "📢 Les résultats seront disponibles prochainement. Merci de votre patience.";
-    }
+    
+    // Vérification code à 6 chiffres (frais)
     if(message.trim().match(/^\d{6}$/)) {
         const infos = await chercherInfosFinancieresParCode(message.trim());
         if(!infos) {
-            return "❌ Code " + message.trim() + " introuvable. Vérifiez votre code.";
+            return "❌ Code " + message.trim() + " introuvable. Veuillez contacter un supérieur de l'école pour vérifier vos informations.";
         }
-        let reponse = "🔑 " + infos.nom + " " + infos.prenom + " - " + infos.classe + "\n💰 Minerval: " + infos.minerval.toLocaleString() + " FC/mois\n✅ Payé: " + infos.totalPaye.toLocaleString() + " FC\n⚠️ Reste: " + infos.reste.toLocaleString() + " FC\n";
+        
+        // Chercher les enseignants de l'élève
+        const resultatsNotes = await chercherNotesParNom(infos.nom);
+        let reponse = "🔑 " + infos.nom + " " + infos.prenom + " - " + infos.classe;
+        if(infos.option && infos.option !== "TOUTES") reponse += " (" + infos.option + ")";
+        reponse += "\n💰 Minerval: " + infos.minerval.toLocaleString() + " FC/mois";
+        reponse += "\n✅ Payé: " + infos.totalPaye.toLocaleString() + " FC";
+        reponse += "\n⚠️ Reste: " + infos.reste.toLocaleString() + " FC";
+        
+        if(resultatsNotes.length > 0) {
+            const enseignantsUniques = [...new Set(resultatsNotes.map(r => r.titulaire).filter(t => t && t.trim() !== ""))];
+            if(enseignantsUniques.length > 0) {
+                reponse += "\n\n👨‍🏫 Enseignants:\n";
+                for(const ens of enseignantsUniques.slice(0, 5)) {
+                    reponse += "   • " + ens + "\n";
+                }
+            }
+        }
+        
         if(infos.moisImpayes.length > 0) {
-            reponse += "📅 Mois impayés: " + infos.moisImpayes.join(", ") + "\n🔴 Statut: " + infos.statut + "\n";
-            const conseilIA = await demanderIA("L'élève " + infos.nom + " a " + infos.moisImpayes.length + " mois d'impayés. Donnez un conseil court en 1 ligne pour aider la famille.");
-            reponse += "💡 Conseil: " + conseilIA;
+            reponse += "\n📅 Mois impayés: " + infos.moisImpayes.join(", ");
+            reponse += "\n🔴 Statut: " + infos.statut;
         } else {
-            reponse += "✅ Tout est en ordre.";
+            reponse += "\n✅ Tout est en ordre.";
         }
         return reponse;
     }
+    
+    // Recherche de l'élève par nom dans TOUTES les fiches
     const resultats = await chercherNotesParNom(message);
+    
     if(resultats.length > 0) {
         const r = resultats[0];
+        let reponse = "📚 " + r.eleveNom.toUpperCase() + "\n";
+        reponse += "🎓 Classe: " + r.classe + "\n";
+        reponse += "📌 Option: " + (r.option || "Général") + "\n";
+        
+        if(r.titulaire && r.titulaire.trim() !== "") {
+            reponse += "👨‍🏫 Enseignant: " + r.titulaire + "\n";
+        } else {
+            reponse += "👨‍🏫 Enseignant: Le titulaire de ce cours a rendu son nom confidentiel\n";
+        }
+        
         const epreuvesFiltrees = r.epreuves.filter(ep => ep.note > 0);
         if(epreuvesFiltrees.length === 0) {
-            return "📚 " + r.eleveNom + " - " + r.classe + "\n📭 Aucune épreuve avec note enregistrée.";
-        }
-        let resultat = "📚 " + r.eleveNom.toUpperCase() + " - " + r.classe + "\n📝 Notes:\n";
-        let totalNotes = 0, nbEpreuves = 0;
-        for(const ep of epreuvesFiltrees) {
-            const estInferieurMoitie = ep.note < (ep.max / 2);
-            if(estInferieurMoitie) {
-                resultat += "• " + ep.epreuve + ": 🔴 " + ep.note + "/" + ep.max + "\n";
-            } else {
-                resultat += "• " + ep.epreuve + ": " + ep.note + "/" + ep.max + "\n";
+            reponse += "\n📭 Aucune note enregistrée pour le moment.";
+        } else {
+            reponse += "\n📝 Notes:\n";
+            let totalNotes = 0, nbEpreuves = 0;
+            for(const ep of epreuvesFiltrees) {
+                const estInferieurMoitie = ep.note < (ep.max / 2);
+                if(estInferieurMoitie) {
+                    reponse += "• " + ep.epreuve + ": 🔴 " + ep.note + "/" + ep.max + "\n";
+                } else {
+                    reponse += "• " + ep.epreuve + ": " + ep.note + "/" + ep.max + "\n";
+                }
+                totalNotes += ep.noteSur20;
+                nbEpreuves++;
             }
-            totalNotes += ep.noteSur20;
-            nbEpreuves++;
+            const moyenneEleve = nbEpreuves > 0 ? (totalNotes / nbEpreuves).toFixed(1) : 0;
+            if(parseFloat(moyenneEleve) < 10) {
+                const conseilIA = await demanderIA("L'élève " + r.eleveNom + " a " + moyenneEleve + "/20 de moyenne. Donnez un conseil court en 1 ligne pour l'encourager à progresser.");
+                reponse += "\n💡 Conseil: " + conseilIA;
+            }
         }
-        const moyenneEleve = nbEpreuves > 0 ? (totalNotes / nbEpreuves).toFixed(1) : 0;
-        if(parseFloat(moyenneEleve) < 10) {
-            const conseilIA = await demanderIA("L'élève " + r.eleveNom + " a " + moyenneEleve + "/20. Donnez un conseil court en 1 ligne pour l'encourager.");
-            resultat += "\n💡 Conseil: " + conseilIA;
-        }
-        return resultat;
+        return reponse;
     }
-    const reponseIA = await demanderIA("L'utilisateur demande: \"" + message + "\". Expliquez ce qu'il peut faire: taper un code 6 chiffres pour les frais ou un nom d'élève pour les notes. Donnez un exemple. Maximum 2 lignes.");
-    return reponseIA + "\n📌 Tapez \"aide\" pour le menu.";
+    
+    // Pour toute autre question, l'IA répond avec les données disponibles
+    const toutesLesFiches = await getAllFiches();
+    const classesDisponibles = [...new Set(toutesLesFiches.map(f => f.classe))].join(", ");
+    const matieresDisponibles = [...new Set(toutesLesFiches.map(f => f.cours))].slice(0, 10).join(", ");
+    
+    const contexte = "École: " + schoolNameForDisplay + "\nClasses: " + classesDisponibles + "\nMatières: " + matieresDisponibles + "\n" + toutesLesFiches.length + " fiches de cours";
+    
+    const reponseIA = await demanderIA("Contexte: " + contexte + "\n\nQuestion de l'utilisateur: " + message + "\n\nRépondez de manière précise et utile en valorisant l'école et ses enseignants.");
+    return reponseIA;
 }
 function sauvegarderSession(prof) { if(prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: SCHOOL_PREFIX })); } else { localStorage.removeItem('gloria_session_prof'); } }
 async function restaurerSession() {
@@ -736,7 +796,7 @@ function getExamMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2);else re
 function getTotalSemestreMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2)+getExamMax(1);else return getPeriodeMax(3)+getPeriodeMax(4)+getExamMax(2);}
 function getTotalAnnuelMax(){return getTotalSemestreMax(1)+getTotalSemestreMax(2);}
 function calcMoy(p, notes){let eps = currentFiche.epreuvesParPeriode?.[p] || [];if(!eps.length || !notes?.length) return 0;let sommeNotes = 0, sommeMax = 0;for(let i = 0; i < eps.length; i++){sommeNotes += (notes[i] || 0);sommeMax += (eps[i].max || 1);}if(sommeMax === 0) return 0;let noteMaxPeriode = currentFiche.p1Max || 20;let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;return Math.min(noteMaxPeriode, Math.round(moyenne));}
-function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<td><td class="empty-state">Aucun élève inscrit</td></tr>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</tr>';tb.innerHTML+=r;}}
+function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<tr><td class="empty-state">Aucun élève inscrit</td></tr>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</tr>';tb.innerHTML+=r;}}
 window.updNoteField=function(i,f,v){if(f==='nom'&&(!v||v.trim()==='')){toast("Le nom ne peut pas être vide",'error');return;}currentFiche.eleves[i][f]=v;debounceSave();updateExportSelect();refreshGroupes();rafraichirGroupesPourCotation();};
 window.updNote=function(i,p,epi,v){let va=parseFloat(v)||0;let me=currentFiche.epreuvesParPeriode[p]?.[epi]?.max||20;if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[i].notes['p'+p])currentFiche.eleves[i].notes['p'+p]=[];currentFiche.eleves[i].notes['p'+p][epi]=va;afficherCotation();debounceSave();refreshGroupes();};
 window.updExam=function(i,s,v){let va=parseFloat(v)||0;let me=(s===1)?getExamMax(1):getExamMax(2);if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(s===1)currentFiche.eleves[i].notes.exam1=va;else currentFiche.eleves[i].notes.exam2=va;afficherCotation();debounceSave();refreshGroupes();};
@@ -1131,7 +1191,7 @@ function renderFicheCardTitu(fiche){
         let colSpan = headers.length;
         tableRows = `<tr><td colspan="${colSpan}" style="text-align:center;padding:40px;">📭 Aucun élève inscrit dans cette fiche</td></tr>`;
     }
-    let headerRow = '<tr>';
+    let headerRow = ' hilab';
     for(let h of headers) {
         headerRow += `<th>${h}</th>`;
     }
@@ -1371,7 +1431,7 @@ document.getElementById('titulaireSearchBtn')?.addEventListener('click',()=>{
             <td class="${r.exam2<(r.pMax/2)?'failed':'passed'}">${r.exam2}</td>
             <td class="${r.totalS2<60?'failed':'passed'}">${r.totalS2}</td>
             <td class="${r.total<120?'failed':'passed'}">${r.total}</td>
-        </tr>`;
+        </table>`;
     }
     document.getElementById('titulaireReleveBody').innerHTML=tableHTML;
     resultCard.classList.add('show');
@@ -1490,7 +1550,7 @@ if(parentFloatingBtnNew) {
     parentFloatingBtnNew.onclick = async () => {
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">👋 Bonjour! Veuillez taper un code à 6 chiffres pour les frais ou un nom d'élève pour les notes.</div></div>`;
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">👋 Bonjour! Je suis l'assistant de ${schoolNameForDisplay}. Donnez-moi le nom de votre enfant ou un code à 6 chiffres.</div></div>`;
         parentInfoEleveNew.innerHTML = "";
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
@@ -1600,4 +1660,3 @@ document.getElementById('assistantPdfBtn').addEventListener('click', function() 
 </script>
 </body>
 </html>
-```
