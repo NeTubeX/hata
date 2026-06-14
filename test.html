@@ -7,26 +7,32 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0a0e1a;font-family:system-ui;padding:15px;}
-h2{color:#fff;margin-bottom:10px;font-size:18px;}
-button{padding:12px 20px;margin:5px;border:none;border-radius:30px;font-weight:bold;cursor:pointer;}
+body{background:#0a0e1a;font-family:system-ui;padding:15px;color:#ffffff;}
+h2{color:#ffffff;margin-bottom:10px;font-size:18px;}
+button{padding:12px 20px;margin:5px;border:none;border-radius:30px;font-weight:bold;cursor:pointer;color:white;}
 .btn-quick{background:#8b5cf6;color:white;}
 .btn-voice{background:#10b981;color:white;}
 .btn-gesture{background:#f59e0b;color:white;}
 table{width:100%;border-collapse:collapse;margin-top:15px;background:#1e293b;border-radius:12px;overflow:hidden;}
-th,td{padding:10px;text-align:center;color:#fff;border-bottom:1px solid #334155;}
-th{background:#0f172a;color:#94a3b8;}
+th,td{padding:10px;text-align:center;color:#ffffff;border-bottom:1px solid #334155;}
+th{background:#0f172a;color:#cbd5e1;}
 .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;visibility:hidden;z-index:1000;}
 .modal.show{visibility:visible;}
-.modal-box{background:#1e293b;border-radius:30px;padding:25px;width:90%;max-width:400px;text-align:center;}
+.modal-box{background:#1e293b;border-radius:30px;padding:25px;width:90%;max-width:400px;text-align:center;border:1px solid #3b82f6;}
 .note-big{font-size:70px;font-weight:bold;color:#60a5fa;background:#0f172a;padding:20px;border-radius:50px;margin:15px 0;}
 .numpad{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:20px 0;}
-.numpad button{background:#334155;color:white;padding:15px;font-size:20px;margin:0;}
-.gesture-zone{background:#0f172a;border-radius:50px;padding:40px;margin:15px 0;cursor:pointer;}
+.numpad button{background:#334155;color:white;padding:15px;font-size:20px;margin:0;border:none;border-radius:12px;cursor:pointer;}
+.numpad button:active{background:#3b82f6;}
+.gesture-zone{background:#0f172a;border-radius:50px;padding:40px;margin:15px 0;cursor:pointer;border:2px solid #f59e0b;}
 .student-name{font-size:22px;font-weight:bold;color:#60a5fa;}
-.progress{font-size:12px;color:#94a3b8;margin-top:15px;}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:8px 20px;border-radius:30px;font-size:13px;opacity:0;transition:0.2s;}
+.progress{font-size:12px;color:#cbd5e1;margin-top:15px;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1e293b;color:white;padding:8px 20px;border-radius:30px;font-size:13px;opacity:0;transition:0.2s;border:1px solid #3b82f6;}
 .toast.show{opacity:1;}
+#voiceFeedback{background:#0f172a;padding:15px;border-radius:20px;margin:10px 0;min-height:60px;color:#cbd5e1;text-align:center;}
+.gesture-value{font-size:60px;font-weight:bold;color:#f59e0b;}
+.gesture-hint{font-size:12px;color:#cbd5e1;margin-top:15px;}
+.modal-box button{background:#334155;color:white;border:none;border-radius:30px;padding:10px 20px;cursor:pointer;}
+.modal-box button:active{transform:scale(0.96);}
 </style>
 </head>
 <body>
@@ -52,10 +58,10 @@ th{background:#0f172a;color:#94a3b8;}
 <div id="modal" class="modal">
 <div class="modal-box">
 <div id="modalStudentName" class="student-name">---</div>
-<div id="modalStudentClass" style="font-size:12px;color:#94a3b8;margin:5px 0">Classe: 4ème</div>
+<div id="modalStudentClass" style="font-size:12px;color:#cbd5e1;margin:5px 0">Classe: 4ème</div>
 <div id="modalNoteArea">
 <div class="note-big" id="noteValue">0</div>
-<div style="font-size:12px;color:#94a3b8">/ <span id="noteMax">20</span></div>
+<div style="font-size:12px;color:#cbd5e1">/ <span id="noteMax">20</span></div>
 </div>
 <div id="modalControls"></div>
 <div id="modalProgress" class="progress"></div>
@@ -80,8 +86,8 @@ let maxNote = 20;
 function refreshTable() {
     let html = '';
     students.forEach((s, i) => {
-        let color = s.note >= 10 ? '#10b981' : (s.note > 0 ? '#f59e0b' : '#94a3b8');
-        html += `<tr><td>${s.nom}</td><td style="color:${color};font-weight:bold">${s.note}</td></tr>`;
+        let color = s.note >= 10 ? '#10b981' : (s.note > 0 ? '#f59e0b' : '#cbd5e1');
+        html += `<tr><td style="color:#ffffff">${s.nom}</td><td style="color:${color};font-weight:bold">${s.note}</td></tr>`;
     });
     document.getElementById('tableBody').innerHTML = html;
 }
@@ -117,6 +123,34 @@ function nextStudent() {
         document.getElementById('modal').classList.remove('show');
         currentMode = null;
     }
+}
+
+// Fonction pour chercher un élève par son nom (recherche floue)
+function findStudentByName(nomDit) {
+    let nomLower = nomDit.toLowerCase().trim();
+    // Supprimer les accents simple
+    nomLower = nomLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    for (let i = 0; i < students.length; i++) {
+        let studentName = students[i].nom.toLowerCase();
+        studentName = studentName.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        
+        // Vérifie si le nom dit est contenu dans le nom de l'élève
+        if (studentName.includes(nomLower) || nomLower.includes(studentName.split(' ')[0])) {
+            return i;
+        }
+        // Vérifie le prénom seul (premier mot)
+        let firstName = studentName.split(' ')[0];
+        if (firstName === nomLower) {
+            return i;
+        }
+        // Vérifie le nom seul (dernier mot)
+        let lastName = studentName.split(' ').pop();
+        if (lastName === nomLower) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 // ========== MODE RAPIDE (Pavé numérique) ==========
@@ -166,6 +200,7 @@ function buildNumpad() {
     btns.forEach(btn => {
         let b = document.createElement('button');
         b.textContent = btn;
+        b.style.background = btn === '✓' ? '#10b981' : (btn === 'C' ? '#ef4444' : '#334155');
         b.onclick = () => {
             if (btn === 'C') currentNote = 0;
             else if (btn === '←') currentNote = Math.floor(currentNote / 10);
@@ -180,7 +215,7 @@ function buildNumpad() {
     });
 }
 
-// ========== MODE VOCAL ==========
+// ========== MODE VOCAL AVEC RECHERCHE DE NOM ==========
 let voiceRecognition = null;
 let voiceWaiting = false;
 
@@ -198,7 +233,7 @@ function startVoiceMode() {
         <button id="voiceStart" style="background:#10b981">🎙️ Démarrer</button>
         <button id="voiceStop" style="background:#ef4444">⏹️ Arrêter</button>
     </div>
-    <div id="voiceFeedback" style="background:#0f172a;padding:15px;border-radius:20px;margin:10px 0;min-height:60px;color:#94a3b8"></div>
+    <div id="voiceFeedback" style="background:#0f172a;padding:15px;border-radius:20px;margin:10px 0;min-height:80px;color:#cbd5e1;text-align:center"></div>
     <div style="display:flex;gap:10px;justify-content:center">
         <button id="voiceSkip" style="background:#f59e0b">⏩ Passer</button>
         <button id="voiceSave" style="background:#10b981">✓ Valider</button>
@@ -220,6 +255,22 @@ function startVoiceMode() {
         let feedback = document.getElementById('voiceFeedback');
         feedback.innerHTML = `📝 "${text}"`;
         
+        // === NOUVEAU : Recherche d'abord si un nom d'élève est mentionné ===
+        let foundIndex = findStudentByName(text);
+        if (foundIndex !== -1 && foundIndex !== currentIndex) {
+            // Sauvegarder la note actuelle avant de changer d'élève
+            if (currentNote !== students[currentIndex].note) {
+                saveNote(currentIndex, currentNote);
+            }
+            // Changer d'élève
+            currentIndex = foundIndex;
+            currentNote = students[currentIndex].note;
+            updateModalUI();
+            feedback.innerHTML += `<br><span style="color:#60a5fa">🔍 Élève trouvé: ${students[currentIndex].nom}</span>`;
+            return;
+        }
+        
+        // Détection des notes (chiffres)
         let numbers = { zero:0, un:1, deux:2, trois:3, quatre:4, cinq:5, six:6, sept:7, huit:8, neuf:9, dix:10, onze:11, douze:12, treize:13, quatorze:14, quinze:15, seize:16, "dix-sept":17, "dix-huit":18, "dix-neuf":19, vingt:20 };
         let detected = null;
         for (let [word, val] of Object.entries(numbers)) {
@@ -234,12 +285,18 @@ function startVoiceMode() {
             feedback.innerHTML += `<br><span style="color:#10b981">✅ Note détectée: ${currentNote}</span>`;
         }
         
+        // Commande de validation
         if (text.includes('valider') || text.includes('suivant')) {
             saveNote(currentIndex, currentNote);
             nextStudent();
             if (currentIndex < students.length) updateModalUI();
             else document.getElementById('modal').classList.remove('show');
-            feedback.innerHTML += `<br><span style="color:#3b82f6">➡️ Élève suivant</span>`;
+            feedback.innerHTML += `<br><span style="color:#3b82f6">➡️ Élève suivant: ${students[currentIndex]?.nom || 'Terminé'}</span>`;
+        }
+        
+        // Commande pour aller directement à un élève
+        if (text.includes('va à') || text.includes('aller à') || text.includes('montre moi')) {
+            // Déjà traité par la recherche de nom au début
         }
     };
     
@@ -250,7 +307,7 @@ function startVoiceMode() {
     document.getElementById('voiceStart').onclick = () => {
         voiceWaiting = true;
         voiceRecognition.start();
-        document.getElementById('voiceFeedback').innerHTML = "🎤 Écoute en cours... Dites la note (ex: quatorze) puis dites valider";
+        document.getElementById('voiceFeedback').innerHTML = "🎤 Écoute en cours...<br>💡 Dites: 'KASONGO Jean' pour changer d'élève, '14' pour la note, 'valider' pour enregistrer";
     };
     document.getElementById('voiceStop').onclick = () => {
         voiceWaiting = false;
@@ -271,15 +328,20 @@ function startVoiceMode() {
 // ========== MODE GESTUEL (Swipe) ==========
 let gestureHammer = null;
 
+function updateGestureZone() {
+    let gv = document.getElementById('gestureValue');
+    if (gv) gv.textContent = currentNote;
+}
+
 function startGestureMode() {
     currentMode = 'gesture';
     currentIndex = 0;
     currentNote = students[0].note;
     
     let controls = `<div id="gestureZone" class="gesture-zone">
-        <div id="gestureValue" class="gesture-value" style="font-size:60px;font-weight:bold">${currentNote}</div>
-        <div class="gesture-hint">👈 Glisser GAUCHE → -1 &nbsp;&nbsp;|&nbsp;&nbsp; 👉 Glisser DROITE → +1</div>
-        <div class="gesture-hint">👆 TAP → Valider et suivant</div>
+        <div id="gestureValue" class="gesture-value" style="font-size:60px;font-weight:bold;color:#f59e0b">${currentNote}</div>
+        <div class="gesture-hint" style="color:#cbd5e1">👈 Glisser GAUCHE → -1 &nbsp;&nbsp;|&nbsp;&nbsp; 👉 Glisser DROITE → +1</div>
+        <div class="gesture-hint" style="color:#cbd5e1">👆 TAP → Valider et suivant</div>
     </div>
     <div style="display:flex;gap:10px;justify-content:center;margin-top:15px">
         <button id="gestureSkip" style="background:#f59e0b">⏩ Passer</button>
@@ -349,15 +411,7 @@ document.getElementById('closeModal').onclick = () => {
 };
 
 refreshTable();
-showToast("Cliquez sur un bouton pour tester le mode");
-
-// Ajuster noteValue quand updateModalUI est appelée
-function updateModalUI() {
-    document.getElementById('modalStudentName').textContent = students[currentIndex].nom;
-    document.getElementById('noteValue').textContent = currentNote;
-    document.getElementById('noteMax').textContent = maxNote;
-    document.getElementById('modalProgress').textContent = `${currentIndex+1} / ${students.length}`;
-}
+showToast("🎙️ Mode vocal: dites 'KASONGO Jean' pour changer d'élève !");
 </script>
 </body>
 </html>
