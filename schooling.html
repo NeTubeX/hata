@@ -254,7 +254,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .parent-msg.bot .bubble strong,.parent-msg.bot .bubble b{color:#60a5fa;font-weight:600;}
 .parent-msg.bot .bubble hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.5),rgba(96,165,250,0.8),rgba(59,130,246,0.5),transparent);margin:14px 0;}
 .parent-input-area{flex-shrink:0;display:flex;gap:12px;background:#0f172a;padding:16px;border-top:1px solid #334155;}
-.parent-input{flex:1;padding:14px 18px;background:#0f172a;border:1px solid #334155;border-radius:40px;color:#fff;font-size:14px;outline:none;}
+.parent-input{flex:1;padding:14px 18px;background:#0f172a;border:1px solid #334155;border-radius:40px;color:#fff;font-size:14px;outline:none;resize:none;font-family:'Inter',sans-serif;line-height:1.4;}
 .parent-input:focus{border-color:#3b82f6;}
 .parent-send{background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:40px;padding:0 24px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s;}
 .parent-send:active{transform:scale(0.97);}
@@ -302,7 +302,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     font-size: 14px !important;
     min-height: 70px !important;
 }
-/* Styles pour le chat RECO */
+/* Styles pour le chat RECO (version améliorée) */
 .logo-small{width:20px;height:20px;background:white;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;padding:3px;}
 .logo-small img{width:100%;height:auto;}
 .unread-badge{background:#ef4444;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;color:white;margin-left:8px;}
@@ -409,7 +409,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <div class="parent-msg bot"><div class="bubble">🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
 </div>
 <div class="parent-input-area">
-<input type="text" id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres ou Nom de l'élève...">
+<textarea id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres ou Nom de l'élève..." rows="2" style="height:auto; min-height:50px; max-height:120px;"></textarea>
 <button id="parentSendBtn" class="parent-send">Envoyer</button>
 </div>
 </div>
@@ -442,8 +442,42 @@ function canAskQuestion() { return getQuestionCount() < 10; }
 function updateCounterDisplay() { const counterSpan = document.getElementById('parentQuestionCounter'); if (counterSpan) { const current = getQuestionCount(); counterSpan.textContent = `${current}/10`; if (current >= 10) { counterSpan.style.background = '#ef4444'; } else { counterSpan.style.background = '#10b981'; } } }
 let currentVolume = 1.0;
 let currentUtterance = null;
-function stopSpeaking() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
-function speak(text) { if (!text) return; stopSpeaking(); let utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'fr-FR'; utterance.rate = 0.8; utterance.pitch = 1.0; utterance.volume = currentVolume; let voices = window.speechSynthesis.getVoices(); let frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr')); if (frenchVoice) utterance.voice = frenchVoice; utterance.onend = () => { currentUtterance = null; }; utterance.onerror = () => { currentUtterance = null; }; currentUtterance = utterance; window.speechSynthesis.speak(utterance); }
+let speechQueue = [];
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    currentUtterance = null;
+    speechQueue = [];
+}
+
+function speak(text, onEnd) {
+    if (!text) return;
+    stopSpeaking();
+    let utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.7;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    let voices = window.speechSynthesis.getVoices();
+    let frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frenchVoice) utterance.voice = frenchVoice;
+    
+    utterance.onend = () => {
+        currentUtterance = null;
+        if (onEnd) onEnd();
+    };
+    
+    utterance.onerror = () => {
+        currentUtterance = null;
+        if (onEnd) onEnd();
+    };
+    
+    currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+}
 
 // ==================== POPUP STYLISÉ POUR CHANGER D'ÉCOLE ====================
 function showStyledConfirm(title, message, onConfirm, onCancel) {
@@ -717,6 +751,7 @@ async function showGestionProfsModal(){
         '<div id="modalTabCorbeille" class="modal-tab-content">'+
         '<div id="corbeilleList" style="max-height:400px;overflow-y:auto;"></div>'+
         '</div>'+
+        // === ONGLET RECO AMÉLIORÉ (version du deuxième code) ===
         '<div id="modalTabReco" class="modal-tab-content">'+
         '<div class="reco-chat-container">'+
             '<div class="parent-chat">'+
@@ -741,6 +776,7 @@ async function showGestionProfsModal(){
         '</div>'+
         '<button class="btn btn-secondary" id="closeRecoBtn" style="margin-top:20px; width:auto;">Fermer</button>'+
         '</div>'+
+        // =================================================
         '<div id="modalTabCode" class="modal-tab-content">'+
         '<div style="background:#0f172a; border-radius:16px; padding:20px; margin-bottom:20px; text-align:center;">'+
         '<div style="font-size:48px; margin-bottom:15px;">🔧</div>'+
@@ -1022,7 +1058,7 @@ function renderFicheCardTitu(fiche){
     for(let i=0; i<eleves.length; i++){
         let e = eleves[i];
         let notes = getNotesByPeriodTitu(fiche, e, currentPeriodTitu);
-        tableRows += '</tr>';
+        tableRows += '<tr>';
         tableRows += `<td style="text-align:center; font-weight:600;">${String(i+1).padStart(2,'0')}</td>`;
         tableRows += `<td style="text-align:left; font-weight:500;">${e.nom||'-'}</td>`;
         tableRows += `<td style="text-align:center;">${e.sexe||'-'}</td>`;
@@ -1395,7 +1431,7 @@ async function initTitulaire(){
     }
 }
 
-// ==================== FONCTIONS POUR L'ONGLET RECO ====================
+// ==================== FONCTIONS POUR L'ONGLET RECO (version améliorée) ====================
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = schoolId;
@@ -1509,6 +1545,8 @@ function correctionUpdateEpreuveList() {
     epreuveSelect.onchange = () => { const idx = parseInt(epreuveSelect.value); if(!isNaN(idx) && eps[idx]) maxInput.value = eps[idx].max; else maxInput.value = '0'; };
 }
 document.getElementById('correctionPeriodeSelect')?.addEventListener('change', () => correctionUpdateEpreuveList());
+
+// ==================== MODES DE CORRECTION AVEC SYNTHÈSE VOCALE AMÉLIORÉE ====================
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     if(!currentFiche || !currentFiche.eleves?.length) { toast("Aucune fiche ou élève sélectionné", 'error'); return; }
     const periode = parseInt(document.getElementById('correctionPeriodeSelect').value);
@@ -1548,7 +1586,9 @@ document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     document.getElementById('quickNext').onclick = () => correctionNextStudent(false);
     document.getElementById('quickPrev').onclick = () => correctionPrevStudent();
     document.getElementById('saisieModal').classList.add('show');
-    speak(`Mode rapide activé. Élève actuel: ${eleves[0]?.nom || 'aucun'}`);
+    setTimeout(() => {
+        speak(`Mode rapide activé. Élève actuel: ${eleves[0]?.nom || 'aucun'}`);
+    }, 500);
 });
 document.getElementById('correctionGestureBtn')?.addEventListener('click', () => {
     if(!currentFiche || !currentFiche.eleves?.length) { toast("Aucune fiche ou élève sélectionné", 'error'); return; }
@@ -1578,7 +1618,9 @@ document.getElementById('correctionGestureBtn')?.addEventListener('click', () =>
     }
     document.getElementById('gestureSkip')?.addEventListener('click', () => correctionNextStudent(false));
     document.getElementById('saisieModal').classList.add('show');
-    speak(`Mode gestuel activé. Élève actuel: ${eleves[0]?.nom || 'aucun'}`);
+    setTimeout(() => {
+        speak(`Mode gestuel activé. Élève actuel: ${eleves[0]?.nom || 'aucun'}`);
+    }, 500);
 });
 function correctionSaveCurrentNote() {
     const eleves = currentFiche.eleves;
@@ -1590,11 +1632,19 @@ function correctionSaveCurrentNote() {
     eleves[window.correctionMode.currentIndex].notes[`p${window.correctionMode.periode}`][window.correctionMode.epreuveIdx] = noteValue;
     saveCurrentFiche();
     afficherCotation();
-    speak(`${eleveNom} a obtenu ${noteValue} sur ${window.correctionMode.noteMax}.`);
-    setTimeout(() => {
-        if(window.correctionMode && window.correctionMode.currentIndex + 1 < eleves.length) correctionNextStudent(true);
-        else if(window.correctionMode) { toast("Tous les élèves ont été notés !", 'success'); speak("Félicitations. Tous les élèves ont été notés."); document.getElementById('saisieModal').classList.remove('show'); if(window.correctionMode?.hammer) window.correctionMode.hammer.destroy(); window.correctionMode = null; }
-    }, 1500);
+    speak(`${eleveNom} a obtenu ${noteValue} sur ${window.correctionMode.noteMax}.`, () => {
+        setTimeout(() => {
+            if(window.correctionMode && window.correctionMode.currentIndex + 1 < eleves.length) {
+                correctionNextStudent(true);
+            } else if(window.correctionMode) {
+                toast("Tous les élèves ont été notés !", 'success');
+                speak("Félicitations. Tous les élèves ont été notés.");
+                document.getElementById('saisieModal').classList.remove('show');
+                if(window.correctionMode?.hammer) window.correctionMode.hammer.destroy();
+                window.correctionMode = null;
+            }
+        }, 500);
+    });
 }
 function correctionNextStudent(autoMode) {
     const eleves = currentFiche.eleves;
@@ -1604,8 +1654,18 @@ function correctionNextStudent(autoMode) {
         document.getElementById('saisieModalStudentName').textContent = eleves[window.correctionMode.currentIndex]?.nom || '---';
         document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
         if(window.correctionMode.type === 'gesture') { const disp = document.querySelector('#gestureZone div:first-child'); if(disp) disp.textContent = window.correctionMode.currentNote; }
-        if(autoMode) speak(`Passage à ${eleves[window.correctionMode.currentIndex]?.nom}.`);
-    } else { toast("Tous les élèves ont été notés !", 'success'); speak("Félicitations. Tous les élèves ont été notés."); document.getElementById('saisieModal').classList.remove('show'); if(window.correctionMode?.hammer) window.correctionMode.hammer.destroy(); window.correctionMode = null; }
+        if(autoMode) {
+            setTimeout(() => {
+                speak(`Passage à ${eleves[window.correctionMode.currentIndex]?.nom}.`);
+            }, 500);
+        }
+    } else {
+        toast("Tous les élèves ont été notés !", 'success');
+        speak("Félicitations. Tous les élèves ont été notés.");
+        document.getElementById('saisieModal').classList.remove('show');
+        if(window.correctionMode?.hammer) window.correctionMode.hammer.destroy();
+        window.correctionMode = null;
+    }
 }
 function correctionPrevStudent() {
     const eleves = currentFiche.eleves;
@@ -1615,8 +1675,12 @@ function correctionPrevStudent() {
         document.getElementById('saisieModalStudentName').textContent = eleves[window.correctionMode.currentIndex]?.nom || '---';
         document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
         if(window.correctionMode.type === 'gesture') { const disp = document.querySelector('#gestureZone div:first-child'); if(disp) disp.textContent = window.correctionMode.currentNote; }
-        speak(`Retour à ${eleves[window.correctionMode.currentIndex]?.nom}.`);
-    } else speak("Vous êtes déjà au premier élève.");
+        setTimeout(() => {
+            speak(`Retour à ${eleves[window.correctionMode.currentIndex]?.nom}.`);
+        }, 500);
+    } else {
+        speak("Vous êtes déjà au premier élève.");
+    }
 }
 document.getElementById('closeSaisieModal')?.addEventListener('click', () => { document.getElementById('saisieModal').classList.remove('show'); if(window.correctionMode?.hammer) window.correctionMode.hammer.destroy(); window.correctionMode = null; stopSpeaking(); });
 window.speechSynthesis.onvoiceschanged = () => { const voices = window.speechSynthesis.getVoices(); };
@@ -1690,7 +1754,18 @@ if(parentSendBtnNew) {
         }
     };
 }
-if(parentQuestionInputNew) parentQuestionInputNew.addEventListener('keypress', (e) => { if(e.key === 'Enter') { e.preventDefault(); parentSendBtnNew.click(); } });
+if(parentQuestionInputNew) {
+    parentQuestionInputNew.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            parentSendBtnNew.click();
+        }
+    });
+    parentQuestionInputNew.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+}
 updateCounterDisplay();
 </script>
 </body>
