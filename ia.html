@@ -302,6 +302,20 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     font-size: 14px !important;
     min-height: 70px !important;
 }
+/* Styles pour le chat dans l'onglet RECO */
+.logo-small{width:20px;height:20px;background:white;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;padding:3px;}
+.logo-small img{width:100%;height:auto;}
+.unread-badge{background:#ef4444;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;color:white;margin-left:8px;}
+.msg-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.msg-number{font-size:10px;color:#94a3b8;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:20px;}
+.msg-sender{font-weight:600;font-size:12px;}
+.parent-msg.user .msg-sender{color:#facc15;}
+.parent-msg.bot .msg-sender{color:#a78bfa;}
+.msg-text{font-size:14px;line-height:1.4;}
+.msg-date{font-size:10px;color:#64748b;margin-top:8px;text-align:right;}
+.reco-chat-container{background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:24px;overflow:hidden;margin-bottom:16px;border:1px solid rgba(59,130,246,0.2);}
+.reco-chat-container .parent-info{background:linear-gradient(135deg,#0f2b44,#071a2c);padding:14px 20px;}
+.reco-chat-container .parent-messages{max-height:400px;}
 </style>
 </head>
 <body>
@@ -424,10 +438,38 @@ let currentVolume = 1.0;
 let currentUtterance = null;
 function stopSpeaking() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
 function speak(text) { if (!text) return; stopSpeaking(); let utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'fr-FR'; utterance.rate = 0.8; utterance.pitch = 1.0; utterance.volume = currentVolume; let voices = window.speechSynthesis.getVoices(); let frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr')); if (frenchVoice) utterance.voice = frenchVoice; utterance.onend = () => { currentUtterance = null; }; utterance.onerror = () => { currentUtterance = null; }; currentUtterance = utterance; window.speechSynthesis.speak(utterance); }
+
+// ==================== POPUP STYLISÉ POUR CHANGER D'ÉCOLE ====================
+function showStyledConfirm(title, message, onConfirm, onCancel) {
+    let d = document.createElement('div');
+    d.className = 'modal-fullscreen';
+    d.innerHTML = `
+        <div class="modal-content" style="max-width:420px; text-align:center; padding:32px; border-radius:28px;">
+            <div style="font-size:56px; margin-bottom:16px;">🏫</div>
+            <h3 style="color:#f97316; margin-bottom:16px; font-size:20px; font-weight:700;">${title}</h3>
+            <p style="color:#cbd5e1; margin-bottom:24px; line-height:1.6; font-size:14px;">${message}</p>
+            <div style="display:flex; gap:14px; justify-content:center;">
+                <button id="styledConfirmCancel" style="background:#334155; color:#fff; border:none; padding:10px 28px; border-radius:40px; cursor:pointer; font-weight:600; font-size:14px;">Annuler</button>
+                <button id="styledConfirmOk" style="background:#dc2626; color:#fff; border:none; padding:10px 28px; border-radius:40px; cursor:pointer; font-weight:600; font-size:14px;">Confirmer</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(d);
+    setTimeout(() => d.classList.add('show'), 10);
+    
+    d.querySelector('#styledConfirmOk').onclick = () => {
+        d.remove();
+        if(onConfirm) onConfirm();
+    };
+    d.querySelector('#styledConfirmCancel').onclick = () => {
+        d.remove();
+        if(onCancel) onCancel();
+    };
+}
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 const firebaseConfig = { apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA", authDomain: "netubexmoney.firebaseapp.com", projectId: "netubexmoney", storageBucket: "netubexmoney.firebasestorage.app", messagingSenderId: "856592608176", appId: "1:856592608176:web:69f9df9cfd4f8c28630475" };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -470,105 +512,85 @@ async function chargerInstructionsIA() {
     }
     return iaInstructions;
 }
+
+// ==================== BOUTON CHANGER D'ÉCOLE AVEC POPUP STYLISÉ ====================
 document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
-    if (confirm("⚠️ Voulez-vous vraiment changer d'école ?\n\nToutes les données non synchronisées seront perdues.")) {
-        window.location.href = 'https://www.netubex.com/schoolchoice';
+    if (typeof showStyledConfirm === 'function') {
+        showStyledConfirm(
+            "Changer d'école ?", 
+            "⚠️ Attention : Toutes les données non synchronisées seront définitivement perdues.<br><br>Souhaitez-vous continuer ?",
+            () => {
+                window.location.href = 'https://www.netubex.com/schoolchoice';
+            }
+        );
+    } else {
+        if (confirm("⚠️ Voulez-vous vraiment changer d'école ?\n\nToutes les données non synchronisées seront perdues.")) {
+            window.location.href = 'https://www.netubex.com/schoolchoice';
+        }
     }
 });
+
 async function getAllComptaEleves() { try { const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); const snap = await getDocs(q); localEleves = []; for (const ds of snap.docs) { const d = ds.data(); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false }); } return localEleves; } catch (error) { return localEleves; } }
 async function getAllFiches() { try { const snap = await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`)); const fiches = []; for(const ds of snap.docs) { const d = ds.data(); if(!d._type && d.eleves) { fiches.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' }); } } return fiches; } catch(e) { return []; } }
 async function chercherInfosFinancieresParCode(code) { try { let q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve")); let snap = await getDocs(q); if(snap.empty) { q = query(collection(db, `${SCHOOL_PREFIX}_compta_eleves`), where("parentCode", "==", code), where("_type", "==", "compta_eleve")); snap = await getDocs(q); } if(snap.empty) return null; const data = snap.docs[0].data(); const paiements = data.paiements || {}; const minerval = data.minerval || 45000; const totalAnnuel = minerval * 10; let totalPaye = 0, moisImpayes = []; const moisListe = ["Septembre","Octobre","Novembre","Décembre","Janvier","Février","Mars","Avril","Mai","Juin"]; for(let mois of moisListe) { const montant = paiements[mois]?.montant || 0; totalPaye += montant; if(montant < minerval && !data.exonere) moisImpayes.push(mois); } const reste = totalAnnuel - totalPaye; let statut = "En ordre"; if(data.exonere) statut = "Exonéré"; else if(moisImpayes.length >= 3) statut = "Liste noire"; else if(moisImpayes.length > 0) statut = "Paiement partiel"; return { nom: data.nom, prenom: data.prenom || "", classe: data.classe, option: data.option || "", exonere: data.exonere || false, minerval, totalAnnuel, totalPaye, reste, moisImpayes, statut }; } catch(e) { return null; } }
 async function chercherNotesParNom(nom) { const fiches = await getAllFiches(); const resultats = []; const searchTerm = nom.toLowerCase().trim(); for(const fiche of fiches) { for(const eleve of (fiche.eleves || [])) { const nomEleve = (eleve.nom || '').toLowerCase(); if(nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) { const epreuvesList = []; if(eleve.notes) { for(let periode = 1; periode <= 4; periode++) { const epreuves = fiche.epreuvesParPeriode?.[periode] || []; const notesPeriode = eleve.notes[`p${periode}`] || []; for(let i = 0; i < epreuves.length; i++) { const nomEpreuve = epreuves[i].nom || "Epreuve"; if(!nomEpreuve.toLowerCase().includes("examen")) { let note = notesPeriode[i] || 0; let max = epreuves[i].max || 1; let noteSur20 = Math.round((note / max) * 20 * 10) / 10; epreuvesList.push({ matiere: fiche.cours, epreuve: nomEpreuve, note: note, max: max, noteSur20: noteSur20, periode: periode, titulaire: fiche.titulaire || null, classe: fiche.classe, option: fiche.option || '' }); } } } } if(epreuvesList.length > 0) { resultats.push({ eleveNom: eleve.nom, classe: fiche.classe, option: fiche.option || '', titulaire: fiche.titulaire || null, epreuves: epreuvesList }); } } } } return resultats; }
-async function demanderIA(question) {
-    try {
-        const instructions = await chargerInstructionsIA();
-        const nomEcole = schoolNameForDisplay;
-        const prompt = instructions + "\n\n" +
-            "NOM DE L'ÉCOLE: " + nomEcole + "\n\n" +
-            "QUESTION: " + question + "\n\n" +
-            "RÈGLE: Maximum 2 phrases. Un seul point final. Pas de point-virgule. Pas de deux-points.";
-        const response = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: prompt })
-        });
-        const data = await response.json();
-        let reponse = data.answer || "Système intelligent. Donnez un nom ou un code.";
-        reponse = reponse.replace(/[;:…]/g, '.');
-        reponse = reponse.replace(/\.{2,}/g, '.');
-        let phrases = reponse.split('.').filter(p => p.trim().length > 0);
-        if (phrases.length > 2) phrases = phrases.slice(0, 2);
-        reponse = phrases.join('. ') + '.';
-        return reponse;
-    } catch(e) {
-        console.error("Erreur IA:", e);
-        return "Système intelligent. Donnez un nom ou un code.";
-    }
-}
+
+// ==================== IA AMÉLIORÉE - OBLIGATION NOM OU CODE ====================
 async function traiterMessage(message) {
-    const msg = message.trim().toLowerCase();
-    if(msg === "aide" || msg === "help") {
-        return "Code 6 chiffres pour les frais. Nom d'élève pour les notes.";
-    }
-    if(msg === "bonjour" || msg === "salut" || msg === "coucou" || msg === "hello") {
-        return "Bonjour ! Donnez le nom d'un élève ou un code.";
-    }
-    if(msg === "merci" || msg === "merci beaucoup") {
-        return "Avec plaisir !";
-    }
-    if(msg === "au revoir" || msg === "bye") {
-        return "Au revoir !";
-    }
-    if(msg === "qui es-tu" || msg === "qui êtes-vous" || msg === "présentation") {
-        return "Système intelligent ! Je donne les notes des élèves et les frais scolaires.";
-    }
-    if(message.trim().match(/^\d{6}$/)) {
-        const infos = await chercherInfosFinancieresParCode(message.trim());
-        if(!infos) {
-            return "Code non reconnu. Vérifiez ou donnez un nom d'élève.";
+    const msg = message.trim();
+    
+    // 1. Vérifier si c'est un code à 6 chiffres
+    if (/^\d{6}$/.test(msg)) {
+        const infos = await chercherInfosFinancieresParCode(msg);
+        if (!infos) {
+            return "❌ Code non reconnu. Veuillez vérifier votre code à 6 chiffres ou donnez le nom complet de l'élève.";
         }
         const resultatsNotes = await chercherNotesParNom(infos.nom);
-        let reponse = "Code trouvé. " + infos.nom + " " + infos.prenom + " - " + infos.classe;
-        if(infos.option && infos.option !== "TOUTES") reponse += " (" + infos.option + ")";
-        reponse += ". Minerval: " + infos.minerval.toLocaleString() + " FC/mois. Payé: " + infos.totalPaye.toLocaleString() + " FC. Reste: " + infos.reste.toLocaleString() + " FC.";
-        if(infos.moisImpayes.length > 0) {
-            reponse += " Mois impayés: " + infos.moisImpayes.join(", ") + ". Statut: " + infos.statut + ".";
+        let reponse = "🔐 **Code trouvé**\n\n";
+        reponse += "👤 **Élève :** " + infos.nom + " " + infos.prenom + "\n";
+        reponse += "🎓 **Classe :** " + infos.classe;
+        if (infos.option && infos.option !== "TOUTES") reponse += " (" + infos.option + ")";
+        reponse += "\n\n💰 **Scolarité :**\n";
+        reponse += "• Minerval : " + infos.minerval.toLocaleString() + " FC/mois\n";
+        reponse += "• Total payé : " + infos.totalPaye.toLocaleString() + " FC\n";
+        reponse += "• Reste à payer : " + infos.reste.toLocaleString() + " FC\n";
+        if (infos.moisImpayes.length > 0) {
+            reponse += "• Mois impayés : " + infos.moisImpayes.join(", ") + "\n";
+            reponse += "• Statut : " + infos.statut;
         } else {
-            reponse += " Tout est en ordre.";
+            reponse += "• Statut : ✅ Tout est en ordre";
         }
         return reponse;
     }
-    const fraisKeywords = ["frais", "dette", "reste", "payer", "payé", "minerval", "combien doit", "combien reste", "montant", "échéance", "impayé", "impayés", "facture", "scolarité"];
-    const estQuestionFrais = fraisKeywords.some(keyword => msg.includes(keyword));
-    const resultats = await chercherNotesParNom(message);
-    if(resultats.length > 0) {
-        const r = resultats[0];
-        let reponse = "📚 **" + r.eleveNom.toUpperCase() + "**\n";
-        reponse += "🎓 Classe: " + r.classe + "\n";
-        if(r.option) reponse += "📌 Option: " + r.option + "\n";
-        if(r.titulaire) reponse += "👨‍🏫 Professeur: " + r.titulaire + "\n";
-        if (estQuestionFrais) {
-            reponse += "\n💰 Pour les frais scolaires, donnez le code à 6 chiffres de l'élève.";
-        } else {
+    
+    // 2. Vérifier si c'est un nom d'élève (au moins 2 caractères)
+    if (msg.length >= 2) {
+        const resultats = await chercherNotesParNom(msg);
+        if (resultats.length > 0) {
+            const r = resultats[0];
+            let reponse = "📚 **" + r.eleveNom.toUpperCase() + "**\n\n";
+            reponse += "🎓 **Classe :** " + r.classe + "\n";
+            if (r.option && r.option !== "TOUTES") reponse += "📌 **Option :** " + r.option + "\n";
+            if (r.titulaire) reponse += "👨‍🏫 **Professeur :** " + r.titulaire + "\n\n";
+            reponse += "📝 **Notes obtenues :**\n";
             const epreuvesFiltrees = r.epreuves.filter(ep => ep.note > 0);
-            if(epreuvesFiltrees.length === 0) {
-                reponse += "\n📭 Aucune note enregistrée pour le moment.";
+            if (epreuvesFiltrees.length === 0) {
+                reponse += "   Aucune note enregistrée pour le moment.";
             } else {
-                reponse += "\n📝 Notes obtenues:\n";
-                for(const ep of epreuvesFiltrees) {
+                for (const ep of epreuvesFiltrees) {
                     const pourcentage = (ep.note / ep.max) * 100;
                     const emoji = pourcentage >= 70 ? "✅" : (pourcentage >= 50 ? "📘" : "🔴");
-                    reponse += `   ${emoji} ${ep.epreuve}: ${ep.note}/${ep.max}\n`;
+                    reponse += `   ${emoji} ${ep.epreuve} : ${ep.note}/${ep.max}\n`;
                 }
             }
+            return reponse;
         }
-        return reponse;
     }
-    if (estQuestionFrais) {
-        return "Pour connaître les frais scolaires, donnez le code à 6 chiffres de votre enfant.";
-    }
-    return await demanderIA(question);
+    
+    // 3. Refus de répondre aux autres questions
+    return "❌ **Information non disponible**\n\nPour accéder aux informations, veuillez fournir :\n• Le **code à 6 chiffres** de votre enfant (pour les frais)\n• Ou le **nom complet** de l'élève (pour les notes)\n\nLes autres questions ne peuvent pas être traitées.";
 }
+
 function sauvegarderSession(prof) { if(prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: SCHOOL_PREFIX })); } else { localStorage.removeItem('gloria_session_prof'); } }
 async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if(session) { try { let prof = JSON.parse(session); if(prof.school !== SCHOOL_PREFIX) { localStorage.removeItem('gloria_session_prof'); return false; } let ap = await getAllFromIndexedDB('professeurs'); let fp = ap.find(function(p) { return p.id === prof.id && p.school === SCHOOL_PREFIX; }); if(fp) { currentProf = fp; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if(parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if(toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); await chargerSelecteursDynamiques(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } } catch(e) { console.log(e); } } return false; }
 async function chargerSelecteursDynamiques() { const toutes = await getAllFromIndexedDB('fiches'); const matieresSet = new Set(); const classesSet = new Set(); for(const f of toutes) { if(f.cours && f.cours.trim()) matieresSet.add(f.cours); if(f.classe && f.classe.trim()) classesSet.add(f.classe); } }
@@ -616,7 +638,7 @@ function getExamMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2);else re
 function getTotalSemestreMax(s){if(s===1)return getPeriodeMax(1)+getPeriodeMax(2)+getExamMax(1);else return getPeriodeMax(3)+getPeriodeMax(4)+getExamMax(2);}
 function getTotalAnnuelMax(){return getTotalSemestreMax(1)+getTotalSemestreMax(2);}
 function calcMoy(p, notes){let eps = currentFiche.epreuvesParPeriode?.[p] || [];if(!eps.length || !notes?.length) return 0;let sommeNotes = 0, sommeMax = 0;for(let i = 0; i < eps.length; i++){sommeNotes += (notes[i] || 0);sommeMax += (eps[i].max || 1);}if(sommeMax === 0) return 0;let noteMaxPeriode = currentFiche.p1Max || 20;let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;return Math.min(noteMaxPeriode, Math.round(moyenne));}
-function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<tr><td class="empty-state">Aucun élève inscrit</div>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</tr>';tb.innerHTML+=r;}}
+function afficherCotation(){let th=document.getElementById('cotationHeader');let tb=document.getElementById('cotationBody');let ev=currentFiche?.eleves||[];if(!ev.length){th.innerHTML='';tb.innerHTML='<tr><td class="empty-state">Aucun élève inscrit</div>';return;}let p1m=getPeriodeMax(1);let p2m=getPeriodeMax(2);let p3m=getPeriodeMax(3);let p4m=getPeriodeMax(4);let e1m=getExamMax(1);let e2m=getExamMax(2);let ts1m=getTotalSemestreMax(1);let ts2m=getTotalSemestreMax(2);let tam=getTotalAnnuelMax();let h=['<th>N°</th><th>NOMS</th><th>SEXE</th>'];let e1=currentFiche.epreuvesParPeriode?.[1]||[];for(let ep of e1)h.push('<th>'+ep.nom+'<br>P1</th>');h.push('<th>MOY P1<br>/'+p1m+'</th>');let e2=currentFiche.epreuvesParPeriode?.[2]||[];for(let ep of e2)h.push('<th>'+ep.nom+'<br>P2</th>');h.push('<th>MOY P2<br>/'+p2m+'</th>');h.push('<th>EXAM S1<br>/'+e1m+'</th>');h.push('<th>TOT S1<br>/'+ts1m+'</th>');let e3=currentFiche.epreuvesParPeriode?.[3]||[];for(let ep of e3)h.push('<th>'+ep.nom+'<br>P3</th>');h.push('<th>MOY P3<br>/'+p3m+'</th>');let e4=currentFiche.epreuvesParPeriode?.[4]||[];for(let ep of e4)h.push('<th>'+ep.nom+'<br>P4</th>');h.push('<th>MOY P4<br>/'+p4m+'</th>');h.push('<th>EXAM S2<br>/'+e2m+'</th>');h.push('<th>TOT S2<br>/'+ts2m+'</th>');h.push('<th>TOTAL<br>/'+tam+'</th>');th.innerHTML=h.join('');tb.innerHTML='';for(let i=0;i<ev.length;i++){let e=ev[i];if(!e.notes)e.notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};let p1=calcMoy(1,e.notes.p1);let p2=calcMoy(2,e.notes.p2);let p3=calcMoy(3,e.notes.p3);let p4=calcMoy(4,e.notes.p4);let ex1=e.notes.exam1||0;let ex2=e.notes.exam2||0;let ts1=p1+p2+ex1;let ts2=p3+p4+ex2;let tot=ts1+ts2;let r='<tr>';r+='<td style="text-align:center">'+String(i+1).padStart(2,'0')+'</td>';r+='<td style="text-align:left"><input type="text" value="'+(e.nom||'')+'" onchange="window.updNoteField('+i+',\'nom\',this.value)" style="width:180px"></td>';r+='<td style="text-align:center"><select onchange="window.updNoteField('+i+',\'sexe\',this.value)"><option value="M" '+(e.sexe=='M'?'selected':'')+'>M</option><option value="F" '+(e.sexe=='F'?'selected':'')+'>F</option></select></td>';for(let ei=0;ei<e1.length;ei++){let val=e.notes.p1?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e1[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',1,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p1+'</td>';for(let ei=0;ei<e2.length;ei++){let val=e.notes.p2?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e2[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',2,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p2+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e1m+'" value="'+ex1+'" onchange="window.updExam('+i+',1,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts1+'</td>';for(let ei=0;ei<e3.length;ei++){let val=e.notes.p3?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e3[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',3,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p3+'</td>';for(let ei=0;ei<e4.length;ei++){let val=e.notes.p4?.[ei]||0;r+='<td><input type="number" step="0.5" min="0" max="'+e4[ei].max+'" value="'+val+'" onchange="window.updNote('+i+',4,'+ei+',this.value)" style="width:55px"></td>';}r+='<td style="background:#1e3a5f">'+p4+'</td>';r+='<td><input type="number" step="0.5" min="0" max="'+e2m+'" value="'+ex2+'" onchange="window.updExam('+i+',2,this.value)" style="width:55px"></td>';r+='<td style="background:#5c4a1a">'+ts2+'</td>';r+='<td style="background:#5c4a1a">'+tot+'</td>';r+='</td>';tb.innerHTML+=r;}}
 window.updNoteField=function(i,f,v){if(f==='nom'&&(!v||v.trim()==='')){toast("Le nom ne peut pas être vide",'error');return;}currentFiche.eleves[i][f]=v;debounceSave();updateExportSelect();refreshGroupes();rafraichirGroupesPourCotation();};
 window.updNote=function(i,p,epi,v){let va=parseFloat(v)||0;let me=currentFiche.epreuvesParPeriode[p]?.[epi]?.max||20;if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(!currentFiche.eleves[i].notes['p'+p])currentFiche.eleves[i].notes['p'+p]=[];currentFiche.eleves[i].notes['p'+p][epi]=va;afficherCotation();debounceSave();refreshGroupes();};
 window.updExam=function(i,s,v){let va=parseFloat(v)||0;let me=(s===1)?getExamMax(1):getExamMax(2);if(va>me)va=me;if(!currentFiche.eleves[i].notes)currentFiche.eleves[i].notes={p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0};if(s===1)currentFiche.eleves[i].notes.exam1=va;else currentFiche.eleves[i].notes.exam2=va;afficherCotation();debounceSave();refreshGroupes();};
@@ -685,29 +707,39 @@ async function showGestionProfsModal(){
         '<div id="corbeilleList" style="max-height:400px;overflow-y:auto;"></div>'+
         '</div>'+
         '<div id="modalTabReco" class="modal-tab-content">'+
-        '<div style="text-align:center;padding:20px">'+
-        '<div style="background:linear-gradient(135deg,#1e3a5f,#0f2b44);border-radius:20px;padding:30px;margin-bottom:20px">'+
-        '<div style="font-size:48px;margin-bottom:15px">📧</div>'+
-        '<h3 style="color:#fff;margin-bottom:10px">Contactez NeTubeX</h3>'+
-        '<p style="color:#cbd5e1;margin-bottom:20px">Notre équipe vous répondra dans les plus brefs délais</p>'+
-        '<div style="background:#0f172a;border-radius:16px;padding:16px;margin:20px 0">'+
-        '<a href="mailto:contact@netubex.com" style="color:#60a5fa;font-size:18px;font-weight:600;text-decoration:none;word-break:break-all">contact@netubex.com</a>'+
+        '<div class="reco-chat-container">'+
+            '<div class="parent-chat">'+
+                '<div class="parent-info">'+
+                    '<div class="parent-info-left">'+
+                        '<span>Support Technique</span>'+
+                        '<span>Direction ↔ NeTubeX</span>'+
+                    '</div>'+
+                    '<div class="parent-info-right">'+
+                        '<span>📬 Non lus</span>'+
+                        '<span id="recoUnreadCount">0</span>'+
+                    '</div>'+
+                '</div>'+
+                '<div id="recoMessagesContainer" class="parent-messages" style="max-height:400px;">'+
+                    '<div class="empty-state">💬 Chargement des messages...</div>'+
+                '</div>'+
+                '<div class="parent-input-area">'+
+                    '<input type="text" id="recoMessageInput" class="parent-input" placeholder="Votre message...">'+
+                    '<button id="recoSendBtn" class="parent-send">Envoyer</button>'+
+                '</div>'+
+            '</div>'+
         '</div>'+
-        '<p style="color:#94a3b8;font-size:13px">Discutez avec NeTubeX via cette adresse email, un conseiller vous répondra sans attendre</p>'+
-        '</div>'+
-        '<button class="btn btn-secondary" id="closeRecoBtn" style="margin-top:20px">Fermer</button>'+
-        '</div>'+
+        '<button class="btn btn-secondary" id="closeRecoBtn" style="margin-top:20px; width:auto;">Fermer</button>'+
         '</div>'+
         '<div id="modalTabCode" class="modal-tab-content">'+
-        '<div style="background:#0f172a; border-radius:16px; padding:15px; margin-bottom:20px; text-align:center;">'+
-        '<div style="font-size:12px; color:#94a3b8; margin-bottom:5px;">🔑 CODE ACCÈS PARENT</div>'+
-        '<div style="font-size:28px; font-weight:bold; letter-spacing:5px; color:#10b981; font-family:monospace;">Voir la comptabilité</div>'+
-        '<div style="font-size:10px; color:#f59e0b; margin-top:8px;">⚠️ Code non modifiable - À transmettre aux parents</div>'+
+        '<div style="background:#0f172a; border-radius:16px; padding:20px; margin-bottom:20px; text-align:center;">'+
+        '<div style="font-size:48px; margin-bottom:15px;">🔧</div>'+
+        '<h3 style="color:#60a5fa; margin-bottom:10px;">Configuration directrice</h3>'+
+        '<p style="color:#94a3b8; font-size:12px; margin-bottom:15px;">Modifiez votre code d\'accès à l\'espace directrice</p>'+
         '</div>'+
-        '<input type="password" id="oldDirectriceCode" placeholder="Ancien code" style="width:100%;padding:10px;margin-bottom:8px">'+
-        '<input type="password" id="newDirectriceCode1" placeholder="Nouveau code (4 chiffres)" style="width:100%;padding:10px;margin-bottom:8px">'+
-        '<input type="password" id="newDirectriceCode2" placeholder="Confirmer" style="width:100%;padding:10px;margin-bottom:8px">'+
-        '<button class="btn btn-sm btn-primary" id="changeDirectriceCodeBtn" style="width:100%">Changer code direction</button>'+
+        '<input type="password" id="oldDirectriceCode" placeholder="Ancien code (4 chiffres)" style="width:100%;padding:12px;margin-bottom:10px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;text-align:center;font-size:18px;letter-spacing:4px">'+
+        '<input type="password" id="newDirectriceCode1" placeholder="Nouveau code (4 chiffres)" style="width:100%;padding:12px;margin-bottom:10px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;text-align:center;font-size:18px;letter-spacing:4px">'+
+        '<input type="password" id="newDirectriceCode2" placeholder="Confirmer le code" style="width:100%;padding:12px;margin-bottom:10px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;text-align:center;font-size:18px;letter-spacing:4px">'+
+        '<button class="btn btn-sm btn-primary" id="changeDirectriceCodeBtn" style="width:100%;margin-top:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);">🔑 Changer le code</button>'+
         '</div>'+
         '<div style="margin-top:16px"><button class="btn btn-secondary" id="closeGestionBtn" style="width:100%">Fermer</button></div>'+
         '</div>';
@@ -725,6 +757,11 @@ async function showGestionProfsModal(){
             document.getElementById('modalTab'+tn.charAt(0).toUpperCase()+tn.slice(1)).classList.add('active');
             if(t.dataset.tabModal==='options')chargerAdminOptions();
             if(t.dataset.tabModal==='corbeille')afficherCorbeille();
+            if(t.dataset.tabModal==='reco'){
+                setTimeout(function(){
+                    if(typeof initRecoSupport === 'function') initRecoSupport();
+                }, 100);
+            }
         };
     });
     await refreshProfsList();
@@ -994,7 +1031,7 @@ function renderFicheCardTitu(fiche){
         }
         else {
             tableRows += `<td class="note-cell">${notes.p1}</td>`;
-            tableRows += `<td class="note-cell">${notes.p2}</td>`;
+            tableRows += `<td class="note-cell">${notes.p2}<td>`;
             tableRows += `<td class="note-cell">${notes.exam1}</td>`;
             tableRows += `<td class="total-s1">${notes.totalS1}</td>`;
             tableRows += `<td class="note-cell">${notes.p3}</td>`;
@@ -1348,84 +1385,211 @@ async function initTitulaire(){
         await chargerFichesPourRechercheTitu();
     }
 }
-let compteurKey = `global_${SCHOOL_PREFIX}`;
-let ce = await getFromIndexedDB('compteur', compteurKey);
-if(!ce) await saveToIndexedDB('compteur', {id: compteurKey, valeur:0});
-await initIndexedDB();
-await chargerOptionsParClasse();
-if(navigator.onLine){try{let fp=await getDocs(query(collection(db, `${SCHOOL_PREFIX}_professeurs`), where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.ficheId});}}let cs=await getDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:compteurKey, valeur:cs.data().valeur||0});}}catch(e){console.log(e);}}
-let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}
-initTitulaire();
-setInterval(function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let modifie=false;corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=new Date()){modifie=true;return false;}if(f.school && f.school !== SCHOOL_PREFIX) return false;return true;});if(modifie){localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(document.getElementById('modalTabCorbeille')?.classList.contains('active')){afficherCorbeille();}}},24*60*60*1000);
-const parentModalOverlayNew = document.getElementById('parentModalOverlay');
-const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
-const closeParentModalNew = document.getElementById('closeParentModal');
-const parentChatMessagesNew = document.getElementById('parentChatMessages');
-const parentQuestionInputNew = document.getElementById('parentQuestionInput');
-const parentSendBtnNew = document.getElementById('parentSendBtn');
-const parentInfoEleveNew = document.getElementById('parentInfoEleve');
-if(parentFloatingBtnNew) {
-    parentFloatingBtnNew.onclick = async () => {
-        parentModalOverlayNew.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">🔵 SYSTÈME INTELLIGENT - ${schoolNameForDisplay}\n\n👋🏽Bonjour, veuillez me donner un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>`;
-        parentInfoEleveNew.innerHTML = "";
-        parentQuestionInputNew.value = '';
-        parentQuestionInputNew.focus();
-        updateCounterDisplay();
-    };
+
+// ==================== FONCTIONS POUR L'ONGLET RECO (SUPPORT TECHNIQUE) ====================
+let recoMessages = [];
+let recoUnsubscribe = null;
+let currentRecoEcole = schoolId;
+
+function formatRecoDate(d) {
+    let date = new Date(d);
+    let now = new Date();
+    let isToday = (now - date) < 24 * 60 * 60 * 1000;
+    return isToday ? "Aujourd'hui à " + date.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) : date.toLocaleDateString('fr-FR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
 }
-if(closeParentModalNew) closeParentModalNew.onclick = () => { parentModalOverlayNew.classList.remove('active'); document.body.style.overflow = ''; };
-parentModalOverlayNew.onclick = (e) => { if(e.target === parentModalOverlayNew) { parentModalOverlayNew.classList.remove('active'); document.body.style.overflow = ''; } };
-if(parentSendBtnNew) {
-    parentSendBtnNew.onclick = async () => {
-        const message = parentQuestionInputNew.value.trim();
-        if(!message) return;
-        if (!canAskQuestion()) {
-            toast("⚠️ Limite quotidienne atteinte : Revenez demain !", "warning");
-            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite atteinte. Revenez demain.</div></div>`;
-            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-            return;
-        }
-        parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-        parentQuestionInputNew.value = '';
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-        const msgBotDiv = document.createElement('div');
-        msgBotDiv.className = 'parent-msg bot';
-        const bubbleBot = document.createElement('div');
-        bubbleBot.className = 'bubble';
-        bubbleBot.innerHTML = '<span class="loader"></span>';
-        msgBotDiv.appendChild(bubbleBot);
-        parentChatMessagesNew.appendChild(msgBotDiv);
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-        const reponse = await traiterMessage(message);
-        bubbleBot.innerHTML = '';
-        await typeWriterEffect(bubbleBot, reponse, 12);
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-        const newCount = incrementQuestionCount();
-        updateCounterDisplay();
-        if (10 - newCount <= 2 && 10 - newCount > 0) {
-            const warningDiv = document.createElement('div');
-            warningDiv.style.marginTop = '12px';
-            warningDiv.style.padding = '8px';
-            warningDiv.style.background = 'rgba(245,158,11,0.2)';
-            warningDiv.style.borderRadius = '12px';
-            warningDiv.style.fontSize = '12px';
-            warningDiv.innerHTML = `⚠️ Il vous reste ${10 - newCount} question(s) aujourd'hui`;
-            bubbleBot.appendChild(warningDiv);
-        }
-    };
+
+function formatRecoNumber(n) {
+    return '#' + String(n).padStart(3, '0');
 }
-if(parentQuestionInputNew) {
-    parentQuestionInputNew.addEventListener('keypress', (e) => {
-        if(e.key === 'Enter') {
-            e.preventDefault();
-            parentSendBtnNew.click();
+
+function escapeRecoHtml(t) {
+    if(!t) return '';
+    return t.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;' : m);
+}
+
+function updateRecoUnreadBadge() {
+    let unreadCount = recoMessages.filter(m => m.sender === 'netubex' && !m.read).length;
+    let badge = document.getElementById('recoUnreadCount');
+    if(badge) badge.textContent = unreadCount;
+}
+
+function updateRecoUI() {
+    let container = document.getElementById('recoMessagesContainer');
+    if(!container) return;
+    
+    updateRecoUnreadBadge();
+    
+    if(recoMessages.length === 0) {
+        container.innerHTML = '<div class="empty-state">💬 Aucun message. Commencez la discussion !</div>';
+        return;
+    }
+    
+    let sorted = [...recoMessages].sort((a, b) => (a.number || 0) - (b.number || 0));
+    container.innerHTML = '';
+    
+    sorted.forEach(msg => {
+        let isDirection = msg.sender === 'direction';
+        let isUnread = !isDirection && !msg.read;
+        let logo = !isDirection ? '<div class="logo-small"><img src="https://www.netubex.com/favicon.png.png" onerror="this.style.display=\'none\'"></div>' : '';
+        
+        let div = document.createElement('div');
+        div.className = `parent-msg ${isDirection ? 'user' : 'bot'}`;
+        div.setAttribute('data-message-id', msg.id);
+        div.innerHTML = `<div class="bubble">
+            <div class="msg-header">
+                ${!isDirection ? logo : ''}
+                <span class="msg-number">${formatRecoNumber(msg.number)}</span>
+                <span class="msg-sender">${escapeRecoHtml(msg.nom)}</span>
+                ${isUnread ? '<span class="unread-badge">NON LU</span>' : ''}
+            </div>
+            <div class="msg-text">${escapeRecoHtml(msg.message)}</div>
+            <div class="msg-date">📅 ${formatRecoDate(msg.date)}</div>
+        </div>`;
+        container.appendChild(div);
+    });
+    
+    setTimeout(() => {
+        container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 100);
+}
+
+async function markRecoMessageAsRead(messageId) {
+    try {
+        const supportMessagesDocRef = doc(db, "communication", "support_netubex_board");
+        const docSnap = await getDoc(supportMessagesDocRef);
+        if (docSnap.exists()) {
+            let currentMsgs = docSnap.data().messages || [];
+            const updatedMsgs = currentMsgs.map(msg => 
+                msg.id === messageId ? { ...msg, read: true, readAt: new Date().toISOString() } : msg
+            );
+            await setDoc(supportMessagesDocRef, { 
+                messages: updatedMsgs, 
+                lastUpdated: new Date().toISOString() 
+            });
         }
+    } catch (error) {
+        console.error("Erreur marquage lu:", error);
+    }
+}
+
+function observeRecoMessages() {
+    let container = document.getElementById('recoMessagesContainer');
+    if(!container) return;
+    
+    let observer = new IntersectionObserver((entries) => {
+        for(let e of entries) {
+            if(e.isIntersecting) {
+                let el = e.target;
+                let messageId = el.getAttribute('data-message-id');
+                if(messageId) {
+                    let msg = recoMessages.find(m => m.id === messageId);
+                    if(msg && msg.sender === 'netubex' && !msg.read) {
+                        markRecoMessageAsRead(messageId);
+                        msg.read = true;
+                        updateRecoUI();
+                    }
+                }
+            }
+        }
+    }, { threshold: 0.5 });
+    
+    let mo = new MutationObserver(() => {
+        document.querySelectorAll('#recoMessagesContainer .parent-msg.bot').forEach(el => observer.observe(el));
+    });
+    mo.observe(container, { childList: true, subtree: true });
+}
+
+async function sendRecoMessageToFirebase(message) {
+    try {
+        const supportMessagesDocRef = doc(db, "communication", "support_netubex_board");
+        const docSnap = await getDoc(supportMessagesDocRef);
+        let currentMsgs = docSnap.exists() ? docSnap.data().messages || [] : [];
+        let nextNumber = currentMsgs.length + 1;
+        
+        const messageData = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+            number: nextNumber,
+            sender: "direction",
+            nom: "DIRECTION",
+            message: message,
+            date: new Date().toISOString(),
+            read: false,
+            createdAt: new Date(),
+            ecole: currentRecoEcole
+        };
+        
+        await setDoc(supportMessagesDocRef, { 
+            messages: [...currentMsgs, messageData],
+            lastUpdated: new Date().toISOString()
+        });
+        
+        return true;
+    } catch (error) {
+        console.error("Erreur envoi:", error);
+        toast("Erreur de connexion. Message non envoyé.", 'error');
+        return false;
+    }
+}
+
+async function sendRecoMessage() {
+    let input = document.getElementById('recoMessageInput');
+    let msg = input.value.trim();
+    if(!msg) return;
+    
+    const success = await sendRecoMessageToFirebase(msg);
+    
+    if (success) {
+        input.value = '';
+        toast("Message envoyé au support NeTubeX", 'success');
+    }
+}
+
+function listenToRecoMessages() {
+    const supportMessagesDocRef = doc(db, "communication", "support_netubex_board");
+    
+    if(recoUnsubscribe) recoUnsubscribe();
+    
+    recoUnsubscribe = onSnapshot(supportMessagesDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            let allMessages = data.messages || [];
+            
+            let filteredMessages = allMessages.filter(msg => msg.ecole === currentRecoEcole);
+            filteredMessages.sort((a, b) => (a.number || 0) - (b.number || 0));
+            
+            recoMessages = filteredMessages;
+            updateRecoUI();
+        }
+    }, (error) => {
+        console.error("Erreur écoute:", error);
+        toast("Erreur de connexion au serveur", 'error');
     });
 }
-updateCounterDisplay();
 
+function initRecoSupport() {
+    listenToRecoMessages();
+    observeRecoMessages();
+    
+    let sendBtn = document.getElementById('recoSendBtn');
+    let input = document.getElementById('recoMessageInput');
+    
+    if(sendBtn) {
+        sendBtn.onclick = sendRecoMessage;
+    }
+    if(input) {
+        input.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') {
+                e.preventDefault();
+                sendRecoMessage();
+            }
+        });
+    }
+}
+
+// ==================== FONCTIONS CORRECTION ====================
 function correctionUpdateEpreuveList() {
     const periodeSelect = document.getElementById('correctionPeriodeSelect');
     const epreuveSelect = document.getElementById('correctionEpreuveSelect');
@@ -1626,6 +1790,85 @@ document.getElementById('closeSaisieModal')?.addEventListener('click', () => {
     stopSpeaking();
 });
 window.speechSynthesis.onvoiceschanged = () => { const voices = window.speechSynthesis.getVoices(); };
+
+// ==================== INITIALISATION ====================
+let compteurKey = `global_${SCHOOL_PREFIX}`;
+let ce = await getFromIndexedDB('compteur', compteurKey);
+if(!ce) await saveToIndexedDB('compteur', {id: compteurKey, valeur:0});
+await initIndexedDB();
+await chargerOptionsParClasse();
+if(navigator.onLine){try{let fp=await getDocs(query(collection(db, `${SCHOOL_PREFIX}_professeurs`), where("_type","==","prof")));for(let ds of fp.docs){let pd=ds.data();await saveToIndexedDB('professeurs',{...pd,id:pd.profId});}let allDocs=await getDocs(collection(db, `${SCHOOL_PREFIX}_fiches`));for(let ds of allDocs.docs){let data=ds.data();if(!data._type&&data.profId&&data.ficheId){await saveToIndexedDB('fiches',{...data,id:data.ficheId});}}let cs=await getDoc(doc(db, `${SCHOOL_PREFIX}_compteur`, "global"));if(cs.exists()){await saveToIndexedDB('compteur',{id:compteurKey, valeur:cs.data().valeur||0});}}catch(e){console.log(e);}}
+let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}
+initTitulaire();
+setInterval(function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let modifie=false;corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=new Date()){modifie=true;return false;}if(f.school && f.school !== SCHOOL_PREFIX) return false;return true;});if(modifie){localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(document.getElementById('modalTabCorbeille')?.classList.contains('active')){afficherCorbeille();}}},24*60*60*1000);
+const parentModalOverlayNew = document.getElementById('parentModalOverlay');
+const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
+const closeParentModalNew = document.getElementById('closeParentModal');
+const parentChatMessagesNew = document.getElementById('parentChatMessages');
+const parentQuestionInputNew = document.getElementById('parentQuestionInput');
+const parentSendBtnNew = document.getElementById('parentSendBtn');
+const parentInfoEleveNew = document.getElementById('parentInfoEleve');
+if(parentFloatingBtnNew) {
+    parentFloatingBtnNew.onclick = async () => {
+        parentModalOverlayNew.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">🔵 SYSTÈME INTELLIGENT - ${schoolNameForDisplay}\n\n👋🏽 Bonjour ! Veuillez fournir :\n• Un code à 6 chiffres (pour les frais)\n• Ou le nom complet d\'un élève (pour les notes)</div></div>`;
+        parentInfoEleveNew.innerHTML = "";
+        parentQuestionInputNew.value = '';
+        parentQuestionInputNew.focus();
+        updateCounterDisplay();
+    };
+}
+if(closeParentModalNew) closeParentModalNew.onclick = () => { parentModalOverlayNew.classList.remove('active'); document.body.style.overflow = ''; };
+parentModalOverlayNew.onclick = (e) => { if(e.target === parentModalOverlayNew) { parentModalOverlayNew.classList.remove('active'); document.body.style.overflow = ''; } };
+if(parentSendBtnNew) {
+    parentSendBtnNew.onclick = async () => {
+        const message = parentQuestionInputNew.value.trim();
+        if(!message) return;
+        if (!canAskQuestion()) {
+            toast("⚠️ Limite quotidienne atteinte : Revenez demain !", "warning");
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite atteinte. Revenez demain.</div></div>`;
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            return;
+        }
+        parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
+        parentQuestionInputNew.value = '';
+        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        const msgBotDiv = document.createElement('div');
+        msgBotDiv.className = 'parent-msg bot';
+        const bubbleBot = document.createElement('div');
+        bubbleBot.className = 'bubble';
+        bubbleBot.innerHTML = '<span class="loader"></span>';
+        msgBotDiv.appendChild(bubbleBot);
+        parentChatMessagesNew.appendChild(msgBotDiv);
+        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        const reponse = await traiterMessage(message);
+        bubbleBot.innerHTML = '';
+        await typeWriterEffect(bubbleBot, reponse, 12);
+        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        const newCount = incrementQuestionCount();
+        updateCounterDisplay();
+        if (10 - newCount <= 2 && 10 - newCount > 0) {
+            const warningDiv = document.createElement('div');
+            warningDiv.style.marginTop = '12px';
+            warningDiv.style.padding = '8px';
+            warningDiv.style.background = 'rgba(245,158,11,0.2)';
+            warningDiv.style.borderRadius = '12px';
+            warningDiv.style.fontSize = '12px';
+            warningDiv.innerHTML = `⚠️ Il vous reste ${10 - newCount} question(s) aujourd'hui`;
+            bubbleBot.appendChild(warningDiv);
+        }
+    };
+}
+if(parentQuestionInputNew) {
+    parentQuestionInputNew.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') {
+            e.preventDefault();
+            parentSendBtnNew.click();
+        }
+    });
+}
+updateCounterDisplay();
 </script>
 </body>
 </html>
