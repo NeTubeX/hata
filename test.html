@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0e1a">
-<title>GESTION SCOLAIRE</title>
+<title>GESTION DE SCOLARITÉ</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -385,6 +385,21 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <div style="margin-top:20px"><button id="closeSaisieModal" style="background:#334155; padding:14px 20px; border-radius:30px; color:white; font-size:18px;">Fermer</button></div>
 </div>
 </div>
+
+<!-- POPUP COMPTABILITÉ -->
+<div class="login-overlay" id="comptaLoginOverlay" style="display:none;z-index:40000;">
+<div class="login-card">
+<h2 id="comptaLoginSchoolName">🏫 COMPLEXE SCOLAIRE</h2>
+<p id="comptaLoginSub">Accès comptabilité</p>
+<input type="password" id="comptaLoginCode" placeholder="Code d'accès" inputmode="numeric" maxlength="6" autocomplete="off">
+<button id="comptaLoginBtn">🔐 SE CONNECTER</button>
+<div id="comptaLoginError" class="login-error"></div>
+<div style="margin-top:12px;">
+<button id="comptaCloseBtn" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:13px;">✖ Fermer</button>
+</div>
+</div>
+</div>
+
 <button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;">👪</button>
 <div class="parent-modal-overlay" id="parentModalOverlay">
 <div class="parent-modal">
@@ -415,6 +430,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -444,24 +460,19 @@ async function verifierEcole(schoolId) {
     try {
         const docRef = doc(db, ECOLES_AUTORISEES, schoolId);
         const docSnap = await getDoc(docRef);
-        
         if (!docSnap.exists()) {
             return { autorise: false, raison: "ÉCOLE_NON_AUTORISEE" };
         }
-        
         const data = docSnap.data();
-        
         if (data.actif === false) {
             return { autorise: false, raison: "ÉCOLE_DESACTIVEE" };
         }
-        
         if (data.dateExpiration) {
             const dateExp = new Date(data.dateExpiration);
             if (dateExp < new Date()) {
                 return { autorise: false, raison: "PÉRIODE_ESSAI_EXPIREE" };
             }
         }
-        
         if (data.maxUtilisateurs) {
             try {
                 const profSnapshot = await getDocs(collection(db, `${schoolId}_professeurs`));
@@ -471,9 +482,7 @@ async function verifierEcole(schoolId) {
                 }
             } catch(e) {}
         }
-        
         return { autorise: true };
-        
     } catch (error) {
         console.error('Erreur vérification:', error);
         return { autorise: false, raison: "ERREUR_CONNEXION" };
@@ -483,10 +492,8 @@ async function verifierEcole(schoolId) {
 function afficherAccesRefuse(raison) {
     const mainApp = document.getElementById('mainApp');
     if (mainApp) mainApp.style.display = 'none';
-    
     const parentBtn = document.getElementById('parentFloatingBtn');
     if (parentBtn) parentBtn.style.display = 'none';
-    
     const messages = {
         'ÉCOLE_NON_AUTORISEE': {
             titre: '⛔ Accès Refusé',
@@ -519,17 +526,14 @@ function afficherAccesRefuse(raison) {
             icone: '🌐'
         }
     };
-    
     const info = messages[raison] || {
         titre: '❌ Accès Refusé',
         message: 'Une erreur inattendue est survenue.',
         detail: 'Veuillez contacter l\'administrateur.',
         icone: '❌'
     };
-    
     let errorDiv = document.getElementById('accessDenied');
     if (errorDiv) errorDiv.remove();
-    
     errorDiv = document.createElement('div');
     errorDiv.id = 'accessDenied';
     errorDiv.style.cssText = `
@@ -546,7 +550,6 @@ function afficherAccesRefuse(raison) {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         padding: 20px;
     `;
-    
     errorDiv.innerHTML = `
         <div style="
             background: rgba(18,18,31,0.95);
@@ -563,7 +566,6 @@ function afficherAccesRefuse(raison) {
             <h2 style="color: #ef4444; margin-bottom: 12px; font-size: 22px; font-weight: 700;">${info.titre}</h2>
             <p style="color: #cbd5e1; line-height: 1.7; margin-bottom: 8px; font-size: 15px;">${info.message}</p>
             <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 28px; font-size: 13px;">${info.detail}</p>
-            
             <div style="display: flex; flex-direction: column; gap: 12px;">
                 <button onclick="window.location.href='/schoolchoice'" style="
                     background: linear-gradient(135deg, #3b82f6, #2563eb);
@@ -577,7 +579,6 @@ function afficherAccesRefuse(raison) {
                     transition: transform 0.2s;
                     width: 100%;
                 ">🏫 Retour au sélecteur d'école</button>
-                
                 <button onclick="location.reload()" style="
                     background: transparent;
                     color: #94a3b8;
@@ -591,7 +592,6 @@ function afficherAccesRefuse(raison) {
                     width: 100%;
                 ">🔄 Réessayer</button>
             </div>
-            
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e293b;">
                 <div style="font-size: 11px; color: #475569; font-family: monospace;">
                     Référence: ${Date.now().toString(36)}
@@ -602,7 +602,6 @@ function afficherAccesRefuse(raison) {
             </div>
         </div>
     `;
-    
     document.body.appendChild(errorDiv);
 }
 
@@ -621,6 +620,7 @@ if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${scho
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 const footerElement = document.getElementById('footerNote');
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
+document.getElementById('comptaLoginSchoolName').innerHTML = `🏫 COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
 
 let currentProf=null,currentFicheId=null,currentFiche=null,toutesFiches=[];
 let saveTimeout=null,isCreatingFiche=false;
@@ -940,7 +940,44 @@ async function refreshProfsList(){let c=document.getElementById('profsListContai
 function generateProfCode(){return Math.floor(1000+Math.random()*9000).toString();}
 function showAddProfForm(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet du professeur"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Créer et générer le code</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);document.getElementById('closeAddModal').onclick=function(){m.remove();};document.getElementById('cancelAddBtn').onclick=function(){m.remove();};document.getElementById('generateAndAddBtn').onclick=async function(){let n=document.getElementById('newProfName').value.trim();if(!n){toast("Veuillez entrer un nom",'error');return;}let c=generateProfCode();let pid='prof_'+Date.now();let pd={_type:"prof",id:pid,profId:pid,nom:n,code:c,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};await saveToIndexedDB('professeurs',pd);if(navigator.onLine){try{await setDoc(doc(db, `${SCHOOL_PREFIX}_professeurs`, pid), pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}m.remove();showNewProfCodePopup(n,c);await refreshProfsList();await refreshTeachersList();toast("Professeur '"+n+"' ajouté",'success');};}
 function showNewProfCodePopup(nom,code){let p=document.createElement('div');p.className='modal-fullscreen';p.innerHTML='<div class="modal-content" style="text-align:center;max-width:400px"><div style="display:flex;justify-content:flex-end"><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCodeX">&times;</span></div><div style="text-align:center;margin-bottom:16px">🎉</div><h3>Professeur ajouté avec succès</h3><p style="margin:16px 0 8px 0;color:#cbd5e1">'+escapeHtml(nom)+'</p><p style="font-size:12px;color:#f59e0b;margin-bottom:8px">Code d\'accès unique (à transmettre au professeur) :</p><div style="background:#10b981;border-radius:60px;padding:16px 24px;margin:16px 0;border:2px solid #fff;"><span style="font-size:28px;font-weight:800;letter-spacing:3px;color:#fff;font-family:monospace">'+code+'</span></div><p style="font-size:11px;color:#ef4444;background:rgba(239,68,68,0.1);padding:8px;border-radius:8px">Ce code ne sera plus jamais affiché après la fermeture de cette fenêtre</p><button class="btn" id="closeCodePopup" style="margin-top:16px">Fermer et ne plus afficher</button></div>';document.body.appendChild(p);setTimeout(function(){p.classList.add('show');},10);let cp=function(){p.remove();};document.getElementById('closeCodePopup').onclick=cp;document.getElementById('closeCodeX').onclick=cp;}
-async function showAdminModal(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d\'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);let cc=0;let ct=null;let mc=m.querySelector('.modal-content');mc.style.cursor='pointer';mc.onclick=function(e){e.stopPropagation();cc++;if(ct)clearTimeout(ct);ct=setTimeout(function(){cc=0;},1000);if(cc===4){cc=0;if(ct)clearTimeout(ct);window.location.href='https://www.netubex.com/gloria-compta.html';}};document.getElementById('closeAdminModal').onclick=function(){m.remove();};document.getElementById('validateAdminBtn').onclick=async function(){if(document.getElementById('adminCodeInput').value===directriceCode){m.remove();showGestionProfsModal();}else{document.getElementById('adminError').innerHTML='Code incorrect';toast("Code d'accès incorrect",'error');}};}
+async function showAdminModal(){
+    let m = document.createElement('div');
+    m.className = 'modal-fullscreen';
+    m.innerHTML = '<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d\'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>';
+    document.body.appendChild(m);
+    setTimeout(function(){m.classList.add('show');},10);
+    
+    let compteurClicsModal = 0;
+    
+    m.onclick = function(e) {
+        if(e.target.closest('button') || e.target.closest('input') || e.target.closest('span')) {
+            return;
+        }
+        compteurClicsModal++;
+        if(compteurClicsModal >= 3) {
+            compteurClicsModal = 0;
+            m.classList.remove('show');
+            setTimeout(() => {
+                m.remove();
+                document.getElementById('comptaLoginOverlay').style.display = 'flex';
+                document.getElementById('comptaLoginCode').value = '';
+                document.getElementById('comptaLoginError').innerHTML = '';
+                document.getElementById('comptaLoginCode').focus();
+            }, 300);
+        }
+    };
+    
+    document.getElementById('closeAdminModal').onclick = function(){m.remove();};
+    document.getElementById('validateAdminBtn').onclick = async function(){
+        if(document.getElementById('adminCodeInput').value === directriceCode){
+            m.remove();
+            showGestionProfsModal();
+        }else{
+            document.getElementById('adminError').innerHTML = 'Code incorrect';
+            toast("Code d'accès incorrect",'error');
+        }
+    };
+}
 async function showLogin(){
     let d=document.createElement('div');
     d.className='login-overlay';
@@ -1788,6 +1825,47 @@ if(navigator.onLine){try{let fp=await getDocs(query(collection(db, `${SCHOOL_PRE
 let sessionRestored=await restaurerSession();if(!sessionRestored){showLogin();}else{if(document.getElementById('loginOverlay'))document.getElementById('loginOverlay').remove();}
 initTitulaire();
 setInterval(function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let modifie=false;corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=new Date()){modifie=true;return false;}if(f.school && f.school !== SCHOOL_PREFIX) return false;return true;});if(modifie){localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(document.getElementById('modalTabCorbeille')?.classList.contains('active')){afficherCorbeille();}}},24*60*60*1000);
+
+// POPUP COMPTABILITÉ - BOUTON SE CONNECTER
+document.getElementById('comptaLoginBtn').onclick = async function() {
+    const code = document.getElementById('comptaLoginCode').value;
+    const errorDiv = document.getElementById('comptaLoginError');
+    
+    try {
+        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+        const configSnap = await getDoc(configRef);
+        let configData = configSnap.exists() ? configSnap.data() : { codeAcces: "1234" };
+        
+        if (code === configData.codeAcces) {
+            document.getElementById('comptaLoginOverlay').style.display = 'none';
+            document.getElementById('appScolarite').style.display = 'none';
+            document.getElementById('appComptabilite').style.display = 'block';
+            document.getElementById('loginOverlay').style.display = 'none';
+            await initComptabilite();
+            toast("Comptabilité activée", 'success');
+        } else {
+            errorDiv.innerHTML = "❌ Code d'accès incorrect";
+            toast("Code d'accès incorrect", 'error');
+            document.getElementById('comptaLoginCode').value = '';
+            document.getElementById('comptaLoginCode').focus();
+        }
+    } catch (error) {
+        errorDiv.innerHTML = "❌ Erreur de connexion";
+        toast("Erreur de connexion", 'error');
+    }
+};
+
+document.getElementById('comptaCloseBtn').onclick = function() {
+    document.getElementById('comptaLoginOverlay').style.display = 'none';
+};
+
+document.getElementById('comptaLoginCode').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        document.getElementById('comptaLoginBtn').click();
+    }
+});
+
+// ESPACE PARENTAL
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -2003,6 +2081,7 @@ async function typeWriterEffect(element, text, speed=15) {
 }
 
 console.log('✅ École autorisée:', schoolId);
+console.log('👉 3 clics sur le popup directrice pour ouvrir la comptabilité');
 </script>
 </body>
 </html>
