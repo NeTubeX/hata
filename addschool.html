@@ -132,8 +132,8 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 </div>
 <div class="form-group">
 <label class="required">Identifiant unique (préfixe)</label>
-<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;">
-<span class="text-muted">🔑 Généré automatiquement à partir du nom (sans accents, tirets)</span>
+<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;font-weight:bold;font-size:1rem;">
+<span class="text-muted">🔑 Généré automatiquement à partir du nom (avec espaces)</span>
 </div>
 <div class="form-group"><label class="required">Province</label><select id="province"><option value="">Sélectionner</option><option value="Kinshasa">Kinshasa</option><option value="Kongo Central">Kongo Central</option><option value="Kwango">Kwango</option><option value="Kwilu">Kwilu</option><option value="Mai-Ndombe">Mai-Ndombe</option><option value="Équateur">Équateur</option><option value="Mongala">Mongala</option><option value="Nord-Ubangi">Nord-Ubangi</option><option value="Sud-Ubangi">Sud-Ubangi</option><option value="Tshuapa">Tshuapa</option><option value="Bas-Uele">Bas-Uele</option><option value="Haut-Uele">Haut-Uele</option><option value="Ituri">Ituri</option><option value="Tshopo">Tshopo</option><option value="Nord-Kivu">Nord-Kivu</option><option value="Sud-Kivu">Sud-Kivu</option><option value="Maniema">Maniema</option><option value="Haut-Katanga">Haut-Katanga</option><option value="Haut-Lomami">Haut-Lomami</option><option value="Lualaba">Lualaba</option><option value="Lomami">Lomami</option><option value="Tanganyika">Tanganyika</option><option value="Kasaï">Kasaï</option><option value="Kasaï-Central">Kasaï-Central</option><option value="Kasaï-Oriental">Kasaï-Oriental</option><option value="Sankuru">Sankuru</option></select></div>
 <div class="form-group"><label class="required">Ville / Commune</label><select id="ville"><option value="">Sélectionner une ville</option></select></div>
@@ -259,17 +259,6 @@ function showToast(message, type = "success") {
     setTimeout(() => { toast.style.opacity = "0"; toast.style.transform = "translateX(100%)"; setTimeout(() => toast.remove(), 300); }, 4000);
 }
 
-function normaliserNom(nom) {
-    if (!nom) return '';
-    return nom
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-}
-
 async function prefixeExiste(prefixe) {
     try {
         const docRef = doc(db, ECOLES_AUTORISEES, prefixe);
@@ -280,12 +269,11 @@ async function prefixeExiste(prefixe) {
 
 async function genererPrefixeAuto(nomEcole) {
     if (!nomEcole || nomEcole.length < 2) return '';
-    let base = normaliserNom(nomEcole);
-    if (base.length > 40) base = base.substring(0, 40);
-    let prefixe = base;
+    let prefixe = nomEcole.trim();
     let compteur = 1;
+    let base = prefixe;
     while (await prefixeExiste(prefixe) && compteur <= 50) {
-        prefixe = `${base}-${compteur}`;
+        prefixe = `${base} ${compteur}`;
         compteur++;
     }
     return prefixe;
@@ -298,16 +286,12 @@ async function autoGenererPrefixe() {
     try {
         const nomEcole = document.getElementById('nom').value.trim();
         const prefixeInput = document.getElementById('prefixe');
-        if (nomEcole.length >= 3) {
-            prefixeInput.style.color = '#facc15';
+        if (nomEcole.length >= 2) {
             const nouveauPrefixe = await genererPrefixeAuto(nomEcole);
             if (nouveauPrefixe) {
                 prefixeInput.value = nouveauPrefixe;
                 prefixeInput.style.borderColor = '#10b981';
             }
-        } else if (nomEcole.length > 0 && nomEcole.length < 3) {
-            prefixeInput.value = '';
-            prefixeInput.style.borderColor = '#facc15';
         } else {
             prefixeInput.value = '';
         }
@@ -346,7 +330,7 @@ async function saveSchool() {
         resetForm(); 
         loadSchoolsList(); 
     } catch (err) { 
-        showToast("❌ Erreur lors de l'enregistrement", "error"); 
+        showToast("❌ Erreur lors de l'enregistrement: " + err.message, "error"); 
         console.error(err);
     }
 }
@@ -408,7 +392,7 @@ async function showSchoolDetails(prefixe) {
             
             let nbProfesseurs = 0;
             try {
-                const profSnapshot = await getDocs(collection(db, `${prefixe}_professeurs`));
+                const profSnapshot = await getDocs(collection(db, `${prefixe.replace(/ /g, '_')}_professeurs`));
                 nbProfesseurs = profSnapshot.size;
             } catch(err) {}
             
@@ -446,7 +430,7 @@ async function loadSchoolsList() {
             const prefixe = docSnap.id;
             let nbProfesseursReel = 0;
             try {
-                const profSnapshot = await getDocs(collection(db, `${prefixe}_professeurs`));
+                const profSnapshot = await getDocs(collection(db, `${prefixe.replace(/ /g, '_')}_professeurs`));
                 nbProfesseursReel = profSnapshot.size;
             } catch(err) {
                 nbProfesseursReel = 0;
@@ -475,7 +459,7 @@ async function loadSchoolsList() {
     }
 }
 
-function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
+function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;'); }
 
 function checkAccess() {
     if (sessionStorage.getItem('netubex_admin_access') === 'true') {
