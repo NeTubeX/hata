@@ -122,8 +122,6 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .btn-toggle-off:hover{background:#dc2626;}
 .btn-copy{background:#10b981;border:none;padding:6px 14px;border-radius:40px;color:white;font-weight:600;font-size:0.7rem;cursor:pointer;}
 .btn-copy:hover{background:#059669;}
-.btn-restore{background:#f59e0b;border:none;padding:4px 12px;border-radius:40px;color:#0a1a2f;font-size:0.65rem;font-weight:600;cursor:pointer;}
-.btn-restore:hover{background:#d97706;}
 .btn-export{background:#ef4444;border:none;padding:12px;border-radius:44px;color:white;font-weight:700;cursor:pointer;width:100%;margin-top:14px;font-size:0.85rem;}
 .btn-export:hover{background:#dc2626;}
 .log-entry{background:#0d2740;border-radius:14px;padding:12px;margin-bottom:10px;border-left:3px solid #3b82f6;}
@@ -203,7 +201,6 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 <button class="tab-btn" data-tab="netubex">🛠️ SUPPORT NETUBEX</button>
 <button class="tab-btn active" data-tab="stats">📊 STATISTIQUES & ACTIVITÉS</button>
 <button class="tab-btn" data-tab="ecoles">🏫 GESTION DES ÉCOLES</button>
-<button class="tab-btn" data-tab="corbeille">🗑️ CORBEILLE</button>
 <button class="tab-btn" data-tab="search">🔍 RECHERCHE</button>
 </div></div><button class="scroll-btn" id="scrollRightBtn">▶</button></div>
 
@@ -239,13 +236,6 @@ body{background:#0a1a2f;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 <div id="ecolesGrid" class="messages-grid" style="max-height:600px;"><div class="loading-text">Chargement des écoles...</div></div></div>
 </div>
 
-<!-- CORBEILLE -->
-<div id="corbeille-tab" class="tab-content">
-<div class="card"><div class="card-header"><h3>🗑️ Corbeille - Éléments supprimés</h3><span id="corbeilleCount" style="font-size:0.8rem;color:#94a3b8;"></span></div>
-<div class="filters-container"><label>🏫 Filtrer par école :</label><select id="corbeilleEcoleFilter"><option value="">-- Toutes les écoles --</option></select><label>Type :</label><select id="corbeilleTypeFilter"><option value="">-- Tous les types --</option><option value="fiche">Fiche de cotation</option><option value="eleve">Élève</option><option value="professeur">Professeur</option></select></div>
-<div id="corbeilleGrid" class="messages-grid" style="max-height:600px;"><div class="loading-text">Chargement de la corbeille...</div></div></div>
-</div>
-
 <!-- SEARCH -->
 <div id="search-tab" class="tab-content">
 <div class="card"><div class="card-header"><h3>🔍 Intelligence Artificielle</h3></div><div class="card-body" style="text-align:center;padding:40px;"><button id="openAIBtn" class="btn-ai">🤖 Consulter l'intelligence artificielle</button></div></div>
@@ -271,7 +261,6 @@ const db=getFirestore(app);
 const SENDER_NAME="Supervision Technique";
 const ECOLES_AUTORISEES="ecoles_autorisees";
 const LOGS_COLLECTION="logs_activite";
-const CORBEILLE_COLLECTION="corbeille_supervision";
 
 const POLE_MESSAGES_DOC_ID="consultation_pole";
 const SUPPORT_MESSAGES_DOC_ID="support_netubex_board";
@@ -288,14 +277,11 @@ let poleMessagesList=[];
 let supportMessagesList=[];
 let ecolesList=[];
 let activitesList=[];
-let corbeilleList=[];
 let unsubscribePole=null;
 let unsubscribeSupport=null;
 let unsubscribeActivites=null;
-let unsubscribeCorbeille=null;
 let activeReplyId=null;
 let netubexEcoleFilter="";
-let corbeilleEcoleFilter="";
 
 // ==================== TOAST ====================
 function showToast(message,type){
@@ -459,22 +445,17 @@ function displayEcoles(){
 }
 
 function updateEcoleFilters(){
-    const select1=document.getElementById('activitesEcoleFilter');
-    const select2=document.getElementById('corbeilleEcoleFilter');
-    const current1=select1.value;
-    const current2=select2.value;
-    [select1,select2].forEach(select=>{
-        if(!select)return;
-        const current=select.value;
-        select.innerHTML='<option value="">-- Toutes les écoles --</option>';
-        ecolesList.forEach(e=>{
-            const opt=document.createElement('option');
-            opt.value=e.prefixe;
-            opt.textContent=e.nom;
-            select.appendChild(opt);
-        });
-        if(current)select.value=current;
+    const select=document.getElementById('activitesEcoleFilter');
+    if(!select)return;
+    const current=select.value;
+    select.innerHTML='<option value="">-- Toutes les écoles --</option>';
+    ecolesList.forEach(e=>{
+        const opt=document.createElement('option');
+        opt.value=e.prefixe;
+        opt.textContent=e.nom;
+        select.appendChild(opt);
     });
+    if(current)select.value=current;
 }
 
 // ==================== ACTIVITES ====================
@@ -493,7 +474,13 @@ function listenToActivites(){
             showToast("Nouvelle activité détectée !",'activity');
             playNotificationSound();
         }
-    },(err)=>{console.error("Erreur écoute activités:",err);});
+    },(err)=>{
+        console.error("Erreur écoute activités:",err);
+        // Si la collection n'existe pas, on affiche un message
+        if(err.code==='permission-denied' || err.code==='not-found'){
+            document.getElementById('activitesGrid').innerHTML='<div class="empty-state">📭 La collection logs_activite n\'existe pas encore. Créez-la dans Firebase.</div>';
+        }
+    });
 }
 
 function displayActivites(){
@@ -565,97 +552,6 @@ async function clearAllActivites(){
     }catch(err){
         showToast("Erreur nettoyage",'pole');
     }
-}
-
-// ==================== CORBEILLE ====================
-function listenToCorbeille(){
-    if(unsubscribeCorbeille)unsubscribeCorbeille();
-    const q=query(collection(db,CORBEILLE_COLLECTION),orderBy("dateSuppression","desc"));
-    unsubscribeCorbeille=onSnapshot(q,(snapshot)=>{
-        let newCorbeille=[];
-        snapshot.forEach(doc=>{
-            newCorbeille.push({id:doc.id,...doc.data()});
-        });
-        corbeilleList=newCorbeille;
-        displayCorbeille();
-    },(err)=>{console.error("Erreur écoute corbeille:",err);});
-}
-
-function displayCorbeille(){
-    const container=document.getElementById('corbeilleGrid');
-    const ecoleFilter=document.getElementById('corbeilleEcoleFilter').value;
-    const typeFilter=document.getElementById('corbeilleTypeFilter').value;
-    
-    let filtered=corbeilleList;
-    if(ecoleFilter)filtered=filtered.filter(c=>c.ecole===ecoleFilter);
-    if(typeFilter)filtered=filtered.filter(c=>c.type===typeFilter);
-    
-    document.getElementById('corbeilleCount').textContent=`${filtered.length} élément(s)`;
-    
-    if(filtered.length===0){
-        container.innerHTML='<div class="empty-state">🗑️ Corbeille vide</div>';
-        return;
-    }
-    
-    container.innerHTML='';
-    filtered.forEach(item=>{
-        const date=new Date(item.dateSuppression).toLocaleString('fr-FR');
-        const typeLabels={'fiche':'📄 Fiche','eleve':'👤 Élève','professeur':'👨‍🏫 Professeur'};
-        const typeLabel=typeLabels[item.type]||item.type||'Élément';
-        const div=document.createElement('div');
-        div.className='log-entry';
-        div.style.borderLeftColor='#f59e0b';
-        div.innerHTML=`
-            <div class="log-header">
-                <span class="log-ecole">🏫 ${escapeHtml(item.ecole||'École inconnue')}</span>
-                <span style="font-weight:600;color:#f59e0b;">${typeLabel}</span>
-                <span style="font-size:0.6rem;color:#94a3b8;">${date}</span>
-            </div>
-            <div style="font-weight:500;color:#e2e8f0;font-size:0.85rem;">${escapeHtml(item.nom||'Sans nom')}</div>
-            ${item.details?`<div class="log-details">${escapeHtml(item.details)}</div>`:''}
-            <div style="margin-top:8px;display:flex;gap:8px;">
-                <button class="btn-restore" data-id="${item.id}">♻️ Restaurer</button>
-                <button class="btn-toggle-off" style="font-size:0.6rem;padding:4px 10px;" data-id="${item.id}">🗑️ Supprimer définitivement</button>
-            </div>
-        `;
-        div.querySelector('.btn-restore')?.addEventListener('click',async()=>{
-            if(confirm(`Restaurer "${item.nom}" ?`)){
-                try{
-                    if(item.type==='fiche'){
-                        await setDoc(doc(db,`${item.ecole.replace(/ /g,'_')}_fiches`,item.originalId),item.data);
-                    }else if(item.type==='eleve'){
-                        // Restaurer l'élève dans la fiche
-                        const ficheRef=doc(db,`${item.ecole.replace(/ /g,'_')}_fiches`,item.ficheId);
-                        const ficheDoc=await getDoc(ficheRef);
-                        if(ficheDoc.exists()){
-                            const ficheData=ficheDoc.data();
-                            const eleves=ficheData.eleves||[];
-                            eleves.push(item.data);
-                            await setDoc(ficheRef,{...ficheData,eleves:eleves});
-                        }
-                    }else if(item.type==='professeur'){
-                        await setDoc(doc(db,`${item.ecole.replace(/ /g,'_')}_professeurs`,item.originalId),item.data);
-                    }
-                    await deleteDoc(doc(db,CORBEILLE_COLLECTION,item.id));
-                    showToast(`"${item.nom}" restauré avec succès`,'activity');
-                    playNotificationSound();
-                }catch(err){
-                    showToast("Erreur lors de la restauration",'pole');
-                }
-            }
-        });
-        div.querySelector('.btn-toggle-off')?.addEventListener('click',async()=>{
-            if(confirm(`Supprimer définitivement "${item.nom}" ? Cette action est irréversible.`)){
-                try{
-                    await deleteDoc(doc(db,CORBEILLE_COLLECTION,item.id));
-                    showToast(`"${item.nom}" supprimé définitivement`,'pole');
-                }catch(err){
-                    showToast("Erreur lors de la suppression",'pole');
-                }
-            }
-        });
-        container.appendChild(div);
-    });
 }
 
 // ==================== STATS ====================
@@ -902,7 +798,6 @@ async function initApp(){
     listenToSupportMessages();
     await chargerEcoles();
     listenToActivites();
-    listenToCorbeille();
     await chargerStats();
     updatePoleUnreadBadge();
     updateSupportUnreadBadge();
@@ -929,8 +824,6 @@ document.getElementById('ecolesStatusFilter')?.addEventListener('change',display
 document.getElementById('activitesEcoleFilter')?.addEventListener('change',displayActivites);
 document.getElementById('activitesActionFilter')?.addEventListener('change',displayActivites);
 document.getElementById('clearActivitesBtn')?.addEventListener('click',clearAllActivites);
-document.getElementById('corbeilleEcoleFilter')?.addEventListener('change',displayCorbeille);
-document.getElementById('corbeilleTypeFilter')?.addEventListener('change',displayCorbeille);
 document.getElementById('copyStatsBtn')?.addEventListener('click',copyStats);
 document.getElementById('exportStatsPdfBtn')?.addEventListener('click',exportStatsPDF);
 document.getElementById('logoutBtn')?.addEventListener('click',()=>{document.getElementById('confirmModal').style.display='flex';});
@@ -961,7 +854,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
         if(tabId==='pole')updatePoleUnreadBadge();
         if(tabId==='netubex')updateSupportUnreadBadge();
         if(tabId==='ecoles')chargerEcoles();
-        if(tabId==='corbeille')displayCorbeille();
     });
 });
 
