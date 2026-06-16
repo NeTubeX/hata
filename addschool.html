@@ -119,8 +119,8 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 </div>
 <div class="form-group">
 <label class="required">Identifiant unique (préfixe)</label>
-<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;">
-<span class="text-muted">🔑 Généré automatiquement à partir du nom (sans accents, tirets)</span>
+<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;font-weight:bold;">
+<span class="text-muted">🔑 Généré automatiquement à partir du nom</span>
 </div>
 <div class="form-group"><label class="required">Province</label><select id="province"><option value="">Sélectionner</option><option value="Kinshasa">Kinshasa</option><option value="Kongo Central">Kongo Central</option><option value="Kwango">Kwango</option><option value="Kwilu">Kwilu</option><option value="Mai-Ndombe">Mai-Ndombe</option><option value="Équateur">Équateur</option><option value="Mongala">Mongala</option><option value="Nord-Ubangi">Nord-Ubangi</option><option value="Sud-Ubangi">Sud-Ubangi</option><option value="Tshuapa">Tshuapa</option><option value="Bas-Uele">Bas-Uele</option><option value="Haut-Uele">Haut-Uele</option><option value="Ituri">Ituri</option><option value="Tshopo">Tshopo</option><option value="Nord-Kivu">Nord-Kivu</option><option value="Sud-Kivu">Sud-Kivu</option><option value="Maniema">Maniema</option><option value="Haut-Katanga">Haut-Katanga</option><option value="Haut-Lomami">Haut-Lomami</option><option value="Lualaba">Lualaba</option><option value="Lomami">Lomami</option><option value="Tanganyika">Tanganyika</option><option value="Kasaï">Kasaï</option><option value="Kasaï-Central">Kasaï-Central</option><option value="Kasaï-Oriental">Kasaï-Oriental</option><option value="Sankuru">Sankuru</option></select></div>
 <div class="form-group"><label class="required">Ville / Commune</label><select id="ville"><option value="">Sélectionner une ville</option></select></div>
@@ -293,16 +293,34 @@ async function autoGenererPrefixe() {
     }
 }
 
+function setDefaultDate() {
+    const dateInput = document.getElementById('dateCreation');
+    if (!dateInput.value) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        dateInput.value = `${year}-${month}-${day}`;
+    }
+}
+
 async function saveSchool() {
     const prefixe = document.getElementById('prefixe').value.trim();
     const nom = document.getElementById('nom').value.trim();
     const province = document.getElementById('province').value;
     const ville = document.getElementById('ville').value;
-    if (!prefixe || !nom || !province || !ville) { showToast("Veuillez remplir tous les champs obligatoires", "error"); return; }
+    
+    if (!prefixe || !nom || !province || !ville) { 
+        showToast("Veuillez remplir tous les champs obligatoires", "error"); 
+        return; 
+    }
     
     const now = new Date().toISOString();
     const data = { 
-        prefixe, nom, province, ville, 
+        prefixe: prefixe,
+        nom: nom, 
+        province: province, 
+        ville: ville, 
         telephone: document.getElementById('telephone').value.trim(), 
         directeur: document.getElementById('directeur').value.trim(), 
         dateCreation: document.getElementById('dateCreation').value || now.split('T')[0], 
@@ -328,7 +346,7 @@ async function saveSchool() {
             directeur: data.directeur,
             telephone: data.telephone
         });
-        showToast(editingPrefixe ? "✅ Établissement modifié" : "✅ Établissement ajouté avec succès"); 
+        showToast(editingPrefixe ? "✅ Établissement modifié avec succès" : "✅ Établissement ajouté avec succès"); 
         resetForm(); 
         loadSchoolsList(); 
     } catch (err) { 
@@ -347,6 +365,7 @@ function resetForm() {
     document.getElementById('dateCreation').value = '';
     document.getElementById('adresse').value = ''; 
     editingPrefixe = null;
+    setDefaultDate();
 }
 
 async function showSchoolDetails(prefixe) {
@@ -446,14 +465,80 @@ async function loadSchoolsList() {
 function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;'); }
 
 function logout() {
-    // Simple déconnexion - redirection vers la page de garde ou rechargement
-    if (confirm("Voulez-vous vraiment quitter cette application ?")) {
-        localStorage.clear();
-        sessionStorage.clear();
-        location.reload();
-    }
+    document.getElementById('confirmModal').style.display = 'flex';
 }
 
-let debounceTimer;
 function initApp() {
-    load
+    // Charger la liste des écoles
+    loadSchoolsList();
+    
+    // Définir la date par défaut
+    setDefaultDate();
+    
+    // Mettre à jour les villes quand la province change
+    document.getElementById('province').addEventListener('change', updateVilles);
+    
+    // Générer le préfixe automatiquement quand le nom change
+    const nomInput = document.getElementById('nom');
+    let debounceTimer;
+    nomInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            autoGenererPrefixe();
+        }, 300);
+    });
+    
+    // Enregistrer
+    document.getElementById('saveBtn').addEventListener('click', saveSchool);
+    
+    // Déconnexion
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('confirmYes').addEventListener('click', function() {
+        sessionStorage.clear();
+        localStorage.clear();
+        location.reload();
+    });
+    document.getElementById('confirmNo').addEventListener('click', function() {
+        document.getElementById('confirmModal').style.display = 'none';
+    });
+    
+    // Fermeture du modal de détails
+    document.getElementById('closeDetailBtn').addEventListener('click', function() {
+        document.getElementById('detailModal').style.display = 'none';
+    });
+    document.getElementById('detailModal').addEventListener('click', function(e) {
+        if (e.target === document.getElementById('detailModal')) {
+            document.getElementById('detailModal').style.display = 'none';
+        }
+    });
+    
+    // Onglets
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", function() {
+            const tabId = this.dataset.tab;
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+            this.classList.add("active");
+            document.getElementById(tabId + "Tab").classList.add("active");
+            if (tabId === "list") loadSchoolsList();
+        });
+    });
+    
+    // Protection contre les raccourcis
+    document.addEventListener("contextmenu", e => e.preventDefault());
+    document.addEventListener("keydown", e => {
+        if (e.key === 'F12' || (e.ctrlKey && e.key === 'u')) {
+            e.preventDefault();
+        }
+    });
+}
+
+// Démarrer l'application
+initApp();
+
+console.log('✅ Application d\'enregistrement prête');
+console.log('📌 Le préfixe est généré automatiquement à partir du nom');
+console.log('📅 La date est automatiquement définie');
+</script>
+</body>
+</html>
