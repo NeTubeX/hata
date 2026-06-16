@@ -20,7 +20,7 @@
             background: rgba(18,18,31,0.95);
             border-radius: 24px;
             padding: 40px;
-            max-width: 500px;
+            max-width: 550px;
             width: 100%;
             border: 1px solid rgba(59,130,246,0.3);
             box-shadow: 0 20px 60px rgba(0,0,0,0.6);
@@ -63,6 +63,7 @@
         .info-value {
             color: #60a5fa;
             font-weight: 600;
+            word-break: break-all;
         }
         .btn {
             width: 100%;
@@ -105,6 +106,8 @@
             font-size: 14px;
             text-align: center;
             display: none;
+            max-height: 200px;
+            overflow-y: auto;
         }
         .status.success {
             display: block;
@@ -171,20 +174,37 @@
             font-size: 11px;
             color: #334155;
         }
-        .badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 600;
+        .log-area {
+            margin-top: 12px;
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #94a3b8;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #1e293b;
+            display: none;
         }
-        .badge-success {
-            background: #10b981;
-            color: white;
+        .log-area.show {
+            display: block;
         }
-        .badge-error {
-            background: #ef4444;
-            color: white;
+        .log-area .log-line {
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .log-area .log-line:last-child {
+            border-bottom: none;
+        }
+        .log-area .log-success {
+            color: #10b981;
+        }
+        .log-area .log-error {
+            color: #ef4444;
+        }
+        .log-area .log-info {
+            color: #60a5fa;
         }
     </style>
 </head>
@@ -194,18 +214,23 @@
     <h1>⚙️ Configuration Comptabilité</h1>
     <p class="subtitle">Crée la configuration Firebase pour la comptabilité</p>
 
+    <div class="input-group">
+        <label>🏫 NOM DE L'ÉCOLE *</label>
+        <input type="text" id="ecoleInput" placeholder="Ex: gloria-dei, mon-ecole, test" value="">
+    </div>
+
     <div class="info" id="infoEcole">
         <div class="info-line">
-            <span class="info-label">🏫 École</span>
-            <span class="info-value" id="ecoleDisplay">Chargement...</span>
-        </div>
-        <div class="info-line">
             <span class="info-label">📁 Chemin</span>
-            <span class="info-value" id="pathDisplay">Chargement...</span>
+            <span class="info-value" id="pathDisplay">ecoles/NOM_ECOLE/_config/settings</span>
         </div>
         <div class="info-line">
             <span class="info-label">🔑 Code par défaut</span>
             <span class="info-value">1234</span>
+        </div>
+        <div class="info-line">
+            <span class="info-label">📊 Firestore</span>
+            <span class="info-value" id="firebaseStatus">⏳ Vérification...</span>
         </div>
     </div>
 
@@ -219,6 +244,7 @@
     <button class="btn btn-danger" id="deleteBtn">🗑️ SUPPRIMER LA CONFIG</button>
 
     <div id="status" class="status"></div>
+    <div id="logArea" class="log-area"></div>
 
     <div class="footer">
         NetubeX SARL &bull; Support: support@netubex.com
@@ -227,7 +253,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
@@ -238,39 +264,100 @@
         appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    let app, db;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    let schoolId = urlParams.get('ecole');
-
-    if (!schoolId) {
-        document.getElementById('ecoleDisplay').textContent = '❌ Aucune école';
-        document.getElementById('pathDisplay').textContent = 'Ajouter ?ecole=NOM_ECOLE';
-        document.getElementById('createBtn').disabled = true;
-        document.getElementById('verifyBtn').disabled = true;
-        document.getElementById('deleteBtn').disabled = true;
-        showStatus('error', '❌ Paramètre "ecole" manquant dans l\'URL. Ajoutez ?ecole=NOM_ECOLE');
-    } else {
-        const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
-        document.getElementById('ecoleDisplay').textContent = schoolId.toUpperCase();
-        document.getElementById('pathDisplay').textContent = `ecoles/${SCHOOL_PREFIX}/_config/settings`;
+    function logMessage(message, type = 'info') {
+        const logArea = document.getElementById('logArea');
+        logArea.classList.add('show');
+        const line = document.createElement('div');
+        line.className = `log-line log-${type}`;
+        const timestamp = new Date().toLocaleTimeString();
+        line.textContent = `[${timestamp}] ${message}`;
+        logArea.appendChild(line);
+        logArea.scrollTop = logArea.scrollHeight;
+        console.log(message);
     }
 
-    const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+    try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        document.getElementById('firebaseStatus').textContent = '✅ Connecté';
+        logMessage('✅ Firebase initialisé avec succès', 'success');
+    } catch (error) {
+        document.getElementById('firebaseStatus').textContent = '❌ Erreur';
+        logMessage(`❌ Erreur Firebase: ${error.message}`, 'error');
+        console.error(error);
+    }
+
+    let schoolId = '';
+    let configRef = null;
+
+    function getSchoolId() {
+        const input = document.getElementById('ecoleInput').value.trim();
+        if (!input) return '';
+        return input.replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
+    function updatePath() {
+        const id = getSchoolId();
+        if (id) {
+            document.getElementById('pathDisplay').textContent = `ecoles/${id}/_config/settings`;
+        } else {
+            document.getElementById('pathDisplay').textContent = 'ecoles/NOM_ECOLE/_config/settings';
+        }
+    }
+
+    document.getElementById('ecoleInput').addEventListener('input', updatePath);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlEcole = urlParams.get('ecole');
+    if (urlEcole) {
+        document.getElementById('ecoleInput').value = urlEcole;
+        updatePath();
+    }
 
     function showStatus(type, message) {
         const el = document.getElementById('status');
         el.className = `status ${type}`;
         el.innerHTML = message;
         el.style.display = 'block';
+        logMessage(message, type);
     }
 
     function hideStatus() {
         document.getElementById('status').style.display = 'none';
     }
 
+    async function checkFirebaseConnection() {
+        try {
+            // Tester la connexion en lisant une collection qui existe
+            const testRef = collection(db, "ecoles");
+            await getDocs(testRef);
+            document.getElementById('firebaseStatus').textContent = '✅ Connecté';
+            return true;
+        } catch (error) {
+            document.getElementById('firebaseStatus').textContent = '❌ Erreur';
+            logMessage(`❌ Erreur de connexion Firebase: ${error.message}`, 'error');
+            return false;
+        }
+    }
+
     async function createConfig() {
+        const schoolName = document.getElementById('ecoleInput').value.trim();
+        if (!schoolName) {
+            showStatus('error', '❌ Veuillez entrer le nom de l\'école');
+            return;
+        }
+
+        const connected = await checkFirebaseConnection();
+        if (!connected) {
+            showStatus('error', '❌ Impossible de se connecter à Firebase. Vérifiez votre connexion internet.');
+            return;
+        }
+
+        const SCHOOL_PREFIX = getSchoolId();
+        configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+
         const btn = document.getElementById('createBtn');
         btn.disabled = true;
         btn.textContent = '⏳ CRÉATION...';
@@ -281,21 +368,37 @@
             const code = document.getElementById('customCode').value.trim() || "1234";
             const configData = {
                 codeAcces: code,
-                nom: `COMPLEXE SCOLAIRE ${schoolId.toUpperCase()}`,
+                nom: `COMPLEXE SCOLAIRE ${schoolName.toUpperCase()}`,
                 adresse: "",
                 maxExonerations: 10,
-                fraisInscription: 50000
+                fraisInscription: 50000,
+                createdAt: new Date().toISOString()
             };
 
+            logMessage(`📝 Création de la config pour: ${schoolName}`, 'info');
+            logMessage(`📝 Chemin: ecoles/${SCHOOL_PREFIX}/_config/settings`, 'info');
+            logMessage(`📝 Code: ${code}`, 'info');
+
             await setDoc(configRef, configData);
+            
             showStatus('success', `
                 ✅ Configuration créée avec succès !<br>
+                🏫 École: <strong>${schoolName}</strong><br>
                 🔑 Code: <strong>${code}</strong><br>
                 📁 Chemin: <strong>ecoles/${SCHOOL_PREFIX}/_config/settings</strong>
             `);
+            logMessage('✅ Configuration créée avec succès !', 'success');
         } catch (error) {
             showStatus('error', `❌ Erreur: ${error.message}`);
+            logMessage(`❌ Erreur: ${error.message}`, 'error');
             console.error(error);
+            
+            // Afficher plus d'informations sur l'erreur
+            if (error.code === 'permission-denied') {
+                showStatus('error', '❌ Permission refusée. Vérifiez les règles de sécurité Firebase.');
+            } else if (error.code === 'unavailable') {
+                showStatus('error', '❌ Service indisponible. Vérifiez votre connexion internet.');
+            }
         } finally {
             btn.disabled = false;
             btn.textContent = '🚀 CRÉER LA CONFIGURATION';
@@ -303,6 +406,21 @@
     }
 
     async function verifyConfig() {
+        const schoolName = document.getElementById('ecoleInput').value.trim();
+        if (!schoolName) {
+            showStatus('error', '❌ Veuillez entrer le nom de l\'école');
+            return;
+        }
+
+        const connected = await checkFirebaseConnection();
+        if (!connected) {
+            showStatus('error', '❌ Impossible de se connecter à Firebase.');
+            return;
+        }
+
+        const SCHOOL_PREFIX = getSchoolId();
+        configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
+
         const btn = document.getElementById('verifyBtn');
         btn.disabled = true;
         btn.textContent = '⏳ VÉRIFICATION...';
@@ -315,14 +433,18 @@
                 const data = snap.data();
                 showStatus('success', `
                     ✅ Configuration trouvée !<br>
+                    🏫 École: <strong>${data.nom || 'Non défini'}</strong><br>
                     🔑 Code: <strong>${data.codeAcces || 'Non défini'}</strong><br>
-                    🏫 École: <strong>${data.nom || 'Non défini'}</strong>
+                    📅 Créée: <strong>${data.createdAt ? new Date(data.createdAt).toLocaleString() : 'Inconnu'}</strong>
                 `);
+                logMessage('✅ Configuration trouvée', 'success');
             } else {
                 showStatus('error', '❌ Aucune configuration trouvée. Cliquez sur "Créer"');
+                logMessage('❌ Aucune configuration trouvée', 'error');
             }
         } catch (error) {
             showStatus('error', `❌ Erreur: ${error.message}`);
+            logMessage(`❌ Erreur: ${error.message}`, 'error');
             console.error(error);
         } finally {
             btn.disabled = false;
@@ -331,7 +453,22 @@
     }
 
     async function deleteConfig() {
-        if (!confirm('⚠️ Supprimer définitivement la configuration ?')) return;
+        const schoolName = document.getElementById('ecoleInput').value.trim();
+        if (!schoolName) {
+            showStatus('error', '❌ Veuillez entrer le nom de l\'école');
+            return;
+        }
+
+        if (!confirm(`⚠️ Supprimer définitivement la configuration pour ${schoolName} ?`)) return;
+
+        const connected = await checkFirebaseConnection();
+        if (!connected) {
+            showStatus('error', '❌ Impossible de se connecter à Firebase.');
+            return;
+        }
+
+        const SCHOOL_PREFIX = getSchoolId();
+        configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings");
 
         const btn = document.getElementById('deleteBtn');
         btn.disabled = true;
@@ -341,9 +478,11 @@
 
         try {
             await deleteDoc(configRef);
-            showStatus('success', '✅ Configuration supprimée avec succès');
+            showStatus('success', `✅ Configuration supprimée avec succès pour ${schoolName}`);
+            logMessage(`✅ Configuration supprimée pour ${schoolName}`, 'success');
         } catch (error) {
             showStatus('error', `❌ Erreur: ${error.message}`);
+            logMessage(`❌ Erreur: ${error.message}`, 'error');
             console.error(error);
         } finally {
             btn.disabled = false;
@@ -355,20 +494,28 @@
     document.getElementById('verifyBtn').addEventListener('click', verifyConfig);
     document.getElementById('deleteBtn').addEventListener('click', deleteConfig);
 
-    // Auto-vérification au chargement
-    if (schoolId) {
-        setTimeout(verifyConfig, 500);
-    }
+    // Vérification automatique au chargement
+    setTimeout(async () => {
+        await checkFirebaseConnection();
+        if (urlEcole) {
+            setTimeout(verifyConfig, 500);
+        }
+    }, 500);
 
-    // Entrée pour valider avec Enter
     document.getElementById('customCode').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             createConfig();
         }
     });
 
+    document.getElementById('ecoleInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            verifyConfig();
+        }
+    });
+
     console.log('✅ Page de configuration prête');
-    console.log(`📁 Chemin: ecoles/${SCHOOL_PREFIX}/_config/settings`);
+    console.log(`📁 Firebase project: ${firebaseConfig.projectId}`);
 </script>
 
 </body>
