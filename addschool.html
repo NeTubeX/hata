@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-<title>NETUBEX | Enregistrement des établissements</title>
+<title>NETUBEX | Département Administration & Organisation</title>
 <script type="importmap">
 {
     "imports": {
@@ -62,6 +62,12 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 @media (max-width:768px){.schools-table th,.schools-table td{padding:12px 8px;font-size:0.75rem;}}
 .school-prefixe{cursor:pointer;font-family:monospace;color:#60a5fa;font-size:0.75rem;transition:0.2s;}
 .school-prefixe:hover{color:#facc15;text-decoration:underline;}
+.actions{display:flex;gap:8px;flex-wrap:wrap;}
+.btn-icon{background:transparent;border:none;cursor:pointer;padding:6px 12px;border-radius:40px;font-size:0.7rem;font-weight:500;transition:all 0.2s;}
+.btn-edit{background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);}
+.btn-edit:hover{background:#3b82f6;color:white;}
+.btn-delete{background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);}
+.btn-delete:hover{background:#ef4444;color:white;}
 .empty-state{text-align:center;padding:60px;color:#64748b;font-size:0.9rem;}
 .loading{text-align:center;padding:60px;color:#64748b;}
 .loading:before{content:"";display:inline-block;width:20px;height:20px;border:2px solid #1e3a5f;border-top-color:#facc15;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:10px;vertical-align:middle;}
@@ -69,6 +75,15 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 .table-container{overflow-x:auto;border-radius:20px;}
 .text-muted{color:#64748b;font-size:0.7rem;margin-top:4px;}
 .section-number{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#facc15;color:#0a1a2f;border-radius:50%;font-size:0.7rem;font-weight:700;margin-right:8px;}
+.access-modal{display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:3000;align-items:center;justify-content:center;}
+.access-content{background:#0a1e30;border-radius:28px;width:90%;max-width:380px;padding:32px 24px;border:1px solid #facc1540;text-align:center;}
+.access-content h2{color:#facc15;margin-bottom:20px;font-size:1.3rem;}
+.access-content p{color:#bbdefb;font-size:0.85rem;margin-bottom:24px;}
+.access-content input{width:100%;padding:14px;background:#0a1a2f;border:2px solid #2d5980;border-radius:20px;color:#e0f2fe;font-size:1.2rem;text-align:center;letter-spacing:4px;margin-bottom:24px;font-family:monospace;}
+.access-content input:focus{outline:none;border-color:#facc15;}
+.access-content button{background:#facc15;color:#0a1a2f;border:none;padding:12px 24px;border-radius:44px;font-weight:700;font-size:1rem;cursor:pointer;width:100%;}
+.access-content button:hover{background:#e6b800;}
+.error-msg{color:#ef4444;font-size:0.8rem;margin-top:12px;display:none;}
 .confirm-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:3500;align-items:center;justify-content:center;}
 .confirm-content{background:#0a1e30;border-radius:28px;width:90%;max-width:350px;padding:28px 24px;border:1px solid #facc1540;text-align:center;}
 .confirm-content h3{color:#facc15;margin-bottom:16px;font-size:1.2rem;}
@@ -90,17 +105,15 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 .detail-label{width:120px;font-weight:600;color:#94a3b8;font-size:0.75rem;text-transform:uppercase;}
 .detail-value{flex:1;color:#e0f2fe;font-size:0.85rem;word-break:break-word;}
 .detail-value.empty{color:#475569;font-style:italic;}
-.status-badge{display:inline-block;padding:4px 12px;border-radius:40px;font-size:0.7rem;font-weight:600;}
-.status-active{background:#10b98130;color:#10b981;}
 @media (max-width:480px){.header{padding:16px 20px;}.logo{width:36px;height:36px;}.header-text h1{font-size:1rem;}.header-text p{font-size:0.6rem;}.form-body{padding:20px;}.tab-btn{padding:8px 16px;font-size:0.75rem;}.detail-label{width:100px;}}
 </style>
 </head>
 <body>
-<div class="admin-container" id="mainContent">
+<div class="admin-container" id="mainContent" style="display:none">
 <div class="header">
 <div class="header-left">
 <div class="logo"><img src="https://www.netubex.com/favicon.png.png" alt="NETUBEX" onerror="this.style.display='none'"></div>
-<div class="header-text"><h1>NETUBEX SARL</h1><p>Enregistrement des établissements</p></div>
+<div class="header-text"><h1>NETUBEX SARL</h1><p>Département Administration & Organisation</p></div>
 </div>
 <button class="btn-logout" id="logoutBtn">🔓 Déconnexion</button>
 </div>
@@ -119,8 +132,8 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 </div>
 <div class="form-group">
 <label class="required">Identifiant unique (préfixe)</label>
-<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;font-weight:bold;">
-<span class="text-muted">🔑 Généré automatiquement à partir du nom</span>
+<input type="text" id="prefixe" placeholder="Généré automatiquement" readonly style="background:#0f2a40;color:#facc15;">
+<span class="text-muted">🔑 Généré automatiquement à partir du nom (sans accents, tirets)</span>
 </div>
 <div class="form-group"><label class="required">Province</label><select id="province"><option value="">Sélectionner</option><option value="Kinshasa">Kinshasa</option><option value="Kongo Central">Kongo Central</option><option value="Kwango">Kwango</option><option value="Kwilu">Kwilu</option><option value="Mai-Ndombe">Mai-Ndombe</option><option value="Équateur">Équateur</option><option value="Mongala">Mongala</option><option value="Nord-Ubangi">Nord-Ubangi</option><option value="Sud-Ubangi">Sud-Ubangi</option><option value="Tshuapa">Tshuapa</option><option value="Bas-Uele">Bas-Uele</option><option value="Haut-Uele">Haut-Uele</option><option value="Ituri">Ituri</option><option value="Tshopo">Tshopo</option><option value="Nord-Kivu">Nord-Kivu</option><option value="Sud-Kivu">Sud-Kivu</option><option value="Maniema">Maniema</option><option value="Haut-Katanga">Haut-Katanga</option><option value="Haut-Lomami">Haut-Lomami</option><option value="Lualaba">Lualaba</option><option value="Lomami">Lomami</option><option value="Tanganyika">Tanganyika</option><option value="Kasaï">Kasaï</option><option value="Kasaï-Central">Kasaï-Central</option><option value="Kasaï-Oriental">Kasaï-Oriental</option><option value="Sankuru">Sankuru</option></select></div>
 <div class="form-group"><label class="required">Ville / Commune</label><select id="ville"><option value="">Sélectionner une ville</option></select></div>
@@ -136,13 +149,13 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 <div class="form-group"><label>Date de création</label><input type="date" id="dateCreation"></div>
 <div class="form-group full-width"><label>Adresse complète</label><textarea id="adresse" rows="2" placeholder="Adresse complète de l'établissement..."></textarea></div>
 </div>
-<button class="btn-primary" id="saveBtn">💾 Enregistrer l'établissement</button>
+<button id="saveBtn" class="btn-primary">💾 Enregistrer l'établissement</button>
 </div>
 </div>
 </div>
 <div id="listTab" class="tab-pane">
 <div class="form-card">
-<div class="form-header"><h2>📋 Annuaire des établissements enregistrés</h2></div>
+<div class="form-header"><h2>📋 Annuaire des établissements</h2></div>
 <div class="form-body" style="padding:0;">
 <div class="table-container" id="schoolsListContainer"><div class="loading">Chargement des données...</div></div>
 </div>
@@ -150,6 +163,15 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 </div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
+<div class="access-modal" id="accessModal">
+<div class="access-content">
+<h2>🔐 ACCÈS ADMINISTRATION</h2>
+<p>Veuillez saisir le code d'accès</p>
+<input type="password" id="accessCode" placeholder="" maxlength="6" autofocus>
+<button id="validateAccessBtn">VALIDER</button>
+<div id="accessError" class="error-msg">❌ Code incorrect. Veuillez réessayer.</div>
+</div>
+</div>
 <div class="confirm-modal" id="confirmModal">
 <div class="confirm-content">
 <h3>🔓 Déconnexion</h3>
@@ -176,13 +198,12 @@ body{background:#0a1a2f;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe
 <div class="detail-row"><div class="detail-label">Date création</div><div class="detail-value" id="detailDateCreation">-</div></div>
 <div class="detail-row"><div class="detail-label">Adresse</div><div class="detail-value" id="detailAdresse">-</div></div>
 <div class="detail-row"><div class="detail-label">Professeur(s)</div><div class="detail-value" id="detailProfesseurs">-</div></div>
-<div class="detail-row"><div class="detail-label">Statut</div><div class="detail-value" id="detailStatut">-</div></div>
 </div>
 </div>
 </div>
-<script>
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, setDoc, collection, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, deleteDoc, collection, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
@@ -196,6 +217,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+const ACCESS_CODE = "2025";
 const ECOLES_AUTORISEES = "ecoles_autorisees";
 let editingPrefixe = null;
 
@@ -250,7 +272,7 @@ function normaliserNom(nom) {
 
 async function prefixeExiste(prefixe) {
     try {
-        const docRef = doc(db, "ecoles", prefixe);
+        const docRef = doc(db, ECOLES_AUTORISEES, prefixe);
         const docSnap = await getDoc(docRef);
         return docSnap.exists();
     } catch(e) { return false; }
@@ -277,6 +299,7 @@ async function autoGenererPrefixe() {
         const nomEcole = document.getElementById('nom').value.trim();
         const prefixeInput = document.getElementById('prefixe');
         if (nomEcole.length >= 3) {
+            prefixeInput.style.color = '#facc15';
             const nouveauPrefixe = await genererPrefixeAuto(nomEcole);
             if (nouveauPrefixe) {
                 prefixeInput.value = nouveauPrefixe;
@@ -293,27 +316,12 @@ async function autoGenererPrefixe() {
     }
 }
 
-function setDefaultDate() {
-    const dateInput = document.getElementById('dateCreation');
-    if (!dateInput.value) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        dateInput.value = `${year}-${month}-${day}`;
-    }
-}
-
 async function saveSchool() {
     const prefixe = document.getElementById('prefixe').value.trim();
     const nom = document.getElementById('nom').value.trim();
     const province = document.getElementById('province').value;
     const ville = document.getElementById('ville').value;
-    
-    if (!prefixe || !nom || !province || !ville) { 
-        showToast("Veuillez remplir tous les champs obligatoires", "error"); 
-        return; 
-    }
+    if (!prefixe || !nom || !province || !ville) { showToast("Veuillez remplir tous les champs obligatoires", "error"); return; }
     
     const now = new Date().toISOString();
     const data = { 
@@ -333,24 +341,12 @@ async function saveSchool() {
     };
     
     try { 
-        await setDoc(doc(db, "ecoles", prefixe), data); 
-        await setDoc(doc(db, ECOLES_AUTORISEES, prefixe), {
-            nom: nom,
-            actif: true,
-            dateActivation: now,
-            dateExpiration: null,
-            maxUtilisateurs: 50,
-            typeAbonnement: "essai",
-            province: province,
-            ville: ville,
-            directeur: data.directeur,
-            telephone: data.telephone
-        });
-        showToast(editingPrefixe ? "✅ Établissement modifié avec succès" : "✅ Établissement ajouté avec succès"); 
+        await setDoc(doc(db, ECOLES_AUTORISEES, prefixe), data); 
+        showToast(editingPrefixe ? "✅ Établissement modifié" : "✅ Établissement ajouté"); 
         resetForm(); 
         loadSchoolsList(); 
     } catch (err) { 
-        showToast("❌ Erreur lors de l'enregistrement: " + err.message, "error"); 
+        showToast("❌ Erreur lors de l'enregistrement", "error"); 
         console.error(err);
     }
 }
@@ -365,12 +361,47 @@ function resetForm() {
     document.getElementById('dateCreation').value = '';
     document.getElementById('adresse').value = ''; 
     editingPrefixe = null;
-    setDefaultDate();
+}
+
+async function editSchool(prefixe) {
+    try { 
+        const docRef = doc(db, ECOLES_AUTORISEES, prefixe); 
+        const docSnap = await getDoc(docRef); 
+        if (docSnap.exists()) { 
+            const d = docSnap.data(); 
+            document.getElementById('prefixe').value = d.prefixe || ''; 
+            document.getElementById('nom').value = d.nom || ''; 
+            document.getElementById('province').value = d.province || ''; 
+            updateVilles(); 
+            setTimeout(() => { document.getElementById('ville').value = d.ville || ''; }, 100); 
+            document.getElementById('telephone').value = d.telephone || ''; 
+            document.getElementById('directeur').value = d.directeur || ''; 
+            document.getElementById('dateCreation').value = d.dateCreation || ''; 
+            document.getElementById('adresse').value = d.adresse || ''; 
+            editingPrefixe = prefixe; 
+            document.querySelector('.tab-btn[data-tab="add"]').click(); 
+            showToast("✏️ Mode édition - Modifiez puis enregistrez", "warning"); 
+        } 
+    } catch (err) { 
+        showToast("❌ Erreur lors du chargement", "error"); 
+    }
+}
+
+async function deleteSchool(prefixe, nom) { 
+    if (confirm(`Supprimer définitivement "${nom}" ?`)) { 
+        try { 
+            await deleteDoc(doc(db, ECOLES_AUTORISEES, prefixe)); 
+            showToast(`🗑️ Établissement supprimé : ${nom}`, "warning"); 
+            loadSchoolsList(); 
+        } catch (err) { 
+            showToast("❌ Erreur lors de la suppression", "error"); 
+        } 
+    } 
 }
 
 async function showSchoolDetails(prefixe) {
     try {
-        const docRef = doc(db, "ecoles", prefixe);
+        const docRef = doc(db, ECOLES_AUTORISEES, prefixe);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
             const e = docSnap.data();
@@ -381,17 +412,6 @@ async function showSchoolDetails(prefixe) {
                 nbProfesseurs = profSnapshot.size;
             } catch(err) {}
             
-            const authRef = doc(db, ECOLES_AUTORISEES, prefixe);
-            const authSnap = await getDoc(authRef);
-            let statutHtml = '<span class="status-badge status-active">✅ Actif</span>';
-            if (authSnap.exists()) {
-                const a = authSnap.data();
-                if (a.actif === false) statutHtml = '<span class="status-badge status-inactive">⛔ Inactif</span>';
-                else if (a.dateExpiration && new Date(a.dateExpiration) < new Date()) statutHtml = '<span class="status-badge status-expired">⏰ Expiré</span>';
-            } else {
-                statutHtml = '<span class="status-badge status-inactive">❌ Non autorisé</span>';
-            }
-            
             document.getElementById('detailPrefixe').innerHTML = escapeHtml(e.prefixe || '-');
             document.getElementById('detailNom').innerHTML = escapeHtml(e.nom || '-');
             document.getElementById('detailProvince').innerHTML = escapeHtml(e.province || '-');
@@ -401,7 +421,6 @@ async function showSchoolDetails(prefixe) {
             document.getElementById('detailDateCreation').innerHTML = e.dateCreation ? e.dateCreation : '<span class="empty">Non renseignée</span>';
             document.getElementById('detailAdresse').innerHTML = e.adresse ? escapeHtml(e.adresse) : '<span class="empty">Non renseignée</span>';
             document.getElementById('detailProfesseurs').innerHTML = nbProfesseurs;
-            document.getElementById('detailStatut').innerHTML = statutHtml;
             
             document.getElementById('detailModal').style.display = 'flex';
         } else {
@@ -415,40 +434,32 @@ async function showSchoolDetails(prefixe) {
 async function loadSchoolsList() {
     const container = document.getElementById('schoolsListContainer');
     try {
-        const snapshot = await getDocs(collection(db, "ecoles"));
+        const snapshot = await getDocs(collection(db, ECOLES_AUTORISEES));
         if (snapshot.empty) {
-            container.innerHTML = '<div class="empty-state">📭 Aucun établissement enregistré</div>';
+            container.innerHTML = '<div class="empty-state">📭 Aucun établissement autorisé</div>';
             return;
         }
-        let html = `<table class="schools-table"><thead><tr><th>Identifiant</th><th>Établissement</th><th>Localisation</th><th>Professeurs</th><th>Statut</th></tr></thead><tbody>`;
+        let html = `<table class="schools-table"><thead><tr><th>Identifiant</th><th>Établissement</th><th>Localisation</th><th>Professeurs</th><th>Actions</th></tr></thead><tbody>`;
         
         for (const docSnap of snapshot.docs) {
             const e = docSnap.data();
+            const prefixe = docSnap.id;
             let nbProfesseursReel = 0;
             try {
-                const profSnapshot = await getDocs(collection(db, `${e.prefixe}_professeurs`));
+                const profSnapshot = await getDocs(collection(db, `${prefixe}_professeurs`));
                 nbProfesseursReel = profSnapshot.size;
-            } catch(err) {}
-            
-            let statutHtml = '<span class="status-badge status-active">✅ Actif</span>';
-            try {
-                const authRef = doc(db, ECOLES_AUTORISEES, e.prefixe);
-                const authSnap = await getDoc(authRef);
-                if (authSnap.exists()) {
-                    const a = authSnap.data();
-                    if (a.actif === false) statutHtml = '<span class="status-badge status-inactive">⛔ Inactif</span>';
-                    else if (a.dateExpiration && new Date(a.dateExpiration) < new Date()) statutHtml = '<span class="status-badge status-expired">⏰ Expiré</span>';
-                } else {
-                    statutHtml = '<span class="status-badge status-inactive">❌ Non autorisé</span>';
-                }
-            } catch(err) {}
-            
+            } catch(err) {
+                nbProfesseursReel = 0;
+            }
             html += `<tr>
-                <td class="school-prefixe" data-prefixe="${e.prefixe}">${escapeHtml(e.prefixe || "-")}</td>
+                <td class="school-prefixe" data-prefixe="${escapeHtml(prefixe)}">${escapeHtml(prefixe || "-")}</td>
                 <td><strong>${escapeHtml(e.nom || "-")}</strong><br><span class="text-muted">${escapeHtml(e.directeur || "")}</span></td>
                 <td>${escapeHtml(e.ville || "-")}<br><span class="text-muted">${escapeHtml(e.province || "")}</span></td>
                 <td style="text-align:center; font-weight:600; color:#10b981;">${nbProfesseursReel}</td>
-                <td>${statutHtml}</td>
+                <td class="actions">
+                    <button class="btn-icon btn-edit edit-btn" data-prefixe="${escapeHtml(prefixe)}">✏️ Modifier</button>
+                    <button class="btn-icon btn-delete delete-btn" data-prefixe="${escapeHtml(prefixe)}" data-nom="${escapeHtml(e.nom).replace(/"/g, '&quot;')}">🗑️ Supprimer</button>
+                </td>
             </tr>`;
         }
         html += `</tbody></table>`;
@@ -457,87 +468,80 @@ async function loadSchoolsList() {
         document.querySelectorAll(".school-prefixe").forEach(el => {
             el.addEventListener("click", () => showSchoolDetails(el.dataset.prefixe));
         });
+        document.querySelectorAll(".edit-btn").forEach(btn => btn.addEventListener("click", () => editSchool(btn.dataset.prefixe)));
+        document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", () => deleteSchool(btn.dataset.prefixe, btn.dataset.nom)));
     } catch (err) {
         container.innerHTML = `<div class="empty-state">❌ Erreur: ${err.message}</div>`;
     }
 }
 
-function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;'); }
+function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
 
-function logout() {
-    document.getElementById('confirmModal').style.display = 'flex';
+function checkAccess() {
+    if (sessionStorage.getItem('netubex_admin_access') === 'true') {
+        document.getElementById('accessModal').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        initApp();
+    }
 }
 
-// === ATTACHEMENT DES ÉVÉNEMENTS ===
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOM chargé - Initialisation');
-    
-    // Charger la liste des écoles
+function validateAccess() {
+    const codeInput = document.getElementById('accessCode');
+    const errorDiv = document.getElementById('accessError');
+    if (codeInput.value === ACCESS_CODE) {
+        sessionStorage.setItem('netubex_admin_access', 'true');
+        document.getElementById('accessModal').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        if (errorDiv) errorDiv.style.display = 'none';
+        codeInput.value = '';
+        initApp();
+    } else {
+        if (errorDiv) errorDiv.style.display = 'block';
+        codeInput.value = '';
+        codeInput.focus();
+        showToast("Code incorrect", "error");
+    }
+}
+
+function logout() {
+    sessionStorage.removeItem('netubex_admin_access');
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('confirmModal').style.display = 'none';
+    document.getElementById('accessModal').style.display = 'flex';
+    const inp = document.getElementById('accessCode');
+    if (inp) { inp.value = ''; inp.focus(); }
+}
+
+let debounceTimer;
+function initApp() {
     loadSchoolsList();
-    
-    // Définir la date par défaut
-    setDefaultDate();
-    
-    // Mettre à jour les villes quand la province change
-    document.getElementById('province').addEventListener('change', updateVilles);
-    
-    // Générer le préfixe automatiquement quand le nom change
     const nomInput = document.getElementById('nom');
-    let debounceTimer;
-    nomInput.addEventListener('input', function() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            autoGenererPrefixe();
-        }, 300);
-    });
-    
-    // Enregistrer
-    document.getElementById('saveBtn').addEventListener('click', saveSchool);
-    
-    // Déconnexion
-    document.getElementById('logoutBtn').addEventListener('click', logout);
-    document.getElementById('confirmYes').addEventListener('click', function() {
-        sessionStorage.clear();
-        localStorage.clear();
-        location.reload();
-    });
-    document.getElementById('confirmNo').addEventListener('click', function() {
-        document.getElementById('confirmModal').style.display = 'none';
-    });
-    
-    // Fermeture du modal de détails
-    document.getElementById('closeDetailBtn').addEventListener('click', function() {
-        document.getElementById('detailModal').style.display = 'none';
-    });
-    document.getElementById('detailModal').addEventListener('click', function(e) {
-        if (e.target === document.getElementById('detailModal')) {
-            document.getElementById('detailModal').style.display = 'none';
-        }
-    });
-    
-    // Onglets
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", function() {
-            const tabId = this.dataset.tab;
-            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-            document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
-            this.classList.add("active");
-            document.getElementById(tabId + "Tab").classList.add("active");
-            if (tabId === "list") loadSchoolsList();
+    if (nomInput) {
+        nomInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                autoGenererPrefixe();
+            }, 300);
         });
-    });
-    
-    // Protection contre les raccourcis
-    document.addEventListener("contextmenu", e => e.preventDefault());
-    document.addEventListener("keydown", e => {
-        if (e.key === 'F12' || (e.ctrlKey && e.key === 'u')) {
-            e.preventDefault();
-        }
-    });
-    
-    console.log('✅ Application prête');
-    console.log('📌 Tapez un nom d\'école pour générer le préfixe');
-});
+    }
+}
+
+document.getElementById('saveBtn').addEventListener('click', saveSchool);
+document.getElementById('logoutBtn').addEventListener('click', () => { document.getElementById('confirmModal').style.display = 'flex'; });
+document.getElementById('confirmYes').addEventListener('click', logout);
+document.getElementById('confirmNo').addEventListener('click', () => { document.getElementById('confirmModal').style.display = 'none'; });
+document.getElementById('validateAccessBtn').addEventListener('click', validateAccess);
+document.getElementById('accessCode').addEventListener('keypress', (e) => { if (e.key === 'Enter') validateAccess(); });
+document.getElementById('closeDetailBtn').addEventListener('click', () => { document.getElementById('detailModal').style.display = 'none'; });
+document.getElementById('detailModal').addEventListener('click', (e) => { if (e.target === document.getElementById('detailModal')) document.getElementById('detailModal').style.display = 'none'; });
+
+document.querySelectorAll(".tab-btn").forEach(btn => { btn.addEventListener("click", () => { const tabId = btn.dataset.tab; document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active")); document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active")); btn.classList.add("active"); document.getElementById(tabId + "Tab").classList.add("active"); if (tabId === "list") loadSchoolsList(); }); });
+document.getElementById('province').addEventListener('change', updateVilles);
+document.addEventListener("contextmenu", e => e.preventDefault());
+document.addEventListener("keydown", e => { if (e.key === 'F12' || (e.ctrlKey && e.key === 'u')) e.preventDefault(); });
+
+checkAccess();
+document.getElementById('accessCode').value = '';
 </script>
 </body>
 </html>
