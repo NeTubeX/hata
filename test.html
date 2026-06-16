@@ -1,19 +1,696 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ÉcoleProche - Kasumbalesa</title>
+
+    <!-- Leaflet CSS (OpenStreetMap) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Font Awesome pour les icônes -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
     <style>
-        #map { height: 100vh; width: 100%; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* === HEADER === */
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .header h1 i {
+            color: #27ae60;
+            margin-right: 8px;
+        }
+        .header h1 span {
+            color: #f1c40f;
+            font-size: 14px;
+            font-weight: normal;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1e8449;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 1px solid white;
+        }
+        .btn-outline:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .btn-success {
+            background: #2980b9;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #1f618d;
+        }
+
+        /* === CONTENEUR PRINCIPAL === */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* === CARTE === */
+        #map {
+            flex: 1;
+            height: 100%;
+            min-height: 400px;
+        }
+
+        /* === PANNEAU LATÉRAL === */
+        .sidebar {
+            width: 320px;
+            background: white;
+            padding: 15px;
+            overflow-y: auto;
+            border-left: 2px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: 0.3s;
+        }
+
+        .sidebar h3 {
+            color: #2c3e50;
+            font-size: 18px;
+            border-bottom: 2px solid #27ae60;
+            padding-bottom: 8px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .filter-group select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .school-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .school-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #27ae60;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .school-item:hover {
+            background: #e9ecef;
+            transform: translateX(3px);
+        }
+        .school-item .name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .school-item .type {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+        .school-item .address {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 3px;
+        }
+
+        .empty-message {
+            color: #95a5a6;
+            text-align: center;
+            padding: 30px 0;
+            font-style: italic;
+        }
+
+        /* === MODAL AJOUT === */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .modal label {
+            display: block;
+            font-weight: 600;
+            margin-top: 12px;
+            color: #34495e;
+            font-size: 14px;
+        }
+
+        .modal input, .modal select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .modal .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .modal .btn-group .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
+        /* === STATS === */
+        .stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .stats span {
+            font-size: 13px;
+            color: #555;
+        }
+        .stats strong {
+            color: #2c3e50;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                max-height: 50vh;
+                border-left: none;
+                border-top: 2px solid #ddd;
+            }
+            .main-container {
+                flex-direction: column-reverse;
+            }
+            .header h1 {
+                font-size: 18px;
+            }
+            .header-actions .btn {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
+
+    <!-- ===== HEADER ===== -->
+    <header class="header">
+        <h1>
+            <i class="fas fa-map-pin"></i> ÉcoleProche 
+            <span>— Kasumbalesa</span>
+        </h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddModal()">
+                <i class="fas fa-plus"></i> Ajouter une école
+            </button>
+            <button class="btn btn-success" onclick="exportCSV()">
+                <i class="fas fa-file-csv"></i> Exporter CSV
+            </button>
+        </div>
+    </header>
+
+    <!-- ===== CONTENEUR ===== -->
+    <div class="main-container">
+
+        <!-- CARTE -->
+        <div id="map"></div>
+
+        <!-- PANNEAU LATÉRAL -->
+        <div class="sidebar" id="sidebar">
+            <h3><i class="fas fa-list"></i> Écoles</h3>
+
+            <!-- Statistiques -->
+            <div class="stats" id="stats">
+                <span><strong id="countTotal">0</strong> écoles</span>
+                <span><i class="fas fa-circle" style="color:#27ae60;"></i> Primaire</span>
+                <span><i class="fas fa-circle" style="color:#2980b9;"></i> Secondaire</span>
+                <span><i class="fas fa-circle" style="color:#8e44ad;"></i> Technique</span>
+            </div>
+
+            <!-- Recherche et filtres -->
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Rechercher une école..." oninput="filterSchools()">
+            </div>
+            <div class="filter-group">
+                <select id="filterType" onchange="filterSchools()">
+                    <option value="all">Tous les types</option>
+                    <option value="Primaire">Primaire</option>
+                    <option value="Secondaire">Secondaire</option>
+                    <option value="Technique">Technique</option>
+                </select>
+            </div>
+
+            <!-- Liste des écoles -->
+            <div class="school-list" id="schoolList">
+                <div class="empty-message">
+                    <i class="fas fa-school" style="font-size:30px; display:block; margin-bottom:10px;"></i>
+                    Aucune école pour le moment.<br>Cliquez sur "Ajouter une école".
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL AJOUT ===== -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <h2><i class="fas fa-plus-circle" style="color:#27ae60;"></i> Ajouter une école</h2>
+            <form id="addForm" onsubmit="addSchool(event)">
+                <label>Nom de l'école *</label>
+                <input type="text" id="schoolName" placeholder="Ex: École Primaire de Kasumbalesa" required>
+
+                <label>Type *</label>
+                <select id="schoolType" required>
+                    <option value="Primaire">Primaire</option>
+                    <option value="Secondaire">Secondaire</option>
+                    <option value="Technique">Technique</option>
+                </select>
+
+                <label>Adresse (ville / quartier)</label>
+                <input type="text" id="schoolAddress" placeholder="Ex: Kasumbalesa, Quartier ...">
+
+                <p style="margin-top:12px; font-size:13px; color:#7f8c8d;">
+                    <i class="fas fa-map-marker-alt"></i> La position GPS sera prise automatiquement.
+                </p>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn-danger" onclick="closeAddModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== SCRIPT ===== -->
     <script>
-        const map = L.map('map').setView([-12.4000, 27.8000], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
+        // ============================================================
+        // 1. DONNÉES (stockées en mémoire, sauvegardées dans localStorage)
+        // ============================================================
+        let schools = [];
+        let map;
+        let markersLayer;
+
+        // Chargement depuis localStorage
+        function loadSchools() {
+            const stored = localStorage.getItem('schools');
+            if (stored) {
+                try {
+                    schools = JSON.parse(stored);
+                } catch (e) {
+                    schools = [];
+                }
+            } else {
+                // Exemples de données initiales pour Kasumbalesa
+                schools = [
+                    {
+                        id: 1,
+                        name: "École Primaire de Kasumbalesa",
+                        type: "Primaire",
+                        address: "Kasumbalesa, Quartier Centre",
+                        lat: -12.4000,
+                        lng: 27.8000
+                    },
+                    {
+                        id: 2,
+                        name: "Lycée Technique de Kasumbalesa",
+                        type: "Technique",
+                        address: "Kasumbalesa, Quartier Industriel",
+                        lat: -12.4100,
+                        lng: 27.7900
+                    },
+                    {
+                        id: 3,
+                        name: "Collège Saint-Joseph de Kasumbalesa",
+                        type: "Secondaire",
+                        address: "Kasumbalesa, Quartier Plateau",
+                        lat: -12.3950,
+                        lng: 27.8050
+                    }
+                ];
+                saveSchools();
+            }
+        }
+
+        function saveSchools() {
+            localStorage.setItem('schools', JSON.stringify(schools));
+        }
+
+        // ============================================================
+        // 2. INITIALISATION DE LA CARTE (MODE SATELLITE)
+        // ============================================================
+        function initMap() {
+            // Coordonnées de Kasumbalesa
+            const KASUMBALESA_LAT = -12.4000;
+            const KASUMBALESA_LNG = 27.8000;
+
+            map = L.map('map').setView([KASUMBALESA_LAT, KASUMBALESA_LNG], 14);
+
+            // ==========================================
+            // FOND DE CARTE SATELLITE (GRATUIT)
+            // Utilisation des tuiles Esri (gratuites)
+            // ==========================================
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
+                maxZoom: 19
+            }).addTo(map);
+
+            markersLayer = L.layerGroup().addTo(map);
+
+            // Rafraîchir la carte quand elle est affichée
+            map.on('moveend', updateMapBounds);
+        }
+
+        // ============================================================
+        // 3. AFFICHAGE DES MARQUEURS ET DE LA LISTE
+        // ============================================================
+        function getColor(type) {
+            switch (type) {
+                case 'Primaire': return '#27ae60';
+                case 'Secondaire': return '#2980b9';
+                case 'Technique': return '#8e44ad';
+                default: return '#7f8c8d';
+            }
+        }
+
+        function renderSchools() {
+            // Nettoyer les marqueurs
+            markersLayer.clearLayers();
+
+            // Filtrer selon recherche et type
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const typeFilter = document.getElementById('filterType').value;
+
+            const filtered = schools.filter(s => {
+                const matchName = s.name.toLowerCase().includes(search);
+                const matchType = typeFilter === 'all' || s.type === typeFilter;
+                return matchName && matchType;
+            });
+
+            // Ajouter les marqueurs
+            filtered.forEach(s => {
+                const color = getColor(s.type);
+                const marker = L.circleMarker([s.lat, s.lng], {
+                    radius: 10,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                })
+                .bindPopup(`
+                    <strong>${s.name}</strong><br>
+                    <i class="fas fa-tag"></i> ${s.type}<br>
+                    <i class="fas fa-map-marker-alt"></i> ${s.address || 'Adresse non renseignée'}
+                `)
+                .addTo(markersLayer);
+
+                // Zoom sur l'école au clic
+                marker.on('click', function() {
+                    map.setView([s.lat, s.lng], 16);
+                });
+            });
+
+            // Mise à jour de la liste
+            renderList(filtered);
+
+            // Mise à jour des stats
+            document.getElementById('countTotal').textContent = schools.length;
+        }
+
+        function renderList(filtered) {
+            const container = document.getElementById('schoolList');
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-message">
+                        <i class="fas fa-search" style="font-size:30px; display:block; margin-bottom:10px;"></i>
+                        Aucune école trouvée.
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(s => `
+                <div class="school-item" onclick="zoomToSchool(${s.id})">
+                    <div class="name">${s.name}</div>
+                    <div class="type"><i class="fas fa-tag"></i> ${s.type}</div>
+                    <div class="address"><i class="fas fa-map-marker-alt"></i> ${s.address || 'Adresse non renseignée'}</div>
+                </div>
+            `).join('');
+        }
+
+        function zoomToSchool(id) {
+            const school = schools.find(s => s.id === id);
+            if (school) {
+                map.setView([school.lat, school.lng], 16);
+            }
+        }
+
+        // ============================================================
+        // 4. FILTRES ET RECHERCHE
+        // ============================================================
+        function filterSchools() {
+            renderSchools();
+        }
+
+        // ============================================================
+        // 5. AJOUT D'UNE ÉCOLE
+        // ============================================================
+        function openAddModal() {
+            document.getElementById('addModal').style.display = 'flex';
+            document.getElementById('schoolName').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').style.display = 'none';
+            document.getElementById('addForm').reset();
+        }
+
+        function addSchool(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('schoolName').value.trim();
+            const type = document.getElementById('schoolType').value;
+            const address = document.getElementById('schoolAddress').value.trim();
+
+            if (!name) {
+                alert('Veuillez entrer un nom d\'école.');
+                return;
+            }
+
+            // Récupérer la position actuelle via le navigateur
+            if (!navigator.geolocation) {
+                alert('Votre navigateur ne supporte pas la géolocalisation.');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const newSchool = {
+                        id: Date.now(),
+                        name: name,
+                        type: type,
+                        address: address || 'Kasumbalesa',
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    schools.push(newSchool);
+                    saveSchools();
+                    renderSchools();
+
+                    // Zoom sur la nouvelle école
+                    map.setView([newSchool.lat, newSchool.lng], 16);
+
+                    closeAddModal();
+                    alert(`✅ École "${name}" ajoutée avec succès !`);
+                },
+                (error) => {
+                    alert('Erreur de géolocalisation. Vérifiez que vous avez autorisé l\'accès à la position.');
+                    console.error(error);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+        // ============================================================
+        // 6. EXPORT CSV
+        // ============================================================
+        function exportCSV() {
+            if (schools.length === 0) {
+                alert('Aucune école à exporter.');
+                return;
+            }
+
+            // En-têtes
+            let csv = 'Nom,Type,Adresse,Latitude,Longitude\n';
+            schools.forEach(s => {
+                csv += `"${s.name}","${s.type}","${s.address || ''}",${s.lat},${s.lng}\n`;
+            });
+
+            // Téléchargement
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'ecoles_kasumbalesa_' + new Date().toISOString().slice(0,10) + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        // ============================================================
+        // 7. MISE À JOUR DE LA CARTE (visionneuse)
+        // ============================================================
+        function updateMapBounds() {
+            // Rien de spécial, mais on peut ajouter des actions si besoin
+        }
+
+        // ============================================================
+        // 8. DÉMARRAGE
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSchools();
+            initMap();
+            renderSchools();
+
+            // Fermer le modal en cliquant à l'extérieur
+            document.getElementById('addModal').addEventListener('click', function(e) {
+                if (e.target === this) closeAddModal();
+            });
+        });
+
+        // Rendre les fonctions globales pour les appels HTML
+        window.openAddModal = openAddModal;
+        window.closeAddModal = closeAddModal;
+        window.addSchool = addSchool;
+        window.filterSchools = filterSchools;
+        window.zoomToSchool = zoomToSchool;
+        window.exportCSV = exportCSV;
     </script>
+
 </body>
 </html>
