@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>ÉcoleProche - Kasumbalesa</title>
 
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
@@ -113,9 +109,8 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
+            0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
         }
 
         /* CONTENEUR PRINCIPAL */
@@ -126,16 +121,21 @@
             position: relative;
         }
 
-        /* CARTE */
-        #map {
+        /* CARTE GOOGLE MAPS (iframe) */
+        #map-container {
             flex: 1;
             height: 100%;
             min-height: 300px;
+            position: relative;
         }
 
-        /* ========================================== */
-        /* BANDEAU DU LIEU PRÉCIS (en bas de la carte) */
-        /* ========================================== */
+        #map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        /* BANDEAU DU LIEU PRÉCIS */
         .location-bar {
             position: absolute;
             bottom: 30px;
@@ -272,7 +272,6 @@
             font-size: 14px;
         }
 
-        /* STATS */
         .stats {
             display: flex;
             gap: 10px;
@@ -298,7 +297,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
-            z-index: 1000;
+            z-index: 2000;
             justify-content: center;
             align-items: center;
         }
@@ -353,7 +352,6 @@
             justify-content: center;
         }
 
-        /* RESPONSIVE */
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
@@ -403,10 +401,12 @@
     <!-- CONTENEUR -->
     <div class="main-container">
 
-        <!-- CARTE -->
-        <div id="map"></div>
+        <!-- CARTE GOOGLE MAPS -->
+        <div id="map-container">
+            <iframe id="googleMap" src="" allowfullscreen loading="lazy"></iframe>
+        </div>
 
-        <!-- BANDEAU DU LIEU PRÉCIS -->
+        <!-- BANDEAU LIEU PRÉCIS -->
         <div class="location-bar" id="locationBar">
             <span class="gps-dot" id="gpsDot"></span>
             <i class="fas fa-map-marker-alt"></i>
@@ -482,13 +482,10 @@
         // 1. DONNÉES
         // ============================================================
         let schools = [];
-        let map;
-        let markersLayer;
-        let userMarker = null;
-        let watchId = null;
         let gpsActive = true;
         let currentPosition = null;
-        let firstLocation = true;
+        let watchId = null;
+        let mapInitialized = false;
 
         // ============================================================
         // 2. CHARGEMENT DES DONNÉES
@@ -537,25 +534,21 @@
         }
 
         // ============================================================
-        // 3. INITIALISATION DE LA CARTE (SATELLITE)
+        // 3. INITIALISATION DE GOOGLE MAPS
         // ============================================================
-        function initMap() {
-            const KASUMBALESA_LAT = -12.4000;
-            const KASUMBALESA_LNG = 27.8000;
+        function initMap(lat, lng) {
+            // Coordonnées par défaut (Kasumbalesa)
+            const defaultLat = -12.4000;
+            const defaultLng = 27.8000;
 
-            map = L.map('map', {
-                center: [KASUMBALESA_LAT, KASUMBALESA_LNG],
-                zoom: 15,
-                zoomControl: true
-            });
+            const useLat = lat || defaultLat;
+            const useLng = lng || defaultLng;
 
-            // Fond satellite Esri (gratuit)
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '&copy; Esri',
-                maxZoom: 20
-            }).addTo(map);
+            // Construction de l'URL Google Maps
+            const url = `https://www.google.com/maps/embed/v1/place?key=AIzaSyD3fGqHqdLfYf7Lq9_UuQcqdzLG1_RBJx0&q=${useLat},${useLng}&zoom=16&maptype=satellite`;
 
-            markersLayer = L.layerGroup().addTo(map);
+            document.getElementById('googleMap').src = url;
+            mapInitialized = true;
 
             // Démarrer le suivi GPS
             startGPS();
@@ -576,41 +569,16 @@
                     const lng = position.coords.longitude;
                     currentPosition = { lat, lng };
 
-                    // Mise à jour du marqueur utilisateur
-                    if (!userMarker) {
-                        userMarker = L.circleMarker([lat, lng], {
-                            radius: 8,
-                            fillColor: '#27ae60',
-                            color: '#fff',
-                            weight: 2,
-                            opacity: 1,
-                            fillOpacity: 0.9
-                        }).addTo(map);
-                        userMarker.bindPopup('📍 Vous êtes ici');
-                    } else {
-                        userMarker.setLatLng([lat, lng]);
-                    }
-
-                    // Si le suivi est actif, déplacer la carte
-                    if (gpsActive) {
-                        map.setView([lat, lng], map.getZoom(), {
-                            animate: true,
-                            duration: 0.5
-                        });
-                    }
-
-                    // Récupérer l'adresse du lieu
+                    // Mettre à jour le lieu précis
                     getAddress(lat, lng);
 
-                    // Mettre à jour le statut GPS
+                    // Si le suivi est actif, mettre à jour la carte
+                    if (gpsActive && mapInitialized) {
+                        updateMapPosition(lat, lng);
+                    }
+
                     document.getElementById('gpsDot').className = 'gps-dot';
                     document.getElementById('gpsToggle').classList.add('active');
-
-                    // Premier positionnement
-                    if (firstLocation) {
-                        firstLocation = false;
-                        document.getElementById('locationText').textContent = '📍 Position trouvée';
-                    }
                 },
                 (error) => {
                     console.error('Erreur GPS:', error);
@@ -626,17 +594,45 @@
         }
 
         // ============================================================
-        // 5. RÉCUPÉRATION DU LIEU PRÉCIS (Reverse Geocoding GRATUIT)
+        // 5. MISE À JOUR DE LA CARTE
+        // ============================================================
+        function updateMapPosition(lat, lng) {
+            const url = `https://www.google.com/maps/embed/v1/place?key=AIzaSyD3fGqHqdLfYf7Lq9_UuQcqdzLG1_RBJx0&q=${lat},${lng}&zoom=16&maptype=satellite`;
+            document.getElementById('googleMap').src = url;
+        }
+
+        // ============================================================
+        // 6. ACTIVER / DÉSACTIVER LE SUIVI
+        // ============================================================
+        function toggleGPS() {
+            gpsActive = !gpsActive;
+            const btn = document.getElementById('gpsToggle');
+            const dot = document.getElementById('gpsDot');
+
+            if (gpsActive) {
+                btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Suivi GPS';
+                btn.classList.add('active');
+                dot.className = 'gps-dot';
+                if (currentPosition) {
+                    updateMapPosition(currentPosition.lat, currentPosition.lng);
+                }
+            } else {
+                btn.innerHTML = '<i class="fas fa-pause"></i> GPS arrêté';
+                btn.classList.remove('active');
+                dot.className = 'gps-dot inactive';
+            }
+        }
+
+        // ============================================================
+        // 7. RÉCUPÉRATION DU LIEU PRÉCIS (Nominatim - gratuit)
         // ============================================================
         function getAddress(lat, lng) {
-            // Utilisation de l'API Nominatim (OpenStreetMap) - GRATUITE
             const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16&accept-language=fr`;
 
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.display_name) {
-                        // Extraire une version courte
                         const parts = data.display_name.split(',');
                         let shortAddress = parts.slice(0, 3).join(', ');
                         if (shortAddress.length > 50) {
@@ -653,32 +649,7 @@
         }
 
         // ============================================================
-        // 6. ACTIVER / DÉSACTIVER LE SUIVI GPS
-        // ============================================================
-        function toggleGPS() {
-            gpsActive = !gpsActive;
-            const btn = document.getElementById('gpsToggle');
-            const dot = document.getElementById('gpsDot');
-
-            if (gpsActive) {
-                btn.innerHTML = '<i class="fas fa-satellite-dish"></i> Suivi GPS';
-                btn.classList.add('active');
-                dot.className = 'gps-dot';
-                if (currentPosition) {
-                    map.setView([currentPosition.lat, currentPosition.lng], map.getZoom(), {
-                        animate: true,
-                        duration: 0.5
-                    });
-                }
-            } else {
-                btn.innerHTML = '<i class="fas fa-pause"></i> GPS arrêté';
-                btn.classList.remove('active');
-                dot.className = 'gps-dot inactive';
-            }
-        }
-
-        // ============================================================
-        // 7. AFFICHAGE DES ÉCOLES
+        // 8. AFFICHAGE DES ÉCOLES
         // ============================================================
         function getColor(type) {
             switch (type) {
@@ -690,8 +661,6 @@
         }
 
         function renderSchools() {
-            markersLayer.clearLayers();
-
             const search = document.getElementById('searchInput').value.toLowerCase();
             const typeFilter = document.getElementById('filterType').value;
 
@@ -699,28 +668,6 @@
                 const matchName = s.name.toLowerCase().includes(search);
                 const matchType = typeFilter === 'all' || s.type === typeFilter;
                 return matchName && matchType;
-            });
-
-            filtered.forEach(s => {
-                const color = getColor(s.type);
-                const marker = L.circleMarker([s.lat, s.lng], {
-                    radius: 10,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.9
-                })
-                .bindPopup(`
-                    <strong>${s.name}</strong><br>
-                    <i class="fas fa-tag"></i> ${s.type}<br>
-                    <i class="fas fa-map-marker-alt"></i> ${s.address || 'Adresse non renseignée'}
-                `)
-                .addTo(markersLayer);
-
-                marker.on('click', function() {
-                    map.setView([s.lat, s.lng], 17, { animate: true });
-                });
             });
 
             renderList(filtered);
@@ -752,7 +699,7 @@
         function zoomToSchool(id) {
             const school = schools.find(s => s.id === id);
             if (school) {
-                map.setView([school.lat, school.lng], 17, { animate: true });
+                updateMapPosition(school.lat, school.lng);
             }
         }
 
@@ -761,7 +708,7 @@
         }
 
         // ============================================================
-        // 8. AJOUT D'UNE ÉCOLE
+        // 9. AJOUT D'UNE ÉCOLE
         // ============================================================
         function openAddModal() {
             document.getElementById('addModal').style.display = 'flex';
@@ -804,7 +751,7 @@
                     schools.push(newSchool);
                     saveSchools();
                     renderSchools();
-                    map.setView([newSchool.lat, newSchool.lng], 17, { animate: true });
+                    updateMapPosition(newSchool.lat, newSchool.lng);
                     closeAddModal();
                     alert(`✅ "${name}" ajoutée !`);
                 },
@@ -816,7 +763,7 @@
         }
 
         // ============================================================
-        // 9. EXPORT CSV
+        // 10. EXPORT CSV
         // ============================================================
         function exportCSV() {
             if (schools.length === 0) {
@@ -840,11 +787,14 @@
         }
 
         // ============================================================
-        // 10. DÉMARRAGE
+        // 11. DÉMARRAGE
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
             loadSchools();
-            initMap();
+
+            // Démarrer la carte avec la position par défaut
+            initMap(-12.4000, 27.8000);
+
             renderSchools();
 
             document.getElementById('addModal').addEventListener('click', function(e) {
