@@ -940,7 +940,42 @@ async function refreshProfsList(){let c=document.getElementById('profsListContai
 function generateProfCode(){return Math.floor(1000+Math.random()*9000).toString();}
 function showAddProfForm(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Nouveau professeur</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAddModal">&times;</span></div><input type="text" id="newProfName" placeholder="Nom complet du professeur"><button class="btn btn-success" id="generateAndAddBtn" style="width:100%;margin-top:16px">Créer et générer le code</button><div style="margin-top:12px;text-align:center"><button class="btn-outline btn-sm" id="cancelAddBtn">Annuler</button></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);document.getElementById('closeAddModal').onclick=function(){m.remove();};document.getElementById('cancelAddBtn').onclick=function(){m.remove();};document.getElementById('generateAndAddBtn').onclick=async function(){let n=document.getElementById('newProfName').value.trim();if(!n){toast("Veuillez entrer un nom",'error');return;}let c=generateProfCode();let pid='prof_'+Date.now();let pd={_type:"prof",id:pid,profId:pid,nom:n,code:c,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};await saveToIndexedDB('professeurs',pd);if(navigator.onLine){try{await setDoc(doc(db, `${SCHOOL_PREFIX}_professeurs`, pid), pd);}catch(e){await addPendingSync('saveProf',pd);}}else{await addPendingSync('saveProf',pd);}m.remove();showNewProfCodePopup(n,c);await refreshProfsList();await refreshTeachersList();toast("Professeur '"+n+"' ajouté",'success');};}
 function showNewProfCodePopup(nom,code){let p=document.createElement('div');p.className='modal-fullscreen';p.innerHTML='<div class="modal-content" style="text-align:center;max-width:400px"><div style="display:flex;justify-content:flex-end"><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCodeX">&times;</span></div><div style="text-align:center;margin-bottom:16px">🎉</div><h3>Professeur ajouté avec succès</h3><p style="margin:16px 0 8px 0;color:#cbd5e1">'+escapeHtml(nom)+'</p><p style="font-size:12px;color:#f59e0b;margin-bottom:8px">Code d\'accès unique (à transmettre au professeur) :</p><div style="background:#10b981;border-radius:60px;padding:16px 24px;margin:16px 0;border:2px solid #fff;"><span style="font-size:28px;font-weight:800;letter-spacing:3px;color:#fff;font-family:monospace">'+code+'</span></div><p style="font-size:11px;color:#ef4444;background:rgba(239,68,68,0.1);padding:8px;border-radius:8px">Ce code ne sera plus jamais affiché après la fermeture de cette fenêtre</p><button class="btn" id="closeCodePopup" style="margin-top:16px">Fermer et ne plus afficher</button></div>';document.body.appendChild(p);setTimeout(function(){p.classList.add('show');},10);let cp=function(){p.remove();};document.getElementById('closeCodePopup').onclick=cp;document.getElementById('closeCodeX').onclick=cp;}
-async function showAdminModal(){let m=document.createElement('div');m.className='modal-fullscreen';m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d\'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>';document.body.appendChild(m);setTimeout(function(){m.classList.add('show');},10);let cc=0;let ct=null;let mc=m.querySelector('.modal-content');mc.style.cursor='pointer';mc.onclick=function(e){e.stopPropagation();cc++;if(ct)clearTimeout(ct);ct=setTimeout(function(){cc=0;},1000);if(cc===4){cc=0;if(ct)clearTimeout(ct);window.location.href='https://www.netubex.com/gloria-compta.html';}};document.getElementById('closeAdminModal').onclick=function(){m.remove();};document.getElementById('validateAdminBtn').onclick=async function(){if(document.getElementById('adminCodeInput').value===directriceCode){m.remove();showGestionProfsModal();}else{document.getElementById('adminError').innerHTML='Code incorrect';toast("Code d'accès incorrect",'error');}};}
+async function showAdminModal(){
+    let m=document.createElement('div');
+    m.className='modal-fullscreen';
+    m.innerHTML='<div class="modal-content" style="max-width:400px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Accès Directrice</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeAdminModal">&times;</span></div><input type="password" id="adminCodeInput" placeholder="Code d\'accès"><button class="btn" id="validateAdminBtn" style="width:100%;margin-top:16px">Valider</button><div id="adminError" style="color:#ef4444;margin-top:12px;text-align:center"></div></div>';
+    document.body.appendChild(m);
+    setTimeout(function(){m.classList.add('show');},10);
+    let cc=0;
+    let ct=null;
+    let mc=m.querySelector('.modal-content');
+    mc.style.cursor='pointer';
+    mc.onclick=function(e){
+        e.stopPropagation();
+        cc++;
+        if(ct)clearTimeout(ct);
+        ct=setTimeout(function(){
+            cc=0;
+        },1000);
+        if(cc===4){
+            cc=0;
+            if(ct)clearTimeout(ct);
+            const params = new URLSearchParams(window.location.search);
+            const ecole = params.get('ecole') || schoolId || '';
+            window.location.href = `https://www.netubex.com/schoolcompta?ecole=${encodeURIComponent(ecole)}`;
+        }
+    };
+    document.getElementById('closeAdminModal').onclick=function(){m.remove();};
+    document.getElementById('validateAdminBtn').onclick=async function(){
+        if(document.getElementById('adminCodeInput').value===directriceCode){
+            m.remove();
+            showGestionProfsModal();
+        }else{
+            document.getElementById('adminError').innerHTML='Code incorrect';
+            toast("Code d'accès incorrect",'error');
+        }
+    };
+}
 async function showLogin(){
     let d=document.createElement('div');
     d.className='login-overlay';
