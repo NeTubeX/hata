@@ -1148,8 +1148,13 @@ async function chargerStats() {
         
         for (const docEcole of ecolesSnap.docs) {
             const ecoleId = docEcole.id;
+            const ecoleData = docEcole.data();
             const prefix = ecoleId.replace(/ /g, '_');
             let nb = 0, nbF = 0, nbM = 0, nbL = 0;
+            
+            const province = ecoleData.province || 'Non renseignée';
+            if (ecoleData.province) provSet.add(ecoleData.province);
+            
             try {
                 const snap = await getDocs(collection(db, `${prefix}_professeurs`));
                 nb = snap.size; totalProf += nb;
@@ -1166,9 +1171,15 @@ async function chargerStats() {
                 const snap = await getDocs(collection(db, `${prefix}_logs`));
                 nbL = snap.size; totalLogs += nbL;
             } catch(e) {}
-            profParEcole.push({ nom: ecoleId, nb, fiches: nbF, messages: nbM, logs: nbL });
-            const ecoleData = docEcole.data();
-            if (ecoleData.province) provSet.add(ecoleData.province);
+            
+            profParEcole.push({ 
+                nom: ecoleId, 
+                province: province,
+                nb, 
+                fiches: nbF, 
+                messages: nbM, 
+                logs: nbL 
+            });
         }
         
         document.getElementById('statTotalProfesseurs').textContent = totalProf;
@@ -1184,14 +1195,17 @@ async function chargerStats() {
         for (const item of profParEcole) {
             const row = tbody.insertRow();
             row.insertCell(0).innerHTML = `<strong>${escapeHtml(item.nom.substring(0, 35))}</strong>`;
-            row.insertCell(1).textContent = '-';
+            row.insertCell(1).innerHTML = `${escapeHtml(item.province)}`;
             row.insertCell(2).innerHTML = `<span class="highlight">${item.nb}</span>`;
             row.insertCell(3).innerHTML = `<span style="color:#10b981;">${item.fiches}</span>`;
             row.insertCell(4).innerHTML = `<span style="color:#8b5cf6;">${item.messages}</span>`;
             row.insertCell(5).innerHTML = `<span style="color:#a78bfa;">${item.logs}</span>`;
             row.insertCell(6).textContent = '-';
         }
-    } catch(e) { showToast("Erreur chargement stats", 'error'); }
+    } catch(e) { 
+        showToast("Erreur chargement stats", 'error');
+        console.error(e);
+    }
 }
 
 async function chargerClients() {
