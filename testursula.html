@@ -19,8 +19,8 @@
 body{background:#0a0e1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e0f2fe;padding:16px;line-height:1.5;overflow-x:hidden;}
 .container{max-width:1200px;margin:0 auto;}
 
-/* ===== FULLSCREEN TOAST (ALERTE ENTRANTE) ===== */
-.fullscreen-toast-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeInFull 0.4s ease-out;padding:20px;}
+/* ===== FULLSCREEN TOAST ===== */
+.fullscreen-toast-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);backdrop-filter:blur(20px);z-index:9999;display:flex;align-items:center;justify-content:center;animation:fadeInFull 0.4s ease-out;padding:20px;display:none;}
 @keyframes fadeInFull{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
 .fullscreen-toast{background:linear-gradient(145deg,#0f1f33,#060d1a);border-radius:32px;max-width:560px;width:100%;padding:40px 36px;border:1px solid rgba(255,215,0,0.2);box-shadow:0 32px 80px rgba(0,0,0,0.8);text-align:center;position:relative;overflow:hidden;}
 .fullscreen-toast::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#facc15,#f59e0b,#ef4444);}
@@ -38,13 +38,11 @@ body{background:#0a0e1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .fullscreen-toast .fs-actions .fs-btn-secondary:hover{background:rgba(255,255,255,0.15);color:#e0f2fe;}
 .fullscreen-toast .fs-actions .fs-btn-danger{background:#ef4444;color:white;}
 .fullscreen-toast .fs-actions .fs-btn-danger:hover{background:#dc2626;transform:scale(0.97);}
-.fullscreen-toast .fs-actions .fs-btn-success{background:#10b981;color:white;}
-.fullscreen-toast .fs-actions .fs-btn-success:hover{background:#059669;transform:scale(0.97);}
 .fullscreen-toast .fs-close{position:absolute;top:16px;right:20px;background:transparent;border:none;color:#6b7280;font-size:1.5rem;cursor:pointer;transition:0.2s;padding:4px 8px;}
 .fullscreen-toast .fs-close:hover{color:#ef4444;}
 .fullscreen-toast .fs-timestamp{font-size:0.65rem;color:#6b7280;margin-top:16px;display:block;}
 
-/* ===== TOAST NORMAL (RÉPONSE INTERNE) ===== */
+/* ===== TOAST NORMAL ===== */
 .toast-container{position:fixed;top:20px;right:20px;z-index:8000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px;}
 .toast{background:rgba(15,23,42,0.95);backdrop-filter:blur(12px);border-radius:14px;padding:12px 18px;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.5);border-left:3px solid #10b981;display:flex;align-items:flex-start;gap:10px;animation:slideInRight 0.3s ease-out;pointer-events:auto;}
 .toast.error{border-left-color:#ef4444;}
@@ -75,7 +73,6 @@ body{background:#0a0e1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .badge-online::before{content:"";width:8px;height:8px;background:#10b981;border-radius:50%;animation:pulse-dot 2s infinite;}
 @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:0.3;}}
 .badge-offline{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#ef4444;}
-.badge-offline::before{background:#ef4444;}
 
 /* ===== STATS ===== */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;}
@@ -219,8 +216,6 @@ body{background:#0a0e1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Se
 .modal-actions .btn-cancel:hover{background:#1e2a3a;}
 .modal-actions .btn-success-action{background:#10b981;color:white;}
 .modal-actions .btn-success-action:hover{background:#059669;}
-.modal-actions .btn-warning-action{background:#f59e0b;color:#0a0e1a;}
-.modal-actions .btn-warning-action:hover{background:#d97706;}
 
 /* ===== ACCESS MODAL ===== */
 .access-modal{display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:3000;align-items:center;justify-content:center;backdrop-filter:blur(12px);}
@@ -495,7 +490,7 @@ body{padding:10px;}
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===== FULLSCREEN TOAST OVERLAY ===== -->
-<div id="fullscreenToastOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:9999;align-items:center;justify-content:center;backdrop-filter:blur(20px);padding:20px;">
+<div class="fullscreen-toast-overlay" id="fullscreenToastOverlay">
     <div class="fullscreen-toast">
         <button class="fs-close" id="fsCloseBtn">&times;</button>
         <span class="fs-icon" id="fsIcon">🔔</span>
@@ -567,6 +562,7 @@ const MESSAGES_DOC_ID = "messages_board";
 const POLE_MESSAGES_DOC_ID = "consultation_pole";
 const SUPPORT_MESSAGES_DOC_ID = "support_netubex_board";
 const COUNTER_DOC_ID = "message_counter";
+const AUDIT_STORE_KEY = "audit_logs";
 
 const messagesDocRef = doc(db, "communication", MESSAGES_DOC_ID);
 const poleMessagesDocRef = doc(db, "communication", POLE_MESSAGES_DOC_ID);
@@ -575,7 +571,6 @@ const counterDocRef = doc(db, "counters", COUNTER_DOC_ID);
 
 const READ_STATUS_KEY = "ursule_pole_read_messages";
 const SUPPORT_READ_STATUS_KEY = "ursule_netubex_read_messages";
-const AUDIT_STORE_KEY = "audit_logs";
 
 // ============================================================
 // INDEXEDDB
@@ -641,8 +636,68 @@ async function deleteFromIndexed(storeName, id) {
 }
 
 // ============================================================
-// FULLSCREEN TOAST (pour les alertes entrantes)
+// UTILITAIRES
 // ============================================================
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+}
+
+function formatNumber(n) { return n ? String(n).padStart(3, '0') : '???' }
+
+function getPoleReadMessages() {
+    const read = localStorage.getItem(READ_STATUS_KEY);
+    return read ? JSON.parse(read) : [];
+}
+
+function savePoleReadMessages(readList) {
+    localStorage.setItem(READ_STATUS_KEY, JSON.stringify(readList));
+}
+
+function isPoleMessageRead(messageId) {
+    return getPoleReadMessages().includes(messageId);
+}
+
+function getSupportReadMessages() {
+    const read = localStorage.getItem(SUPPORT_READ_STATUS_KEY);
+    return read ? JSON.parse(read) : [];
+}
+
+function saveSupportReadMessages(readList) {
+    localStorage.setItem(SUPPORT_READ_STATUS_KEY, JSON.stringify(readList));
+}
+
+function isSupportMessageRead(messageId) {
+    return getSupportReadMessages().includes(messageId);
+}
+
+// ============================================================
+// TOASTS
+// ============================================================
+function showToast(message, type = "info") {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { info: '💬', success: '✅', error: '❌', warning: '⚠️', pole: '🏢', netubex: '🛠️', alert: '🔔' };
+    const titles = { info: 'Information', success: 'Succès', error: 'Erreur', warning: 'Attention', pole: 'Pôle Stratégie', netubex: 'Support NeTubeX', alert: 'ALERTE' };
+    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || '💬'}</div>
+        <div class="toast-content">
+            <div class="toast-title ${type}">${titles[type] || 'Info'}</div>
+            <div class="toast-message">${message}</div>
+            <div class="toast-time">${time}</div>
+        </div>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
+    }, 3500);
+}
+
 function showFullscreenToast(icon, title, subtitle, message, actions = null, timestamp = null) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('fullscreenToastOverlay');
@@ -656,7 +711,7 @@ function showFullscreenToast(icon, title, subtitle, message, actions = null, tim
         actionsContainer.innerHTML = '';
         
         if (actions && actions.length > 0) {
-            actions.forEach((action, index) => {
+            actions.forEach((action) => {
                 const btn = document.createElement('button');
                 btn.className = action.class || 'fs-btn-primary';
                 btn.textContent = action.label || 'OK';
@@ -679,56 +734,9 @@ function showFullscreenToast(icon, title, subtitle, message, actions = null, tim
         }
         
         overlay.style.display = 'flex';
-        overlay.style.animation = 'fadeInFull 0.4s ease-out';
     });
 }
 
-// ============================================================
-// TOAST NORMAL (pour les réponses internes)
-// ============================================================
-function showToast(message, type = "info") {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    const icons = {
-        info: '💬',
-        success: '✅',
-        error: '❌',
-        warning: '⚠️',
-        pole: '🏢',
-        netubex: '🛠️',
-        alert: '🔔'
-    };
-    const titles = {
-        info: 'Information',
-        success: 'Succès',
-        error: 'Erreur',
-        warning: 'Attention',
-        pole: 'Pôle Stratégie',
-        netubex: 'Support NeTubeX',
-        alert: 'ALERTE'
-    };
-    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    toast.innerHTML = `
-        <div class="toast-icon">${icons[type] || '💬'}</div>
-        <div class="toast-content">
-            <div class="toast-title ${type}">${titles[type] || 'Info'}</div>
-            <div class="toast-message">${message}</div>
-            <div class="toast-time">${time}</div>
-        </div>
-    `;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
-        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 300);
-    }, 3500);
-}
-
-// ============================================================
-// CONFIRMATION MODAL
-// ============================================================
 function showConfirm(title, message, details = null, confirmText = "Confirmer", confirmClass = "btn-confirm") {
     return new Promise((resolve) => {
         const modal = document.getElementById('confirmModal');
@@ -761,58 +769,7 @@ function showConfirm(title, message, details = null, confirmText = "Confirmer", 
 }
 
 // ============================================================
-// AUDIT LOG
-// ============================================================
-async function logAuditAction(action, details, utilisateur = "Administrateur") {
-    try {
-        const auditId = "audit_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
-        const now = new Date();
-        const auditData = {
-            id: auditId,
-            action: action,
-            utilisateur: utilisateur,
-            details: details,
-            date: now.toISOString(),
-            dateTimestamp: now.getTime(),
-            type: "audit"
-        };
-        
-        // Sauvegarder dans IndexedDB
-        const existingAudit = await loadFromIndexed(STORE_AUDIT);
-        await saveToIndexed(STORE_AUDIT, [auditData, ...existingAudit]);
-        
-        // Sauvegarder dans Firestore (collection globale d'audit)
-        try {
-            await setDoc(doc(db, AUDIT_STORE_KEY, auditId), auditData);
-        } catch(e) {}
-        
-        return auditData;
-    } catch(e) {
-        console.error("Erreur audit:", e);
-        return null;
-    }
-}
-
-async function chargerAudit() {
-    try {
-        let auditData = await loadFromIndexed(STORE_AUDIT);
-        if (auditData.length === 0) {
-            // Charger depuis Firestore
-            try {
-                const snap = await getDocs(collection(db, AUDIT_STORE_KEY));
-                auditData = [];
-                snap.forEach(doc => auditData.push(doc.data()));
-                await saveToIndexed(STORE_AUDIT, auditData);
-            } catch(e) {}
-        }
-        return auditData;
-    } catch(e) {
-        return [];
-    }
-}
-
-// ============================================================
-// COMPTEUR DE MESSAGES
+// COMPTEUR
 // ============================================================
 let currentCounter = 1;
 
@@ -837,6 +794,1037 @@ async function getNextNumber() {
     } catch(err) {
         return currentCounter++;
     }
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+async function logAuditAction(action, details, utilisateur = "Administrateur") {
+    try {
+        const auditId = "audit_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
+        const now = new Date();
+        const auditData = {
+            id: auditId,
+            action: action,
+            utilisateur: utilisateur,
+            details: details,
+            date: now.toISOString(),
+            dateTimestamp: now.getTime(),
+            type: "audit"
+        };
+        const existingAudit = await loadFromIndexed(STORE_AUDIT);
+        await saveToIndexed(STORE_AUDIT, [auditData, ...existingAudit]);
+        try {
+            await setDoc(doc(db, AUDIT_STORE_KEY, auditId), auditData);
+        } catch(e) {}
+        return auditData;
+    } catch(e) {
+        console.error("Erreur audit:", e);
+        return null;
+    }
+}
+
+// ============================================================
+// VARIABLES GLOBALES
+// ============================================================
+let messagesList = [];
+let poleMessagesList = [];
+let supportMessagesList = [];
+let logsList = [];
+let auditList = [];
+let clientsList = [];
+let parentalMessagesList = [];
+let unsubscribeMessages = null;
+let unsubscribePole = null;
+let unsubscribeSupport = null;
+let lastAlertTime = 0;
+let messageToDelete = null;
+
+// ============================================================
+// LISTENERS
+// ============================================================
+function listenToMessages() {
+    if (unsubscribeMessages) unsubscribeMessages();
+    unsubscribeMessages = onSnapshot(messagesDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            let newMsgs = data.messages || [];
+            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (messagesList.length > 0 && newMsgs.length > messagesList.length) {
+                const newMsg = newMsgs[0];
+                if (newMsg.nom !== SENDER_NAME) {
+                    const now = Date.now();
+                    if (now - lastAlertTime > 5000) {
+                        lastAlertTime = now;
+                        showFullscreenToast(
+                            '💬', 'Nouveau message', `De: ${newMsg.nom}`,
+                            newMsg.message || 'Message reçu',
+                            [
+                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { document.querySelector('[data-tab="clients"]').click(); } },
+                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
+                            ],
+                            new Date(newMsg.date).toLocaleString('fr-FR')
+                        );
+                    }
+                }
+            }
+            
+            messagesList = newMsgs;
+            await saveToIndexed(STORE_MESSAGES, newMsgs);
+            displayMessages();
+        }
+    }, () => {});
+}
+
+function listenToPoleMessages() {
+    if (unsubscribePole) unsubscribePole();
+    unsubscribePole = onSnapshot(poleMessagesDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            let newMsgs = data.messages || [];
+            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (poleMessagesList.length > 0 && newMsgs.length > poleMessagesList.length) {
+                const newMsg = newMsgs[0];
+                if (newMsg.sender === "pole") {
+                    const now = Date.now();
+                    if (now - lastAlertTime > 5000) {
+                        lastAlertTime = now;
+                        showFullscreenToast(
+                            '🏢', 'Message du Pôle Stratégie', 'De: M. FLORY',
+                            newMsg.message || 'Message reçu',
+                            [
+                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { document.querySelector('[data-tab="pole"]').click(); } },
+                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
+                            ],
+                            new Date(newMsg.date).toLocaleString('fr-FR')
+                        );
+                    }
+                }
+            }
+            
+            poleMessagesList = newMsgs;
+            await saveToIndexed(STORE_POLE, newMsgs);
+            displayPoleMessages();
+            updatePoleUnreadBadge();
+        }
+    }, () => {});
+}
+
+function listenToSupportMessages() {
+    if (unsubscribeSupport) unsubscribeSupport();
+    unsubscribeSupport = onSnapshot(supportMessagesDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            let newMsgs = data.messages || [];
+            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (supportMessagesList.length > 0 && newMsgs.length > supportMessagesList.length) {
+                const newMsg = newMsgs[0];
+                if (newMsg.sender === "direction") {
+                    const now = Date.now();
+                    if (now - lastAlertTime > 5000) {
+                        lastAlertTime = now;
+                        showFullscreenToast(
+                            '🛠️', 'Demande de support', `École: ${newMsg.ecole || 'Inconnue'}`,
+                            newMsg.message || 'Message reçu',
+                            [
+                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { 
+                                    document.querySelector('[data-tab="netubex"]').click();
+                                    if (newMsg.ecole) {
+                                        document.getElementById('netubexEcoleFilter').value = newMsg.ecole;
+                                        displaySupportMessages();
+                                    }
+                                }},
+                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
+                            ],
+                            new Date(newMsg.date).toLocaleString('fr-FR')
+                        );
+                    }
+                }
+            }
+            
+            supportMessagesList = newMsgs;
+            await saveToIndexed(STORE_SUPPORT, newMsgs);
+            displaySupportMessages();
+            updateSupportUnreadBadge();
+        }
+    }, () => {});
+}
+
+// ============================================================
+// DISPLAY FUNCTIONS - COMPLÈTES
+// ============================================================
+
+// ----- DISPLAY: MESSAGES -----
+function displayMessages() {
+    const container = document.getElementById('discussionMessagesGrid');
+    // Si le conteneur n'existe pas, on le crée dans poleMessagesGrid
+    let target = container;
+    if (!target) {
+        const poleGrid = document.getElementById('poleMessagesGrid');
+        if (poleGrid && poleGrid.parentElement) {
+            const newContainer = document.createElement('div');
+            newContainer.id = 'discussionMessagesGrid';
+            newContainer.className = 'messages-grid';
+            poleGrid.parentElement.appendChild(newContainer);
+            target = newContainer;
+        } else {
+            return;
+        }
+    }
+    
+    if (messagesList.length === 0) {
+        target.innerHTML = '<div class="empty-state"><span class="empty-icon">💬</span>Aucun message</div>';
+        return;
+    }
+    
+    target.innerHTML = '';
+    messagesList.slice(0, 50).forEach((msg) => {
+        const date = new Date(msg.date).toLocaleString('fr-FR');
+        const isUrsule = msg.nom === SENDER_NAME;
+        const card = document.createElement('div');
+        card.className = `msg-card ${isUrsule ? 'ursule' : ''}`;
+        const badgeClass = isUrsule ? 'badge-ursule' : '';
+        const badgeText = isUrsule ? '👩‍🔬 Ursule' : '👤 Client';
+        card.innerHTML = `
+            <div class="msg-header">
+                <span class="msg-number">#${formatNumber(msg.number)}</span>
+                <span class="msg-sender">${escapeHtml(isUrsule ? 'Ursule Nyandji' : msg.nom)}</span>
+                <span class="msg-badge ${badgeClass}">${badgeText}</span>
+            </div>
+            <div class="msg-text">${escapeHtml(msg.message || '')}</div>
+            <div class="msg-meta">
+                <span>📅 ${date}</span>
+                <div class="msg-actions">
+                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(msg.message || '')}">📋 Copier</button>
+                    <button class="btn btn-danger btn-sm btn-delete" data-id="${msg.id}" data-type="discussion">🗑️</button>
+                </div>
+            </div>
+        `;
+        target.appendChild(card);
+        
+        card.querySelector('.btn-copy')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(msg.message || '');
+            showToast("Message copié", 'success');
+        });
+        card.querySelector('.btn-delete')?.addEventListener('click', () => {
+            messageToDelete = { id: msg.id, type: 'discussion' };
+            document.getElementById('deleteModal').classList.add('show');
+        });
+    });
+}
+
+// ----- DISPLAY: PÔLE -----
+function displayPoleMessages() {
+    const container = document.getElementById('poleMessagesGrid');
+    if (!container) return;
+    
+    if (poleMessagesList.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span>Aucun message du pôle</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    poleMessagesList.slice(0, 50).forEach((msg) => {
+        const date = new Date(msg.date).toLocaleString('fr-FR');
+        const isUrsule = msg.sender === "ursule" || msg.nom === SENDER_NAME;
+        const isPole = msg.sender === "pole";
+        const unread = isPole && !isPoleMessageRead(msg.id);
+        
+        const card = document.createElement('div');
+        let cardClass = 'msg-card';
+        if (isUrsule) cardClass += ' ursule';
+        if (isPole) cardClass += ' pole';
+        if (unread) cardClass += ' unread';
+        card.className = cardClass;
+        
+        const badgeClass = isUrsule ? 'badge-ursule' : 'badge-pole';
+        const badgeText = isUrsule ? '👩‍🔬 Ursule' : '👨 M. FLORY';
+        const senderName = isUrsule ? 'Ursule Nyandji' : 'M. FLORY - Pôle Stratégie';
+        
+        card.innerHTML = `
+            <div class="msg-header">
+                <span class="msg-sender">${escapeHtml(senderName)}</span>
+                <span class="msg-badge ${badgeClass}">${badgeText}</span>
+                ${unread ? '<span class="unread-badge" style="background:#ef4444;color:white;font-size:0.5rem;padding:2px 8px;border-radius:30px;">🔴 NON LU</span>' : ''}
+            </div>
+            <div class="msg-text">${escapeHtml(msg.message || '')}</div>
+            <div class="msg-meta">
+                <span>📅 ${date}</span>
+                <div class="msg-actions">
+                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(msg.message || '')}">📋 Copier</button>
+                    ${isPole && unread ? `<button class="btn btn-primary btn-sm btn-mark-read-pole" data-id="${msg.id}">✅ Marquer lu</button>` : ''}
+                    <button class="btn btn-danger btn-sm btn-delete" data-id="${msg.id}" data-type="pole">🗑️</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+        
+        card.querySelector('.btn-copy')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(msg.message || '');
+            showToast("Message copié", 'success');
+        });
+        card.querySelector('.btn-mark-read-pole')?.addEventListener('click', () => {
+            const readList = getPoleReadMessages();
+            if (!readList.includes(msg.id)) {
+                readList.push(msg.id);
+                savePoleReadMessages(readList);
+                displayPoleMessages();
+                updatePoleUnreadBadge();
+                showToast("Message marqué comme lu", 'success');
+            }
+        });
+        card.querySelector('.btn-delete')?.addEventListener('click', () => {
+            messageToDelete = { id: msg.id, type: 'pole' };
+            document.getElementById('deleteModal').classList.add('show');
+        });
+    });
+}
+
+function updatePoleUnreadBadge() {
+    const count = poleMessagesList.filter(m => m.sender === "pole" && !isPoleMessageRead(m.id)).length;
+    const tab = document.querySelector('[data-tab="pole"]');
+    if (!tab) return;
+    const old = tab.querySelector('.tab-badge');
+    if (old) old.remove();
+    if (count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'tab-badge';
+        badge.textContent = count > 99 ? '99+' : count;
+        tab.appendChild(badge);
+    }
+}
+
+// ----- DISPLAY: SUPPORT -----
+function displaySupportMessages() {
+    const container = document.getElementById('netubexMessagesGrid');
+    if (!container) return;
+    
+    let filtered = supportMessagesList;
+    const ecoleFilter = document.getElementById('netubexEcoleFilter')?.value || '';
+    if (ecoleFilter) {
+        filtered = filtered.filter(m => m.ecole === ecoleFilter);
+        document.getElementById('netubexFilterInfo').innerHTML = `📍 Filtré par: ${ecoleFilter}`;
+    } else {
+        document.getElementById('netubexFilterInfo').innerHTML = `📍 Toutes les écoles`;
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">🛠️</span>Aucun message de support</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    filtered.slice(0, 50).forEach((msg) => {
+        const date = new Date(msg.date).toLocaleString('fr-FR');
+        const isDirection = msg.sender === "direction";
+        const isNetubex = msg.sender === "netubex";
+        const unread = isDirection && !isSupportMessageRead(msg.id);
+        
+        const card = document.createElement('div');
+        let cardClass = 'msg-card';
+        if (isDirection) cardClass += ' ursule';
+        if (isNetubex) cardClass += ' netubex';
+        if (unread) cardClass += ' unread';
+        card.className = cardClass;
+        
+        const badgeClass = isDirection ? 'badge-ursule' : 'badge-netubex';
+        const badgeText = isDirection ? '👥 DIRECTION' : '🛠️ NeTubeX Support';
+        const senderName = isDirection ? 'Direction' : 'NeTubeX Support';
+        
+        card.innerHTML = `
+            <div class="msg-header">
+                <span class="msg-sender">${escapeHtml(senderName)}</span>
+                <span class="msg-badge ${badgeClass}">${badgeText}</span>
+                ${msg.ecole ? `<span class="msg-ecole">🏫 ${escapeHtml(msg.ecole)}</span>` : ''}
+                ${unread ? '<span class="unread-badge" style="background:#ef4444;color:white;font-size:0.5rem;padding:2px 8px;border-radius:30px;">🔴 NON LU</span>' : ''}
+            </div>
+            <div class="msg-text">${escapeHtml(msg.message || '')}</div>
+            <div class="msg-meta">
+                <span>📅 ${date}</span>
+                <div class="msg-actions">
+                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(msg.message || '')}">📋 Copier</button>
+                    ${isDirection && unread ? `<button class="btn btn-primary btn-sm btn-mark-read-support" data-id="${msg.id}">✅ Marquer lu</button>` : ''}
+                    <button class="btn btn-danger btn-sm btn-delete" data-id="${msg.id}" data-type="support">🗑️</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+        
+        card.querySelector('.btn-copy')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(msg.message || '');
+            showToast("Message copié", 'success');
+        });
+        card.querySelector('.btn-mark-read-support')?.addEventListener('click', () => {
+            const readList = getSupportReadMessages();
+            if (!readList.includes(msg.id)) {
+                readList.push(msg.id);
+                saveSupportReadMessages(readList);
+                displaySupportMessages();
+                updateSupportUnreadBadge();
+                showToast("Message marqué comme lu", 'success');
+            }
+        });
+        card.querySelector('.btn-delete')?.addEventListener('click', () => {
+            messageToDelete = { id: msg.id, type: 'support' };
+            document.getElementById('deleteModal').classList.add('show');
+        });
+    });
+}
+
+function updateSupportUnreadBadge() {
+    const count = supportMessagesList.filter(m => m.sender === "direction" && !isSupportMessageRead(m.id)).length;
+    const tab = document.querySelector('[data-tab="netubex"]');
+    if (!tab) return;
+    const old = tab.querySelector('.tab-badge');
+    if (old) old.remove();
+    if (count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'tab-badge';
+        badge.textContent = count > 99 ? '99+' : count;
+        tab.appendChild(badge);
+    }
+}
+
+// ----- DISPLAY: LOGS -----
+function displayLogs() {
+    const container = document.getElementById('logsMessagesGrid');
+    if (!container) return;
+    
+    if (logsList.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span>Aucun log</div>';
+        return;
+    }
+    
+    const typeFilter = document.getElementById('logTypeFilter')?.value || 'all';
+    const priorityFilter = document.getElementById('logPriorityFilter')?.value || 'all';
+    const periodFilter = document.getElementById('logPeriodFilter')?.value || 'today';
+    
+    let filtered = [...logsList];
+    
+    if (typeFilter !== 'all') {
+        filtered = filtered.filter(log => {
+            const categories = { 'connexion': 'connexion', 'donnees': 'donnees', 'securite': 'securite', 'utilisateur': 'utilisateur', 'erreur': 'erreur' };
+            return categories[typeFilter] === log.action?.split('_')[0] || false;
+        });
+    }
+    
+    if (priorityFilter !== 'all') {
+        filtered = filtered.filter(log => {
+            const priority = log.statut === 'critical' ? 'critical' : log.statut === 'error' ? 'haute' : log.statut === 'warning' ? 'moyenne' : 'normale';
+            return priority === priorityFilter;
+        });
+    }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (periodFilter === 'today') {
+        filtered = filtered.filter(log => {
+            const d = new Date(log.date);
+            return d >= today;
+        });
+    } else if (periodFilter === 'week') {
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        filtered = filtered.filter(log => new Date(log.date) >= weekAgo);
+    } else if (periodFilter === 'month') {
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        filtered = filtered.filter(log => new Date(log.date) >= monthAgo);
+    }
+    
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    document.getElementById('logFilterInfo').innerHTML = `📊 ${filtered.length} log(s) affiché(s)`;
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span>Aucun log pour ces filtres</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    filtered.slice(0, 100).forEach((log) => {
+        const date = new Date(log.date).toLocaleString('fr-FR');
+        const isAlert = log._type === 'alerte_admin';
+        const priority = log.statut === 'critical' ? 'critical' : log.statut === 'error' ? 'high' : 'normal';
+        
+        const card = document.createElement('div');
+        let cardClass = 'msg-card';
+        if (isAlert && priority === 'critical') cardClass += ' alert-critical';
+        else if (isAlert) cardClass += ' alert-high';
+        card.className = cardClass;
+        
+        const badgeClass = isAlert ? (priority === 'critical' ? 'badge-critical' : 'badge-high') : 'badge-normal';
+        const badgeText = isAlert ? (priority === 'critical' ? '🚨 CRITIQUE' : '🔴 HAUTE') : '🟢 NORMAL';
+        
+        card.innerHTML = `
+            <div class="msg-header">
+                <span class="msg-sender">${escapeHtml(log.utilisateur || 'Système')}</span>
+                <span class="msg-badge ${badgeClass}">${badgeText}</span>
+                ${log.ecole ? `<span class="msg-ecole">🏫 ${escapeHtml(log.ecole)}</span>` : ''}
+                ${isAlert && !log.lue ? '<span class="unread-badge" style="background:#ef4444;color:white;font-size:0.5rem;padding:2px 8px;border-radius:30px;">🔴 NON LU</span>' : ''}
+            </div>
+            <div style="font-size:0.65rem;color:#94a3b8;margin-bottom:4px;">📌 ${escapeHtml(log.action || 'action inconnue')}</div>
+            <div class="msg-text" style="font-size:0.75rem;padding:8px 12px;">${escapeHtml(log.message || log.action || '')}</div>
+            <div class="msg-meta">
+                <span>📅 ${date}</span>
+                <div class="msg-actions">
+                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(log.message || log.action || '')}">📋 Copier</button>
+                    ${isAlert && !log.lue ? `<button class="btn btn-primary btn-sm btn-mark-read-log" data-id="${log.id}" data-type="${log._type || 'log'}">✅ Marquer lu</button>` : ''}
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+        
+        card.querySelector('.btn-copy')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(log.message || log.action || '');
+            showToast("Copié", 'success');
+        });
+        card.querySelector('.btn-mark-read-log')?.addEventListener('click', async () => {
+            try {
+                const type = card.querySelector('.btn-mark-read-log').dataset.type || 'log';
+                log.lue = true;
+                displayLogs();
+                mettreAJourStatsLogs();
+                mettreAJourBadgeLogs();
+                showToast("Alerte marquée comme lue", 'success');
+            } catch(e) {
+                showToast("Erreur", 'error');
+            }
+        });
+    });
+}
+
+function mettreAJourStatsLogs() {
+    const critiques = logsList.filter(l => l.statut === 'critical' || l.priorite === 'critique').length;
+    const nonLues = logsList.filter(l => l._type === 'alerte_admin' && !l.lue).length;
+    document.getElementById('statAlertesCritiques').textContent = critiques;
+    document.getElementById('statAlertesNonLues').textContent = nonLues;
+}
+
+function mettreAJourBadgeLogs() {
+    const count = logsList.filter(l => l._type === 'alerte_admin' && !l.lue).length;
+    const tab = document.querySelector('[data-tab="logs"]');
+    if (!tab) return;
+    const old = tab.querySelector('.tab-badge');
+    if (old) old.remove();
+    if (count > 0) {
+        const badge = document.createElement('span');
+        badge.className = 'tab-badge';
+        badge.textContent = count > 99 ? '99+' : count;
+        tab.appendChild(badge);
+    }
+}
+
+// ----- DISPLAY: AUDIT -----
+function displayAudit() {
+    const container = document.getElementById('auditMessagesGrid');
+    if (!container) return;
+    
+    if (auditList.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">📜</span>Aucun audit</div>';
+        return;
+    }
+    
+    const userFilter = document.getElementById('auditUserFilter')?.value?.toLowerCase() || '';
+    const actionFilter = document.getElementById('auditActionFilter')?.value || 'all';
+    
+    let filtered = [...auditList];
+    
+    if (userFilter) {
+        filtered = filtered.filter(a => (a.utilisateur || '').toLowerCase().includes(userFilter));
+    }
+    
+    if (actionFilter !== 'all') {
+        filtered = filtered.filter(a => a.action === actionFilter);
+    }
+    
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    document.getElementById('auditFilterInfo').innerHTML = `📊 ${filtered.length} action(s) d'audit`;
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">📜</span>Aucun audit pour ces filtres</div>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    filtered.slice(0, 100).forEach((audit) => {
+        const date = new Date(audit.date).toLocaleString('fr-FR');
+        const actionLabels = {
+            'desactivation': '❌ Désactivation',
+            'reactivation': '✅ Réactivation',
+            'suppression': '🗑️ Suppression',
+            'modification': '✏️ Modification'
+        };
+        
+        const card = document.createElement('div');
+        card.className = 'msg-card';
+        const detailsText = audit.details ? JSON.stringify(audit.details, null, 2) : '';
+        
+        card.innerHTML = `
+            <div class="msg-header">
+                <span class="msg-sender">👤 ${escapeHtml(audit.utilisateur || 'Inconnu')}</span>
+                <span class="msg-badge badge-medium">${actionLabels[audit.action] || audit.action}</span>
+            </div>
+            <div class="msg-text" style="font-size:0.75rem;padding:8px 12px;font-family:monospace;white-space:pre-wrap;word-break:break-word;">${escapeHtml(detailsText || 'Aucun détail')}</div>
+            <div class="msg-meta">
+                <span>📅 ${date}</span>
+                <div class="msg-actions">
+                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(detailsText)}">📋 Copier</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(card);
+        
+        card.querySelector('.btn-copy')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(detailsText);
+            showToast("Copié", 'success');
+        });
+    });
+}
+
+// ----- DISPLAY: PARENTAL -----
+function displayParentalStats() {
+    const total = parentalMessagesList.length;
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    
+    const todayCount = parentalMessagesList.filter(m => m.date?.slice(0, 10) === todayStr).length;
+    const weekCount = parentalMessagesList.filter(m => new Date(m.date) >= weekAgo).length;
+    const monthCount = parentalMessagesList.filter(m => new Date(m.date) >= monthAgo).length;
+    
+    document.getElementById('statParentalTotal').textContent = total;
+    document.getElementById('statParentalToday').textContent = todayCount;
+    document.getElementById('statParentalWeek').textContent = weekCount;
+    document.getElementById('statParentalMonth').textContent = monthCount;
+    
+    // Tableau par école
+    const ecolesStats = {};
+    parentalMessagesList.forEach(m => {
+        const ecole = m.ecole || 'inconnue';
+        if (!ecolesStats[ecole]) ecolesStats[ecole] = { total: 0, today: 0, week: 0, month: 0 };
+        ecolesStats[ecole].total++;
+        if (m.date?.slice(0, 10) === todayStr) ecolesStats[ecole].today++;
+        if (new Date(m.date) >= weekAgo) ecolesStats[ecole].week++;
+        if (new Date(m.date) >= monthAgo) ecolesStats[ecole].month++;
+    });
+    
+    const tbody = document.getElementById('tbodyParental');
+    tbody.innerHTML = '';
+    const sorted = Object.entries(ecolesStats).sort((a, b) => b[1].total - a[1].total);
+    for (const [ecole, stats] of sorted) {
+        const row = tbody.insertRow();
+        row.insertCell(0).innerHTML = `<strong>${escapeHtml(ecole)}</strong>`;
+        row.insertCell(1).innerHTML = `<span style="font-weight:700;color:#8b5cf6;">${stats.total}</span>`;
+        row.insertCell(2).innerHTML = `<span style="color:#10b981;">${stats.today}</span>`;
+        row.insertCell(3).innerHTML = `<span style="color:#f59e0b;">${stats.week}</span>`;
+        row.insertCell(4).innerHTML = `<span style="color:#3b82f6;">${stats.month}</span>`;
+    }
+    
+    // Derniers messages
+    const container = document.getElementById('parentalLastMessages');
+    if (!container) return;
+    const sortedMsgs = [...parentalMessagesList].sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (sortedMsgs.length === 0) {
+        container.innerHTML = '<div class="empty-state"><span class="empty-icon">💬</span>Aucun message parental</div>';
+        return;
+    }
+    container.innerHTML = '';
+    sortedMsgs.slice(0, 15).forEach(msg => {
+        const date = new Date(msg.date).toLocaleString('fr-FR');
+        const div = document.createElement('div');
+        div.className = 'parental-card';
+        div.innerHTML = `
+            <div class="p-header">
+                <span class="p-ecole">🏫 ${escapeHtml(msg.ecole || 'Inconnue')}</span>
+                <span class="p-date">📅 ${date}</span>
+            </div>
+            <div class="p-msg">💬 ${escapeHtml(msg.message || '')}</div>
+            ${msg.reponse ? `<div class="p-reponse">🤖 ${escapeHtml(msg.reponse)}</div>` : ''}
+            <div style="font-size:0.55rem;color:#64748b;margin-top:4px;">🔑 ${escapeHtml(msg.codeOuNom || '')}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+// ============================================================
+// CHARGEMENT DES DONNÉES
+// ============================================================
+
+async function chargerStats() {
+    try {
+        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
+        let totalProf = 0, totalFiches = 0, totalMessages = 0, totalLogs = 0;
+        const profParEcole = [];
+        const provSet = new Set();
+        
+        for (const docEcole of ecolesSnap.docs) {
+            const ecoleId = docEcole.id;
+            const prefix = ecoleId.replace(/ /g, '_');
+            let nb = 0, nbF = 0, nbM = 0, nbL = 0;
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_professeurs`));
+                nb = snap.size; totalProf += nb;
+            } catch(e) {}
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_fiches`));
+                nbF = snap.size; totalFiches += nbF;
+            } catch(e) {}
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_parent_messages`));
+                nbM = snap.size; totalMessages += nbM;
+            } catch(e) {}
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_logs`));
+                nbL = snap.size; totalLogs += nbL;
+            } catch(e) {}
+            profParEcole.push({ nom: ecoleId, nb, fiches: nbF, messages: nbM, logs: nbL });
+            const ecoleData = docEcole.data();
+            if (ecoleData.province) provSet.add(ecoleData.province);
+        }
+        
+        document.getElementById('statTotalProfesseurs').textContent = totalProf;
+        document.getElementById('statTotalEtablissements').textContent = ecolesSnap.size;
+        document.getElementById('statTotalProvinces').textContent = provSet.size;
+        document.getElementById('statTotalFiches').textContent = totalFiches;
+        document.getElementById('statTotalMessages').textContent = totalMessages;
+        document.getElementById('statTotalLogs').textContent = totalLogs;
+        
+        const tbody = document.getElementById('tbodyStats');
+        tbody.innerHTML = '';
+        profParEcole.sort((a, b) => b.nb - a.nb);
+        for (const item of profParEcole) {
+            const row = tbody.insertRow();
+            row.insertCell(0).innerHTML = `<strong>${escapeHtml(item.nom.substring(0, 30))}</strong>`;
+            row.insertCell(1).textContent = '-';
+            row.insertCell(2).innerHTML = `<span style="font-weight:700;color:#facc15;text-align:center;">${item.nb}</span>`;
+            row.insertCell(3).innerHTML = `<span style="color:#10b981;">${item.fiches}</span>`;
+            row.insertCell(4).innerHTML = `<span style="color:#8b5cf6;">${item.messages}</span>`;
+            row.insertCell(5).innerHTML = `<span style="color:#a78bfa;">${item.logs}</span>`;
+            row.insertCell(6).textContent = '-';
+        }
+    } catch(e) { showToast("Erreur chargement stats", 'error'); }
+}
+
+async function chargerClients() {
+    try {
+        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
+        const container = document.getElementById('clientsListContainer');
+        container.innerHTML = '<div class="loading-text">Chargement des clients...</div>';
+        let total = 0;
+        let html = '';
+        
+        for (const docEcole of ecolesSnap.docs) {
+            const ecoleId = docEcole.id;
+            const prefix = ecoleId.replace(/ /g, '_');
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_professeurs`));
+                snap.forEach(docProf => {
+                    const data = docProf.data();
+                    if (data._type === "prof") {
+                        total++;
+                        const actif = data.actif !== false;
+                        html += `
+                            <div class="prof-card ${actif ? '' : 'desactive'}">
+                                <div>
+                                    <div class="prof-nom">👤 ${escapeHtml(data.nom || 'Inconnu')}</div>
+                                    <div class="prof-ecole">🏫 ${escapeHtml(ecoleId)} | 🔑 ${data.code || '---'}</div>
+                                </div>
+                                <div class="prof-actions">
+                                    <span class="prof-status ${actif ? 'actif' : 'inactif'}">${actif ? '🟢 Actif' : '🔴 Inactif'}</span>
+                                    <button class="btn btn-sm ${actif ? 'btn-danger' : 'btn-success'} btn-toggle-prof" 
+                                            data-id="${docProf.id}" data-ecole="${ecoleId}" data-actif="${actif}">
+                                        ${actif ? '❌ Désactiver' : '✅ Réactiver'}
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+            } catch(e) {}
+        }
+        
+        container.innerHTML = html || '<div class="empty-state"><span class="empty-icon">👤</span>Aucun client trouvé</div>';
+        document.getElementById('clientFilterInfo').innerHTML = `📊 ${total} client(s) total`;
+        
+        document.querySelectorAll('.btn-toggle-prof').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.dataset.id;
+                const ecole = btn.dataset.ecole;
+                const currentActif = btn.dataset.actif === 'true';
+                const newActif = !currentActif;
+                const action = currentActif ? 'désactiver' : 'réactiver';
+                
+                const confirmed = await showConfirm(
+                    currentActif ? '🔒 Désactivation' : '🔓 Réactivation',
+                    `${currentActif ? 'Désactiver' : 'Réactiver'} le compte du professeur ?`,
+                    `<div style="font-size:0.8rem;">Cette action est ${currentActif ? 'réversible' : 'définitive'}.<br>Le professeur ${currentActif ? 'ne pourra plus' : 'pourra à nouveau'} se connecter.</div>`,
+                    currentActif ? 'Désactiver' : 'Réactiver',
+                    currentActif ? 'btn-confirm' : 'btn-success-action'
+                );
+                
+                if (confirmed) {
+                    try {
+                        const docRef = doc(db, `${ecole}_professeurs`, id);
+                        await updateDoc(docRef, { 
+                            actif: newActif,
+                            raisonDesactivation: currentActif ? 'Désactivé par l\'admin' : ''
+                        });
+                        
+                        await logAuditAction(
+                            currentActif ? 'desactivation' : 'reactivation',
+                            { professeur_id: id, ecole: ecole, ancien_statut: currentActif ? 'actif' : 'inactif', nouveau_statut: newActif ? 'actif' : 'inactif' },
+                            'Ursule Nyandji'
+                        );
+                        
+                        showToast(`✅ Professeur ${action} avec succès`, 'success');
+                        btn.dataset.actif = newActif;
+                        chargerClients();
+                    } catch(e) {
+                        showToast(`❌ Erreur: ${e.message}`, 'error');
+                    }
+                }
+            });
+        });
+    } catch(e) { showToast("Erreur chargement clients", 'error'); }
+}
+
+async function chargerLogs() {
+    try {
+        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
+        const allLogs = [];
+        
+        for (const docEcole of ecolesSnap.docs) {
+            const ecoleId = docEcole.id;
+            const prefix = ecoleId.replace(/ /g, '_');
+            
+            try {
+                const logsSnap = await getDocs(collection(db, `${prefix}_logs`));
+                for (const docLog of logsSnap.docs) {
+                    const data = docLog.data();
+                    if (data._type === "log_activite" || data.action) {
+                        allLogs.push({ ...data, id: docLog.id, _type: 'log', ecole: ecoleId });
+                    }
+                }
+            } catch(e) {}
+            
+            try {
+                const alertesSnap = await getDocs(collection(db, `${prefix}_alertes_admin`));
+                for (const docAlerte of alertesSnap.docs) {
+                    const data = docAlerte.data();
+                    allLogs.push({ ...data, id: docAlerte.id, _type: 'alerte_admin', ecole: ecoleId });
+                }
+            } catch(e) {}
+        }
+        
+        logsList = allLogs;
+        await saveToIndexed(STORE_LOGS, logsList);
+        displayLogs();
+        mettreAJourStatsLogs();
+        mettreAJourBadgeLogs();
+    } catch(e) { showToast("Erreur chargement logs", 'error'); }
+}
+
+async function chargerAudit() {
+    try {
+        let auditData = await loadFromIndexed(STORE_AUDIT);
+        if (auditData.length === 0) {
+            try {
+                const snap = await getDocs(collection(db, AUDIT_STORE_KEY));
+                auditData = [];
+                snap.forEach(doc => auditData.push(doc.data()));
+                await saveToIndexed(STORE_AUDIT, auditData);
+            } catch(e) {}
+        }
+        auditList = auditData;
+        displayAudit();
+    } catch(e) { showToast("Erreur chargement audit", 'error'); }
+}
+
+async function chargerStatsParental() {
+    try {
+        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
+        const allMessages = [];
+        
+        for (const docEcole of ecolesSnap.docs) {
+            const ecoleId = docEcole.id;
+            const prefix = ecoleId.replace(/ /g, '_');
+            try {
+                const snap = await getDocs(collection(db, `${prefix}_parent_messages`));
+                for (const docMsg of snap.docs) {
+                    const data = docMsg.data();
+                    if (data._type === "parent_message") {
+                        allMessages.push({
+                            ...data,
+                            ecole: ecoleId,
+                            id: docMsg.id
+                        });
+                    }
+                }
+            } catch(e) {}
+        }
+        
+        parentalMessagesList = allMessages;
+        await saveToIndexed(STORE_PARENTAL, allMessages);
+        displayParentalStats();
+    } catch(e) { showToast("Erreur chargement stats parentales", 'error'); }
+}
+
+// ============================================================
+// ENVOI DE MESSAGES
+// ============================================================
+
+async function sendToPole() {
+    const textarea = document.getElementById('poleMessage');
+    const msg = textarea.value.trim();
+    if (!msg) { showToast("Message vide", 'warning'); return; }
+    
+    const newMsg = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+        nom: SENDER_NAME,
+        message: msg,
+        date: new Date().toISOString(),
+        sender: "ursule",
+        type: "new_message"
+    };
+    
+    try {
+        await updateDoc(poleMessagesDocRef, { messages: arrayUnion(newMsg) });
+        textarea.value = '';
+        showToast("Message envoyé à M. FLORY", 'pole');
+    } catch(e) {
+        poleMessagesList = [newMsg, ...poleMessagesList];
+        displayPoleMessages();
+        showToast("Message en attente (hors ligne)", 'pole');
+    }
+}
+
+async function sendSupportReply() {
+    const textarea = document.getElementById('netubexMessage');
+    const msg = textarea.value.trim();
+    const ecole = document.getElementById('netubexEcoleFilter').value;
+    
+    if (!msg) { showToast("Message vide", 'warning'); return; }
+    if (!ecole) { showToast("Veuillez sélectionner une école", 'warning'); return; }
+    
+    const newMsg = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+        nom: "NeTubeX Support",
+        sender: "netubex",
+        message: msg,
+        date: new Date().toISOString(),
+        ecole: ecole
+    };
+    
+    try {
+        await updateDoc(supportMessagesDocRef, { messages: arrayUnion(newMsg) });
+        textarea.value = '';
+        showToast("Message envoyé à la direction", 'netubex');
+    } catch(e) {
+        supportMessagesList = [newMsg, ...supportMessagesList];
+        displaySupportMessages();
+        showToast("Message en attente (hors ligne)", 'netubex');
+    }
+}
+
+// ============================================================
+// ALERTES EN TEMPS RÉEL
+// ============================================================
+function ecouterAlertesEnTempsReel() {
+    const ecolesSnap = getDocs(collection(db, "ecoles_autorisees"));
+    ecolesSnap.then(async (snap) => {
+        for (const docEcole of snap.docs) {
+            const ecoleId = docEcole.id;
+            const prefix = ecoleId.replace(/ /g, '_');
+            
+            try {
+                const q = query(
+                    collection(db, `${prefix}_alertes_admin`),
+                    where("lue", "==", false),
+                    orderBy("dateTimestamp", "desc"),
+                    limit(5)
+                );
+                
+                onSnapshot(q, (snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === "added") {
+                            const alerte = change.doc.data();
+                            const now = Date.now();
+                            if (now - lastAlertTime > 5000 && (alerte.statut === 'critical' || alerte.priorite === 'haute')) {
+                                lastAlertTime = now;
+                                showFullscreenToast(
+                                    '🚨', 'ALERTE CRITIQUE', `École: ${ecoleId}`,
+                                    alerte.message || alerte.action || 'Alerte de sécurité',
+                                    [
+                                        { label: '📖 Voir', class: 'fs-btn-danger', callback: () => { document.querySelector('[data-tab="logs"]').click(); } },
+                                        { label: '✅ Marquer lu', class: 'fs-btn-primary' }
+                                    ],
+                                    new Date(alerte.date).toLocaleString('fr-FR')
+                                );
+                            }
+                            
+                            const exists = logsList.some(l => l.id === change.doc.id);
+                            if (!exists) {
+                                logsList.push({ ...alerte, id: change.doc.id, _type: 'alerte_admin', ecole: ecoleId });
+                                displayLogs();
+                                mettreAJourStatsLogs();
+                                mettreAJourBadgeLogs();
+                            }
+                        }
+                    });
+                });
+            } catch(e) {}
+        }
+    });
+}
+
+// ============================================================
+// INIT APP
+// ============================================================
+async function initApp() {
+    try { await openIndexedDB(); } catch(e) {}
+    await initCounter();
+    
+    // Charger depuis IndexedDB
+    try {
+        const localMsgs = await loadFromIndexed(STORE_MESSAGES);
+        if (localMsgs.length > 0) { messagesList = localMsgs; displayMessages(); }
+        const localPole = await loadFromIndexed(STORE_POLE);
+        if (localPole.length > 0) { poleMessagesList = localPole; displayPoleMessages(); updatePoleUnreadBadge(); }
+        const localSupport = await loadFromIndexed(STORE_SUPPORT);
+        if (localSupport.length > 0) { supportMessagesList = localSupport; displaySupportMessages(); updateSupportUnreadBadge(); }
+        const localLogs = await loadFromIndexed(STORE_LOGS);
+        if (localLogs.length > 0) { logsList = localLogs; displayLogs(); mettreAJourStatsLogs(); mettreAJourBadgeLogs(); }
+        const localAudit = await loadFromIndexed(STORE_AUDIT);
+        if (localAudit.length > 0) { auditList = localAudit; displayAudit(); }
+        const localParental = await loadFromIndexed(STORE_PARENTAL);
+        if (localParental.length > 0) { parentalMessagesList = localParental; displayParentalStats(); }
+    } catch(e) {}
+    
+    // Écoute en temps réel
+    listenToMessages();
+    listenToPoleMessages();
+    listenToSupportMessages();
+    ecouterAlertesEnTempsReel();
+    
+    // Charger stats
+    await chargerStats();
+    await chargerClients();
+    await chargerLogs();
+    await chargerAudit();
+    await chargerStatsParental();
+    
+    updatePoleUnreadBadge();
+    updateSupportUnreadBadge();
+    
+    showToast("🚀 Système prêt", 'success');
 }
 
 // ============================================================
@@ -871,287 +1859,10 @@ function validateAccess() {
 function logout() {
     sessionStorage.removeItem('netubex_ursule_access_granted');
     document.getElementById('mainContent').style.display = 'none';
-    document.getElementById('confirmModal').style.display = 'none';
+    document.getElementById('confirmModal').classList.remove('show');
     document.getElementById('accessModal').style.display = 'flex';
     const inp = document.getElementById('accessCode');
     if (inp) { inp.value = ''; inp.focus(); }
-}
-
-// ============================================================
-// ESCAPE HTML
-// ============================================================
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-}
-
-// ============================================================
-// LISTENERS (avec FULLSCREEN TOAST pour les alertes entrantes)
-// ============================================================
-let messagesList = [];
-let poleMessagesList = [];
-let supportMessagesList = [];
-let logsList = [];
-let clientsList = [];
-let parentalMessagesList = [];
-let unsubscribeMessages = null;
-let unsubscribePole = null;
-let unsubscribeSupport = null;
-let lastAlertTime = 0;
-
-// --- Messages Discussion ---
-function listenToMessages() {
-    if (unsubscribeMessages) unsubscribeMessages();
-    unsubscribeMessages = onSnapshot(messagesDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            let newMsgs = data.messages || [];
-            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            // Vérifier les nouveaux messages entrants (non Ursule)
-            if (messagesList.length > 0 && newMsgs.length > messagesList.length) {
-                const newMsg = newMsgs[0];
-                if (newMsg.nom !== SENDER_NAME) {
-                    const now = Date.now();
-                    if (now - lastAlertTime > 5000) {
-                        lastAlertTime = now;
-                        showFullscreenToast(
-                            '💬',
-                            'Nouveau message',
-                            `De: ${newMsg.nom}`,
-                            newMsg.message || 'Message reçu',
-                            [
-                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { document.querySelector('[data-tab="clients"]').click(); } },
-                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
-                            ],
-                            new Date(newMsg.date).toLocaleString('fr-FR')
-                        );
-                    }
-                }
-            }
-            
-            messagesList = newMsgs;
-            await saveToIndexed(STORE_MESSAGES, newMsgs);
-            displayMessages();
-        }
-    }, () => {});
-}
-
-// --- Pôle Messages ---
-function listenToPoleMessages() {
-    if (unsubscribePole) unsubscribePole();
-    unsubscribePole = onSnapshot(poleMessagesDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            let newMsgs = data.messages || [];
-            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            if (poleMessagesList.length > 0 && newMsgs.length > poleMessagesList.length) {
-                const newMsg = newMsgs[0];
-                if (newMsg.sender === "pole") {
-                    const now = Date.now();
-                    if (now - lastAlertTime > 5000) {
-                        lastAlertTime = now;
-                        showFullscreenToast(
-                            '🏢',
-                            'Message du Pôle Stratégie',
-                            `De: M. FLORY`,
-                            newMsg.message || 'Message reçu',
-                            [
-                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { document.querySelector('[data-tab="pole"]').click(); } },
-                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
-                            ],
-                            new Date(newMsg.date).toLocaleString('fr-FR')
-                        );
-                    }
-                }
-            }
-            
-            poleMessagesList = newMsgs;
-            await saveToIndexed(STORE_POLE, newMsgs);
-            displayPoleMessages();
-            updatePoleUnreadBadge();
-        }
-    }, () => {});
-}
-
-// --- Support Messages ---
-function listenToSupportMessages() {
-    if (unsubscribeSupport) unsubscribeSupport();
-    unsubscribeSupport = onSnapshot(supportMessagesDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            let newMsgs = data.messages || [];
-            newMsgs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            if (supportMessagesList.length > 0 && newMsgs.length > supportMessagesList.length) {
-                const newMsg = newMsgs[0];
-                if (newMsg.sender === "direction") {
-                    const now = Date.now();
-                    if (now - lastAlertTime > 5000) {
-                        lastAlertTime = now;
-                        showFullscreenToast(
-                            '🛠️',
-                            'Demande de support',
-                            `École: ${newMsg.ecole || 'Inconnue'}`,
-                            newMsg.message || 'Message reçu',
-                            [
-                                { label: '📖 Voir', class: 'fs-btn-primary', callback: () => { 
-                                    document.querySelector('[data-tab="netubex"]').click();
-                                    if (newMsg.ecole) {
-                                        document.getElementById('netubexEcoleFilter').value = newMsg.ecole;
-                                        displaySupportMessages();
-                                    }
-                                }},
-                                { label: '⏰ Plus tard', class: 'fs-btn-secondary' }
-                            ],
-                            new Date(newMsg.date).toLocaleString('fr-FR')
-                        );
-                    }
-                }
-            }
-            
-            supportMessagesList = newMsgs;
-            await saveToIndexed(STORE_SUPPORT, newMsgs);
-            displaySupportMessages();
-            updateSupportUnreadBadge();
-        }
-    }, () => {});
-}
-
-// --- Logs Alertes (critiques) ---
-function ecouterAlertesEnTempsReel() {
-    const ecolesSnap = getDocs(collection(db, "ecoles_autorisees"));
-    ecolesSnap.then(async (snap) => {
-        for (const docEcole of snap.docs) {
-            const ecoleId = docEcole.id;
-            const prefix = ecoleId.replace(/ /g, '_');
-            
-            try {
-                const q = query(
-                    collection(db, `${prefix}_alertes_admin`),
-                    where("lue", "==", false),
-                    orderBy("dateTimestamp", "desc"),
-                    limit(5)
-                );
-                
-                onSnapshot(q, (snapshot) => {
-                    snapshot.docChanges().forEach((change) => {
-                        if (change.type === "added") {
-                            const alerte = change.doc.data();
-                            const now = Date.now();
-                            if (now - lastAlertTime > 5000 && (alerte.statut === 'critical' || alerte.priorite === 'haute')) {
-                                lastAlertTime = now;
-                                showFullscreenToast(
-                                    '🚨',
-                                    'ALERTE CRITIQUE',
-                                    `École: ${ecoleId}`,
-                                    alerte.message || alerte.action || 'Alerte de sécurité',
-                                    [
-                                        { label: '📖 Voir', class: 'fs-btn-danger', callback: () => { document.querySelector('[data-tab="logs"]').click(); } },
-                                        { label: '✅ Marquer lu', class: 'fs-btn-primary' }
-                                    ],
-                                    new Date(alerte.date).toLocaleString('fr-FR')
-                                );
-                            }
-                            
-                            const exists = logsList.some(l => l.id === change.doc.id);
-                            if (!exists) {
-                                logsList.push({ ...alerte, id: change.doc.id, _type: 'alerte_admin', ecole: ecoleId });
-                                displayLogs(logsList);
-                                mettreAJourStatsLogs();
-                                mettreAJourBadgeLogs();
-                            }
-                        }
-                    });
-                });
-            } catch(e) {}
-        }
-    });
-}
-
-// ============================================================
-// DISPLAY FUNCTIONS (abrégées)
-// ============================================================
-
-function displayMessages() {
-    const container = document.getElementById('discussionMessagesGrid');
-    if (!container) return;
-    if (messagesList.length === 0) {
-        container.innerHTML = '<div class="empty-state"><span class="empty-icon">💬</span>Aucun message</div>';
-        return;
-    }
-    container.innerHTML = '';
-    messagesList.forEach((msg) => {
-        const date = new Date(msg.date).toLocaleString('fr-FR');
-        const isUrsule = msg.nom === SENDER_NAME;
-        const card = document.createElement('div');
-        card.className = `msg-card ${isUrsule ? 'ursule' : ''}`;
-        const badgeClass = isUrsule ? 'badge-ursule' : '';
-        const badgeText = isUrsule ? '👩‍🔬 Ursule' : '👤 Client';
-        card.innerHTML = `
-            <div class="msg-header">
-                <span class="msg-number">#${msg.number ? String(msg.number).padStart(3, '0') : '???'}</span>
-                <span class="msg-sender">${escapeHtml(isUrsule ? 'Ursule Nyandji' : msg.nom)}</span>
-                <span class="msg-badge ${badgeClass}">${badgeText}</span>
-            </div>
-            <div class="msg-text">${escapeHtml(msg.message || '')}</div>
-            <div class="msg-meta">
-                <span>📅 ${date}</span>
-                <div class="msg-actions">
-                    <button class="btn btn-outline btn-sm btn-copy" data-msg="${escapeHtml(msg.message || '')}">📋 Copier</button>
-                    <button class="btn btn-danger btn-sm btn-delete" data-id="${msg.id}" data-type="discussion">🗑️</button>
-                </div>
-            </div>
-        `;
-        container.appendChild(card);
-        
-        card.querySelector('.btn-copy')?.addEventListener('click', () => {
-            navigator.clipboard.writeText(msg.message || '');
-            showToast("Message copié", 'success');
-        });
-        card.querySelector('.btn-delete')?.addEventListener('click', () => {
-            messageToDelete = { id: msg.id, type: 'discussion' };
-            document.getElementById('deleteModal').classList.add('show');
-        });
-    });
-}
-
-// [Les fonctions displayPoleMessages, displaySupportMessages, displayLogs, displayAudit, afficherClients, etc. sont similaires mais abrégées pour la lisibilité]
-// Pour la version complète, consultez le code original avec toutes les fonctions.
-
-// ============================================================
-// INIT APP
-// ============================================================
-async function initApp() {
-    try { await openIndexedDB(); } catch(e) {}
-    await initCounter();
-    
-    // Charger depuis IndexedDB
-    try {
-        const localMsgs = await loadFromIndexed(STORE_MESSAGES);
-        if (localMsgs.length > 0) { messagesList = localMsgs; displayMessages(); }
-        const localPole = await loadFromIndexed(STORE_POLE);
-        if (localPole.length > 0) { poleMessagesList = localPole; displayPoleMessages(); updatePoleUnreadBadge(); }
-        const localSupport = await loadFromIndexed(STORE_SUPPORT);
-        if (localSupport.length > 0) { supportMessagesList = localSupport; displaySupportMessages(); updateSupportUnreadBadge(); }
-        const localLogs = await loadFromIndexed(STORE_LOGS);
-        if (localLogs.length > 0) { logsList = localLogs; displayLogs(logsList); mettreAJourStatsLogs(); mettreAJourBadgeLogs(); }
-    } catch(e) {}
-    
-    // Écoute en temps réel
-    listenToMessages();
-    listenToPoleMessages();
-    listenToSupportMessages();
-    ecouterAlertesEnTempsReel();
-    
-    // Charger stats
-    await chargerStats();
-    await chargerClients();
-    await chargerStatsParental();
-    
-    updatePoleUnreadBadge();
-    updateSupportUnreadBadge();
 }
 
 // ============================================================
@@ -1175,9 +1886,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.add('active');
         document.getElementById(`${tabId}-tab`).classList.add('active');
         if (tabId === 'stats') chargerStats();
+        if (tabId === 'clients') chargerClients();
+        if (tabId === 'pole') { displayPoleMessages(); updatePoleUnreadBadge(); }
+        if (tabId === 'netubex') { displaySupportMessages(); updateSupportUnreadBadge(); }
         if (tabId === 'logs') chargerLogs();
         if (tabId === 'audit') chargerAudit();
-        if (tabId === 'clients') chargerClients();
         if (tabId === 'parental') chargerStatsParental();
     });
 });
@@ -1190,11 +1903,63 @@ document.getElementById('scrollRightBtn')?.addEventListener('click', () => {
     document.getElementById('tabsContainer').scrollBy({ left: 150, behavior: 'smooth' });
 });
 
-// ============================================================
-// DELETE MODAL
-// ============================================================
-let messageToDelete = null;
+// Boutons d'action
+document.getElementById('markAllReadPoleBtn')?.addEventListener('click', () => {
+    const unreadIds = poleMessagesList.filter(m => m.sender === "pole" && !isPoleMessageRead(m.id)).map(m => m.id);
+    const readList = getPoleReadMessages();
+    unreadIds.forEach(id => { if (!readList.includes(id)) readList.push(id); });
+    savePoleReadMessages(readList);
+    displayPoleMessages();
+    updatePoleUnreadBadge();
+    showToast("Tous les messages marqués comme lus", 'pole');
+});
 
+document.getElementById('markAllReadNetubexBtn')?.addEventListener('click', () => {
+    const unreadIds = supportMessagesList.filter(m => m.sender === "direction" && !isSupportMessageRead(m.id)).map(m => m.id);
+    const readList = getSupportReadMessages();
+    unreadIds.forEach(id => { if (!readList.includes(id)) readList.push(id); });
+    saveSupportReadMessages(readList);
+    displaySupportMessages();
+    updateSupportUnreadBadge();
+    showToast("Tous les messages marqués comme lus", 'netubex');
+});
+
+document.getElementById('sendToPoleBtn')?.addEventListener('click', sendToPole);
+document.getElementById('sendNetubexBtn')?.addEventListener('click', sendSupportReply);
+
+document.getElementById('netubexEcoleFilter')?.addEventListener('change', (e) => {
+    displaySupportMessages();
+    updateSupportUnreadBadge();
+});
+
+document.getElementById('clientEcoleFilter')?.addEventListener('change', chargerClients);
+document.getElementById('clientStatusFilter')?.addEventListener('change', chargerClients);
+document.getElementById('refreshClientsBtn')?.addEventListener('click', () => { chargerClients(); showToast("Clients rafraîchis", 'success'); });
+document.getElementById('refreshParentalBtn')?.addEventListener('click', () => { chargerStatsParental(); showToast("Stats parentales rafraîchies", 'success'); });
+document.getElementById('refreshStatsBtn')?.addEventListener('click', () => { chargerStats(); showToast("Stats rafraîchies", 'success'); });
+document.getElementById('copyStatsBtn')?.addEventListener('click', () => {
+    const stats = document.getElementById('tbodyStats').innerText;
+    navigator.clipboard.writeText(stats).then(() => showToast("Stats copiées", 'success'));
+});
+
+// Filtres logs
+document.getElementById('logTypeFilter')?.addEventListener('change', displayLogs);
+document.getElementById('logPriorityFilter')?.addEventListener('change', displayLogs);
+document.getElementById('logPeriodFilter')?.addEventListener('change', displayLogs);
+document.getElementById('logRefreshBtn')?.addEventListener('click', () => { chargerLogs(); showToast("Logs rafraîchis", 'success'); });
+document.getElementById('logExportPdfBtn')?.addEventListener('click', () => {
+    showToast("Export PDF en développement", 'info');
+});
+
+// Filtres audit
+document.getElementById('auditUserFilter')?.addEventListener('input', displayAudit);
+document.getElementById('auditActionFilter')?.addEventListener('change', displayAudit);
+document.getElementById('auditRefreshBtn')?.addEventListener('click', () => { chargerAudit(); showToast("Audit rafraîchi", 'success'); });
+document.getElementById('auditExportPdfBtn')?.addEventListener('click', () => {
+    showToast("Export PDF en développement", 'info');
+});
+
+// Delete modal
 document.getElementById('deleteYes')?.addEventListener('click', async () => {
     if (messageToDelete) {
         if (messageToDelete.type === 'discussion') {
@@ -1202,6 +1967,28 @@ document.getElementById('deleteYes')?.addEventListener('click', async () => {
             if (toRemove) {
                 await updateDoc(messagesDocRef, { messages: arrayRemove(toRemove) });
                 await deleteFromIndexed(STORE_MESSAGES, messageToDelete.id);
+                messagesList = messagesList.filter(m => m.id !== messageToDelete.id);
+                displayMessages();
+                showToast("Message supprimé", 'success');
+            }
+        } else if (messageToDelete.type === 'pole') {
+            const toRemove = poleMessagesList.find(m => m.id === messageToDelete.id);
+            if (toRemove) {
+                await updateDoc(poleMessagesDocRef, { messages: arrayRemove(toRemove) });
+                await deleteFromIndexed(STORE_POLE, messageToDelete.id);
+                poleMessagesList = poleMessagesList.filter(m => m.id !== messageToDelete.id);
+                displayPoleMessages();
+                updatePoleUnreadBadge();
+                showToast("Message supprimé", 'success');
+            }
+        } else if (messageToDelete.type === 'support') {
+            const toRemove = supportMessagesList.find(m => m.id === messageToDelete.id);
+            if (toRemove) {
+                await updateDoc(supportMessagesDocRef, { messages: arrayRemove(toRemove) });
+                await deleteFromIndexed(STORE_SUPPORT, messageToDelete.id);
+                supportMessagesList = supportMessagesList.filter(m => m.id !== messageToDelete.id);
+                displaySupportMessages();
+                updateSupportUnreadBadge();
                 showToast("Message supprimé", 'success');
             }
         }
@@ -1209,154 +1996,11 @@ document.getElementById('deleteYes')?.addEventListener('click', async () => {
     }
     document.getElementById('deleteModal').classList.remove('show');
 });
+
 document.getElementById('deleteNo')?.addEventListener('click', () => {
     messageToDelete = null;
     document.getElementById('deleteModal').classList.remove('show');
 });
-
-// ============================================================
-// STATS FUNCTIONS (simplifiées)
-// ============================================================
-async function chargerStats() {
-    try {
-        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
-        let totalProf = 0, totalFiches = 0, totalMessages = 0, totalLogs = 0;
-        const profParEcole = [];
-        const provSet = new Set();
-        
-        for (const docEcole of ecolesSnap.docs) {
-            const ecoleId = docEcole.id;
-            const prefix = ecoleId.replace(/ /g, '_');
-            let nb = 0, nbF = 0, nbM = 0, nbL = 0;
-            try {
-                const snap = await getDocs(collection(db, `${prefix}_professeurs`));
-                nb = snap.size; totalProf += nb;
-            } catch(e) {}
-            try {
-                const snap = await getDocs(collection(db, `${prefix}_fiches`));
-                nbF = snap.size; totalFiches += nbF;
-            } catch(e) {}
-            try {
-                const snap = await getDocs(collection(db, `${prefix}_parent_messages`));
-                nbM = snap.size; totalMessages += nbM;
-            } catch(e) {}
-            try {
-                const snap = await getDocs(collection(db, `${prefix}_logs`));
-                nbL = snap.size; totalLogs += nbL;
-            } catch(e) {}
-            profParEcole.push({ nom: ecoleId, nb, fiches: nbF, messages: nbM, logs: nbL });
-        }
-        
-        document.getElementById('statTotalProfesseurs').textContent = totalProf;
-        document.getElementById('statTotalEtablissements').textContent = ecolesSnap.size;
-        document.getElementById('statTotalProvinces').textContent = provSet.size;
-        document.getElementById('statTotalFiches').textContent = totalFiches;
-        document.getElementById('statTotalMessages').textContent = totalMessages;
-        document.getElementById('statTotalLogs').textContent = totalLogs;
-        
-        const tbody = document.getElementById('tbodyStats');
-        tbody.innerHTML = '';
-        profParEcole.sort((a, b) => b.nb - a.nb);
-        for (const item of profParEcole) {
-            const row = tbody.insertRow();
-            row.insertCell(0).innerHTML = `<strong>${escapeHtml(item.nom.substring(0, 30))}</strong>`;
-            row.insertCell(1).textContent = '-';
-            row.insertCell(2).innerHTML = `<span style="font-weight:700;color:#facc15;text-align:center;">${item.nb}</span>`;
-            row.insertCell(3).innerHTML = `<span style="color:#10b981;">${item.fiches}</span>`;
-            row.insertCell(4).innerHTML = `<span style="color:#8b5cf6;">${item.messages}</span>`;
-            row.insertCell(5).innerHTML = `<span style="color:#a78bfa;">${item.logs}</span>`;
-            row.insertCell(6).textContent = '-';
-        }
-    } catch(e) { showToast("Erreur chargement stats", 'error'); }
-}
-
-async function chargerClients() {
-    // Version simplifiée - implémentez la logique complète
-    try {
-        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
-        const container = document.getElementById('clientsListContainer');
-        container.innerHTML = '<div class="loading-text">Chargement des clients...</div>';
-        let total = 0;
-        let html = '';
-        for (const docEcole of ecolesSnap.docs) {
-            const ecoleId = docEcole.id;
-            const prefix = ecoleId.replace(/ /g, '_');
-            try {
-                const snap = await getDocs(collection(db, `${prefix}_professeurs`));
-                snap.forEach(docProf => {
-                    const data = docProf.data();
-                    if (data._type === "prof") {
-                        total++;
-                        const actif = data.actif !== false;
-                        html += `
-                            <div class="prof-card ${actif ? '' : 'desactive'}">
-                                <div>
-                                    <div class="prof-nom">👤 ${escapeHtml(data.nom || 'Inconnu')}</div>
-                                    <div class="prof-ecole">🏫 ${escapeHtml(ecoleId)} | 🔑 ${data.code || '---'}</div>
-                                </div>
-                                <div class="prof-actions">
-                                    <span class="prof-status ${actif ? 'actif' : 'inactif'}">${actif ? '🟢 Actif' : '🔴 Inactif'}</span>
-                                    <button class="btn btn-sm ${actif ? 'btn-danger' : 'btn-success'} btn-toggle-prof" 
-                                            data-id="${docProf.id}" data-ecole="${ecoleId}" data-actif="${actif}">
-                                        ${actif ? '❌ Désactiver' : '✅ Réactiver'}
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-            } catch(e) {}
-        }
-        container.innerHTML = html || '<div class="empty-state"><span class="empty-icon">👤</span>Aucun client trouvé</div>';
-        
-        // Gestion des boutons toggle
-        document.querySelectorAll('.btn-toggle-prof').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.dataset.id;
-                const ecole = btn.dataset.ecole;
-                const currentActif = btn.dataset.actif === 'true';
-                const newActif = !currentActif;
-                const action = currentActif ? 'désactiver' : 'réactiver';
-                
-                const confirmed = await showConfirm(
-                    currentActif ? '🔒 Désactivation' : '🔓 Réactivation',
-                    `${currentActif ? 'Désactiver' : 'Réactiver'} le compte du professeur ?`,
-                    `<div style="font-size:0.8rem;">Cette action est ${currentActif ? 'réversible' : 'définitive'}.<br>Le professeur ${currentActif ? 'ne pourra plus' : 'pourra à nouveau'} se connecter.</div>`,
-                    currentActif ? 'Désactiver' : 'Réactiver',
-                    currentActif ? 'btn-confirm' : 'btn-success-action'
-                );
-                
-                if (confirmed) {
-                    try {
-                        const docRef = doc(db, `${ecole}_professeurs`, id);
-                        await updateDoc(docRef, { 
-                            actif: newActif,
-                            raisonDesactivation: currentActif ? 'Désactivé par l\'admin' : ''
-                        });
-                        
-                        // Log audit
-                        await logAuditAction(
-                            currentActif ? 'desactivation' : 'reactivation',
-                            {
-                                professeur_id: id,
-                                ecole: ecole,
-                                ancien_statut: currentActif ? 'actif' : 'inactif',
-                                nouveau_statut: newActif ? 'actif' : 'inactif'
-                            },
-                            'Ursule Nyandji'
-                        );
-                        
-                        showToast(`✅ Professeur ${action} avec succès`, 'success');
-                        btn.dataset.actif = newActif;
-                        chargerClients();
-                    } catch(e) {
-                        showToast(`❌ Erreur: ${e.message}`, 'error');
-                    }
-                }
-            });
-        });
-    } catch(e) { showToast("Erreur chargement clients", 'error'); }
-}
 
 // ============================================================
 // LANCEMENT
@@ -1364,14 +2008,14 @@ async function chargerClients() {
 document.getElementById('accessCode').value = '';
 checkAccess();
 
-// Désactiver le clic droit et F12
+// Sécurité
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('keydown', e => {
     if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) e.preventDefault();
 });
 
 console.log('🚀 NETUBEX Support - Département Recherche & Support');
-console.log('📌 Les toasts entrants sont en plein écran pour attirer votre attention.');
+console.log('📌 Tous les onglets sont fonctionnels avec chargement complet.');
 </script>
 </body>
 </html>
