@@ -1139,6 +1139,58 @@ function displayParentalStats() {
     displayParentalMessages();
 }
 
+async function chargerEcolesPourFiltre() {
+    try {
+        const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
+        const ecoles = [];
+        ecolesSnap.forEach(doc => ecoles.push(doc.id));
+        
+        const filterSelect = document.getElementById('netubexEcoleFilter');
+        if (filterSelect) {
+            const currentVal = filterSelect.value;
+            filterSelect.innerHTML = '<option value="">-- Toutes les écoles --</option>';
+            ecoles.sort().forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e.toUpperCase().replace(/-/g, ' ');
+                filterSelect.appendChild(opt);
+            });
+            if (currentVal && ecoles.includes(currentVal)) filterSelect.value = currentVal;
+        }
+        
+        const clientFilter = document.getElementById('clientEcoleFilter');
+        if (clientFilter) {
+            const currentVal = clientFilter.value;
+            clientFilter.innerHTML = '<option value="">Toutes les écoles</option>';
+            ecoles.sort().forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e.toUpperCase().replace(/-/g, ' ');
+                clientFilter.appendChild(opt);
+            });
+            if (currentVal && ecoles.includes(currentVal)) clientFilter.value = currentVal;
+        }
+        
+        const parentalFilter = document.getElementById('parentalEcoleFilter');
+        if (parentalFilter) {
+            const currentVal = parentalFilter.value;
+            parentalFilter.innerHTML = '<option value="">Toutes les écoles</option>';
+            ecoles.sort().forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e;
+                opt.textContent = e.toUpperCase().replace(/-/g, ' ');
+                parentalFilter.appendChild(opt);
+            });
+            if (currentVal && ecoles.includes(currentVal)) parentalFilter.value = currentVal;
+        }
+        
+        return ecoles;
+    } catch(e) {
+        console.error("Erreur chargement écoles:", e);
+        return [];
+    }
+}
+
 async function chargerStats() {
     try {
         const ecolesSnap = await getDocs(collection(db, "ecoles_autorisees"));
@@ -1706,6 +1758,8 @@ async function initApp() {
     await chargerAudit();
     await chargerStatsParental();
     
+    await chargerEcolesPourFiltre();
+    
     updatePoleUnreadBadge();
     updateSupportUnreadBadge();
     
@@ -1856,6 +1910,13 @@ document.getElementById('deleteYes')?.addEventListener('click', async () => {
         } else if (messageToDelete.type === 'parental') {
             const toRemove = parentalMessagesList.find(m => m.id === messageToDelete.id);
             if (toRemove) {
+                const ecole = toRemove.ecole || SCHOOL_PREFIX;
+                const prefix = ecole.replace(/ /g, '_');
+                try {
+                    await deleteDoc(doc(db, `${prefix}_parent_messages`, messageToDelete.id));
+                } catch(e) {
+                    console.error("Erreur suppression Firebase:", e);
+                }
                 await deleteFromIndexed(STORE_PARENTAL, messageToDelete.id);
                 parentalMessagesList = parentalMessagesList.filter(m => m.id !== messageToDelete.id);
                 displayParentalMessages();
