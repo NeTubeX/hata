@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<title>NETUBEX | TERMINAL v2.4.1</title>
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+    background:#0a0a0a;
+    font-family:'Fira Code','Courier New',monospace;
+    color:#00ff41;
+    padding:12px;
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+}
+body::before{
+    content:"";
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(0deg,
+        rgba(0,255,65,0.02) 0px,
+        rgba(0,255,65,0.02) 2px,
+        transparent 2px,
+        transparent 4px
+    );
+    pointer-events:none;
+    z-index:9999;
+}
+body::after{
+    content:"";
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events:none;
+    z-index:9998;
+}
+.container{max-width:1200px;margin:0 auto;position:relative;z-index:1;}
+
+/* ===== ASCII ART HEADER ===== */
+.ascii-header{
+    color:#00ff41;
+    font-size:0.55rem;
+    line-height:1.15;
+    text-align:center;
+    margin-bottom:12px;
+    opacity:0.8;
+    white-space:pre;
+    overflow-x:auto;
+    letter-spacing:0.5px;
+    text-shadow:0 0 10px rgba(0,255,65,0.15);
+}
+.ascii-header .glitch{
+    animation:glitch 3s infinite;
+}
+@keyframes glitch{
+    0%,95%,100%{opacity:1;transform:translate(0)}
+    96%{opacity:0.8;transform:translate(-2px,1px)}
+    97%{opacity:0.6;transform:translate(2px,-1px)}
+    98%{opacity:0.8;transform:translate(-1px,2px)}
+}
+
+/* ===== STATUS BAR ===== */
+.status-bar{
+    background:rgba(0,20,0,0.8);
+    border:1px solid #00ff4133;
+    border-radius:4px;
+    padding:6px 14px;
+    margin-bottom:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 24px;
+    font-size:0.65rem;
+    font-family:'Fira Code',monospace;
+    color:#00ff41;
+    text-shadow:0 0 8px rgba(0,255,65,0.2);
+}
+.status-bar .status-item{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+.status-bar .dot{
+    display:inline-block;
+    width:8px;height:8px;
+    border-radius:50%;
+    animation:pulse-dot 1.5s infinite;
+}
+.status-bar .dot.green{background:#00ff41;box-shadow:0 0 12px #00ff41;}
+.status-bar .dot.red{background:#ff0040;box-shadow:0 0 12px #ff0040;}
+.status-bar .dot.yellow{background:#ffaa00;box-shadow:0 0 12px #ffaa00;}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ===== TERMINAL WINDOW ===== */
+.terminal-window{
+    background:rgba(0,10,0,0.92);
+    border:1px solid #00ff4133;
+    border-radius:6px;
+    margin-bottom:14px;
+    overflow:hidden;
+    box-shadow:0 0 40px rgba(0,255,65,0.05),inset 0 0 60px rgba(0,255,65,0.02);
+}
+.terminal-header{
+    background:rgba(0,20,0,0.8);
+    padding:6px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom:1px solid #00ff4133;
+    font-size:0.6rem;
+    color:#00aa33;
+    font-family:'Fira Code',monospace;
+}
+.terminal-header .dots{display:flex;gap:6px;}
+.terminal-header .dot-btn{
+    width:12px;height:12px;
+    border-radius:50%;
+    display:inline-block;
+}
+.terminal-header .dot-btn.red{background:#ff0040;}
+.terminal-header .dot-btn.yellow{background:#ffaa00;}
+.terminal-header .dot-btn.green{background:#00ff41;}
+.terminal-header .title{color:#00ff4188;letter-spacing:1px;}
+.terminal-header .title .blink{animation:blink 1s infinite;}
+@keyframes blink{0%,50%{opacity:1}50.1%,100%{opacity:0}}
+
+.terminal-body{padding:16px 18px;}
+
+/* ===== ONGLETS STYLE TERMINAL ===== */
+.tabs-terminal{
+    display:flex;
+    gap:2px;
+    margin-bottom:14px;
+    border-bottom:1px solid #00ff4133;
+    padding-bottom:2px;
+    flex-wrap:wrap;
+}
+.tab-btn-term{
+    background:transparent;
+    border:none;
+    padding:6px 16px;
+    color:#00aa33;
+    font-family:'Fira Code',monospace;
+    font-size:0.65rem;
+    cursor:pointer;
+    transition:all 0.3s;
+    border-bottom:2px solid transparent;
+}
+.tab-btn-term:hover{color:#00ff41;background:rgba(0,255,65,0.04);}
+.tab-btn-term.active{
+    color:#00ff41;
+    border-bottom-color:#00ff41;
+    text-shadow:0 0 12px rgba(0,255,65,0.3);
+}
+.tab-content-term{display:none;animation:fadeInTerm 0.3s;}
+.tab-content-term.active{display:block;}
+@keyframes fadeInTerm{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== MESSAGES ===== */
+.prompt{color:#00ff41;font-size:0.6rem;margin-bottom:10px;}
+.prompt .cursor{animation:blink 1s infinite;}
+
+.message-card-term{
+    background:rgba(0,20,0,0.5);
+    border-left:3px solid #00ff41;
+    padding:12px 14px;
+    margin-bottom:10px;
+    border-radius:2px;
+    position:relative;
+    transition:all 0.2s;
+}
+.message-card-term:hover{background:rgba(0,30,0,0.6);}
+.message-card-term.unread{border-left-color:#ff0040;background:rgba(30,0,0,0.3);}
+.message-card-term.unread::before{
+    content:"▶";
+    position:absolute;
+    right:10px;top:50%;
+    transform:translateY(-50%);
+    color:#ff0040;
+    animation:blink 1s infinite;
+}
+.message-card-term.from-pole{border-left-color:#ffaa00;background:rgba(30,20,0,0.2);}
+
+.msg-id{color:#00aa33;font-size:0.55rem;margin-right:10px;}
+.msg-sender-term{color:#00ff41;font-weight:700;font-size:0.75rem;}
+.msg-badge-term{
+    font-size:0.5rem;
+    padding:1px 8px;
+    border-radius:2px;
+    background:#00ff4122;
+    color:#00ff41;
+    border:1px solid #00ff4133;
+    margin-left:6px;
+}
+.msg-badge-term.pole{background:#ffaa0022;border-color:#ffaa0044;color:#ffaa00;}
+.msg-badge-term.unread{background:#ff004022;border-color:#ff004044;color:#ff0040;}
+.msg-text-term{
+    font-size:0.75rem;
+    color:#aaffaa;
+    padding:8px 10px;
+    margin:6px 0 8px;
+    background:rgba(0,0,0,0.3);
+    border-radius:2px;
+    font-family:'Fira Code',monospace;
+    line-height:1.5;
+    white-space:pre-wrap;
+    word-break:break-word;
+}
+.msg-meta-term{
+    font-size:0.55rem;
+    color:#00aa3366;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 16px;
+    align-items:center;
+}
+.msg-actions-term{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+.btn-term{
+    background:transparent;
+    border:1px solid #00ff4133;
+    color:#00aa33;
+    padding:2px 10px;
+    border-radius:2px;
+    font-family:'Fira Code',monospace;
+    font-size:0.55rem;
+    cursor:pointer;
+    transition:all 0.2s;
+}
+.btn-term:hover{background:#00ff4111;color:#00ff41;border-color:#00ff41;}
+.btn-term.danger{border-color:#ff004044;color:#ff0040;}
+.btn-term.danger:hover{background:#ff004011;border-color:#ff0040;}
+.btn-term.success{border-color:#00ff4133;color:#00ff41;}
+.btn-term.success:hover{background:#00ff4111;}
+.btn-term.reply{border-color:#ffaa0044;color:#ffaa00;}
+.btn-term.reply:hover{background:#ffaa0011;border-color:#ffaa00;}
+
+/* ===== FORMULAIRE ===== */
+.form-term{
+    background:rgba(0,20,0,0.5);
+    border:1px solid #00ff4133;
+    border-radius:2px;
+    padding:12px 14px;
+    margin-bottom:14px;
+}
+.form-term .form-label{
+    font-size:0.55rem;
+    color:#00aa33;
+    display:block;
+    margin-bottom:4px;
+}
+.form-term textarea{
+    width:100%;
+    padding:8px 10px;
+    background:#0a0a0a;
+    border:1px solid #00ff4133;
+    border-radius:2px;
+    color:#00ff41;
+    font-family:'Fira Code',monospace;
+    font-size:0.7rem;
+    resize:vertical;
+    min-height:60px;
+    transition:0.2s;
+}
+.form-term textarea:focus{outline:none;border-color:#00ff41;box-shadow:0 0 20px rgba(0,255,65,0.05);}
+.form-term .btn-send-term{
+    width:100%;
+    padding:8px;
+    background:#00ff4111;
+    border:1px solid #00ff41;
+    color:#00ff41;
+    font-family:'Fira Code',monospace;
+    font-size:0.7rem;
+    cursor:pointer;
+    transition:0.2s;
+    margin-top:6px;
+}
+.form-term .btn-send-term:hover{background:#00ff4122;box-shadow:0 0 30px rgba(0,255,65,0.05);}
+
+/* ===== REPONSE FORM ===== */
+.reply-form-term{
+    display:none;
+    background:rgba(0,0,0,0.5);
+    border:1px solid #ffaa0044;
+    border-radius:2px;
+    padding:10px 12px;
+    margin-top:10px;
+}
+.reply-form-term.show{display:block;}
+.reply-form-term .reply-header{color:#ffaa00;font-size:0.6rem;margin-bottom:6px;}
+.reply-form-term textarea{
+    width:100%;
+    padding:6px 10px;
+    background:#0a0a0a;
+    border:1px solid #ffaa0044;
+    border-radius:2px;
+    color:#aaffaa;
+    font-family:'Fira Code',monospace;
+    font-size:0.65rem;
+    resize:vertical;
+    min-height:50px;
+}
+.reply-form-term textarea:focus{outline:none;border-color:#ffaa00;}
+.reply-actions-term{display:flex;gap:6px;margin-top:6px;justify-content:flex-end;}
+
+/* ===== FILTRES ===== */
+.filters-term{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 12px;
+    padding:6px 0 10px;
+    border-bottom:1px solid #00ff4111;
+    margin-bottom:10px;
+    align-items:center;
+}
+.filters-term label{font-size:0.55rem;color:#00aa33;}
+.filters-term select{
+    background:#0a0a0a;
+    border:1px solid #00ff4133;
+    border-radius:2px;
+    color:#00ff41;
+    padding:3px 8px;
+    font-family:'Fira Code',monospace;
+    font-size:0.6rem;
+    cursor:pointer;
+}
+.filters-term select:focus{outline:none;border-color:#00ff41;}
+.filters-term .filter-info{font-size:0.55rem;color:#00aa3366;margin-left:auto;}
+
+/* ===== MODAL SUPPRESSION ===== */
+.delete-modal-term{
+    display:none;
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.95);
+    z-index:9999;
+    align-items:center;
+    justify-content:center;
+    backdrop-filter:blur(8px);
+}
+.delete-modal-term.show{display:flex;}
+.delete-content-term{
+    background:#0a0a0a;
+    border:1px solid #ff004066;
+    border-radius:4px;
+    max-width:420px;
+    width:92%;
+    padding:24px;
+    text-align:center;
+    box-shadow:0 0 60px rgba(255,0,64,0.1);
+}
+.delete-content-term h3{color:#ff0040;font-size:1rem;margin-bottom:6px;}
+.delete-content-term p{color:#ff004088;font-size:0.75rem;margin-bottom:14px;}
+.delete-content-term .delete-details-term{
+    background:rgba(0,0,0,0.5);
+    padding:8px 12px;
+    border-left:2px solid #ff0040;
+    font-size:0.65rem;
+    color:#aaffaa88;
+    margin-bottom:14px;
+    text-align:left;
+}
+.delete-buttons-term{display:flex;gap:10px;justify-content:center;}
+.delete-buttons-term button{
+    padding:6px 20px;
+    border:1px solid #ff004044;
+    background:transparent;
+    color:#ff0040;
+    font-family:'Fira Code',monospace;
+    font-size:0.7rem;
+    cursor:pointer;
+    transition:0.2s;
+}
+.delete-buttons-term button:hover{background:#ff004011;}
+.delete-buttons-term .btn-no{border-color:#00ff4133;color:#00aa33;}
+.delete-buttons-term .btn-no:hover{background:#00ff4111;}
+
+/* ===== RESPONSES ===== */
+.response-card-term{
+    background:rgba(0,0,0,0.3);
+    border-left:2px solid #ffaa00;
+    padding:8px 12px;
+    margin-top:6px;
+    border-radius:2px;
+}
+.response-card-term .resp-header{
+    font-size:0.5rem;
+    color:#ffaa0088;
+    display:flex;
+    gap:10px;
+    align-items:center;
+}
+.response-card-term .resp-text{
+    font-size:0.65rem;
+    color:#aaffaa88;
+    margin-top:4px;
+}
+
+/* ===== STATS BAR ===== */
+.stats-term{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(100px,1fr));
+    gap:6px;
+    margin-bottom:14px;
+}
+.stat-term{
+    background:rgba(0,20,0,0.5);
+    border:1px solid #00ff4133;
+    border-radius:2px;
+    padding:6px 10px;
+    text-align:center;
+}
+.stat-term .val{font-size:1.1rem;font-weight:700;color:#00ff41;text-shadow:0 0 20px rgba(0,255,65,0.15);}
+.stat-term .lbl{font-size:0.5rem;color:#00aa3366;text-transform:uppercase;letter-spacing:1px;}
+
+/* ===== TOAST ===== */
+.toast-term{
+    position:fixed;
+    bottom:20px;left:50%;
+    transform:translateX(-50%);
+    background:rgba(0,10,0,0.95);
+    border:1px solid #00ff4166;
+    padding:8px 20px;
+    border-radius:2px;
+    color:#00ff41;
+    font-size:0.7rem;
+    display:none;
+    z-index:9999;
+    font-family:'Fira Code',monospace;
+    box-shadow:0 0 40px rgba(0,255,65,0.05);
+    text-align:center;
+    max-width:90%;
+}
+
+/* ===== FOOTER ===== */
+.footer-term{
+    border-top:1px solid #00ff4111;
+    padding:10px 0;
+    margin-top:14px;
+    font-size:0.5rem;
+    color:#00aa3344;
+    text-align:center;
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:#0a0a0a;}
+::-webkit-scrollbar-thumb{background:#00ff4133;border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:#00ff4166;}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:768px){
+    body{padding:8px;}
+    .ascii-header{font-size:0.35rem;}
+    .terminal-body{padding:10px 12px;}
+    .stats-term{grid-template-columns:repeat(2,1fr);}
+    .tabs-terminal{gap:4px;}
+    .tab-btn-term{padding:4px 10px;font-size:0.55rem;}
+    .message-card-term{padding:8px 10px;}
+    .msg-text-term{font-size:0.65rem;padding:6px 8px;}
+    .status-bar{font-size:0.55rem;padding:4px 10px;gap:4px 12px;}
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- ASCII HEADER -->
+    <div class="ascii-header">
+        <span class="glitch">
+╔═══════════════════════════════════════════════════════════════════════════╗
+║   ███╗   ██╗███████╗████████╗██╗   ██╗██████╗ ███████╗██╗  ██╗          ║
+║   ████╗  ██║██╔════╝╚══██╔══╝██║   ██║██╔══██╗██╔════╝╚██╗██╔╝          ║
+║   ██╔██╗ ██║█████╗     ██║   ██║   ██║██████╔╝█████╗   ╚███╔╝           ║
+║   ██║╚██╗██║██╔══╝     ██║   ██║   ██║██╔══██╗██╔══╝   ██╔██╗           ║
+║   ██║ ╚████║███████╗   ██║   ╚██████╔╝██████╔╝███████╗██╔╝ ██╗          ║
+║   ╚═╝  ╚═══╝╚══════╝   ╚═╝    ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝          ║
+║                                                                           ║
+║   ██████╗  ██████╗ ██╗     ███████╗    ███████╗████████╗██████╗  █████╗ ██╗
+║   ██╔══██╗██╔═══██╗██║     ██╔════╝    ██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║
+║   ██████╔╝██║   ██║██║     █████╗      ███████╗   ██║   ██████╔╝███████║██║
+║   ██╔═══╝ ██║   ██║██║     ██╔══╝      ╚════██║   ██║   ██╔══██╗██╔══██║██║
+║   ██║     ╚██████╔╝███████╗███████╗    ███████║   ██║   ██║  ██║██║  ██║██║
+║   ╚═╝      ╚═════╝ ╚══════╝╚══════╝    ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
+╚═══════════════════════════════════════════════════════════════════════════╝
+        </span>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+        <span class="status-item"><span class="dot green"></span> [SYS] ONLINE</span>
+        <span class="status-item">[NODE] srv-p01.netubex</span>
+        <span class="status-item">[UPTIME] 14d 7h 32m</span>
+        <span class="status-item">[MEM] 4.2/8.0 GB</span>
+        <span class="status-item" id="statusCount">[MSG] 0</span>
+        <span class="status-item" id="statusUnread">[UNREAD] 0</span>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-term">
+        <div class="stat-term"><div class="val" id="statMessages">0</div><div class="lbl">💬 Messages</div></div>
+        <div class="stat-term"><div class="val" id="statClients">0</div><div class="lbl">👥 Clients</div></div>
+        <div class="stat-term"><div class="val" id="statEcoles">0</div><div class="lbl">🏫 Écoles</div></div>
+        <div class="stat-term"><div class="val" id="statLogs">0</div><div class="lbl">📋 Logs</div></div>
+    </div>
+
+    <!-- TERMINAL WINDOW -->
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <span class="dots">
+                <span class="dot-btn red"></span>
+                <span class="dot-btn yellow"></span>
+                <span class="dot-btn green"></span>
+            </span>
+            <span class="title">root@netubex:~/dashboard <span class="blink">▌</span></span>
+            <span style="color:#00aa3344;font-size:0.5rem;">PID: 2847</span>
+        </div>
+        <div class="terminal-body">
+
+            <!-- ONGLETS -->
+            <div class="tabs-terminal">
+                <button class="tab-btn-term active" data-tab="messages">[MSG]</button>
+                <button class="tab-btn-term" data-tab="clients">[CLI]</button>
+                <button class="tab-btn-term" data-tab="ecoles">[SCH]</button>
+                <button class="tab-btn-term" data-tab="logs">[LOG]</button>
+            </div>
+
+            <!-- TAB MESSAGES -->
+            <div id="tab-messages" class="tab-content-term active">
+                <div class="prompt">root@netubex:~$ ./send_message --to=ursule --type=new <span class="cursor">▌</span></div>
+
+                <div class="form-term">
+                    <span class="form-label">✏️ NEW_MESSAGE [ursule@netubex]</span>
+                    <textarea id="newMessage" rows="2" placeholder=":: ENTER MESSAGE ::"></textarea>
+                    <button id="sendNewMessageBtn" class="btn-send-term">[ ENVOYER ]</button>
+                </div>
+
+                <div class="terminal-window" style="border-color:#00ff4122;">
+                    <div class="terminal-header" style="border-bottom-color:#00ff4122;">
+                        <span class="title">📨 MESSAGES [live]</span>
+                        <button id="markAllReadBtn" class="btn-term success" style="font-size:0.5rem;">[ MARK_ALL_READ ]</button>
+                    </div>
+                    <div style="padding:10px 12px;">
+                        <div id="messagesGrid" class="messages-grid" style="max-height:480px;overflow-y:auto;">
+                            <div style="text-align:center;padding:30px;color:#00aa3344;font-size:0.7rem;">⏳ LOADING...</div>
+                        </div>
+                        <div style="border-top:1px solid #00ff4111;padding-top:6px;margin-top:6px;display:flex;justify-content:space-between;font-size:0.5rem;color:#00aa3344;">
+                            <span>[TOTAL] <span id="messageCount">0</span></span>
+                            <span>[STATUS] <span id="liveStatus">LIVE</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB CLIENTS -->
+            <div id="tab-clients" class="tab-content-term">
+                <div class="prompt">root@netubex:~$ ./list_clients --filter=all <span class="cursor">▌</span></div>
+
+                <div class="filters-term">
+                    <label>🏫 ECOLE :</label>
+                    <select id="clientEcoleFilter"><option value="">[ALL]</option></select>
+                    <label>📌 STATUT :</label>
+                    <select id="clientStatusFilter"><option value="all">[ALL]</option><option value="actif">[ACTIF]</option><option value="inactif">[INACTIF]</option></select>
+                    <span class="filter-info" id="clientFilterInfo">[COUNT] 0</span>
+                    <button id="refreshClientsBtn" class="btn-term" style="font-size:0.5rem;">[REFRESH]</button>
+                </div>
+                <div id="clientsListContainer" style="max-height:450px;overflow-y:auto;"></div>
+            </div>
+
+            <!-- TAB ÉCOLES -->
+            <div id="tab-ecoles" class="tab-content-term">
+                <div class="prompt">root@netubex:~$ ./list_schools <span class="cursor">▌</span></div>
+                <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+                    <button id="refreshEcolesBtn" class="btn-term" style="font-size:0.5rem;">[REFRESH]</button>
+                </div>
+                <div id="ecolesListContainer" style="max-height:450px;overflow-y:auto;"></div>
+            </div>
+
+            <!-- TAB LOGS -->
+            <div id="tab-logs" class="tab-content-term">
+                <div class="prompt">root@netubex:~$ ./tail_logs --type=all <span class="cursor">▌</span></div>
+
+                <div class="filters-term">
+                    <label>📌 TYPE :</label>
+                    <select id="logTypeFilter"><option value="all">[ALL]</option><option value="connexion">[CONNEXION]</option><option value="donnees">[DONNEES]</option><option value="securite">[SECURITE]</option></select>
+                    <span class="filter-info" id="logFilterInfo">[COUNT] 0</span>
+                    <button id="refreshLogsBtn" class="btn-term" style="font-size:0.5rem;">[REFRESH]</button>
+                </div>
+                <div id="logsListContainer" style="max-height:450px;overflow-y:auto;"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="footer-term">
+        ════════════════════════════════════════════════════════════════════════════<br>
+        [NETUBEX] Pôle Stratégie & Innovation · TERMINAL v2.4.1 · [PID: 2847]<br>
+        ════════════════════════════════════════════════════════════════════════════
+    </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast-term"></div>
+
+<!-- DELETE MODAL -->
+<div class="delete-modal-term" id="deleteModal">
+    <div class="delete-content-term">
+        <h3>⚠️ CONFIRM_DELETE</h3>
+        <p id="deleteMessage">[WARNING] Cette action est irréversible.</p>
+        <div class="delete-details-term" id="deleteDetails">[DETAILS]</div>
+        <div class="delete-buttons-term">
+            <button class="btn-no" id="deleteNo">[CANCEL]</button>
+            <button id="deleteYes">[DELETE]</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, collection, getDocs, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const POLE_MESSAGES_DOC_ID = "consultation_pole";
+const poleMessagesDocRef = doc(db, "communication", POLE_MESSAGES_DOC_ID);
+const READ_STATUS_KEY = "pole_chef_read_messages";
+const POLE_NAME = "Chef Pôle Stratégie & Innovation";
+
+let poleMessagesList = [];
+let unsubscribePole = null;
+let activeReplyId = null;
+let deleteTarget = null;
+
+// ===== UTILS =====
+function escapeHtml(s){if(!s)return'';return s.replace(/[&<>]/g,m=>m==='&'?'&amp;':m==='<'?'&lt;':'&gt;')}
+function showToast(m,e=false){const t=document.getElementById('toast');t.textContent='[SYS] '+m;t.style.borderColor=e?'#ff004066':'#00ff4166';t.style.display='block';setTimeout(()=>{t.style.display='none'},3500)}
+function getReadMessages(){const r=localStorage.getItem(READ_STATUS_KEY);return r?JSON.parse(r):[]}
+function saveReadMessages(r){localStorage.setItem(READ_STATUS_KEY,JSON.stringify(r))}
+function markAsRead(i){const r=getReadMessages();if(!r.includes(i)){r.push(i);saveReadMessages(r);updateUnreadBadge();displayMessages()}}
+function markAllAsRead(){const a=poleMessagesList.map(m=>m.id);saveReadMessages(a);updateUnreadBadge();displayMessages();showToast("Tous marqués lus")}
+function isRead(i){return getReadMessages().includes(i)}
+function getUnreadCount(){return poleMessagesList.filter(m=>!isRead(m.id)&&m.sender!=="pole").length}
+function updateUnreadBadge(){const c=getUnreadCount();document.getElementById('statusUnread').textContent='[UNREAD] '+c}
+function updateStats(){document.getElementById('statMessages').textContent=poleMessagesList.length;loadClientsCount();loadEcolesCount();loadLogsCount()}
+async function loadClientsCount(){let t=0;try{const es=await getDocs(collection(db,"ecoles_autorisees"));for(const de of es.docs){const p=de.id.replace(/ /g,'_');try{const snap=await getDocs(collection(db,`${p}_professeurs`));t+=snap.size}catch(e){}}}catch(e){}document.getElementById('statClients').textContent=t}
+async function loadEcolesCount(){try{const es=await getDocs(collection(db,"ecoles_autorisees"));document.getElementById('statEcoles').textContent=es.size}catch(e){}}
+async function loadLogsCount(){let t=0;try{const es=await getDocs(collection(db,"ecoles_autorisees"));for(const de of es.docs){const p=de.id.replace(/ /g,'_');try{const snap=await getDocs(collection(db,`${p}_logs`));t+=snap.size}catch(e){}}}catch(e){}document.getElementById('statLogs').textContent=t}
+
+// ===== MESSAGES =====
+async function initPoleMessagesDocument(){try{const d=await getDoc(poleMessagesDocRef);if(!d.exists()){await setDoc(poleMessagesDocRef,{messages:[],createdAt:new Date().toISOString()})}}catch(e){}}
+function listenToPoleMessages(){if(unsubscribePole)unsubscribePole();unsubscribePole=onSnapshot(poleMessagesDocRef,(d)=>{if(d.exists()){const data=d.data();const n=data.messages||[];n.sort((a,b)=>new Date(b.date)-new Date(a.date));const o=poleMessagesList.length;poleMessagesList=n;if(o>0&&poleMessagesList.length>o){const m=poleMessagesList.slice(0,poleMessagesList.length-o);m.forEach(msg=>{if(msg.sender!=="pole"&&!isRead(msg.id)){showToast("Nouveau message de "+msg.nom)}})}displayMessages();updateUnreadBadge();updateStats()}},(e)=>{document.getElementById('messagesGrid').innerHTML='<div style="text-align:center;padding:30px;color:#ff004066;font-size:0.7rem;">[ERROR] Connexion perdue</div>'})}
+async function deleteMessage(i){const m=poleMessagesList.find(msg=>msg.id===i);if(!m)return false;try{await updateDoc(poleMessagesDocRef,{messages:arrayRemove(m)});showToast("Message supprimé");const r=getReadMessages();const nr=r.filter(id=>id!==i);saveReadMessages(nr);return true}catch(e){showToast("Erreur suppression",true);return false}}
+async function sendNewMessage(m){if(!m.trim()){showToast("Message vide",true);return false}const n={id:Date.now().toString()+Math.random().toString(36).substr(2,4),nom:POLE_NAME,message:m.trim(),date:new Date().toISOString(),sender:"pole",type:"new_message"};try{await updateDoc(poleMessagesDocRef,{messages:arrayUnion(n)});showToast("Message envoyé");return true}catch(e){showToast("Erreur envoi",true);return false}}
+async function sendResponse(i,t){if(!t.trim()){showToast("Message vide",true);return false}const r={id:Date.now().toString(),message:t.trim(),date:new Date().toISOString(),from:"pole",type:"response"};try{const c=await getDoc(poleMessagesDocRef);const cm=c.exists()?c.data().messages:[];const um=cm.map(msg=>{if(msg.id===i){const er=msg.responses||[];return{...msg,responses:[...er,r]}}return msg});await setDoc(poleMessagesDocRef,{messages:um});showToast("Réponse envoyée");markAsRead(i);return true}catch(e){showToast("Erreur réponse",true);return false}}
+
+function displayMessages(){
+    const c=document.getElementById('messagesGrid');if(!c)return;
+    if(poleMessagesList.length===0){c.innerHTML='<div style="text-align:center;padding:30px;color:#00aa3344;font-size:0.7rem;">[EMPTY] Aucun message</div>';document.getElementById('messageCount').textContent='0';document.getElementById('statusCount').textContent='[MSG] 0';return}
+    c.innerHTML='';poleMessagesList.forEach((msg)=>{const d=new Date(msg.date).toLocaleString('fr-FR');const fp=msg.sender==="pole";const ur=!fp&&!isRead(msg.id);const hr=msg.responses&&msg.responses.length>0;const card=document.createElement('div');card.className=`message-card-term ${ur?'unread':''} ${fp?'from-pole':''}`;const bd=fp?'<span class="msg-badge-term pole">[POLE]</span>':'<span class="msg-badge-term">[URSULE]</span>';const ub=ur?'<span class="msg-badge-term unread">[NEW]</span>':'';card.innerHTML=`
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;">
+<span class="msg-id">[${msg.id.slice(0,6)}]</span>
+<span class="msg-sender-term">${escapeHtml(msg.nom||(fp?POLE_NAME:'Ursule Nyandji'))}</span>
+${bd}${ub}
+</div>
+<div class="msg-text-term">${escapeHtml(msg.message||'')}</div>
+<div class="msg-meta-term">
+<span>📅 ${d}</span>
+${fp?'<span style="color:#ffaa0044;">[SENT]</span>':'<span style="color:#00ff4144;">[RECEIVED]</span>'}
+</div>
+<div class="msg-actions-term">
+<button class="btn-term" data-copy="${escapeHtml(msg.message||'')}">[COPY]</button>
+${!fp&&ur?`<button class="btn-term success" data-mark="${msg.id}">[READ]</button>`:''}
+${!fp?`<button class="btn-term reply" data-reply="${msg.id}">[REPLY]</button>`:''}
+<button class="btn-term danger" data-del="${msg.id}" data-detail="${escapeHtml(msg.nom||'Message')}">[DEL]</button>
+</div>
+${hr?`<div class="responses-section" style="margin-top:8px;padding-top:6px;border-top:1px solid #00ff4111;">${msg.responses.map(r=>`<div class="response-card-term"><div class="resp-header"><span style="color:#ffaa00;">[REPLY]</span> ${new Date(r.date).toLocaleString('fr-FR')}</div><div class="resp-text">${escapeHtml(r.message)}</div></div>`).join('')}</div>`:''}
+${!fp?`<div class="reply-form-term" id="reply-form-${msg.id}"><div class="reply-header">[REPLY_TO] ${escapeHtml(msg.nom||'Ursule')}</div><textarea id="reply-text-${msg.id}" rows="2" placeholder=":: VOTRE REPONSE ::"></textarea><div class="reply-actions-term"><button class="btn-term reply-cancel" data-cancel="${msg.id}">[CANCEL]</button><button class="btn-term success reply-send" data-send="${msg.id}">[SEND]</button></div></div>`:''}
+`;c.appendChild(card)});
+document.getElementById('messageCount').textContent=poleMessagesList.length;document.getElementById('statusCount').textContent='[MSG] '+poleMessagesList.length;
+document.querySelectorAll('.btn-term[data-copy]').forEach(b=>{b.addEventListener('click',()=>{navigator.clipboard.writeText(b.dataset.copy);showToast("Copié")})});
+document.querySelectorAll('.btn-term[data-mark]').forEach(b=>{b.addEventListener('click',()=>{markAsRead(b.dataset.mark)})});
+document.querySelectorAll('.btn-term[data-del]').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.del;const d=b.dataset.detail;deleteTarget={id,type:'message',detail:d};document.getElementById('deleteMessage').textContent=`[WARNING] Supprimer le message de ${d} ?`;document.getElementById('deleteDetails').textContent='[ID] '+id;document.getElementById('deleteModal').classList.add('show')})});
+document.querySelectorAll('.btn-term[data-reply]').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.reply;const rf=document.getElementById(`reply-form-${id}`);if(activeReplyId&&activeReplyId!==id){const pf=document.getElementById(`reply-form-${activeReplyId}`);if(pf)pf.classList.remove('show')}rf.classList.toggle('show');activeReplyId=rf.classList.contains('show')?id:null;if(rf.classList.contains('show')){const ta=document.getElementById(`reply-text-${id}`);setTimeout(()=>ta.focus(),100)}})});
+document.querySelectorAll('.reply-cancel').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.cancel;const rf=document.getElementById(`reply-form-${id}`);rf.classList.remove('show');activeReplyId=null;document.getElementById(`reply-text-${id}`).value=''})});
+document.querySelectorAll('.reply-send').forEach(b=>{b.addEventListener('click',async()=>{const id=b.dataset.send;const rt=document.getElementById(`reply-text-${id}`).value;await sendResponse(id,rt);const rf=document.getElementById(`reply-form-${id}`);rf.classList.remove('show');document.getElementById(`reply-text-${id}`).value='';activeReplyId=null})});
+}
+
+// ===== CLIENTS =====
+async function loadClients(){const c=document.getElementById('clientsListContainer');try{const es=await getDocs(collection(db,"ecoles_autorisees"));const ef=document.getElementById('clientEcoleFilter')?.value||'';const sf=document.getElementById('clientStatusFilter')?.value||'all';let h='';let t=0;const eo=['<option value="">[ALL]</option>'];for(const de of es.docs){const id=de.id;eo.push(`<option value="${id}">${escapeHtml(id)}</option>`);if(ef&&ef!==id)continue;const p=id.replace(/ /g,'_');try{const snap=await getDocs(collection(db,`${p}_professeurs`));snap.forEach(d=>{const data=d.data();if(data._type==="prof"){const a=data.actif!==false;if(sf==='actif'&&!a)return;if(sf==='inactif'&&a)return;t++;h+=`
+<div class="message-card-term" style="border-left-color:${a?'#00ff41':'#ff0040'};">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;">
+<span class="msg-id">[${d.id.slice(0,6)}]</span>
+<span class="msg-sender-term">👤 ${escapeHtml(data.nom||'Inconnu')}</span>
+<span class="msg-badge-term" style="border-color:#3b82f644;color:#3b82f6;">[CLIENT]</span>
+<span style="font-size:0.55rem;color:#00aa3366;">🔑 ${data.code||'---'}</span>
+</div>
+<div class="msg-meta-term">
+<span>🏫 ${escapeHtml(id)}</span>
+<span class="${a?'actif':'inactif'}" style="font-size:0.5rem;padding:1px 8px;border:1px solid ${a?'#00ff41':'#ff0040'};color:${a?'#00ff41':'#ff0040'};border-radius:2px;">${a?'[ACTIF]':'[INACTIF]'}</span>
+</div>
+<div class="msg-actions-term">
+<button class="btn-term danger" data-del="${d.id}" data-type="client" data-ecole="${id}" data-detail="${escapeHtml(data.nom||'Client')}">[DEL]</button>
+</div>
+</div>`}})}catch(e){}}const fs=document.getElementById('clientEcoleFilter');if(fs){const cv=fs.value;fs.innerHTML=eo.join('');if(cv)fs.value=cv}c.innerHTML=h||'<div style="text-align:center;padding:30px;color:#00aa3344;font-size:0.7rem;">[EMPTY] Aucun client</div>';document.getElementById('clientFilterInfo').textContent='[COUNT] '+t;document.querySelectorAll('#clientsListContainer .btn-term.danger').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.del;const e=b.dataset.ecole;const d=b.dataset.detail;deleteTarget={id,type:'client',ecole:e,detail:d};document.getElementById('deleteMessage').textContent=`[WARNING] Supprimer le client "${d}" ?`;document.getElementById('deleteDetails').textContent='[ECOLE] '+e+' [ID] '+id;document.getElementById('deleteModal').classList.add('show')})})}catch(e){c.innerHTML='<div style="text-align:center;padding:30px;color:#ff004066;font-size:0.7rem;">[ERROR] '+e.message+'</div>'}}
+async function deleteClient(i,e){try{await deleteDoc(doc(db,`${e}_professeurs`,i));showToast("Client supprimé");await loadClients();await loadClientsCount();return true}catch(err){showToast("Erreur suppression",true);return false}}
+
+// ===== ÉCOLES =====
+async function loadEcoles(){const c=document.getElementById('ecolesListContainer');try{const s=await getDocs(collection(db,"ecoles_autorisees"));if(s.empty){c.innerHTML='<div style="text-align:center;padding:30px;color:#00aa3344;font-size:0.7rem;">[EMPTY] Aucun établissement</div>';return}let h='';for(const ds of s.docs){const e=ds.data();const a=e.actif!==false;let np=0;try{const ps=await getDocs(collection(db,`${e.prefixe}_professeurs`));np=ps.size}catch(err){}h+=`
+<div class="message-card-term" style="border-left-color:${a?'#ffaa00':'#ff0040'};opacity:${a?1:0.6};">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;">
+<span class="msg-id">[${e.prefixe}]</span>
+<span class="msg-sender-term">🏫 ${escapeHtml(e.nom||e.prefixe)}</span>
+<span class="msg-badge-term" style="border-color:#ffaa0044;color:#ffaa00;">[SCHOOL]</span>
+</div>
+<div class="msg-meta-term">
+<span>📍 ${escapeHtml(e.ville||'')} · ${escapeHtml(e.province||'')}</span>
+<span style="font-size:0.5rem;padding:1px 8px;border:1px solid ${a?'#00ff41':'#ff0040'};color:${a?'#00ff41':'#ff0040'};border-radius:2px;">${a?'[ACTIF]':'[INACTIF]'}</span>
+<span style="color:#00aa3366;">👥 ${np}</span>
+</div>
+<div class="msg-actions-term">
+<button class="btn-term danger" data-del="${e.prefixe}" data-type="ecole" data-detail="${escapeHtml(e.nom||e.prefixe)}">[DEL]</button>
+</div>
+</div>`}c.innerHTML=h;document.querySelectorAll('#ecolesListContainer .btn-term.danger').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.del;const d=b.dataset.detail;deleteTarget={id,type:'ecole',detail:d};document.getElementById('deleteMessage').textContent=`[WARNING] Supprimer l'établissement "${d}" ?`;document.getElementById('deleteDetails').textContent='[ID] '+id+' [WARNING] Tous les professeurs seront supprimés';document.getElementById('deleteModal').classList.add('show')})})}catch(e){c.innerHTML='<div style="text-align:center;padding:30px;color:#ff004066;font-size:0.7rem;">[ERROR] '+e.message+'</div>'}}
+async function deleteEcole(p){try{try{const ps=await getDocs(collection(db,`${p}_professeurs`));for(const d of ps.docs){await deleteDoc(doc(db,`${p}_professeurs`,d.id))}}catch(e){}await deleteDoc(doc(db,"ecoles_autorisees",p));showToast("Établissement supprimé");await loadEcoles();await loadEcolesCount();return true}catch(e){showToast("Erreur suppression",true);return false}}
+
+// ===== LOGS =====
+async function loadLogs(){const c=document.getElementById('logsListContainer');try{const es=await getDocs(collection(db,"ecoles_autorisees"));const tf=document.getElementById('logTypeFilter')?.value||'all';const al=[];for(const de of es.docs){const id=de.id;const p=id.replace(/ /g,'_');try{const ls=await getDocs(collection(db,`${p}_logs`));for(const dl of ls.docs){const data=dl.data();al.push({...data,id:dl.id,ecole:id,_type:'log'})}}catch(e){}try{const as=await getDocs(collection(db,`${p}_alertes_admin`));for(const da of as.docs){const data=da.data();al.push({...data,id:da.id,ecole:id,_type:'alerte'})}}catch(e){}}let f=al;if(tf!=='all'){f=f.filter(l=>{const cats={connexion:'connexion',donnees:'donnees',securite:'securite'};return cats[tf]===l.action?.split('_')[0]})}f.sort((a,b)=>new Date(b.date)-new Date(a.date));let h='';f.slice(0,100).forEach(l=>{const d=new Date(l.date).toLocaleString('fr-FR');const p=l.statut==='critical'?'[CRITICAL]':l.statut==='error'?'[HIGH]':'[NORMAL]';const cl=l.statut==='critical'?'#ff0040':l.statut==='error'?'#ffaa00':'#00ff4166';h+=`
+<div class="message-card-term" style="border-left-color:${l._type==='alerte'?'#ff0040':'#00ff4133'};">
+<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;">
+<span class="msg-id">[${l.id.slice(0,6)}]</span>
+<span class="msg-sender-term" style="font-size:0.7rem;">📋 ${escapeHtml(l.action||'Action')}</span>
+<span class="msg-badge-term" style="border-color:#6b728044;color:#6b7280;">[LOG]</span>
+<span style="font-size:0.5rem;padding:1px 8px;border:1px solid ${cl};color:${cl};border-radius:2px;">${p}</span>
+</div>
+<div class="msg-text-term" style="font-size:0.7rem;padding:6px 8px;">${escapeHtml(l.message||l.action||'')}</div>
+<div class="msg-meta-term">
+<span>📅 ${d}</span>
+<span>🏫 ${escapeHtml(l.ecole||'SYS')}</span>
+<span>👤 ${escapeHtml(l.utilisateur||'SYSTEM')}</span>
+</div>
+<div class="msg-actions-term">
+<button class="btn-term danger" data-del="${l.id}" data-type="log" data-ecole="${l.ecole||'systeme'}" data-detail="${escapeHtml(l.action||'Log')}">[DEL]</button>
+</div>
+</div>`});c.innerHTML=h||'<div style="text-align:center;padding:30px;color:#00aa3344;font-size:0.7rem;">[EMPTY] Aucun log</div>';document.getElementById('logFilterInfo').textContent='[COUNT] '+f.length;document.querySelectorAll('#logsListContainer .btn-term.danger').forEach(b=>{b.addEventListener('click',()=>{const id=b.dataset.del;const e=b.dataset.ecole;const d=b.dataset.detail;deleteTarget={id,type:'log',ecole:e,detail:d};document.getElementById('deleteMessage').textContent=`[WARNING] Supprimer ce log ?`;document.getElementById('deleteDetails').textContent='[ACTION] '+d+' [ID] '+id;document.getElementById('deleteModal').classList.add('show')})})}catch(e){c.innerHTML='<div style="text-align:center;padding:30px;color:#ff004066;font-size:0.7rem;">[ERROR] '+e.message+'</div>'}}
+async function deleteLog(i,e){try{const cn=e==='systeme'?'systeme_logs':`${e}_logs`;await deleteDoc(doc(db,cn,i));showToast("Log supprimé");await loadLogs();await loadLogsCount();return true}catch(e){showToast("Erreur suppression",true);return false}}
+
+// ===== DELETE HANDLER =====
+async function handleDelete(){if(!deleteTarget)return;try{switch(deleteTarget.type){case'message':await deleteMessage(deleteTarget.id);break;case'client':await deleteClient(deleteTarget.id,deleteTarget.ecole);break;case'ecole':await deleteEcole(deleteTarget.id);break;case'log':await deleteLog(deleteTarget.id,deleteTarget.ecole);break}}catch(e){showToast("Erreur",true)}deleteTarget=null;document.getElementById('deleteModal').classList.remove('show')}
+
+// ===== INIT =====
+async function initApp(){await initPoleMessagesDocument();listenToPoleMessages();await loadClients();await loadEcoles();await loadLogs();await updateStats()}
+
+// ===== EVENTS =====
+document.getElementById('markAllReadBtn').addEventListener('click',markAllAsRead);
+document.getElementById('sendNewMessageBtn').addEventListener('click',async()=>{const m=document.getElementById('newMessage');const s=await sendNewMessage(m.value);if(s)m.value=''});
+document.getElementById('deleteYes').addEventListener('click',handleDelete);
+document.getElementById('deleteNo').addEventListener('click',()=>{deleteTarget=null;document.getElementById('deleteModal').classList.remove('show')});
+document.querySelectorAll('.tab-btn-term').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.tab-btn-term').forEach(bb=>bb.classList.remove('active'));document.querySelectorAll('.tab-content-term').forEach(cc=>cc.classList.remove('active'));b.classList.add('active');document.getElementById(`tab-${b.dataset.tab}`).classList.add('active');if(b.dataset.tab==='clients')loadClients();if(b.dataset.tab==='ecoles')loadEcoles();if(b.dataset.tab==='logs')loadLogs()})});
+document.getElementById('clientEcoleFilter')?.addEventListener('change',loadClients);
+document.getElementById('clientStatusFilter')?.addEventListener('change',loadClients);
+document.getElementById('logTypeFilter')?.addEventListener('change',loadLogs);
+document.getElementById('refreshClientsBtn')?.addEventListener('click',()=>{loadClients();showToast("Clients rafraîchis")});
+document.getElementById('refreshEcolesBtn')?.addEventListener('click',()=>{loadEcoles();showToast("Écoles rafraîchies")});
+document.getElementById('refreshLogsBtn')?.addEventListener('click',()=>{loadLogs();showToast("Logs rafraîchis")});
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.key==='u')||(e.ctrlKey&&e.shiftKey&&e.key==='I'))e.preventDefault()});
+
+initApp();
+</script>
+</body>
+</html>
