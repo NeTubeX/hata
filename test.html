@@ -414,9 +414,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ============================================================
-// 1. VÉRIFICATION STRICTE DE L'ÉCOLE DANS LA COLLECTION "ecoles"
-// ============================================================
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
@@ -425,7 +422,6 @@ if (!schoolId) {
     throw new Error('Redirection vers le sélecteur');
 }
 
-// Fonction pour vérifier si l'école existe dans Firestore
 async function verifierEcoleAutorisee(ecoleId) {
     try {
         const docRef = doc(db, "ecoles", ecoleId);
@@ -437,11 +433,9 @@ async function verifierEcoleAutorisee(ecoleId) {
     }
 }
 
-// Vérification immédiate
 const estAutorisee = await verifierEcoleAutorisee(schoolId);
 
 if (!estAutorisee) {
-    // BLOQUER L'ACCÈS
     document.body.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
             <div style="font-size:64px;margin-bottom:20px;">🚫</div>
@@ -459,7 +453,6 @@ if (!estAutorisee) {
     throw new Error('École non autorisée: ' + schoolId);
 }
 
-// Si l'école est autorisée, continuer...
 const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 
@@ -491,12 +484,9 @@ let iaInstructions = null;
 let dernierEleveConsulte = null;
 let dernierEleveData = null;
 
-// ==================== COMPTEUR DE TENTATIVES DE CONNEXION ====================
 let tentativeConnexion = 0;
 let derniereTentative = 0;
 const SEUIL_ALERTE = 3;
-
-// ==================== FONCTIONS UTILITAIRES ====================
 
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
@@ -558,8 +548,6 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
     d.querySelector('#styledConfirmOk').onclick = () => { d.remove(); if (onConfirm) onConfirm(); };
     d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
 }
-
-// ==================== LOGS ET ALERTES ====================
 
 async function enregistrerLog(action, details, statut = "info") {
     try {
@@ -703,13 +691,10 @@ function obtenirCategoriesAlerte(action) {
     return categories[action] || ["général"];
 }
 
-// ==================== MESSAGES PARENTAUX (Firebase) ====================
-
 async function enregistrerMessageParental(message, reponse, codeOuNom) {
     try {
         const msgId = "parent_msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
         const now = new Date();
-        
         const messageData = {
             _type: "parent_message",
             id: msgId,
@@ -721,7 +706,6 @@ async function enregistrerMessageParental(message, reponse, codeOuNom) {
             ecole: SCHOOL_PREFIX,
             source: "espace_parental"
         };
-        
         if (navigator.onLine) {
             try {
                 await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msgId), messageData);
@@ -733,7 +717,6 @@ async function enregistrerMessageParental(message, reponse, codeOuNom) {
         } else {
             sauvegarderMessageLocal(messageData);
         }
-        
         return true;
     } catch (error) {
         console.error("Erreur:", error);
@@ -757,7 +740,6 @@ async function synchroniserMessagesParentaux() {
     try {
         const messagesLocaux = JSON.parse(localStorage.getItem('parent_messages_locaux') || '[]');
         if (messagesLocaux.length === 0) return;
-        
         console.log("🔄 Synchronisation de " + messagesLocaux.length + " messages parentaux...");
         let compteur = 0;
         for (const msg of messagesLocaux) {
@@ -774,8 +756,6 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
-
-// ==================== INDEXEDDB ====================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -879,8 +859,6 @@ window.addEventListener('online', function() {
     synchroniserMessagesParentaux();
 });
 
-// ==================== SESSION ====================
-
 function sauvegarderSession(prof) {
     if (prof) {
         localStorage.setItem('gloria_session_prof', JSON.stringify({
@@ -888,7 +866,8 @@ function sauvegarderSession(prof) {
             nom: prof.nom,
             code: prof.code,
             createdAt: prof.createdAt,
-            school: SCHOOL_PREFIX
+            school: SCHOOL_PREFIX,
+            actif: prof.actif
         }));
     } else {
         localStorage.removeItem('gloria_session_prof');
@@ -907,6 +886,11 @@ async function restaurerSession() {
             let ap = await getAllFromIndexedDB('professeurs');
             let fp = ap.find(function(p) { return p.id === prof.id && p.school === SCHOOL_PREFIX; });
             if (fp) {
+                if (fp.actif === false) {
+                    toast("⚠️ Votre compte a été désactivé. Contactez l'administration.", 'error');
+                    localStorage.removeItem('gloria_session_prof');
+                    return false;
+                }
                 currentProf = fp;
                 document.getElementById('mainApp').style.display = 'block';
                 const parentBtn = document.getElementById('parentFloatingBtn');
@@ -923,8 +907,6 @@ async function restaurerSession() {
     }
     return false;
 }
-
-// ==================== FICHE ====================
 
 async function chargerSelecteursDynamiques() {
     const toutes = await getAllFromIndexedDB('fiches');
@@ -1053,8 +1035,6 @@ function mettreAJourSelectOptions(c) {
     if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) s.value = currentFiche.option;
 }
 
-// ==================== COMPTEUR D'ÉLÈVES ====================
-
 function mettreAJourCompteurEleves() {
     const countSpan = document.getElementById('eleveCount');
     if (countSpan && currentFiche) {
@@ -1062,8 +1042,6 @@ function mettreAJourCompteurEleves() {
         countSpan.textContent = nb;
     }
 }
-
-// ==================== ÉLÈVES ====================
 
 function afficherEleves() {
     let c = document.getElementById('elevesListContainer');
@@ -1113,8 +1091,6 @@ window.delEleve = function(i) {
         toast(n + " a été supprimé", 'warning');
     });
 };
-
-// ==================== COTATION ====================
 
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
 
@@ -1179,8 +1155,6 @@ function getMoyenneGenerale(eleve) {
     return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal };
 }
 
-// ==================== RECHERCHE AVANCÉE ====================
-
 let advancedFilters = {
     classe: '',
     option: '',
@@ -1209,14 +1183,11 @@ function reinitialiserFiltresAvances() {
     toast("Filtres réinitialisés", 'info');
 }
 
-// ==================== AFFICHAGE COTATION (CORRIGÉ) ====================
-
 function afficherCotation() {
     let th = document.getElementById('cotationHeader');
     let tb = document.getElementById('cotationBody');
     let ev = currentFiche?.eleves || [];
 
-    // Filtrage
     let elevesFiltres = [...ev];
     if (advancedFilters.classe && currentFiche?.classe !== advancedFilters.classe) {
         elevesFiltres = elevesFiltres.filter(e => e.classe === advancedFilters.classe);
@@ -1245,7 +1216,6 @@ function afficherCotation() {
         return;
     }
 
-    // ===== RÉCUPÉRER LA NOTE MAX DEPUIS LA CONFIGURATION =====
     let p1m = getPeriodeMax(1);
     let p2m = getPeriodeMax(2);
     let p3m = getPeriodeMax(3);
@@ -1264,7 +1234,6 @@ function afficherCotation() {
 
     const periodeFiltre = advancedFilters.periode || 'all';
 
-    // ===== EN-TÊTES AVEC LES BONNES NOTES MAX =====
     if (periodeFiltre === 'all' || periodeFiltre === '1') {
         for (let ep of e1) {
             h.push('<th>' + ep.nom + '<br>P1 /' + ep.max + '</th>');
@@ -1303,7 +1272,6 @@ function afficherCotation() {
     th.innerHTML = h.join('');
     tb.innerHTML = '';
 
-    // ===== AFFICHER LES LIGNES =====
     for (let i = 0; i < elevesFiltres.length; i++) {
         let e = elevesFiltres[i];
         if (!e.notes) e.notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
@@ -1433,8 +1401,6 @@ window.updExam = function(i, s, v) {
     refreshGroupes();
 };
 
-// ==================== EPREUVES ====================
-
 function afficherEpreuves() {
     let c = document.getElementById('epreuvesContainer');
     if (!c) return;
@@ -1510,8 +1476,6 @@ function mettreAJourEpreuvesSelect() {
     if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>';
 }
 
-// ==================== EXPORT ====================
-
 function updateExportSelect() {
     let es = document.getElementById('eleveForExportSelect');
     if (es && currentFiche) {
@@ -1526,8 +1490,6 @@ function updateExportSelect() {
         }
     }
 }
-
-// ==================== GROUPES ====================
 
 function refreshGroupes() {
     let c = document.getElementById('listePresenceEleves');
@@ -1596,8 +1558,6 @@ function rafraichirGroupesPourCotation() {
     });
     c.innerHTML = h;
 }
-
-// ==================== HORAIRE ====================
 
 function getJourReel() {
     const j = new Date().getDay();
@@ -1839,7 +1799,9 @@ async function showLogin() {
         derniereTentative = maintenant;
 
         let ap = await getAllFromIndexedDB('professeurs');
-        let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
+        let fp = ap.find(function(p) { 
+            return p.nom === n && p.school === SCHOOL_PREFIX; 
+        });
 
         if (!fp) {
             if (tentativeConnexion >= SEUIL_ALERTE) {
@@ -1858,9 +1820,22 @@ async function showLogin() {
                     tentative: tentativeConnexion
                 }, "error");
             }
-
             document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
             toast("Compte désactivé ou identifiants incorrects", 'error');
+            return;
+        }
+
+        if (fp.actif === false) {
+            await enregistrerLog("tentative_connexion_compte_desactive", {
+                message: 'Tentative de connexion sur compte désactivé : ' + n,
+                professeur: n,
+                professeur_id: fp.id,
+                ecole: SCHOOL_PREFIX,
+                code_saisi: c
+            }, "warning");
+            document.getElementById('loginError').innerHTML = '⚠️ Ce compte a été désactivé par l\'administration. Veuillez contacter votre direction.';
+            toast("⚠️ Compte désactivé. Contactez l'administration.", 'error');
+            tentativeConnexion = 0;
             return;
         }
 
@@ -1869,9 +1844,16 @@ async function showLogin() {
         if (c === fp.code) {
             await enregistrerLog("connexion_reussie", {
                 message: 'Connexion réussie de ' + n,
-                code_utilise: c
+                code_utilise: c,
+                compte_actif: fp.actif
             }, "success");
-            currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
+            currentProf = { 
+                id: fp.profId, 
+                nom: n, 
+                code: fp.code, 
+                createdAt: fp.createdAt || Date.now(),
+                actif: fp.actif
+            };
             sauvegarderSession(currentProf);
             document.getElementById('loginOverlay').remove();
             document.getElementById('mainApp').style.display = 'block';
@@ -1908,8 +1890,6 @@ async function showLogin() {
     };
     document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
 }
-
-// ==================== ADMIN / DIRECTRICE ====================
 
 async function refreshTeachersList() {
     let ap = await getAllFromIndexedDB('professeurs');
@@ -1964,8 +1944,6 @@ async function showAdminModal() {
         }
     };
 }
-
-// ==================== PROFESSEURS (Admin) ====================
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
@@ -2237,8 +2215,6 @@ async function refreshProfsList() {
     });
 }
 
-// ==================== CORBEILLE ====================
-
 function afficherCorbeille() {
     let c = document.getElementById('corbeilleList');
     if (!c) return;
@@ -2355,8 +2331,6 @@ window.supprimerFicheCorbeille = function(ficheId) {
     });
 };
 
-// ==================== PARENTS ====================
-
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
     const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
@@ -2426,8 +2400,6 @@ async function typeWriterEffect(element, text, speed = 15) {
         await new Promise(r => setTimeout(r, speed));
     }
 }
-
-// ==================== CORRECTION ====================
 
 function correctionUpdateEpreuveList() {
     const periodeSelect = document.getElementById('correctionPeriodeSelect');
@@ -2527,8 +2499,6 @@ function correctionPrevStudent() {
         speak("Vous êtes déjà au premier élève.");
     }
 }
-
-// ==================== TITULAIRE ====================
 
 let titulaireConfig = null,
     toutesFichesTitu = [],
@@ -3214,8 +3184,6 @@ async function initTitulaire() {
     }
 }
 
-// ==================== RECO (SUPPORT NETUBEX) ====================
-
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = schoolId;
@@ -3370,8 +3338,6 @@ function initRecoSupport() {
     });
 }
 
-// ==================== PARENTS MODAL ====================
-
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -3428,7 +3394,6 @@ if (parentSendBtnNew) {
         await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
 
-        // === ENREGISTRER LE MESSAGE DANS FIREBASE ===
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
         await enregistrerMessageParental(message, reponse, codeOuNom);
 
@@ -3462,8 +3427,6 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
-
-// ==================== DONNÉES ÉLÈVES (Compta) ====================
 
 async function getAllComptaEleves() {
     try {
@@ -3727,8 +3690,6 @@ async function traiterMessage(message) {
     }
     return "👋 Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
 }
-
-// ==================== EVENT LISTENERS ====================
 
 document.getElementById('addEleveBtn').onclick = function() {
     if (!currentFiche) {
@@ -4454,8 +4415,6 @@ document.getElementById('configJourSelect')?.addEventListener('change', () => af
 document.getElementById('ajouterHeureBtn')?.addEventListener('click', () => ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () => sauvegarderHoraireAuto());
 
-// ==================== CORRECTION QUICK / GESTURE ====================
-
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     if (!currentFiche || !currentFiche.eleves?.length) {
         toast("Aucune fiche ou élève sélectionné", 'error');
@@ -4600,8 +4559,6 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
         window.location.href = 'https://www.netubex.com/schoolchoice';
     });
 });
-
-// ==================== INITIALISATION ====================
 
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
