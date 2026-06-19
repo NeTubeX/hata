@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a0e1a">
-<title>ESPACE COMPTABILITÉ</title>
+<title>Gloria Dei - Comptabilité</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -182,16 +182,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 </style>
 </head>
 <body>
-<div id="blockedScreen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0e1a;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;text-align:center;">
-    <div style="font-size:64px;margin-bottom:20px;">🚫</div>
-    <h1 style="color:#ef4444;margin-bottom:10px;font-size:24px;">Accès non autorisé</h1>
-    <p style="color:#94a3b8;max-width:450px;margin-bottom:8px;font-size:15px;line-height:1.7;" id="blockedMessage">L'établissement n'est pas enregistré dans notre système.</p>
-    <p style="color:#fbbf24;max-width:450px;margin-bottom:20px;font-size:14px;line-height:1.6;">Veuillez contacter l'administrateur.</p>
-    <button onclick="window.location.href='https://www.netubex.com/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:14px 40px;border-radius:40px;cursor:pointer;font-size:16px;font-weight:600;">Retourner au sélecteur</button>
-</div>
-<div class="login-overlay" id="loginOverlay">
-<div class="login-card"><h2 id="loginSchoolName">🏫 CHARGEMENT...</h2><p id="loginSchoolSub">Accès comptabilité</p><input type="password" id="loginCode" placeholder="Code d'accès" inputmode="numeric" maxlength="6" autocomplete="off"><button id="loginBtn">🔐 SE CONNECTER</button><div id="loginError" class="login-error"></div></div>
-</div>
 <div class="container" id="mainApp" style="display:none">
 <div class="school-header"><div class="school-name" id="schoolName">🏫 CHARGEMENT...</div><div class="school-sub" id="schoolSub">COMPTABILITÉ - GESTION DU MINERVAL</div><button class="logout-btn" id="logoutBtn" title="Déconnexion">✕</button></div>
 <div class="stat-row"><div class="stat-card" data-stat="total"><div class="stat-number" id="statTotal">0</div><div class="stat-label">TOTAL ÉLÈVES</div></div><div class="stat-card" data-stat="exoneres"><div class="stat-number" id="statExoneres">0</div><div class="stat-label">EXONÉRÉS</div></div><div class="stat-card" data-stat="listenoir"><div class="stat-number" id="statListeNoire">0</div><div class="stat-label">LISTE NOIRE</div></div><div class="stat-card" data-stat="reguliers"><div class="stat-number" id="statReguliers">0</div><div class="stat-label">RÉGULIERS</div></div><div class="stat-card" data-stat="abandons"><div class="stat-number" id="statAbandons">0</div><div class="stat-label">ABANDONS</div></div></div>
@@ -307,19 +297,25 @@ import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,query,where}f
 const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
+
+// ===== VÉRIFICATION 100% IDENTIQUE AU CODE 2 =====
 const urlParams=new URLSearchParams(window.location.search);
 let schoolId=urlParams.get('ecole');
-if(!schoolId){window.location.href='/school-choice.html';throw new Error('Redirection');}
 
-// ✅ AJOUT (comme dans le Code 2)
-const SCHOOL_PREFIX = schoolId.replace(/[^a-zA-Z0-9]/g, '_');
-const SCHOOL_DISPLAY_NAME = schoolId;
+if(!schoolId){
+    window.location.href='https://www.netubex.com/schoolchoice';
+    throw new Error('Redirection vers le sélecteur');
+}
 
-// ✅ FONCTION DE VÉRIFICATION (identique au Code 2)
+// ✅ 100% IDENTIQUE AU CODE 2 - PAS DE TRANSFORMATION
+const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
+const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
+
+// ✅ FONCTION DE VÉRIFICATION IDENTIQUE AU CODE 2
 async function verifierEcoleAutorisee(ecoleId){
     try{
-        const docRef = doc(db, "ecoles", ecoleId);
-        const docSnap = await getDoc(docRef);
+        const docRef=doc(db,"ecoles",ecoleId);
+        const docSnap=await getDoc(docRef);
         return docSnap.exists();
     }catch(error){
         console.error("Erreur vérification:", error);
@@ -327,19 +323,21 @@ async function verifierEcoleAutorisee(ecoleId){
     }
 }
 
-// ✅ VÉRIFICATION AVEC SCHOOL_PREFIX (au lieu de schoolId)
-const estAutorisee = await verifierEcoleAutorisee(SCHOOL_PREFIX);
+// ✅ VÉRIFICATION AVEC schoolId (pas transformé) - COMME LE CODE 2
+const estAutorisee = await verifierEcoleAutorisee(schoolId);
 
 if(!estAutorisee){
-    document.body.innerHTML = `
+    // ✅ MESSAGE IDENTIQUE AU CODE 2
+    document.body.innerHTML=`
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
             <div style="font-size:64px;margin-bottom:20px;">🚫</div>
             <h1 style="color:#ef4444;margin-bottom:10px;font-size:24px;">Accès non autorisé</h1>
-            <p style="color:#94a3b8;max-width:450px;margin-bottom:8px;font-size:15px;line-height:1.7;">
-                L'établissement "<strong style="color:#fbbf24;">${schoolId}</strong>" n'est pas enregistré dans notre système.
+            <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
+                L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>
+                Veuillez contacter l'administrateur.
             </p>
             <button onclick="window.location.href='https://www.netubex.com/schoolchoice'" 
-                    style="background:#3b82f6;color:#fff;border:none;padding:14px 40px;border-radius:40px;cursor:pointer;font-size:16px;font-weight:600;">
+                    style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
                 Retourner au sélecteur
             </button>
         </div>
@@ -347,12 +345,12 @@ if(!estAutorisee){
     throw new Error('École non autorisée: ' + schoolId);
 }
 
-// ✅ MISE À JOUR DE L'AFFICHAGE (comme dans le Code 2)
-document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${schoolId.toUpperCase().replace(/-/g, ' ')}`;
-document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${schoolId.toUpperCase().replace(/-/g, ' ')}`;
-document.getElementById("ecoleNom").value = `COMPLEXE SCOLAIRE ${schoolId.toUpperCase().replace(/-/g, ' ')}`;
-document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
-document.getElementById("loginSchoolSub").innerHTML = "Entrez votre code d'accès";
+// ✅ AFFICHAGE IDENTIQUE AU CODE 2
+document.getElementById("schoolName").innerHTML=`🏫 COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
+document.getElementById("loginSchoolName").innerHTML=`🏫 COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
+document.getElementById("ecoleNom").value=`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
+document.getElementById("schoolSub").innerHTML=`COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
+document.getElementById("loginSchoolSub").innerHTML="Entrez votre code d'accès";
 
 let currentSchoolConfig=null;
 let currentEleve=null;
@@ -521,10 +519,10 @@ const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");
 const configSnap=await getDoc(configRef);
 if(configSnap.exists()){currentSchoolConfig=configSnap.data();}
 else{
-currentSchoolConfig={nom:`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,adresse:"",codeAcces:"1234",maxExonerations:10,fraisInscription:50000};
+currentSchoolConfig={nom:`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`,adresse:"",codeAcces:"1234",maxExonerations:10,fraisInscription:50000};
 await setDoc(configRef,currentSchoolConfig);
 }
-document.getElementById("ecoleNom").value=currentSchoolConfig.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("ecoleNom").value=currentSchoolConfig.nom||`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
 document.getElementById("ecoleAdresse").value=currentSchoolConfig.adresse||"";
 document.getElementById("fraisInscription").value=currentSchoolConfig.fraisInscription||50000;
 return currentSchoolConfig;
@@ -994,10 +992,10 @@ if(listenoirCard)listenoirCard.onclick=async()=>{const ln=infos.filter(e=>!e.exo
 if(reguliersCard)reguliersCard.onclick=async()=>{const reg=infos.filter(e=>!e.exonere&&!e.abandon&&e.moisImpayes>0&&e.moisImpayes<3);showDetailModal("💰 RÉGULIERS",reg);};
 if(abandonsCard)abandonsCard.onclick=async()=>{const ab=tous.filter(e=>e.abandon);showDetailModal("❌ ABANDONS",ab);};
 }
-window.genererPDFRecouvrement=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const recouv=tous.filter(e=>!e.exonere&&e.moisImpayes>0);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DE RECOUVREMENT",105,32,{align:"center"});doc.text(`Date: ${formatDateFr(new Date())}`,20,55);doc.text(`Année: ${anneeScolaire}`,20,62);if(recouv.length===0){doc.text("Aucun élève à recouvrer",105,100,{align:"center"});}else{const body=recouv.map(e=>[e.nom,`${e.classe} ${e.option||""}`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",`${e.moisImpayes} mois`,e.parentCode||'-']);doc.autoTable({startY:72,head:[["ÉLÈVE","CLASSE","MONTANT DÛ","MOIS IMPAYÉS","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[255,215,0],textColor:[0,0,0],fontStyle:"bold"}});}doc.save(`Recouvrement_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFListeNoire=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const ln=tous.filter(e=>!e.exonere&&e.moisImpayes>=3);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS",105,32,{align:"center"});if(ln.length===0){doc.text("Aucun élève en liste noire",105,100,{align:"center"});}else{const body=ln.map(e=>[e.nom,`${e.classe} ${e.option||""}`,`${e.moisImpayes} mois`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",e.parentCode||'-']);doc.autoTable({startY:55,head:[["ÉLÈVE","CLASSE","MOIS IMPAYÉS","MONTANT DÛ","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[239,68,68],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`ListeNoire_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFTousEleves=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE COMPLÈTE DES ÉLÈVES",105,32,{align:"center"});doc.text(`Total: ${actifs.length} élèves`,20,55);const body=actifs.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.exonere?"OUI":"NON",e.phone||"-",e.parentCode||'-']);doc.autoTable({startY:62,head:[["NOM","CLASSE","EXONÉRÉ","TÉLÉPHONE","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[59,130,246],textColor:[255,255,255],fontStyle:"bold"}});doc.save(`ListeEleves_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFExoneres=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DES ÉLÈVES EXONÉRÉS",105,32,{align:"center"});if(ex.length===0){doc.text("Aucun élève exonéré",105,100,{align:"center"});}else{const body=ex.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.motifExon||"-",e.parentCode||'-']);doc.autoTable({startY:55,head:[["NOM","CLASSE","MOTIF","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:9,cellPadding:4},headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`Exoneres_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFRecouvrement=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const recouv=tous.filter(e=>!e.exonere&&e.moisImpayes>0);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DE RECOUVREMENT",105,32,{align:"center"});doc.text(`Date: ${formatDateFr(new Date())}`,20,55);doc.text(`Année: ${anneeScolaire}`,20,62);if(recouv.length===0){doc.text("Aucun élève à recouvrer",105,100,{align:"center"});}else{const body=recouv.map(e=>[e.nom,`${e.classe} ${e.option||""}`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",`${e.moisImpayes} mois`,e.parentCode||'-']);doc.autoTable({startY:72,head:[["ÉLÈVE","CLASSE","MONTANT DÛ","MOIS IMPAYÉS","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[255,215,0],textColor:[0,0,0],fontStyle:"bold"}});}doc.save(`Recouvrement_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFListeNoire=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const ln=tous.filter(e=>!e.exonere&&e.moisImpayes>=3);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS",105,32,{align:"center"});if(ln.length===0){doc.text("Aucun élève en liste noire",105,100,{align:"center"});}else{const body=ln.map(e=>[e.nom,`${e.classe} ${e.option||""}`,`${e.moisImpayes} mois`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",e.parentCode||'-']);doc.autoTable({startY:55,head:[["ÉLÈVE","CLASSE","MOIS IMPAYÉS","MONTANT DÛ","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[239,68,68],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`ListeNoire_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFTousEleves=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE COMPLÈTE DES ÉLÈVES",105,32,{align:"center"});doc.text(`Total: ${actifs.length} élèves`,20,55);const body=actifs.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.exonere?"OUI":"NON",e.phone||"-",e.parentCode||'-']);doc.autoTable({startY:62,head:[["NOM","CLASSE","EXONÉRÉ","TÉLÉPHONE","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[59,130,246],textColor:[255,255,255],fontStyle:"bold"}});doc.save(`ListeEleves_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFExoneres=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${schoolNameForDisplay}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DES ÉLÈVES EXONÉRÉS",105,32,{align:"center"});if(ex.length===0){doc.text("Aucun élève exonéré",105,100,{align:"center"});}else{const body=ex.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.motifExon||"-",e.parentCode||'-']);doc.autoTable({startY:55,head:[["NOM","CLASSE","MOTIF","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:9,cellPadding:4},headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`Exoneres_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
 window.genererPDFCartes=async function(){try{toast("Génération des cartes...","warning");const{jsPDF}=window.jspdf;const eleves=await getAllComptaEleves();const actifs=eleves.filter(e=>!e.abandon);const doc=new jsPDF("p","mm","a4");let y=20;for(let i=0;i<actifs.length;i++){if(i>0&&i%2===0){doc.addPage();y=20;}const e=actifs[i];doc.setFillColor(30,41,59);doc.roundedRect(10,y,85,60,5,5,"F");doc.setDrawColor(255,215,0);doc.setLineWidth(0.5);doc.roundedRect(10,y,85,60,5,5,"S");doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(e.nom+" "+(e.postnom||"")+" "+e.prenom,15,y+8);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(200,200,200);doc.text(`Classe: ${e.classe} ${e.option||""}`,15,y+16);doc.text(`Matricule: ${e.id.substring(0,12)}...`,15,y+22);doc.text(`Tél: ${e.phone||"-"}`,15,y+28);if(e.nomPere)doc.text(`Père: ${e.nomPere.substring(0,18)}`,15,y+34);if(e.nomMere)doc.text(`Mère: ${e.nomMere.substring(0,18)}`,15,y+40);doc.setFontSize(6);doc.setTextColor(59,130,246);doc.text(`Code Parent: ${e.parentCode||'Non attribué'}`,15,y+46);doc.setFontSize(6);doc.setTextColor(255,215,0);doc.text(`${currentSchoolConfig?.nom||"ÉCOLE"}`,15,y+53);if(i%2===1){y+=65;}else{y+=0;}}doc.save(`CartesIdentite_${formatDateYMD()}.pdf`);toast("Cartes générées","success");}catch(e){toast("Erreur","error");}};
 function initTabsEvents(){const tabs=document.querySelectorAll(".tab-btn");tabs.forEach(btn=>{btn.removeEventListener("click",handleTabClick);btn.addEventListener("click",handleTabClick);});}
 async function handleTabClick(){const tabId=this.dataset.tab;if(tabId==="tab7"){if(!await verifierCodeAccesConfig()){return;}}document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));const activePanel=document.getElementById(tabId);if(activePanel)activePanel.classList.add("active");if(tabId==="tab4"){await afficherCartesIdentite();}if(tabId==="tab5"){await afficherParentCodes();}}
