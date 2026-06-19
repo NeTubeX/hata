@@ -182,6 +182,13 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 </style>
 </head>
 <body>
+<div id="blockedScreen" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a0e1a;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;text-align:center;">
+    <div style="font-size:64px;margin-bottom:20px;">🚫</div>
+    <h1 style="color:#ef4444;margin-bottom:10px;font-size:24px;">Accès non autorisé</h1>
+    <p style="color:#94a3b8;max-width:450px;margin-bottom:8px;font-size:15px;line-height:1.7;" id="blockedMessage">L'établissement n'est pas enregistré dans notre système.</p>
+    <p style="color:#fbbf24;max-width:450px;margin-bottom:20px;font-size:14px;line-height:1.6;">Veuillez enregistrer votre école à l'entreprise <strong style="color:#ffd700;">NeTubeX SARL</strong></p>
+    <button onclick="window.location.href='https://www.netubex.com/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:14px 40px;border-radius:40px;cursor:pointer;font-size:16px;font-weight:600;">Retourner au sélecteur</button>
+</div>
 <div class="login-overlay" id="loginOverlay">
 <div class="login-card"><h2 id="loginSchoolName">🏫 CHARGEMENT...</h2><p id="loginSchoolSub">Accès comptabilité</p><input type="password" id="loginCode" placeholder="Code d'accès" inputmode="numeric" maxlength="6" autocomplete="off"><button id="loginBtn">🔐 SE CONNECTER</button><div id="loginError" class="login-error"></div></div>
 </div>
@@ -205,1080 +212,929 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="modal-overlay" id="confirmModal"><div class="modal-card"><h3>⚠️ CONFIRMATION</h3><div id="confirmMessage" style="color:#fff; text-align:center; padding:20px;"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmYes">OUI</button><button class="btn btn-outline" id="confirmNo">NON</button></div></div></div>
 <div class="modal-overlay" id="editParentCodeModal"><div class="modal-card"><h3>✏️ MODIFIER LE CODE PARENT</h3><div id="editParentCodeInfo"></div><div class="form-group"><label>NOUVEAU CODE (6 chiffres)</label><input type="text" id="editParentCodeValue" maxlength="6" inputmode="numeric" placeholder="6 chiffres"></div><div class="form-group"><label>APPLIQUER À LA FAMILLE</label><select id="editParentCodeFamily"><option value="no">Seulement cet élève</option><option value="yes">À tous les enfants avec le même code actuel</option></select></div><div class="modal-buttons"><button class="btn btn-success" id="confirmEditParentCode">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditParentCode">ANNULER</button></div></div></div>
 <script>
-window.ouvrirModalInscription = function() { document.getElementById('addEleveModal').classList.add('show'); };
-document.addEventListener('DOMContentLoaded', function() {
-    var btn = document.getElementById('btnInscrirePrincipal');
-    if(btn) { btn.onclick = function(e) { e.preventDefault(); window.ouvrirModalInscription(); }; btn.ontouchstart = function(e) { e.preventDefault(); window.ouvrirModalInscription(); }; }
-    var logoutBtn = document.getElementById('logoutBtn');
-    if(logoutBtn) { logoutBtn.onclick = function() { window.confirmDeconnexion(); }; }
-    var printBtn = document.getElementById('btnPrintCartes');
-    if(printBtn) { printBtn.onclick = function() { window.genererPDFCartes(); }; }
+window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
+document.addEventListener('DOMContentLoaded',function(){
+var btn=document.getElementById('btnInscrirePrincipal');
+if(btn){btn.onclick=function(e){e.preventDefault();window.ouvrirModalInscription();};btn.ontouchstart=function(e){e.preventDefault();window.ouvrirModalInscription();};}
+var logoutBtn=document.getElementById('logoutBtn');
+if(logoutBtn){logoutBtn.onclick=function(){window.confirmDeconnexion();};}
+var printBtn=document.getElementById('btnPrintCartes');
+if(printBtn){printBtn.onclick=function(){window.genererPDFCartes();};}
 });
-window.confirmDeconnexion = function() {
-    var modal = document.getElementById('confirmModal');
-    var msg = document.getElementById('confirmMessage');
-    msg.innerHTML = '🔓 Êtes-vous sûr de vouloir vous déconnecter ?';
-    var oldYes = document.getElementById('confirmYes').onclick;
-    document.getElementById('confirmYes').onclick = function() {
-        document.getElementById('confirmModal').classList.remove('show');
-        document.getElementById('mainApp').style.display = 'none';
-        document.getElementById('loginOverlay').style.display = 'flex';
-        document.getElementById('loginCode').value = '';
-        document.getElementById('loginError').innerHTML = '';
-        toast('Déconnexion réussie', 'success');
-        document.getElementById('confirmYes').onclick = oldYes;
-    };
-    document.getElementById('confirmNo').onclick = function() { document.getElementById('confirmModal').classList.remove('show'); };
-    modal.classList.add('show');
+window.confirmDeconnexion=function(){
+var modal=document.getElementById('confirmModal');
+var msg=document.getElementById('confirmMessage');
+msg.innerHTML='🔓 Êtes-vous sûr de vouloir vous déconnecter ?';
+var oldYes=document.getElementById('confirmYes').onclick;
+document.getElementById('confirmYes').onclick=function(){
+document.getElementById('confirmModal').classList.remove('show');
+document.getElementById('mainApp').style.display='none';
+document.getElementById('loginOverlay').style.display='flex';
+document.getElementById('loginCode').value='';
+document.getElementById('loginError').innerHTML='';
+toast('Déconnexion réussie','success');
+document.getElementById('confirmYes').onclick=oldYes;
 };
-
-function showChangeSchoolConfirm() {
-    var modal = document.getElementById('confirmModal');
-    var msg = document.getElementById('confirmMessage');
-    msg.innerHTML = '🏫 Êtes-vous sûr de vouloir changer d\'école ?<br><br><span style="font-size:13px;color:#94a3b8;">Vous serez redirigé vers le sélecteur d\'écoles.</span>';
-    var oldYes = document.getElementById('confirmYes').onclick;
-    document.getElementById('confirmYes').onclick = function() {
-        document.getElementById('confirmModal').classList.remove('show');
-        window.location.href = 'https://www.netubex.com/schoolchoice';
-        document.getElementById('confirmYes').onclick = oldYes;
-    };
-    document.getElementById('confirmNo').onclick = function() {
-        document.getElementById('confirmModal').classList.remove('show');
-        document.getElementById('confirmYes').onclick = oldYes;
-    };
-    modal.classList.add('show');
-}
-
-function updatePreview() {
-    var nom = document.getElementById('newEleveNom').value.trim();
-    var postnom = document.getElementById('newElevePostnom').value.trim();
-    var prenom = document.getElementById('newElevePrenom').value.trim();
-    var classe = document.getElementById('newEleveClasse').value;
-    var option = document.getElementById('newEleveOption').value;
-    var exonere = document.getElementById('newEleveExonere').value === 'oui';
-    var phone = document.getElementById('newElevePhone').value.trim();
-    var lieuNaiss = document.getElementById('newEleveLieuNaiss').value.trim();
-    var dateNaiss = document.getElementById('newEleveDateNaiss').value;
-    var nomPere = document.getElementById('newEleveNomPere').value.trim();
-    var nomMere = document.getElementById('newEleveNomMere').value.trim();
-    var montantInscription = document.getElementById('newEleveMontantInscription').value || 0;
-    if(!nom && !prenom && !classe) { document.getElementById('previewInscription').style.display = 'none'; return; }
-    var preview = document.getElementById('previewInscription');
-    var html = '<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
-    html += '<p>👤 <strong>' + (nom || '?') + '</strong> ' + (postnom || '') + ' <strong>' + (prenom || '') + '</strong></p>';
-    if(dateNaiss || lieuNaiss) html += '<p>📅 Né(e) le <strong>' + (dateNaiss || '?') + '</strong> à <strong>' + (lieuNaiss || '?') + '</strong></p>';
-    if(nomPere) html += '<p>👨 Père: <strong>' + nomPere + '</strong></p>';
-    if(nomMere) html += '<p>👩 Mère: <strong>' + nomMere + '</strong></p>';
-    html += '<p>📚 Classe: <strong>' + classe + '</strong>' + (option ? ' - ' + option : '') + '</p>';
-    html += '<p>' + (exonere ? '🌟 <strong>EXONÉRATION TOTALE</strong>' : '💰 Minerval standard') + '</p>';
-    if(phone) html += '<p>📞 ' + phone + '</p>';
-    if(montantInscription > 0) html += '<p>💰 Montant versé: <strong>' + parseInt(montantInscription).toLocaleString() + ' FC</strong></p>';
-    preview.innerHTML = html;
-    preview.style.display = 'block';
-}
-document.getElementById('newEleveNom').oninput = updatePreview;
-document.getElementById('newElevePostnom').oninput = updatePreview;
-document.getElementById('newElevePrenom').oninput = updatePreview;
-document.getElementById('newEleveClasse').onchange = updatePreview;
-document.getElementById('newEleveOption').onchange = updatePreview;
-document.getElementById('newEleveExonere').onchange = function() {
-    var s = this.value === 'oui';
-    document.getElementById('motifExonerationGroup').style.display = s ? 'block' : 'none';
-    document.getElementById('approbateurGroup').style.display = s ? 'block' : 'none';
-    updatePreview();
+document.getElementById('confirmNo').onclick=function(){document.getElementById('confirmModal').classList.remove('show');};
+modal.classList.add('show');
 };
-document.getElementById('newElevePhone').oninput = updatePreview;
-document.getElementById('newEleveLieuNaiss').oninput = updatePreview;
-document.getElementById('newEleveDateNaiss').oninput = updatePreview;
-document.getElementById('newEleveNomPere').oninput = updatePreview;
-document.getElementById('newEleveNomMere').oninput = updatePreview;
-document.getElementById('newEleveMontantInscription').oninput = updatePreview;
-document.getElementById('cancelAddEleve').onclick = function() { document.getElementById('addEleveModal').classList.remove('show'); };
-document.getElementById('btnChangeSchool').onclick = function() { showChangeSchoolConfirm(); };
+function showChangeSchoolConfirm(){
+var modal=document.getElementById('confirmModal');
+var msg=document.getElementById('confirmMessage');
+msg.innerHTML='🏫 Êtes-vous sûr de vouloir changer d\'école ?<br><br><span style="font-size:13px;color:#94a3b8;">Vous serez redirigé vers le sélecteur d\'écoles.</span>';
+var oldYes=document.getElementById('confirmYes').onclick;
+document.getElementById('confirmYes').onclick=function(){
+document.getElementById('confirmModal').classList.remove('show');
+window.location.href='https://www.netubex.com/schoolchoice';
+document.getElementById('confirmYes').onclick=oldYes;
+};
+document.getElementById('confirmNo').onclick=function(){
+document.getElementById('confirmModal').classList.remove('show');
+document.getElementById('confirmYes').onclick=oldYes;
+};
+modal.classList.add('show');
+}
+function updatePreview(){
+var nom=document.getElementById('newEleveNom').value.trim();
+var postnom=document.getElementById('newElevePostnom').value.trim();
+var prenom=document.getElementById('newElevePrenom').value.trim();
+var classe=document.getElementById('newEleveClasse').value;
+var option=document.getElementById('newEleveOption').value;
+var exonere=document.getElementById('newEleveExonere').value==='oui';
+var phone=document.getElementById('newElevePhone').value.trim();
+var lieuNaiss=document.getElementById('newEleveLieuNaiss').value.trim();
+var dateNaiss=document.getElementById('newEleveDateNaiss').value;
+var nomPere=document.getElementById('newEleveNomPere').value.trim();
+var nomMere=document.getElementById('newEleveNomMere').value.trim();
+var montantInscription=document.getElementById('newEleveMontantInscription').value||0;
+if(!nom&&!prenom&&!classe){document.getElementById('previewInscription').style.display='none';return;}
+var preview=document.getElementById('previewInscription');
+var html='<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
+html+='<p>👤 <strong>'+(nom||'?')+'</strong> '+(postnom||'')+' <strong>'+(prenom||'')+'</strong></p>';
+if(dateNaiss||lieuNaiss)html+='<p>📅 Né(e) le <strong>'+(dateNaiss||'?')+'</strong> à <strong>'+(lieuNaiss||'?')+'</strong></p>';
+if(nomPere)html+='<p>👨 Père: <strong>'+nomPere+'</strong></p>';
+if(nomMere)html+='<p>👩 Mère: <strong>'+nomMere+'</strong></p>';
+html+='<p>📚 Classe: <strong>'+classe+'</strong>'+(option?' - '+option:'')+'</p>';
+html+='<p>'+(exonere?'🌟 <strong>EXONÉRATION TOTALE</strong>':'💰 Minerval standard')+'</p>';
+if(phone)html+='<p>📞 '+phone+'</p>';
+if(montantInscription>0)html+='<p>💰 Montant versé: <strong>'+parseInt(montantInscription).toLocaleString()+' FC</strong></p>';
+preview.innerHTML=html;
+preview.style.display='block';
+}
+document.getElementById('newEleveNom').oninput=updatePreview;
+document.getElementById('newElevePostnom').oninput=updatePreview;
+document.getElementById('newElevePrenom').oninput=updatePreview;
+document.getElementById('newEleveClasse').onchange=updatePreview;
+document.getElementById('newEleveOption').onchange=updatePreview;
+document.getElementById('newEleveExonere').onchange=function(){
+var s=this.value==='oui';
+document.getElementById('motifExonerationGroup').style.display=s?'block':'none';
+document.getElementById('approbateurGroup').style.display=s?'block':'none';
+updatePreview();
+};
+document.getElementById('newElevePhone').oninput=updatePreview;
+document.getElementById('newEleveLieuNaiss').oninput=updatePreview;
+document.getElementById('newEleveDateNaiss').oninput=updatePreview;
+document.getElementById('newEleveNomPere').oninput=updatePreview;
+document.getElementById('newEleveNomMere').oninput=updatePreview;
+document.getElementById('newEleveMontantInscription').oninput=updatePreview;
+document.getElementById('cancelAddEleve').onclick=function(){document.getElementById('addEleveModal').classList.remove('show');};
+document.getElementById('btnChangeSchool').onclick=function(){showChangeSchoolConfirm();};
 </script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-const firebaseConfig = { apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA", authDomain: "netubexmoney.firebaseapp.com", projectId: "netubexmoney", storageBucket: "netubexmoney.firebasestorage.app", messagingSenderId: "856592608176", appId: "1:856592608176:web:69f9df9cfd4f8c28630475" };
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const urlParams = new URLSearchParams(window.location.search);
-let schoolId = urlParams.get('ecole');
-if (!schoolId) { window.location.href = '/school-choice.html'; throw new Error('Redirection'); }
-const SCHOOL_PREFIX = schoolId.replace(/[^a-zA-Z0-9]/g, '_');
-const SCHOOL_DISPLAY_NAME = schoolId;
-document.getElementById("schoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
-document.getElementById("loginSchoolName").innerHTML = `🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
-document.getElementById("ecoleNom").value = `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
-document.getElementById("schoolSub").innerHTML = `COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
-document.getElementById("loginSchoolSub").innerHTML = "Entrez votre code d'accès";
-let currentSchoolConfig = null;
-let currentEleve = null;
-let currentFilter = "all";
-let tarifsOptionsConfig = {};
-let optionsConfig = {};
-let anneeScolaire = "2026-2027";
-let compteurExoneres = 0;
-let pendingAction = null;
-let isAppInitialized = false;
-let localEleves = [];
-const classesListe = ["7eme EB", "8eme EB", "1ere Annee", "2eme Annee", "3eme Annee", "4eme Annee"];
-const optionsParDefaut = { "7eme EB": [], "8eme EB": [], "1ere Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "2eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "3eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"], "4eme Annee": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"] };
-const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
-const moisIndexMap = { "Septembre":0, "Octobre":1, "Novembre":2, "Decembre":3, "Janvier":4, "Fevrier":5, "Mars":6, "Avril":7, "Mai":8, "Juin":9 };
-const dateRef = new Date();
-const moisActuelNum = dateRef.getMonth();
-let moisCourant = "Septembre";
-if (moisActuelNum >= 8) { moisCourant = moisListe[moisActuelNum - 8]; } else { moisCourant = moisListe[moisActuelNum + 4]; }
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,query,where}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const urlParams=new URLSearchParams(window.location.search);
+let schoolId=urlParams.get('ecole');
+if(!schoolId){window.location.href='/school-choice.html';throw new Error('Redirection');}
+const SCHOOL_PREFIX=schoolId.replace(/[^a-zA-Z0-9]/g,'_');
+const SCHOOL_DISPLAY_NAME=schoolId;
 
-// ========== INDEXEDDB ==========
-const DB_NAME = 'GloriaDeiDB';
-const DB_VERSION = 1;
-const STORE_NAME = 'eleves';
-let dbInstance = null;
-
-function openDB() {
-    return new Promise((resolve, reject) => {
-        try {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onerror = (event) => reject(event.target.error);
-            request.onsuccess = (event) => {
-                dbInstance = event.target.result;
-                resolve(dbInstance);
-            };
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                    store.createIndex('classe', 'classe', { unique: false });
-                    store.createIndex('nom', 'nom', { unique: false });
-                    store.createIndex('parentCode', 'parentCode', { unique: false });
-                    store.createIndex('abandon', 'abandon', { unique: false });
-                }
-            };
-        } catch (error) {
-            reject(error);
-        }
-    });
+async function verifierEcoleAutorisee(ecoleId){
+try{
+const docRef=doc(db,"ecoles",ecoleId);
+const docSnap=await getDoc(docRef);
+return docSnap.exists();
+}catch(error){console.error("Erreur vérification:",error);return false;}
 }
-
-function sauvegarderDansIndexedDB(eleves) {
-    if (!dbInstance) return;
-    try {
-        const transaction = dbInstance.transaction(STORE_NAME, 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        store.clear();
-        for (const eleve of eleves) {
-            store.add(eleve);
-        }
-    } catch (error) {
-        console.error("IndexedDB:", error);
-    }
+const estAutorisee=await verifierEcoleAutorisee(schoolId);
+if(!estAutorisee){
+document.body.innerHTML=`
+<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
+<div style="font-size:64px;margin-bottom:20px;">🚫</div>
+<h1 style="color:#ef4444;margin-bottom:10px;font-size:24px;">Accès non autorisé</h1>
+<p style="color:#94a3b8;max-width:450px;margin-bottom:8px;font-size:15px;line-height:1.7;">
+L'établissement "<strong style="color:#fbbf24;">${schoolId}</strong>" n'est pas enregistré dans notre système.
+</p>
+<p style="color:#fbbf24;max-width:450px;margin-bottom:20px;font-size:14px;line-height:1.6;">
+Veuillez enregistrer votre école à l'entreprise <strong style="color:#ffd700;">NeTubeX SARL</strong>
+</p>
+<button onclick="window.location.href='https://www.netubex.com/schoolchoice'" 
+style="background:#3b82f6;color:#fff;border:none;padding:14px 40px;border-radius:40px;cursor:pointer;font-size:16px;font-weight:600;">
+Retourner au sélecteur
+</button>
+</div>
+`;
+throw new Error('École non autorisée: '+schoolId);
 }
-
-function chargerDepuisIndexedDB() {
-    return new Promise((resolve) => {
-        if (!dbInstance) { resolve(null); return; }
-        try {
-            const transaction = dbInstance.transaction(STORE_NAME, 'readonly');
-            const store = transaction.objectStore(STORE_NAME);
-            const request = store.getAll();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => resolve(null);
-        } catch (error) {
-            resolve(null);
-        }
-    });
-}
-
-function genererCodeParent() { return Math.floor(100000 + Math.random() * 900000).toString(); }
-function formaterNombre(n) { if (n === 0) return "0"; let resultat = "", nombre = Math.abs(n), strNombre = nombre.toString(), compteur = 0; for (let i = strNombre.length - 1; i >= 0; i--) { compteur++; resultat = strNombre[i] + resultat; if (compteur % 3 === 0 && i !== 0) resultat = " " + resultat; } return n < 0 ? "-" + resultat : resultat; }
-function formatNb(n) { if (isNaN(n) || n === null || n === undefined) return "0 FC"; return formaterNombre(Math.floor(Number(n))) + " FC"; }
-function formatNbSimple(n) { if (isNaN(n) || n === null || n === undefined) return "0"; return formaterNombre(Math.floor(Number(n))); }
-function toast(msg, type = "success") { const c = document.getElementById("toastContainer"); if (!c) return; const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" }; const titles = { success: "Succès", error: "Erreur", warning: "Attention", info: "Info" }; const el = document.createElement("div"); el.className = `toast ${type}`; el.innerHTML = `<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`; c.appendChild(el); setTimeout(() => el.classList.add("show"), 10); setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 300); }, 3000); }
-function formatDateYMD(date = new Date()) { return date.toISOString().split('T')[0]; }
-function formatDateFr(date) { const d = new Date(date); return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`; }
-function estMoisPasse(mois) { return moisIndexMap[mois] < moisIndexMap[moisCourant]; }
-
-async function chargerOptions() { 
-    try { 
-        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data"); 
-        const snap = await getDoc(ref); 
-        if (snap.exists()) { optionsConfig = snap.data(); } 
-        else { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); await setDoc(ref, optionsConfig); }
-        mettreAJourSelectsOptions(); 
-        afficherOptionsConfig();
-    } catch (error) { 
-        console.error("Erreur chargement options:", error);
-        optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut));
-        mettreAJourSelectsOptions(); 
-        afficherOptionsConfig();
-    } 
-}
-
-function afficherOptionsConfig() {
-    const container = document.getElementById('optionsListContainer');
-    if (!container) return;
-    const classe = document.getElementById('configClasseOptions').value;
-    const opts = optionsConfig[classe] || [];
-    if (opts.length === 0) {
-        container.innerHTML = '<div style="color:#94a3b8;padding:8px;">Aucune option pour cette classe</div>';
-        return;
-    }
-    let html = '';
-    opts.forEach(opt => {
-        html += `<div class="options-config-item">
-            <span class="opt-name">📌 ${opt}</span>
-            <button class="btn btn-danger btn-sm" onclick="supprimerOption('${classe}','${opt}')">✕</button>
-        </div>`;
-    });
-    container.innerHTML = html;
-}
-window.supprimerOption = async function(classe, option) {
-    if (!await showConfirm(`Supprimer l'option "${option}" de la classe ${classe} ?`)) return;
-    if (optionsConfig[classe]) {
-        const idx = optionsConfig[classe].indexOf(option);
-        if (idx !== -1) {
-            optionsConfig[classe].splice(idx, 1);
-            try {
-                const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data");
-                await setDoc(ref, optionsConfig);
-                mettreAJourSelectsOptions();
-                afficherOptionsConfig();
-                toast(`Option "${option}" supprimée`, "success");
-            } catch (e) {
-                toast("Erreur lors de la suppression", "error");
-            }
-        }
-    }
+document.getElementById("schoolName").innerHTML=`🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("loginSchoolName").innerHTML=`🏫 COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("ecoleNom").value=`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("schoolSub").innerHTML=`COMPTABILITÉ - GESTION DU MINERVAL | Année 2026-2027`;
+document.getElementById("loginSchoolSub").innerHTML="Entrez votre code d'accès";
+let currentSchoolConfig=null;
+let currentEleve=null;
+let currentFilter="all";
+let tarifsOptionsConfig={};
+let optionsConfig={};
+let anneeScolaire="2026-2027";
+let compteurExoneres=0;
+let pendingAction=null;
+let isAppInitialized=false;
+let localEleves=[];
+const classesListe=["7eme EB","8eme EB","1ere Annee","2eme Annee","3eme Annee","4eme Annee"];
+const optionsParDefaut={"7eme EB":[],"8eme EB":[],"1ere Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"],"2eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"],"3eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"],"4eme Annee":["CG","HP","TCC","ELEC","MG","SCIENCES"]};
+const moisListe=["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
+const moisIndexMap={"Septembre":0,"Octobre":1,"Novembre":2,"Decembre":3,"Janvier":4,"Fevrier":5,"Mars":6,"Avril":7,"Mai":8,"Juin":9};
+const dateRef=new Date();
+const moisActuelNum=dateRef.getMonth();
+let moisCourant="Septembre";
+if(moisActuelNum>=8){moisCourant=moisListe[moisActuelNum-8];}else{moisCourant=moisListe[moisActuelNum+4];}
+const DB_NAME='GloriaDeiDB';
+const DB_VERSION=1;
+const STORE_NAME='eleves';
+let dbInstance=null;
+function openDB(){
+return new Promise((resolve,reject)=>{
+try{
+const request=indexedDB.open(DB_NAME,DB_VERSION);
+request.onerror=(event)=>reject(event.target.error);
+request.onsuccess=(event)=>{
+dbInstance=event.target.result;
+resolve(dbInstance);
 };
-document.getElementById('btnAddOption').onclick = async function() {
-    const classe = document.getElementById('configClasseOptions').value;
-    const option = document.getElementById('newOptionName').value.trim();
-    if (!option) { toast("Veuillez entrer un nom d'option", "error"); return; }
-    if (!optionsConfig[classe]) optionsConfig[classe] = [];
-    if (optionsConfig[classe].includes(option)) { toast("Cette option existe déjà", "warning"); return; }
-    optionsConfig[classe].push(option);
-    try {
-        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "_config_options", "data");
-        await setDoc(ref, optionsConfig);
-        document.getElementById('newOptionName').value = '';
-        mettreAJourSelectsOptions();
-        afficherOptionsConfig();
-        toast(`Option "${option}" ajoutée à ${classe}`, "success");
-    } catch (e) {
-        toast("Erreur lors de l'ajout", "error");
-    }
+request.onupgradeneeded=(event)=>{
+const db=event.target.result;
+if(!db.objectStoreNames.contains(STORE_NAME)){
+const store=db.createObjectStore(STORE_NAME,{keyPath:'id'});
+store.createIndex('classe','classe',{unique:false});
+store.createIndex('nom','nom',{unique:false});
+store.createIndex('parentCode','parentCode',{unique:false});
+store.createIndex('abandon','abandon',{unique:false});
+}
 };
-document.getElementById('configClasseOptions').onchange = function() { afficherOptionsConfig(); };
-
-function mettreAJourSelectsOptions() { 
-    const filterOption = document.getElementById("filterOption"); 
-    const newEleveOption = document.getElementById("newEleveOption"); 
-    if (filterOption) { 
-        let optionsHtml = '<option value="">Toutes</option>'; 
-        let optsUniques = new Set(); 
-        for (let classe of classesListe) { 
-            let opts = optionsConfig[classe] || []; 
-            opts.forEach(o => optsUniques.add(o)); 
-        } 
-        optsUniques.forEach(opt => { optionsHtml += `<option value="${opt}">${opt}</option>`; }); 
-        filterOption.innerHTML = optionsHtml; 
-    } 
-    if (newEleveOption) { 
-        const updateSelect = () => { 
-            let classe = document.getElementById("newEleveClasse").value; 
-            let opts = optionsConfig[classe] || []; 
-            let optHtml = '<option value="">Sans option</option>'; 
-            opts.forEach(opt => { optHtml += `<option value="${opt}">${opt}</option>`; }); 
-            newEleveOption.innerHTML = optHtml; 
-        }; 
-        let classeSelect = document.getElementById("newEleveClasse"); 
-        if (classeSelect) { 
-            classeSelect.onchange = function() { updateSelect(); if(window.updatePreview) window.updatePreview(); }; 
-            updateSelect(); 
-        } 
-    } 
-}
-
-async function chargerConfigEcole() { 
-    try { 
-        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
-        const configSnap = await getDoc(configRef); 
-        if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } 
-        else { 
-            currentSchoolConfig = { nom: `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, adresse: "", codeAcces: "1234", maxExonerations: 10, fraisInscription: 50000 }; 
-            await setDoc(configRef, currentSchoolConfig); 
-        } 
-        document.getElementById("ecoleNom").value = currentSchoolConfig.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
-        document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || ""; 
-        document.getElementById("fraisInscription").value = currentSchoolConfig.fraisInscription || 50000; 
-        return currentSchoolConfig; 
-    } catch (error) { 
-        console.error("Erreur chargement config:", error); 
-        return null; 
-    } 
-}
-
-async function sauvegarderInfosEcole() { 
-    try { 
-        const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim(); 
-        const frais = parseInt(document.getElementById("fraisInscription").value) || 50000; 
-        if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse; 
-        currentSchoolConfig.fraisInscription = frais; 
-        const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); 
-        await setDoc(configRef, currentSchoolConfig); 
-        toast("Informations enregistrées", "success"); 
-    } catch (error) { toast("Erreur lors de l'enregistrement", "error"); } 
-}
-
-async function chargerTarifs() { 
-    try { 
-        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
-        const snapOpt = await getDoc(refOpt); 
-        if (snapOpt.exists()) { tarifsOptionsConfig = snapOpt.data(); } 
-        else { 
-            tarifsOptionsConfig = {}; 
-            for (let classe of classesListe) { 
-                tarifsOptionsConfig[classe] = {}; 
-                for (let opt of (optionsConfig[classe] || [])) { tarifsOptionsConfig[classe][opt] = 45000; } 
-                tarifsOptionsConfig[classe]["default"] = 45000; 
-            } 
-            await setDoc(refOpt, tarifsOptionsConfig); 
-        } 
-        afficherTableTarifsOptions(); 
-    } catch (error) { 
-        for (let classe of classesListe) { 
-            if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; 
-            tarifsOptionsConfig[classe]["default"] = 45000; 
-        } 
-        afficherTableTarifsOptions(); 
-    } 
-}
-
-async function sauverTarifs() { 
-    try { 
-        const refOpt = doc(db, "ecoles", SCHOOL_PREFIX, "_config_tarifs_options", "data"); 
-        await setDoc(refOpt, tarifsOptionsConfig); 
-        toast("Minervaux par option enregistrés avec succès", "success"); 
-    } catch (error) { toast("Erreur lors de l'enregistrement", "error"); } 
-}
-
-function afficherTableTarifsOptions() { 
-    const container = document.getElementById("tarifsOptionsContainer"); 
-    if (!container) return; 
-    let html = '<table class="config-table"><thead><tr><th>Classe</th><th>Option</th><th>Minerval (FC)</th></tr></thead><tbody>'; 
-    for (let classe of classesListe) { 
-        const opts = optionsConfig[classe] || []; 
-        if (opts.length === 0) { 
-            let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) || 45000; 
-            html += `<tr><td>${classe}</td><td>Sans option</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="default" value="${val}" step="500"></td>`; 
-        } else { 
-            for (let opt of opts) { 
-                let val = (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][opt]) || 45000; 
-                html += `<tr><td>${classe}</td><td>${opt}</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="${opt}" value="${val}" step="500"></td>`; 
-            } 
-        } 
-    } 
-    html += '</tbody></table>'; 
-    container.innerHTML = html; 
-    document.querySelectorAll(".tarif-opt-input").forEach(inp => { 
-        inp.onchange = () => { 
-            const classe = inp.dataset.classe; 
-            const option = inp.dataset.option; 
-            if (!tarifsOptionsConfig[classe]) tarifsOptionsConfig[classe] = {}; 
-            tarifsOptionsConfig[classe][option] = parseInt(inp.value) || 45000; 
-        }; 
-    }); 
-}
-
-async function getMinervalEleve(classe, option) { 
-    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe][option]) return tarifsOptionsConfig[classe][option]; 
-    if (tarifsOptionsConfig[classe] && tarifsOptionsConfig[classe]["default"]) return tarifsOptionsConfig[classe]["default"]; 
-    return 45000; 
-}
-
-// ========== getAllComptaEleves avec IndexedDB ==========
-async function getAllComptaEleves(forceRefresh = false) {
-    if (localEleves.length > 0 && !forceRefresh) {
-        return localEleves;
-    }
-    
-    // Charger depuis IndexedDB en silence
-    const cached = await chargerDepuisIndexedDB();
-    if (cached && cached.length > 0) {
-        localEleves = cached;
-        // Mettre à jour depuis Firebase en arrière-plan
-        try {
-            const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
-            const snap = await getDocs(q); 
-            let eleves = []; 
-            for (const ds of snap.docs) { 
-                const d = ds.data(); 
-                eleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", dateNaiss: d.dateNaiss || "", lieuNaiss: d.lieuNaiss || "", nomPere: d.nomPere || "", nomMere: d.nomMere || "", adresse: d.adresse || "", sexe: d.sexe || "M", phone: d.phone || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, motifExon: d.motifExon || "", approbateur: d.approbateur || "", abandon: d.abandon || false, dateAbandon: d.dateAbandon || null, paiements: d.paiements || {}, parentCode: d.parentCode || "" }); 
-            } 
-            if (eleves.length > 0) {
-                localEleves = eleves;
-                sauvegarderDansIndexedDB(eleves);
-            }
-            return localEleves;
-        } catch (error) {
-            return localEleves;
-        }
-    }
-    
-    // Charger depuis Firebase
-    try { 
-        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
-        const snap = await getDocs(q); 
-        let eleves = []; 
-        for (const ds of snap.docs) { 
-            const d = ds.data(); 
-            eleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", dateNaiss: d.dateNaiss || "", lieuNaiss: d.lieuNaiss || "", nomPere: d.nomPere || "", nomMere: d.nomMere || "", adresse: d.adresse || "", sexe: d.sexe || "M", phone: d.phone || "", classe: d.classe, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, motifExon: d.motifExon || "", approbateur: d.approbateur || "", abandon: d.abandon || false, dateAbandon: d.dateAbandon || null, paiements: d.paiements || {}, parentCode: d.parentCode || "" }); 
-        } 
-        localEleves = eleves;
-        sauvegarderDansIndexedDB(eleves);
-        return eleves; 
-    } catch (error) { 
-        console.error("Erreur chargement Firebase:", error);
-        const fallback = await chargerDepuisIndexedDB();
-        if (fallback && fallback.length > 0) {
-            localEleves = fallback;
-            return fallback;
-        }
-        return localEleves.length ? localEleves : []; 
-    } 
-}
-
-async function getTousElevesAvecInfos() { 
-    const tous = await getAllComptaEleves(); 
-    const resultats = []; 
-    for (let e of tous) { 
-        if (e.abandon) continue; 
-        let moisImpayes = 0, totalPaye = 0, totalMin = 0, estEnOrdreMoisCourant = false; 
-        const paiements = e.paiements || {}; 
-        totalMin = e.minerval * 10; 
-        for (let m of moisListe) totalPaye += paiements[m]?.montant || 0; 
-        for (let m of moisListe) { 
-            if (estMoisPasse(m)) { 
-                const mt = paiements[m]?.montant || 0; 
-                if (mt < (e.minerval || 45000)) moisImpayes++; 
-            } 
-        } 
-        const pc = paiements[moisCourant]?.montant || 0; 
-        estEnOrdreMoisCourant = e.exonere || pc >= (e.minerval || 45000); 
-        resultats.push({ ...e, moisImpayes, totalPaye, totalMin, estEnOrdreMoisCourant }); 
-    } 
-    return resultats; 
-}
-
-async function enregistrerPaiement(eleveId, mois, montant) { 
-    const id = `compta_${eleveId}`; 
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
-    const snap = await getDoc(ref); 
-    if (!snap.exists()) return false; 
-    const d = snap.data(); 
-    const actuel = d.paiements?.[mois] || { montant: 0, date: null, historique: [] }; 
-    const nouveauMontant = (actuel.montant || 0) + montant; 
-    const minervalEleve = d.minerval || 45000;
-    const maintenant = new Date();
-    const dateStr = maintenant.toISOString().slice(0, 19).replace('T', ' ');
-    const histItem = { montant: montant, date: dateStr, nouveauTotal: nouveauMontant };
-    const nvHist = [...(actuel.historique || []), histItem]; 
-    const paiementsMisAJour = { ...(d.paiements || {}) };
-    paiementsMisAJour[mois] = { montant: nouveauMontant, date: dateStr, historique: nvHist };
-    await updateDoc(ref, { paiements: paiementsMisAJour }); 
-    
-    // Mettre à jour le cache
-    const idx = localEleves.findIndex(e => e.id === eleveId);
-    if (idx !== -1) {
-        localEleves[idx].paiements = paiementsMisAJour;
-        sauvegarderDansIndexedDB(localEleves);
-    }
-    
-    const reste = minervalEleve - nouveauMontant;
-    toast(`✅ Paiement de ${formatNbSimple(montant)} FC enregistré pour ${mois}. Reste: ${reste > 0 ? formatNbSimple(reste) : '0'} FC`, "success");
-    return true; 
-}
-
-async function marquerAbandon(eleveId) { 
-    const id = `compta_${eleveId}`; 
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
-    await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() }); 
-    const idx = localEleves.findIndex(e => e.id === eleveId);
-    if (idx !== -1) {
-        localEleves[idx].abandon = true;
-        localEleves[idx].dateAbandon = formatDateYMD();
-        sauvegarderDansIndexedDB(localEleves);
-    }
-    await mettreAJourStats(); 
-    await afficherListeEleves(); 
-    await afficherAbandons(); 
-    await afficherCartesIdentite();
-    await afficherParentCodes();
-}
-
-async function annulerAbandon(eleveId) { 
-    const id = `compta_${eleveId}`; 
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
-    await updateDoc(ref, { abandon: false, dateAbandon: null }); 
-    const idx = localEleves.findIndex(e => e.id === eleveId);
-    if (idx !== -1) {
-        localEleves[idx].abandon = false;
-        localEleves[idx].dateAbandon = null;
-        sauvegarderDansIndexedDB(localEleves);
-    }
-    await mettreAJourStats(); 
-    await afficherListeEleves(); 
-    await afficherAbandons(); 
-    await afficherCartesIdentite();
-    await afficherParentCodes();
-}
-
-async function ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, nomPere, nomMere, adresse, sexe, phone, classe, option, exonere, motifExon, approbateur, parentCode = null, montantInscription = 0) { 
-    if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { 
-        toast("Limite d'exonérations atteinte", "error"); 
-        return null; 
-    } 
-    const id = "eleve_" + Date.now(); 
-    const minerval = exonere ? 0 : await getMinervalEleve(classe, option); 
-    const codeParent = parentCode && parentCode.length === 6 ? parentCode : genererCodeParent();
-    const paiements = {}; 
-    for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] }; 
-    if (montantInscription > 0) {
-        paiements[moisCourant] = { montant: montantInscription, date: formatDateYMD(), historique: [{ montant: montantInscription, date: formatDateYMD(), nouveauTotal: montantInscription }] };
-    }
-    const docId = `compta_${id}`; 
-    const newCompta = { _type: "compta_eleve", eleveId: id, nom: nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe: classe, option: option || "", minerval: minerval, anneeScolaire: anneeScolaire, paiements: paiements, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, parentCode: codeParent }; 
-    await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta); 
-    
-    const newEleve = { id, nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe, option: option || "", minerval, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, paiements, parentCode: codeParent };
-    localEleves.push(newEleve);
-    sauvegarderDansIndexedDB(localEleves);
-    
-    if (exonere) compteurExoneres++; 
-    toast(`✅ Élève inscrit. Code parent: ${codeParent}`, "success");
-    return { id, nom, postnom, prenom, classe, option, parentCode: codeParent }; 
-}
-
-async function modifierParentCode(eleveId, nouveauCode, appliquerFamille = false) {
-    if(!nouveauCode || nouveauCode.length !== 6 || isNaN(nouveauCode)) {
-        toast("Le code doit contenir exactement 6 chiffres", "error");
-        return false;
-    }
-    const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", `compta_${eleveId}`);
-    const snap = await getDoc(ref);
-    if(!snap.exists()) return false;
-    const eleve = snap.data();
-    const ancienCode = eleve.parentCode || "";
-    if(appliquerFamille && ancienCode) {
-        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", ancienCode));
-        const snapFamille = await getDocs(q);
-        for(const docFam of snapFamille.docs) {
-            await updateDoc(docFam.ref, { parentCode: nouveauCode });
-            const famId = docFam.data().eleveId;
-            const idx = localEleves.findIndex(e => e.id === famId);
-            if (idx !== -1) localEleves[idx].parentCode = nouveauCode;
-        }
-        sauvegarderDansIndexedDB(localEleves);
-        toast(`${snapFamille.size} élève(s) mis à jour avec le nouveau code familial`, "success");
-    } else {
-        await updateDoc(ref, { parentCode: nouveauCode });
-        const idx = localEleves.findIndex(e => e.id === eleveId);
-        if (idx !== -1) {
-            localEleves[idx].parentCode = nouveauCode;
-            sauvegarderDansIndexedDB(localEleves);
-        }
-        toast(`Code parent modifié pour ${eleve.nom} ${eleve.prenom || ''}`, "success");
-    }
-    await afficherParentCodes();
-    await afficherListeEleves();
-    return true;
-}
-
-async function getElevesFiltres(incAbandons = false) { 
-    let res = await getTousElevesAvecInfos(); 
-    if (!incAbandons) res = res.filter(e => !e.abandon); 
-    const nom = document.getElementById("searchNom")?.value.trim() || ""; 
-    const cls = document.getElementById("filterClasse")?.value || ""; 
-    const opt = document.getElementById("filterOption")?.value || ""; 
-    if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase()) || (e.postnom && e.postnom.toLowerCase().includes(nom.toLowerCase()))); 
-    if (cls) res = res.filter(e => e.classe === cls); 
-    if (opt) res = res.filter(e => e.option === opt); 
-    if (currentFilter === "normal") return res.filter(e => !e.exonere && e.moisImpayes < 3); 
-    if (currentFilter === "exonere") return res.filter(e => e.exonere === true); 
-    if (currentFilter === "listenoir") return res.filter(e => !e.exonere && e.moisImpayes >= 3); 
-    if (currentFilter === "enordre") return res.filter(e => e.exonere || e.estEnOrdreMoisCourant); 
-    return res; 
-}
-
-async function getAbandons() { let res = await getAllComptaEleves(); res = res.filter(e => e.abandon === true); const nom = document.getElementById("searchAbandon")?.value.trim() || ""; if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase())); return res; }
-
-async function mettreAJourStats() { 
-    try { 
-        const tousLesEleves = await getAllComptaEleves(); 
-        let totalActifs = 0, exoneres = 0, listeNoire = 0, reguliers = 0, abandons = 0; 
-        const infos = await getTousElevesAvecInfos();
-        for (let eleve of tousLesEleves) { 
-            if (eleve.abandon === true) { abandons++; continue; } 
-            totalActifs++; 
-            if (eleve.exonere === true) { exoneres++; continue; } 
-            const info = infos.find(i => i.id === eleve.id);
-            const moisImpayes = info ? info.moisImpayes : 0;
-            if (moisImpayes >= 3) { listeNoire++; } else { reguliers++; } 
-        } 
-        document.getElementById("statTotal").innerText = totalActifs; 
-        document.getElementById("statExoneres").innerText = exoneres; 
-        document.getElementById("statListeNoire").innerText = listeNoire; 
-        document.getElementById("statReguliers").innerText = reguliers; 
-        document.getElementById("statAbandons").innerText = abandons; 
-    } catch (error) { console.error("Erreur mise à jour stats:", error); } 
-}
-
-window.toggleDropdown = function(btn) {
-    const dropdown = btn.nextElementSibling;
-    const isVisible = dropdown.classList.contains('show');
-    document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
-    if(!isVisible) dropdown.classList.add('show');
-};
-document.addEventListener('click', function(e) {
-    if(!e.target.closest('.dropdown')) {
-        document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
-    }
+}catch(error){reject(error);}
 });
-
-async function afficherListeEleves() { 
-    const eleves = await getElevesFiltres(); 
-    const cont = document.getElementById("elevesContainer"); 
-    if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun élève</div>'; return; } 
-    let html = '<div class="eleve-cards">'; 
-    for (let e of eleves) { 
-        const estLN = (!e.exonere && e.moisImpayes >= 3); 
-        const estOrdre = (e.exonere || e.estEnOrdreMoisCourant); 
-        let badge = '', classeSpec = ''; 
-        if (e.exonere) { badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; } 
-        else if (estLN) { badge = '<span class="badge badge-listenoire">LISTE NOIRE</span>'; classeSpec = 'liste-noire'; } 
-        else if (estOrdre) { badge = '<span class="badge badge-en-ordre">EN ORDRE</span>'; classeSpec = 'en-ordre'; } 
-        else if (e.moisImpayes > 0) { badge = '<span class="badge badge-impaye">IMPAYÉ</span>'; } 
-        const codeDisplay = e.parentCode ? `<span class="badge badge-code">🔑 ${e.parentCode}</span>` : '';
-        html += `<div class="eleve-card ${classeSpec}"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom || ''} ${e.prenom || ''}</div><div class="eleve-badges">${badge}${codeDisplay}</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option ? `- ${e.option}` : ''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">💰</span><span class="eleve-info-value">${e.exonere ? "EXONÉRÉ" : formatNbSimple(e.minerval) + " FC/mois"}</span></div>${e.phone ? `<div class="eleve-info-item"><span class="eleve-info-label">📞</span><span class="eleve-info-value">${e.phone}</span></div>` : ''}</div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 Paiements</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom || ''}','${e.parentCode || ''}')">🔑 Code parent</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ Abandon</div></div></div></div></div>`; 
-    } 
-    html += '</div>'; 
-    cont.innerHTML = html; 
-    await mettreAJourStats(); 
 }
-
-async function afficherReleve(eleve) { 
-    if (!eleve || eleve.abandon) { 
-        document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`; 
-        return; 
-    } 
-    const elevesFraiches = await getAllComptaEleves(true);
-    const eleveMaj = elevesFraiches.find(e => e.id === eleve.id);
-    if(!eleveMaj) return;
-    let html = `<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom || ""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option ? `-${eleveMaj.option}` : ""} ${eleveMaj.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode || 'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleveMaj.minerval) + " FC / MOIS"}</div></div><div class="paiement-cards">`; 
-    let totalMin = 0, totalPaye = 0; 
-    const paiements = eleveMaj.paiements || {};
-    for (let mois of moisListe) { 
-        const minervalMensuel = eleveMaj.exonere ? 0 : eleveMaj.minerval;
-        const p = paiements[mois] || { montant: 0, date: null, historique: [] }; 
-        const montantPaye = p.montant || 0;
-        const estPayeTotal = eleveMaj.exonere || montantPaye >= minervalMensuel;
-        const resteMois = eleveMaj.exonere ? 0 : minervalMensuel - montantPaye;
-        if (!eleveMaj.exonere) {
-            totalMin += minervalMensuel;
-            totalPaye += montantPaye;
-        }
-        let cardClass = ""; 
-        if (mois === moisCourant) cardClass = "mois-courant"; 
-        else if (estMoisPasse(mois) && !estPayeTotal && !eleveMaj.exonere) cardClass = "mois-impaye"; 
-        let statut = "", txt = "", resteText = "";
-        if (eleveMaj.exonere) { 
-            statut = "paye"; 
-            txt = "EXONÉRÉ"; 
-            resteText = "0 FC";
-        } 
-        else if (estPayeTotal) { 
-            statut = "paye"; 
-            txt = `${formatNbSimple(minervalMensuel)} FC`; 
-            resteText = "0 FC";
-        } 
-        else if (montantPaye > 0) { 
-            statut = "partial"; 
-            txt = `${formatNbSimple(montantPaye)} FC`; 
-            resteText = `<span style="color:#ef4444;">${formatNbSimple(resteMois)} FC</span>`;
-        } 
-        else { 
-            statut = "impaye"; 
-            txt = "0 FC"; 
-            resteText = `<span style="color:#ef4444;">${formatNbSimple(minervalMensuel)} FC</span>`;
-        }
-        let historiqueHtml = '';
-        if(p.historique && p.historique.length > 0) {
-            historiqueHtml = `<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h => `${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
-        }
-        html += `<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleveMaj.exonere ? "0" : formatNbSimple(minervalMensuel)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${(!eleveMaj.exonere && !estPayeTotal && (estMoisPasse(mois) || mois === moisCourant)) ? `<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>` : `<span style="color:#10b981;">✓ COMPLET</span>`}</div></div>${historiqueHtml}</div>`; 
-    } 
-    html += `</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin - totalPaye)} FC</span></div></div>`; 
-    document.getElementById("releveContainer").innerHTML = html; 
+function sauvegarderDansIndexedDB(eleves){
+if(!dbInstance)return;
+try{
+const transaction=dbInstance.transaction(STORE_NAME,'readwrite');
+const store=transaction.objectStore(STORE_NAME);
+store.clear();
+for(const eleve of eleves){store.add(eleve);}
+}catch(error){console.error("IndexedDB:",error);}
 }
-
-window.ouvrirEditParentCode = function(eleveId, eleveNom, codeActuel) {
-    const modal = document.getElementById('editParentCodeModal');
-    document.getElementById('editParentCodeInfo').innerHTML = `<div class="modal-info-line"><span>ÉLÈVE</span><span>${eleveNom}</span></div><div class="modal-info-line"><span>CODE ACTUEL</span><span class="parent-code-card">${codeActuel || 'Aucun'}</span></div>`;
-    document.getElementById('editParentCodeValue').value = codeActuel || '';
-    document.getElementById('editParentCodeFamily').value = codeActuel ? 'yes' : 'no';
-    window.currentEditEleveId = eleveId;
-    window.currentEditCodeActuel = codeActuel;
-    modal.classList.add('show');
+function chargerDepuisIndexedDB(){
+return new Promise((resolve)=>{
+if(!dbInstance){resolve(null);return;}
+try{
+const transaction=dbInstance.transaction(STORE_NAME,'readonly');
+const store=transaction.objectStore(STORE_NAME);
+const request=store.getAll();
+request.onsuccess=()=>resolve(request.result);
+request.onerror=()=>resolve(null);
+}catch(error){resolve(null);}
+});
+}
+function genererCodeParent(){return Math.floor(100000+Math.random()*900000).toString();}
+function formaterNombre(n){if(n===0)return"0";let resultat="",nombre=Math.abs(n),strNombre=nombre.toString(),compteur=0;for(let i=strNombre.length-1;i>=0;i--){compteur++;resultat=strNombre[i]+resultat;if(compteur%3===0&&i!==0)resultat=" "+resultat;}return n<0?"-"+resultat:resultat;}
+function formatNb(n){if(isNaN(n)||n===null||n===undefined)return"0 FC";return formaterNombre(Math.floor(Number(n)))+" FC";}
+function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return"0";return formaterNombre(Math.floor(Number(n)));}
+function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${type}`;el.innerHTML=`<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),300);},3000);}
+function formatDateYMD(date=new Date()){return date.toISOString().split('T')[0];}
+function formatDateFr(date){const d=new Date(date);return`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;}
+function estMoisPasse(mois){return moisIndexMap[mois]<moisIndexMap[moisCourant];}
+async function chargerOptions(){
+try{
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
+const snap=await getDoc(ref);
+if(snap.exists()){optionsConfig=snap.data();}
+else{optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));await setDoc(ref,optionsConfig);}
+mettreAJourSelectsOptions();
+afficherOptionsConfig();
+}catch(error){
+console.error("Erreur chargement options:",error);
+optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));
+mettreAJourSelectsOptions();
+afficherOptionsConfig();
+}
+}
+function afficherOptionsConfig(){
+const container=document.getElementById('optionsListContainer');
+if(!container)return;
+const classe=document.getElementById('configClasseOptions').value;
+const opts=optionsConfig[classe]||[];
+if(opts.length===0){container.innerHTML='<div style="color:#94a3b8;padding:8px;">Aucune option pour cette classe</div>';return;}
+let html='';
+opts.forEach(opt=>{
+html+=`<div class="options-config-item"><span class="opt-name">📌 ${opt}</span><button class="btn btn-danger btn-sm" onclick="supprimerOption('${classe}','${opt}')">✕</button></div>`;
+});
+container.innerHTML=html;
+}
+window.supprimerOption=async function(classe,option){
+if(!await showConfirm(`Supprimer l'option "${option}" de la classe ${classe} ?`))return;
+if(optionsConfig[classe]){
+const idx=optionsConfig[classe].indexOf(option);
+if(idx!==-1){
+optionsConfig[classe].splice(idx,1);
+try{
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
+await setDoc(ref,optionsConfig);
+mettreAJourSelectsOptions();
+afficherOptionsConfig();
+toast(`Option "${option}" supprimée`,"success");
+}catch(e){toast("Erreur lors de la suppression","error");}
+}
+}
 };
-document.getElementById('confirmEditParentCode').onclick = async function() {
-    const nouveauCode = document.getElementById('editParentCodeValue').value.trim();
-    const appliquerFamille = document.getElementById('editParentCodeFamily').value === 'yes';
-    if(window.currentEditEleveId && nouveauCode) {
-        await modifierParentCode(window.currentEditEleveId, nouveauCode, appliquerFamille);
-        document.getElementById('editParentCodeModal').classList.remove('show');
-        await afficherListeEleves();
-        await afficherParentCodes();
-    }
+document.getElementById('btnAddOption').onclick=async function(){
+const classe=document.getElementById('configClasseOptions').value;
+const option=document.getElementById('newOptionName').value.trim();
+if(!option){toast("Veuillez entrer un nom d'option","error");return;}
+if(!optionsConfig[classe])optionsConfig[classe]=[];
+if(optionsConfig[classe].includes(option)){toast("Cette option existe déjà","warning");return;}
+optionsConfig[classe].push(option);
+try{
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
+await setDoc(ref,optionsConfig);
+document.getElementById('newOptionName').value='';
+mettreAJourSelectsOptions();
+afficherOptionsConfig();
+toast(`Option "${option}" ajoutée à ${classe}`,"success");
+}catch(e){toast("Erreur lors de l'ajout","error");}
 };
-document.getElementById('cancelEditParentCode').onclick = function() {
-    document.getElementById('editParentCodeModal').classList.remove('show');
+document.getElementById('configClasseOptions').onchange=function(){afficherOptionsConfig();};
+function mettreAJourSelectsOptions(){
+const filterOption=document.getElementById("filterOption");
+const newEleveOption=document.getElementById("newEleveOption");
+if(filterOption){
+let optionsHtml='<option value="">Toutes</option>';
+let optsUniques=new Set();
+for(let classe of classesListe){
+let opts=optionsConfig[classe]||[];
+opts.forEach(o=>optsUniques.add(o));
+}
+optsUniques.forEach(opt=>{optionsHtml+=`<option value="${opt}">${opt}</option>`;});
+filterOption.innerHTML=optionsHtml;
+}
+if(newEleveOption){
+const updateSelect=()=>{
+let classe=document.getElementById("newEleveClasse").value;
+let opts=optionsConfig[classe]||[];
+let optHtml='<option value="">Sans option</option>';
+opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
+newEleveOption.innerHTML=optHtml;
 };
-
-async function afficherParentCodes() {
-    const eleves = await getAllComptaEleves();
-    const actifs = eleves.filter(e => !e.abandon);
-    const codesMap = new Map();
-    for(let e of actifs) {
-        const code = e.parentCode || '';
-        if(!codesMap.has(code)) codesMap.set(code, []);
-        codesMap.get(code).push(e);
-    }
-    const searchCode = document.getElementById('searchParentCode')?.value.trim() || '';
-    const container = document.getElementById('parentCodesContainer');
-    if(searchCode) {
-        const enfants = codesMap.get(searchCode) || [];
-        if(enfants.length === 0) {
-            container.innerHTML = '<div class="empty-state">🔍 Aucun élève trouvé avec ce code</div>';
-        } else {
-            let html = `<div class="code-family-group"><div style="font-weight:bold;margin-bottom:12px;">🔑 Code ${searchCode} - ${enfants.length} enfant(s)</div>`;
-            for(let e of enfants) {
-                html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">
-                    <div class="detail-nom">👤 ${e.nom} ${e.postnom || ''} ${e.prenom || ''}</div>
-                    <div class="detail-info">📚 ${e.classe} ${e.option ? `- ${e.option}` : ''} | 📞 ${e.phone || '-'}</div>
-                </div>`;
-            }
-            html += `</div><div style="margin-top:12px;"><button class="btn btn-sm btn-outline" onclick="document.getElementById('searchParentCode').value='';afficherParentCodes();">✖ Effacer</button></div>`;
-            container.innerHTML = html;
-        }
-    } else {
-        container.innerHTML = '<div class="empty-state">🔍 Entrez un code parent pour rechercher les enfants liés</div>';
-    }
-    const allCodesContainer = document.getElementById('allParentCodesList');
-    let codesListHtml = '<div style="display:flex;flex-direction:column;gap:8px;">';
-    for(let [code, enfants] of codesMap) {
-        if(!code) continue;
-        const noms = enfants.map(e => `${e.nom} ${e.prenom || ''}`).join(', ');
-        codesListHtml += `<div style="background:rgba(59,130,246,0.1);border-radius:12px;padding:12px;border-left:3px solid #3b82f6;">
-            <div style="font-family:monospace;font-size:16px;font-weight:bold;color:#3b82f6;">🔑 ${code}</div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:5px;">${enfants.length} élève(s): ${noms}</div>
-            <button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="document.getElementById('searchParentCode').value='${code}';afficherParentCodes();">🔍 Rechercher cette famille</button>
-        </div>`;
-    }
-    codesListHtml += '</div>';
-    if(codesMap.size === 0 || (codesMap.size === 1 && codesMap.has(''))) {
-        allCodesContainer.innerHTML = '<div class="empty-state">Aucun code parent attribué</div>';
-    } else {
-        allCodesContainer.innerHTML = codesListHtml;
-    }
+let classeSelect=document.getElementById("newEleveClasse");
+if(classeSelect){
+classeSelect.onchange=function(){updateSelect();if(window.updatePreview)window.updatePreview();};
+updateSelect();
 }
-
-async function afficherCartesIdentite() {
-    const eleves = await getAllComptaEleves();
-    const searchTerm = document.getElementById("searchCarte")?.value.trim().toLowerCase() || "";
-    let filtered = eleves.filter(e => !e.abandon);
-    if(searchTerm) {
-        filtered = filtered.filter(e => 
-            e.nom.toLowerCase().includes(searchTerm) || 
-            (e.postnom && e.postnom.toLowerCase().includes(searchTerm)) ||
-            (e.prenom && e.prenom.toLowerCase().includes(searchTerm)) ||
-            e.classe.toLowerCase().includes(searchTerm) ||
-            e.id.toLowerCase().includes(searchTerm)
-        );
-    }
-    const container = document.getElementById("cartesContainer");
-    if(!filtered.length) { container.innerHTML = '<div class="empty-state">📭 Aucune carte à afficher</div>'; return; }
-    let html = '';
-    for(let e of filtered) {
-        let badgeClass = e.exonere ? 'exonere' : (e.abandon ? 'abandon' : '');
-        let badgeText = e.exonere ? 'EXONÉRÉ' : (e.abandon ? 'ABANDON' : 'ACTIF');
-        html += `<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom || ''} ${e.prenom || ''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div><div class="carte-info-grid"><div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss || 'Non renseignée'}</span></div><div class="carte-info-item"><span class="carte-info-label">📍 LIEU DE NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss || 'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id || '-'}</span></div><div class="carte-info-item"><span class="carte-info-label">📚 CLASSE / OPTION</span><span class="carte-info-value">${e.classe} ${e.option ? `(${e.option})` : ''}</span></div><div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone || '-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse || '-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode || 'Non attribué'}</span></div></div><div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere || 'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere || 'Non renseignée'}</span></div></div></div>`;
-    }
-    container.innerHTML = html;
 }
-
-window.marquerAbandonPrompt = async function(id, nom) { if (await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)) { await marquerAbandon(id); toast(`${nom} a été abandonné`, "warning"); } };
-
-async function afficherAbandons() { 
-    const eleves = await getAbandons(); 
-    const cont = document.getElementById("abandonsContainer"); 
-    if (!eleves.length) { cont.innerHTML = '<div class="empty-state">📭 Aucun abandon</div>'; return; } 
-    let html = '<div class="eleve-cards">'; 
-    for (let e of eleves) { 
-        html += `<div class="eleve-card abandon"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom || ''} ${e.prenom || ''} <span class="badge badge-abandon">ABANDON</span></div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option ? `- ${e.option}` : ''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">📅</span><span class="eleve-info-value">${e.dateAbandon || "-"}</span></div><div class="eleve-info-item"><span class="eleve-info-label">🔑</span><span class="eleve-info-value">${e.parentCode || '-'}</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')">💰 Voir</div><div class="dropdown-item" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">🔄 Réintégrer</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom || ''}','${e.parentCode || ''}')">🔑 Code</div></div></div></div></div>`; 
-    } 
-    html += '</div>'; 
-    cont.innerHTML = html; 
 }
-
-window.voirDetails = async function(id, nom, classe, option) { 
-    const eleves = await getAllComptaEleves(true);
-    currentEleve = eleves.find(e => e.id === id); 
-    await afficherReleve(currentEleve); 
-    document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); 
-    document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); 
-    document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active"); 
-    document.getElementById("tab2").classList.add("active"); 
+async function chargerConfigEcole(){
+try{
+const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");
+const configSnap=await getDoc(configRef);
+if(configSnap.exists()){currentSchoolConfig=configSnap.data();}
+else{
+currentSchoolConfig={nom:`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,adresse:"",codeAcces:"1234",maxExonerations:10,fraisInscription:50000};
+await setDoc(configRef,currentSchoolConfig);
+}
+document.getElementById("ecoleNom").value=currentSchoolConfig.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+document.getElementById("ecoleAdresse").value=currentSchoolConfig.adresse||"";
+document.getElementById("fraisInscription").value=currentSchoolConfig.fraisInscription||50000;
+return currentSchoolConfig;
+}catch(error){console.error("Erreur chargement config:",error);return null;}
+}
+async function sauvegarderInfosEcole(){
+try{
+const nouvelleAdresse=document.getElementById("ecoleAdresse").value.trim();
+const frais=parseInt(document.getElementById("fraisInscription").value)||50000;
+if(nouvelleAdresse)currentSchoolConfig.adresse=nouvelleAdresse;
+currentSchoolConfig.fraisInscription=frais;
+const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");
+await setDoc(configRef,currentSchoolConfig);
+toast("Informations enregistrées","success");
+}catch(error){toast("Erreur lors de l'enregistrement","error");}
+}
+async function chargerTarifs(){
+try{
+const refOpt=doc(db,"ecoles",SCHOOL_PREFIX,"_config_tarifs_options","data");
+const snapOpt=await getDoc(refOpt);
+if(snapOpt.exists()){tarifsOptionsConfig=snapOpt.data();}
+else{
+tarifsOptionsConfig={};
+for(let classe of classesListe){
+tarifsOptionsConfig[classe]={};
+for(let opt of(optionsConfig[classe]||[])){tarifsOptionsConfig[classe][opt]=45000;}
+tarifsOptionsConfig[classe]["default"]=45000;
+}
+await setDoc(refOpt,tarifsOptionsConfig);
+}
+afficherTableTarifsOptions();
+}catch(error){
+for(let classe of classesListe){
+if(!tarifsOptionsConfig[classe])tarifsOptionsConfig[classe]={};
+tarifsOptionsConfig[classe]["default"]=45000;
+}
+afficherTableTarifsOptions();
+}
+}
+async function sauverTarifs(){
+try{
+const refOpt=doc(db,"ecoles",SCHOOL_PREFIX,"_config_tarifs_options","data");
+await setDoc(refOpt,tarifsOptionsConfig);
+toast("Minervaux par option enregistrés avec succès","success");
+}catch(error){toast("Erreur lors de l'enregistrement","error");}
+}
+function afficherTableTarifsOptions(){
+const container=document.getElementById("tarifsOptionsContainer");
+if(!container)return;
+let html='<table class="config-table"><thead><tr><th>Classe</th><th>Option</th><th>Minerval (FC)</th></tr></thead><tbody>';
+for(let classe of classesListe){
+const opts=optionsConfig[classe]||[];
+if(opts.length===0){
+let val=(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe]["default"])||45000;
+html+=`<tr><td>${classe}</td><td>Sans option</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="default" value="${val}" step="500"></td>`;
+}else{
+for(let opt of opts){
+let val=(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe][opt])||45000;
+html+=`<tr><td>${classe}</td><td>${opt}</td><td><input type="number" class="tarif-opt-input" data-classe="${classe}" data-option="${opt}" value="${val}" step="500"></td>`;
+}
+}
+}
+html+='</tbody></table>';
+container.innerHTML=html;
+document.querySelectorAll(".tarif-opt-input").forEach(inp=>{
+inp.onchange=()=>{
+const classe=inp.dataset.classe;
+const option=inp.dataset.option;
+if(!tarifsOptionsConfig[classe])tarifsOptionsConfig[classe]={};
+tarifsOptionsConfig[classe][option]=parseInt(inp.value)||45000;
 };
-
-window.reintegrerAbandon = async function(id, nom) { if (await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)) { await annulerAbandon(id); toast(`${nom} a été réintégré`, "success"); } };
-
-window.openPaiement = async function(mois, minerval, dejaPaye) { if (!await verifierCode("paiement")) { toast("Annulé", "warning"); return; } const reste = minerval - dejaPaye; document.getElementById("modalInfo").innerHTML = `<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`; document.getElementById("paymentAmount").value = reste; window.paiementData = { mois, minerval, dejaPaye, reste, eleveId: currentEleve.id }; document.getElementById("paymentModal").classList.add("show"); };
-
-function verifierCode(action) { return new Promise((resolve) => { pendingAction = { resolve, action }; document.getElementById("codeInput").value = ""; document.getElementById("codeModal").classList.add("show"); }); }
-
-function showConfirm(message) { return new Promise((resolve) => { pendingAction = { resolve, action: "confirm" }; document.getElementById("confirmMessage").innerHTML = message; document.getElementById("confirmModal").classList.add("show"); }); }
-
-document.getElementById("confirmCode").onclick = async () => { const code = document.getElementById("codeInput").value; if (code === currentSchoolConfig?.codeAcces) { document.getElementById("codeModal").classList.remove("show"); if (pendingAction) { if(pendingAction.action === "configTab") { pendingAction.resolve(true); document.getElementById("tab7").classList.add("active"); document.querySelector('.tab-btn[data-tab="tab7"]').classList.add("active"); document.querySelector('.tab-btn[data-tab="tab1"]').classList.remove("active"); document.getElementById("tab1").classList.remove("active"); pendingAction = null; } else { pendingAction.resolve(true); pendingAction = null; } } } else { toast("Code incorrect", "error"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } document.getElementById("codeModal").classList.remove("show"); } };
-document.getElementById("cancelCode").onclick = () => { document.getElementById("codeModal").classList.remove("show"); if (pendingAction) { pendingAction.resolve(false); pendingAction = null; } };
-document.getElementById("confirmYes").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(true); pendingAction = null; } };
-document.getElementById("confirmNo").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if (pendingAction && pendingAction.action === "confirm") { pendingAction.resolve(false); pendingAction = null; } };
-document.getElementById("confirmPayment").onclick = async () => { const montant = parseInt(document.getElementById("paymentAmount").value); if (!montant || montant <= 0) { toast("Montant invalide", "error"); return; } if (montant > window.paiementData.reste) { toast("Dépasse le reste", "error"); return; } if (await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)) { await enregistrerPaiement(window.paiementData.eleveId, window.paiementData.mois, montant); document.getElementById("paymentModal").classList.remove("show"); await afficherReleve(currentEleve); await afficherListeEleves(); await mettreAJourStats(); } };
-document.getElementById("cancelPayment").onclick = () => document.getElementById("paymentModal").classList.remove("show");
-
-async function changerCodeAcces() { const ancienCode = document.getElementById("oldCode").value; const nouveauCode1 = document.getElementById("newCode1").value; const nouveauCode2 = document.getElementById("newCode2").value; if (ancienCode !== currentSchoolConfig?.codeAcces) { toast("Ancien code incorrect", "error"); return; } if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) { toast("Les nouveaux codes ne correspondent pas", "error"); return; } if (nouveauCode1.length < 4) { toast("Le code doit contenir au moins 4 caractères", "error"); return; } currentSchoolConfig.codeAcces = nouveauCode1; const configRef = doc(db, "ecoles", SCHOOL_PREFIX, "_config", "settings"); await setDoc(configRef, currentSchoolConfig); toast("Code d'accès modifié avec succès", "success"); document.getElementById("oldCode").value = ""; document.getElementById("newCode1").value = ""; document.getElementById("newCode2").value = ""; }
-
-async function showDetailModal(title, eleves) { const modal = document.getElementById("detailModal"); const titleEl = document.getElementById("detailModalTitle"); const contentEl = document.getElementById("detailModalContent"); titleEl.innerHTML = `${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`; if (eleves.length === 0) { contentEl.innerHTML = '<div class="empty-state">Aucun élément</div>'; } else { let html = ''; for (let e of eleves) { html += `<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option || ""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom || ''}</div><div class="detail-info">📚 ${e.classe} ${e.option ? `- ${e.option}` : ''}</div>${e.moisImpayes !== undefined ? `<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>` : ''}<div class="detail-info">🔑 ${e.parentCode || 'Aucun code'}</div></div>`; } contentEl.innerHTML = html; } modal.classList.add("show"); }
-document.getElementById("closeDetailModal").onclick = () => document.getElementById("detailModal").classList.remove("show");
-
-async function setupStatCards() { 
-    const tous = await getAllComptaEleves(); 
-    const infos = await getTousElevesAvecInfos(); 
-    const totalCard = document.querySelector('[data-stat="total"]'); 
-    const exoneresCard = document.querySelector('[data-stat="exoneres"]'); 
-    const listenoirCard = document.querySelector('[data-stat="listenoir"]'); 
-    const reguliersCard = document.querySelector('[data-stat="reguliers"]'); 
-    const abandonsCard = document.querySelector('[data-stat="abandons"]'); 
-    if (totalCard) totalCard.onclick = async () => { const actifs = tous.filter(e => !e.abandon); showDetailModal("📋 TOTAL ÉLÈVES", actifs); }; 
-    if (exoneresCard) exoneresCard.onclick = async () => { const ex = tous.filter(e => e.exonere && !e.abandon); showDetailModal("🌟 EXONÉRÉS", ex); }; 
-    if (listenoirCard) listenoirCard.onclick = async () => { const ln = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes >= 3); showDetailModal("⚠️ LISTE NOIRE", ln); }; 
-    if (reguliersCard) reguliersCard.onclick = async () => { const reg = infos.filter(e => !e.exonere && !e.abandon && e.moisImpayes > 0 && e.moisImpayes < 3); showDetailModal("💰 RÉGULIERS", reg); }; 
-    if (abandonsCard) abandonsCard.onclick = async () => { const ab = tous.filter(e => e.abandon); showDetailModal("❌ ABANDONS", ab); }; 
+});
 }
-
-window.genererPDFRecouvrement = async function() { try { toast("Génération du PDF...", "warning"); const { jsPDF } = window.jspdf; const tous = await getTousElevesAvecInfos(); const recouv = tous.filter(e => !e.exonere && e.moisImpayes > 0); const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE DE RECOUVREMENT", 105, 32, { align: "center" }); doc.text(`Date: ${formatDateFr(new Date())}`, 20, 55); doc.text(`Année: ${anneeScolaire}`, 20, 62); if (recouv.length === 0) { doc.text("Aucun élève à recouvrer", 105, 100, { align: "center" }); } else { const body = recouv.map(e => [e.nom, `${e.classe} ${e.option || ""}`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", `${e.moisImpayes} mois`, e.parentCode || '-']); doc.autoTable({ startY: 72, head: [["ÉLÈVE", "CLASSE", "MONTANT DÛ", "MOIS IMPAYÉS", "CODE PARENT"]], body: body, theme: "grid", styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0] }, headStyles: { fillColor: [255, 215, 0], textColor: [0, 0, 0], fontStyle: "bold" } }); } doc.save(`Recouvrement_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-
-window.genererPDFListeNoire = async function() { try { toast("Génération du PDF...", "warning"); const { jsPDF } = window.jspdf; const tous = await getTousElevesAvecInfos(); const ln = tous.filter(e => !e.exonere && e.moisImpayes >= 3); const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS", 105, 32, { align: "center" }); if (ln.length === 0) { doc.text("Aucun élève en liste noire", 105, 100, { align: "center" }); } else { const body = ln.map(e => [e.nom, `${e.classe} ${e.option || ""}`, `${e.moisImpayes} mois`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", e.parentCode || '-']); doc.autoTable({ startY: 55, head: [["ÉLÈVE", "CLASSE", "MOIS IMPAYÉS", "MONTANT DÛ", "CODE PARENT"]], body: body, theme: "grid", styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: "bold" } }); } doc.save(`ListeNoire_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-
-window.genererPDFTousEleves = async function() { try { toast("Génération du PDF...", "warning"); const tous = await getAllComptaEleves(); const actifs = tous.filter(e => !e.abandon); const { jsPDF } = window.jspdf; const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE COMPLÈTE DES ÉLÈVES", 105, 32, { align: "center" }); doc.text(`Total: ${actifs.length} élèves`, 20, 55); const body = actifs.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.exonere ? "OUI" : "NON", e.phone || "-", e.parentCode || '-']); doc.autoTable({ startY: 62, head: [["NOM", "CLASSE", "EXONÉRÉ", "TÉLÉPHONE", "CODE PARENT"]], body: body, theme: "grid", styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: "bold" } }); doc.save(`ListeEleves_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-
-window.genererPDFExoneres = async function() { try { toast("Génération du PDF...", "warning"); const tous = await getAllComptaEleves(); const ex = tous.filter(e => e.exonere && !e.abandon); const { jsPDF } = window.jspdf; const doc = new jsPDF("p", "mm", "a4"); doc.setFillColor(15, 23, 42); doc.rect(0, 0, 210, 45, "F"); doc.setFontSize(16); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0); doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" }); doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.text("LISTE DES ÉLÈVES EXONÉRÉS", 105, 32, { align: "center" }); if (ex.length === 0) { doc.text("Aucun élève exonéré", 105, 100, { align: "center" }); } else { const body = ex.map(e => [e.nom, `${e.classe} ${e.option || ""}`, e.motifExon || "-", e.parentCode || '-']); doc.autoTable({ startY: 55, head: [["NOM", "CLASSE", "MOTIF", "CODE PARENT"]], body: body, theme: "grid", styles: { fontSize: 9, cellPadding: 4 }, headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" } }); } doc.save(`Exoneres_${formatDateYMD()}.pdf`); toast("PDF généré", "success"); } catch (e) { toast("Erreur", "error"); } };
-
-window.genererPDFCartes = async function() { 
-    try { 
-        toast("Génération des cartes...", "warning"); 
-        const { jsPDF } = window.jspdf; 
-        const eleves = await getAllComptaEleves(); 
-        const actifs = eleves.filter(e => !e.abandon);
-        const doc = new jsPDF("p", "mm", "a4"); 
-        let y = 20;
-        for(let i = 0; i < actifs.length; i++) {
-            if(i > 0 && i % 2 === 0) { doc.addPage(); y = 20; }
-            const e = actifs[i];
-            doc.setFillColor(30, 41, 59); doc.roundedRect(10, y, 85, 60, 5, 5, "F");
-            doc.setDrawColor(255, 215, 0); doc.setLineWidth(0.5); doc.roundedRect(10, y, 85, 60, 5, 5, "S");
-            doc.setFontSize(9); doc.setFont("helvetica", "bold"); doc.setTextColor(255, 215, 0);
-            doc.text(e.nom + " " + (e.postnom || "") + " " + e.prenom, 15, y + 8);
-            doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(200, 200, 200);
-            doc.text(`Classe: ${e.classe} ${e.option || ""}`, 15, y + 16);
-            doc.text(`Matricule: ${e.id.substring(0,12)}...`, 15, y + 22);
-            doc.text(`Tél: ${e.phone || "-"}`, 15, y + 28);
-            if(e.nomPere) doc.text(`Père: ${e.nomPere.substring(0,18)}`, 15, y + 34);
-            if(e.nomMere) doc.text(`Mère: ${e.nomMere.substring(0,18)}`, 15, y + 40);
-            doc.setFontSize(6); doc.setTextColor(59, 130, 246);
-            doc.text(`Code Parent: ${e.parentCode || 'Non attribué'}`, 15, y + 46);
-            doc.setFontSize(6); doc.setTextColor(255, 215, 0);
-            doc.text(`${currentSchoolConfig?.nom || "ÉCOLE"}`, 15, y + 53);
-            if(i % 2 === 1) { y += 65; } else { y += 0; }
-        }
-        doc.save(`CartesIdentite_${formatDateYMD()}.pdf`); 
-        toast("Cartes générées", "success"); 
-    } catch (e) { toast("Erreur", "error"); } 
-};
-
-function initTabsEvents() { const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach(btn => { btn.removeEventListener("click", handleTabClick); btn.addEventListener("click", handleTabClick); }); }
-
-async function handleTabClick() { const tabId = this.dataset.tab; if(tabId === "tab7") { if(!await verifierCodeAccesConfig()) { return; } } document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active")); this.classList.add("active"); document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.remove("active")); const activePanel = document.getElementById(tabId); if (activePanel) activePanel.classList.add("active"); if(tabId === "tab4") { await afficherCartesIdentite(); } if(tabId === "tab5") { await afficherParentCodes(); } }
-
-function verifierCodeAccesConfig() { return new Promise((resolve) => { pendingAction = { resolve, action: "configTab" }; document.getElementById("codeInput").value = ""; document.getElementById("codeModal").classList.add("show"); }); }
-
-function initFilterEvents() { document.querySelectorAll(".filter-btn").forEach(btn => { btn.onclick = () => { document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentFilter = btn.dataset.filter; afficherListeEleves(); }; }); }
-
-document.getElementById("loginBtn").onclick = async () => { 
-    const btn = document.getElementById("loginBtn"); 
-    const codeInput = document.getElementById("loginCode"); 
-    const code = codeInput.value.trim(); 
-    const errorDiv = document.getElementById("loginError"); 
-    btn.disabled = true; 
-    btn.textContent = "⏳ VÉRIFICATION..."; 
-    
-    try { 
-        await chargerConfigEcole();
-        await openDB(); // Initialiser IndexedDB
-        
-        if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) { 
-            errorDiv.innerHTML = ""; 
-            document.getElementById("loginOverlay").style.display = "none"; 
-            document.getElementById("mainApp").style.display = "block"; 
-            await initApp(); 
-            toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success"); 
-        } else { 
-            errorDiv.innerHTML = "❌ Code d'accès incorrect"; 
-            toast("Code d'accès incorrect", "error"); 
-            codeInput.value = ""; 
-            codeInput.focus(); 
-        } 
-    } catch (error) { 
-        errorDiv.innerHTML = "❌ Erreur de connexion"; 
-        toast("Erreur de connexion", "error"); 
-        console.error(error);
-    } finally { 
-        btn.disabled = false; 
-        btn.textContent = "🔐 SE CONNECTER"; 
-    } 
-};
-
-document.getElementById("loginCode").onkeypress = (e) => { if (e.key === "Enter") document.getElementById("loginBtn").click(); };
-document.getElementById("searchCarte").oninput = () => afficherCartesIdentite();
-document.getElementById("searchParentCode").oninput = () => afficherParentCodes();
-
-// ========== initApp SANS ÉLÈVES DE DÉMONSTRATION ==========
-async function initApp() { 
-    if (isAppInitialized) return; 
-    await chargerOptions(); 
-    await chargerTarifs(); 
-    
-    // SUPPRESSION TOTALE DES ÉLÈVES DE DÉMONSTRATION
-    // La base Firebase reste complètement vide par défaut
-    
-    await afficherListeEleves(); 
-    await mettreAJourStats(); 
-    await setupStatCards(); 
-    await afficherCartesIdentite(); 
-    await afficherParentCodes(); 
-    initTabsEvents(); 
-    initFilterEvents(); 
-    isAppInitialized = true; 
+async function getMinervalEleve(classe,option){
+if(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe][option])return tarifsOptionsConfig[classe][option];
+if(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe]["default"])return tarifsOptionsConfig[classe]["default"];
+return 45000;
 }
-
-function validateInscriptionForm() { 
-    const nom = document.getElementById("newEleveNom").value.trim(); 
-    const prenom = document.getElementById("newElevePrenom").value.trim(); 
-    const dateNaiss = document.getElementById("newEleveDateNaiss").value; 
-    const lieuNaiss = document.getElementById("newEleveLieuNaiss").value.trim(); 
-    const sexe = document.getElementById("newEleveSexe").value; 
-    const adresse = document.getElementById("newEleveAdresse").value.trim(); 
-    const phone = document.getElementById("newElevePhone").value.trim(); 
-    const classe = document.getElementById("newEleveClasse").value; 
-    const option = document.getElementById("newEleveOption").value; 
-    const exonere = document.getElementById("newEleveExonere").value === "oui"; 
-    const parentCode = document.getElementById("newEleveParentCode").value.trim(); 
-    if (!nom) { toast("Le nom est requis", "error"); return false; } 
-    if (!prenom) { toast("Le prénom est requis", "error"); return false; } 
-    if (!dateNaiss) { toast("La date de naissance est requise", "error"); return false; } 
-    if (!lieuNaiss) { toast("Le lieu de naissance est requis", "error"); return false; } 
-    if (!sexe) { toast("Le sexe est requis", "error"); return false; } 
-    if (!adresse) { toast("L'adresse est requise", "error"); return false; } 
-    if (!phone) { toast("Le téléphone est requis", "error"); return false; } 
-    if (!classe) { toast("La classe est requise", "error"); return false; } 
-    if (classe !== "7eme EB" && classe !== "8eme EB" && !option) { toast("L'option est requise pour cette classe", "error"); return false; } 
-    if (parentCode && (parentCode.length !== 6 || isNaN(parentCode))) { toast("Le code parent doit contenir exactement 6 chiffres", "error"); return false; } 
-    if (exonere) { 
-        const motif = document.getElementById("newEleveMotifExon").value; 
-        const approbateur = document.getElementById("newEleveApprobateur").value; 
-        if (!motif) { toast("Le motif d'exonération est requis", "error"); return false; } 
-        if (!approbateur) { toast("L'approbateur est requis", "error"); return false; } 
-    } 
-    return true; 
+async function getAllComptaEleves(forceRefresh=false){
+if(localEleves.length>0&&!forceRefresh){return localEleves;}
+const cached=await chargerDepuisIndexedDB();
+if(cached&&cached.length>0){
+localEleves=cached;
+try{
+const q=query(collection(db,"ecoles",SCHOOL_PREFIX,"compta_eleves"),where("_type","==","compta_eleve"));
+const snap=await getDocs(q);
+let eleves=[];
+for(const ds of snap.docs){
+const d=ds.data();
+eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||""});
 }
-
-document.getElementById("confirmAddEleve").onclick = async () => { 
-    if (!validateInscriptionForm()) return; 
-    const nom = document.getElementById("newEleveNom").value.trim(); 
-    const postnom = document.getElementById("newElevePostnom").value.trim(); 
-    const prenom = document.getElementById("newElevePrenom").value.trim(); 
-    const dateNaiss = document.getElementById("newEleveDateNaiss").value; 
-    const lieuNaiss = document.getElementById("newEleveLieuNaiss").value.trim(); 
-    const nomPere = document.getElementById("newEleveNomPere").value.trim(); 
-    const nomMere = document.getElementById("newEleveNomMere").value.trim(); 
-    const adresse = document.getElementById("newEleveAdresse").value.trim(); 
-    const sexe = document.getElementById("newEleveSexe").value; 
-    const phone = document.getElementById("newElevePhone").value.trim(); 
-    const classe = document.getElementById("newEleveClasse").value; 
-    const option = document.getElementById("newEleveOption").value; 
-    const exonere = document.getElementById("newEleveExonere").value === "oui"; 
-    const motif = document.getElementById("newEleveMotifExon").value; 
-    const approbateur = document.getElementById("newEleveApprobateur").value; 
-    const parentCode = document.getElementById("newEleveParentCode").value.trim() || null; 
-    const montantInscription = parseInt(document.getElementById("newEleveMontantInscription").value) || 0; 
-    if (exonere && compteurExoneres >= (currentSchoolConfig?.maxExonerations || 10)) { 
-        toast(`Limite d'exonérations atteinte (${currentSchoolConfig?.maxExonerations || 10})`, "error"); 
-        return; 
-    } 
-    if (await showConfirm(`Confirmez-vous l'inscription de ${nom} ${postnom} ${prenom} en ${classe} ?`)) { 
-        const result = await ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, nomPere, nomMere, adresse, sexe, phone, classe, option, exonere, motif, approbateur, parentCode, montantInscription); 
-        if (result) { 
-            toast(`Élève ${nom} ${postnom} ${prenom} inscrit avec succès. Code parent: ${result.parentCode}`, "success"); 
-            document.getElementById("addEleveModal").classList.remove("show"); 
-            document.getElementById("newEleveNom").value = ""; 
-            document.getElementById("newElevePostnom").value = ""; 
-            document.getElementById("newElevePrenom").value = ""; 
-            document.getElementById("newEleveDateNaiss").value = ""; 
-            document.getElementById("newEleveLieuNaiss").value = ""; 
-            document.getElementById("newEleveNomPere").value = ""; 
-            document.getElementById("newEleveNomMere").value = ""; 
-            document.getElementById("newEleveAdresse").value = ""; 
-            document.getElementById("newEleveSexe").value = ""; 
-            document.getElementById("newElevePhone").value = ""; 
-            document.getElementById("newEleveClasse").value = ""; 
-            document.getElementById("newEleveOption").value = ""; 
-            document.getElementById("newEleveExonere").value = "non"; 
-            document.getElementById("newEleveMotifExon").value = ""; 
-            document.getElementById("newEleveApprobateur").value = ""; 
-            document.getElementById("newEleveParentCode").value = ""; 
-            document.getElementById("newEleveMontantInscription").value = "0"; 
-            document.getElementById("motifExonerationGroup").style.display = "none"; 
-            document.getElementById("approbateurGroup").style.display = "none"; 
-            document.getElementById("previewInscription").style.display = "none"; 
-            await afficherListeEleves(); 
-            await mettreAJourStats(); 
-            await afficherCartesIdentite(); 
-            await afficherParentCodes(); 
-        } 
-    } 
+if(eleves.length>0){localEleves=eleves;sauvegarderDansIndexedDB(eleves);}
+return localEleves;
+}catch(error){return localEleves;}
+}
+try{
+const q=query(collection(db,"ecoles",SCHOOL_PREFIX,"compta_eleves"),where("_type","==","compta_eleve"));
+const snap=await getDocs(q);
+let eleves=[];
+for(const ds of snap.docs){
+const d=ds.data();
+eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||""});
+}
+localEleves=eleves;
+sauvegarderDansIndexedDB(eleves);
+return eleves;
+}catch(error){
+console.error("Erreur chargement Firebase:",error);
+const fallback=await chargerDepuisIndexedDB();
+if(fallback&&fallback.length>0){localEleves=fallback;return fallback;}
+return localEleves.length?localEleves:[];
+}
+}
+async function getTousElevesAvecInfos(){
+const tous=await getAllComptaEleves();
+const resultats=[];
+for(let e of tous){
+if(e.abandon)continue;
+let moisImpayes=0,totalPaye=0,totalMin=0,estEnOrdreMoisCourant=false;
+const paiements=e.paiements||{};
+totalMin=e.minerval*10;
+for(let m of moisListe)totalPaye+=paiements[m]?.montant||0;
+for(let m of moisListe){
+if(estMoisPasse(m)){
+const mt=paiements[m]?.montant||0;
+if(mt<(e.minerval||45000))moisImpayes++;
+}
+}
+const pc=paiements[moisCourant]?.montant||0;
+estEnOrdreMoisCourant=e.exonere||pc>=(e.minerval||45000);
+resultats.push({...e,moisImpayes,totalPaye,totalMin,estEnOrdreMoisCourant});
+}
+return resultats;
+}
+async function enregistrerPaiement(eleveId,mois,montant){
+const id=`compta_${eleveId}`;
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",id);
+const snap=await getDoc(ref);
+if(!snap.exists())return false;
+const d=snap.data();
+const actuel=d.paiements?.[mois]||{montant:0,date:null,historique:[]};
+const nouveauMontant=(actuel.montant||0)+montant;
+const minervalEleve=d.minerval||45000;
+const maintenant=new Date();
+const dateStr=maintenant.toISOString().slice(0,19).replace('T',' ');
+const histItem={montant:montant,date:dateStr,nouveauTotal:nouveauMontant};
+const nvHist=[...(actuel.historique||[]),histItem];
+const paiementsMisAJour={...(d.paiements||{})};
+paiementsMisAJour[mois]={montant:nouveauMontant,date:dateStr,historique:nvHist};
+await updateDoc(ref,{paiements:paiementsMisAJour});
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){localEleves[idx].paiements=paiementsMisAJour;sauvegarderDansIndexedDB(localEleves);}
+const reste=minervalEleve-nouveauMontant;
+toast(`✅ Paiement de ${formatNbSimple(montant)} FC enregistré pour ${mois}. Reste: ${reste>0?formatNbSimple(reste):'0'} FC`,"success");
+return true;
+}
+async function marquerAbandon(eleveId){
+const id=`compta_${eleveId}`;
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",id);
+await updateDoc(ref,{abandon:true,dateAbandon:formatDateYMD()});
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){localEleves[idx].abandon=true;localEleves[idx].dateAbandon=formatDateYMD();sauvegarderDansIndexedDB(localEleves);}
+await mettreAJourStats();
+await afficherListeEleves();
+await afficherAbandons();
+await afficherCartesIdentite();
+await afficherParentCodes();
+}
+async function annulerAbandon(eleveId){
+const id=`compta_${eleveId}`;
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",id);
+await updateDoc(ref,{abandon:false,dateAbandon:null});
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){localEleves[idx].abandon=false;localEleves[idx].dateAbandon=null;sauvegarderDansIndexedDB(localEleves);}
+await mettreAJourStats();
+await afficherListeEleves();
+await afficherAbandons();
+await afficherCartesIdentite();
+await afficherParentCodes();
+}
+async function ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motifExon,approbateur,parentCode=null,montantInscription=0){
+if(exonere&&compteurExoneres>=(currentSchoolConfig?.maxExonerations||10)){
+toast("Limite d'exonérations atteinte","error");
+return null;
+}
+const id="eleve_"+Date.now();
+const minerval=exonere?0:await getMinervalEleve(classe,option);
+const codeParent=parentCode&&parentCode.length===6?parentCode:genererCodeParent();
+const paiements={};
+for(let m of moisListe)paiements[m]={montant:0,date:null,historique:[]};
+if(montantInscription>0){
+paiements[moisCourant]={montant:montantInscription,date:formatDateYMD(),historique:[{montant:montantInscription,date:formatDateYMD(),nouveauTotal:montantInscription}]};
+}
+const docId=`compta_${id}`;
+const newCompta={_type:"compta_eleve",eleveId:id,nom:nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe:classe,option:option||"",minerval:minerval,anneeScolaire:anneeScolaire,paiements:paiements,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,parentCode:codeParent};
+await setDoc(doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",docId),newCompta);
+const newEleve={id,nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe,option:option||"",minerval,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,paiements,parentCode:codeParent};
+localEleves.push(newEleve);
+sauvegarderDansIndexedDB(localEleves);
+if(exonere)compteurExoneres++;
+toast(`✅ Élève inscrit. Code parent: ${codeParent}`,"success");
+return{id,nom,postnom,prenom,classe,option,parentCode:codeParent};
+}
+async function modifierParentCode(eleveId,nouveauCode,appliquerFamille=false){
+if(!nouveauCode||nouveauCode.length!==6||isNaN(nouveauCode)){
+toast("Le code doit contenir exactement 6 chiffres","error");
+return false;
+}
+const ref=doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",`compta_${eleveId}`);
+const snap=await getDoc(ref);
+if(!snap.exists())return false;
+const eleve=snap.data();
+const ancienCode=eleve.parentCode||"";
+if(appliquerFamille&&ancienCode){
+const q=query(collection(db,"ecoles",SCHOOL_PREFIX,"compta_eleves"),where("parentCode","==",ancienCode));
+const snapFamille=await getDocs(q);
+for(const docFam of snapFamille.docs){
+await updateDoc(docFam.ref,{parentCode:nouveauCode});
+const famId=docFam.data().eleveId;
+const idx=localEleves.findIndex(e=>e.id===famId);
+if(idx!==-1)localEleves[idx].parentCode=nouveauCode;
+}
+sauvegarderDansIndexedDB(localEleves);
+toast(`${snapFamille.size} élève(s) mis à jour avec le nouveau code familial`,"success");
+}else{
+await updateDoc(ref,{parentCode:nouveauCode});
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){localEleves[idx].parentCode=nouveauCode;sauvegarderDansIndexedDB(localEleves);}
+toast(`Code parent modifié pour ${eleve.nom} ${eleve.prenom||''}`,"success");
+}
+await afficherParentCodes();
+await afficherListeEleves();
+return true;
+}
+async function getElevesFiltres(incAbandons=false){
+let res=await getTousElevesAvecInfos();
+if(!incAbandons)res=res.filter(e=>!e.abandon);
+const nom=document.getElementById("searchNom")?.value.trim()||"";
+const cls=document.getElementById("filterClasse")?.value||"";
+const opt=document.getElementById("filterOption")?.value||"";
+if(nom)res=res.filter(e=>e.nom.toLowerCase().includes(nom.toLowerCase())||(e.postnom&&e.postnom.toLowerCase().includes(nom.toLowerCase())));
+if(cls)res=res.filter(e=>e.classe===cls);
+if(opt)res=res.filter(e=>e.option===opt);
+if(currentFilter==="normal")return res.filter(e=>!e.exonere&&e.moisImpayes<3);
+if(currentFilter==="exonere")return res.filter(e=>e.exonere===true);
+if(currentFilter==="listenoir")return res.filter(e=>!e.exonere&&e.moisImpayes>=3);
+if(currentFilter==="enordre")return res.filter(e=>e.exonere||e.estEnOrdreMoisCourant);
+return res;
+}
+async function getAbandons(){let res=await getAllComptaEleves();res=res.filter(e=>e.abandon===true);const nom=document.getElementById("searchAbandon")?.value.trim()||"";if(nom)res=res.filter(e=>e.nom.toLowerCase().includes(nom.toLowerCase()));return res;}
+async function mettreAJourStats(){
+try{
+const tousLesEleves=await getAllComptaEleves();
+let totalActifs=0,exoneres=0,listeNoire=0,reguliers=0,abandons=0;
+const infos=await getTousElevesAvecInfos();
+for(let eleve of tousLesEleves){
+if(eleve.abandon===true){abandons++;continue;}
+totalActifs++;
+if(eleve.exonere===true){exoneres++;continue;}
+const info=infos.find(i=>i.id===eleve.id);
+const moisImpayes=info?info.moisImpayes:0;
+if(moisImpayes>=3){listeNoire++;}else{reguliers++;}
+}
+document.getElementById("statTotal").innerText=totalActifs;
+document.getElementById("statExoneres").innerText=exoneres;
+document.getElementById("statListeNoire").innerText=listeNoire;
+document.getElementById("statReguliers").innerText=reguliers;
+document.getElementById("statAbandons").innerText=abandons;
+}catch(error){console.error("Erreur mise à jour stats:",error);}
+}
+window.toggleDropdown=function(btn){
+const dropdown=btn.nextElementSibling;
+const isVisible=dropdown.classList.contains('show');
+document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));
+if(!isVisible)dropdown.classList.add('show');
 };
-
-document.getElementById("btnChangeCode").onclick = () => changerCodeAcces();
-document.getElementById("btnSaveTarifs").onclick = async () => { await sauverTarifs(); };
-document.getElementById("btnSaveEcoleInfo").onclick = () => sauvegarderInfosEcole();
-
+document.addEventListener('click',function(e){
+if(!e.target.closest('.dropdown')){
+document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));
+}
+});
+async function afficherListeEleves(){
+const eleves=await getElevesFiltres();
+const cont=document.getElementById("elevesContainer");
+if(!eleves.length){cont.innerHTML='<div class="empty-state">📭 Aucun élève</div>';return;}
+let html='<div class="eleve-cards">';
+for(let e of eleves){
+const estLN=(!e.exonere&&e.moisImpayes>=3);
+const estOrdre=(e.exonere||e.estEnOrdreMoisCourant);
+let badge='',classeSpec='';
+if(e.exonere){badge='<span class="badge badge-exonere">EXONÉRÉ</span>';}
+else if(estLN){badge='<span class="badge badge-listenoire">LISTE NOIRE</span>';classeSpec='liste-noire';}
+else if(estOrdre){badge='<span class="badge badge-en-ordre">EN ORDRE</span>';classeSpec='en-ordre';}
+else if(e.moisImpayes>0){badge='<span class="badge badge-impaye">IMPAYÉ</span>';}
+const codeDisplay=e.parentCode?`<span class="badge badge-code">🔑 ${e.parentCode}</span>`:'';
+html+=`<div class="eleve-card ${classeSpec}"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="eleve-badges">${badge}${codeDisplay}</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">💰</span><span class="eleve-info-value">${e.exonere?"EXONÉRÉ":formatNbSimple(e.minerval)+" FC/mois"}</span></div>${e.phone?`<div class="eleve-info-item"><span class="eleve-info-label">📞</span><span class="eleve-info-value">${e.phone}</span></div>`:''}</div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Paiements</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code parent</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ Abandon</div></div></div></div></div>`;
+}
+html+='</div>';
+cont.innerHTML=html;
+await mettreAJourStats();
+}
+async function afficherReleve(eleve){
+if(!eleve||eleve.abandon){
+document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;
+return;
+}
+const elevesFraiches=await getAllComptaEleves(true);
+const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
+if(!eleveMaj)return;
+let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
+let totalMin=0,totalPaye=0;
+const paiements=eleveMaj.paiements||{};
+for(let mois of moisListe){
+const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;
+const p=paiements[mois]||{montant:0,date:null,historique:[]};
+const montantPaye=p.montant||0;
+const estPayeTotal=eleveMaj.exonere||montantPaye>=minervalMensuel;
+const resteMois=eleveMaj.exonere?0:minervalMensuel-montantPaye;
+if(!eleveMaj.exonere){totalMin+=minervalMensuel;totalPaye+=montantPaye;}
+let cardClass="";
+if(mois===moisCourant)cardClass="mois-courant";
+else if(estMoisPasse(mois)&&!estPayeTotal&&!eleveMaj.exonere)cardClass="mois-impaye";
+let statut="",txt="",resteText="";
+if(eleveMaj.exonere){statut="paye";txt="EXONÉRÉ";resteText="0 FC";}
+else if(estPayeTotal){statut="paye";txt=`${formatNbSimple(minervalMensuel)} FC`;resteText="0 FC";}
+else if(montantPaye>0){statut="partial";txt=`${formatNbSimple(montantPaye)} FC`;resteText=`<span style="color:#ef4444;">${formatNbSimple(resteMois)} FC</span>`;}
+else{statut="impaye";txt="0 FC";resteText=`<span style="color:#ef4444;">${formatNbSimple(minervalMensuel)} FC</span>`;}
+let historiqueHtml='';
+if(p.historique&&p.historique.length>0){
+historiqueHtml=`<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h=>`${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
+}
+html+=`<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleveMaj.exonere?"0":formatNbSimple(minervalMensuel)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${(!eleveMaj.exonere&&!estPayeTotal&&(estMoisPasse(mois)||mois===moisCourant))?`<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>`:`<span style="color:#10b981;">✓ COMPLET</span>`}</div></div>${historiqueHtml}</div>`;
+}
+html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin-totalPaye)} FC</span></div></div>`;
+document.getElementById("releveContainer").innerHTML=html;
+}
+window.ouvrirEditParentCode=function(eleveId,eleveNom,codeActuel){
+const modal=document.getElementById('editParentCodeModal');
+document.getElementById('editParentCodeInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${eleveNom}</span></div><div class="modal-info-line"><span>CODE ACTUEL</span><span class="parent-code-card">${codeActuel||'Aucun'}</span></div>`;
+document.getElementById('editParentCodeValue').value=codeActuel||'';
+document.getElementById('editParentCodeFamily').value=codeActuel?'yes':'no';
+window.currentEditEleveId=eleveId;
+window.currentEditCodeActuel=codeActuel;
+modal.classList.add('show');
+};
+document.getElementById('confirmEditParentCode').onclick=async function(){
+const nouveauCode=document.getElementById('editParentCodeValue').value.trim();
+const appliquerFamille=document.getElementById('editParentCodeFamily').value==='yes';
+if(window.currentEditEleveId&&nouveauCode){
+await modifierParentCode(window.currentEditEleveId,nouveauCode,appliquerFamille);
+document.getElementById('editParentCodeModal').classList.remove('show');
+await afficherListeEleves();
+await afficherParentCodes();
+}
+};
+document.getElementById('cancelEditParentCode').onclick=function(){
+document.getElementById('editParentCodeModal').classList.remove('show');
+};
+async function afficherParentCodes(){
+const eleves=await getAllComptaEleves();
+const actifs=eleves.filter(e=>!e.abandon);
+const codesMap=new Map();
+for(let e of actifs){
+const code=e.parentCode||'';
+if(!codesMap.has(code))codesMap.set(code,[]);
+codesMap.get(code).push(e);
+}
+const searchCode=document.getElementById('searchParentCode')?.value.trim()||'';
+const container=document.getElementById('parentCodesContainer');
+if(searchCode){
+const enfants=codesMap.get(searchCode)||[];
+if(enfants.length===0){
+container.innerHTML='<div class="empty-state">🔍 Aucun élève trouvé avec ce code</div>';
+}else{
+let html=`<div class="code-family-group"><div style="font-weight:bold;margin-bottom:12px;">🔑 Code ${searchCode} - ${enfants.length} enfant(s)</div>`;
+for(let e of enfants){
+html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">👤 ${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''} | 📞 ${e.phone||'-'}</div></div>`;
+}
+html+=`</div><div style="margin-top:12px;"><button class="btn btn-sm btn-outline" onclick="document.getElementById('searchParentCode').value='';afficherParentCodes();">✖ Effacer</button></div>`;
+container.innerHTML=html;
+}
+}else{
+container.innerHTML='<div class="empty-state">🔍 Entrez un code parent pour rechercher les enfants liés</div>';
+}
+const allCodesContainer=document.getElementById('allParentCodesList');
+let codesListHtml='<div style="display:flex;flex-direction:column;gap:8px;">';
+for(let[code,enfants]of codesMap){
+if(!code)continue;
+const noms=enfants.map(e=>`${e.nom} ${e.prenom||''}`).join(', ');
+codesListHtml+=`<div style="background:rgba(59,130,246,0.1);border-radius:12px;padding:12px;border-left:3px solid #3b82f6;"><div style="font-family:monospace;font-size:16px;font-weight:bold;color:#3b82f6;">🔑 ${code}</div><div style="font-size:12px;color:#94a3b8;margin-top:5px;">${enfants.length} élève(s): ${noms}</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="document.getElementById('searchParentCode').value='${code}';afficherParentCodes();">🔍 Rechercher cette famille</button></div>`;
+}
+codesListHtml+='</div>';
+if(codesMap.size===0||(codesMap.size===1&&codesMap.has(''))){
+allCodesContainer.innerHTML='<div class="empty-state">Aucun code parent attribué</div>';
+}else{
+allCodesContainer.innerHTML=codesListHtml;
+}
+}
+async function afficherCartesIdentite(){
+const eleves=await getAllComptaEleves();
+const searchTerm=document.getElementById("searchCarte")?.value.trim().toLowerCase()||"";
+let filtered=eleves.filter(e=>!e.abandon);
+if(searchTerm){
+filtered=filtered.filter(e=>
+e.nom.toLowerCase().includes(searchTerm)||
+(e.postnom&&e.postnom.toLowerCase().includes(searchTerm))||
+(e.prenom&&e.prenom.toLowerCase().includes(searchTerm))||
+e.classe.toLowerCase().includes(searchTerm)||
+e.id.toLowerCase().includes(searchTerm)
+);
+}
+const container=document.getElementById("cartesContainer");
+if(!filtered.length){container.innerHTML='<div class="empty-state">📭 Aucune carte à afficher</div>';return;}
+let html='';
+for(let e of filtered){
+let badgeClass=e.exonere?'exonere':(e.abandon?'abandon':'');
+let badgeText=e.exonere?'EXONÉRÉ':(e.abandon?'ABANDON':'ACTIF');
+html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div><div class="carte-info-grid"><div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div><div class="carte-info-item"><span class="carte-info-label">📍 LIEU DE NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">📚 CLASSE / OPTION</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div><div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div></div><div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
+}
+container.innerHTML=html;
+}
+window.marquerAbandonPrompt=async function(id,nom){if(await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)){await marquerAbandon(id);toast(`${nom} a été abandonné`,"warning");}};
+async function afficherAbandons(){
+const eleves=await getAbandons();
+const cont=document.getElementById("abandonsContainer");
+if(!eleves.length){cont.innerHTML='<div class="empty-state">📭 Aucun abandon</div>';return;}
+let html='<div class="eleve-cards">';
+for(let e of eleves){
+html+=`<div class="eleve-card abandon"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom||''} ${e.prenom||''} <span class="badge badge-abandon">ABANDON</span></div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">📅</span><span class="eleve-info-value">${e.dateAbandon||"-"}</span></div><div class="eleve-info-item"><span class="eleve-info-label">🔑</span><span class="eleve-info-value">${e.parentCode||'-'}</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Voir</div><div class="dropdown-item" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">🔄 Réintégrer</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code</div></div></div></div></div>`;
+}
+html+='</div>';
+cont.innerHTML=html;
+}
+window.voirDetails=async function(id,nom,classe,option){
+const eleves=await getAllComptaEleves(true);
+currentEleve=eleves.find(e=>e.id===id);
+await afficherReleve(currentEleve);
+document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));
+document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));
+document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active");
+document.getElementById("tab2").classList.add("active");
+};
+window.reintegrerAbandon=async function(id,nom){if(await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)){await annulerAbandon(id);toast(`${nom} a été réintégré`,"success");}};
+window.openPaiement=async function(mois,minerval,dejaPaye){if(!await verifierCode("paiement")){toast("Annulé","warning");return;}const reste=minerval-dejaPaye;document.getElementById("modalInfo").innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`;document.getElementById("paymentAmount").value=reste;window.paiementData={mois,minerval,dejaPaye,reste,eleveId:currentEleve.id};document.getElementById("paymentModal").classList.add("show");};
+function verifierCode(action){return new Promise((resolve)=>{pendingAction={resolve,action};document.getElementById("codeInput").value="";document.getElementById("codeModal").classList.add("show");});}
+function showConfirm(message){return new Promise((resolve)=>{pendingAction={resolve,action:"confirm"};document.getElementById("confirmMessage").innerHTML=message;document.getElementById("confirmModal").classList.add("show");});}
+document.getElementById("confirmCode").onclick=async()=>{const code=document.getElementById("codeInput").value;if(code===currentSchoolConfig?.codeAcces){document.getElementById("codeModal").classList.remove("show");if(pendingAction){if(pendingAction.action==="configTab"){pendingAction.resolve(true);document.getElementById("tab7").classList.add("active");document.querySelector('.tab-btn[data-tab="tab7"]').classList.add("active");document.querySelector('.tab-btn[data-tab="tab1"]').classList.remove("active");document.getElementById("tab1").classList.remove("active");pendingAction=null;}else{pendingAction.resolve(true);pendingAction=null;}}}else{toast("Code incorrect","error");if(pendingAction){pendingAction.resolve(false);pendingAction=null;}document.getElementById("codeModal").classList.remove("show");}};
+document.getElementById("cancelCode").onclick=()=>{document.getElementById("codeModal").classList.remove("show");if(pendingAction){pendingAction.resolve(false);pendingAction=null;}};
+document.getElementById("confirmYes").onclick=()=>{document.getElementById("confirmModal").classList.remove("show");if(pendingAction&&pendingAction.action==="confirm"){pendingAction.resolve(true);pendingAction=null;}};
+document.getElementById("confirmNo").onclick=()=>{document.getElementById("confirmModal").classList.remove("show");if(pendingAction&&pendingAction.action==="confirm"){pendingAction.resolve(false);pendingAction=null;}};
+document.getElementById("confirmPayment").onclick=async()=>{const montant=parseInt(document.getElementById("paymentAmount").value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.paiementData.reste){toast("Dépasse le reste","error");return;}if(await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)){await enregistrerPaiement(window.paiementData.eleveId,window.paiementData.mois,montant);document.getElementById("paymentModal").classList.remove("show");await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStats();}};
+document.getElementById("cancelPayment").onclick=()=>document.getElementById("paymentModal").classList.remove("show");
+async function changerCodeAcces(){const ancienCode=document.getElementById("oldCode").value;const nouveauCode1=document.getElementById("newCode1").value;const nouveauCode2=document.getElementById("newCode2").value;if(ancienCode!==currentSchoolConfig?.codeAcces){toast("Ancien code incorrect","error");return;}if(!nouveauCode1||nouveauCode1!==nouveauCode2){toast("Les nouveaux codes ne correspondent pas","error");return;}if(nouveauCode1.length<4){toast("Le code doit contenir au moins 4 caractères","error");return;}currentSchoolConfig.codeAcces=nouveauCode1;const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");await setDoc(configRef,currentSchoolConfig);toast("Code d'accès modifié avec succès","success");document.getElementById("oldCode").value="";document.getElementById("newCode1").value="";document.getElementById("newCode2").value="";}
+async function showDetailModal(title,eleves){const modal=document.getElementById("detailModal");const titleEl=document.getElementById("detailModalTitle");const contentEl=document.getElementById("detailModalContent");titleEl.innerHTML=`${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`;if(eleves.length===0){contentEl.innerHTML='<div class="empty-state">Aucun élément</div>';}else{let html='';for(let e of eleves){html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''}</div>${e.moisImpayes!==undefined?`<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>`:''}<div class="detail-info">🔑 ${e.parentCode||'Aucun code'}</div></div>`;}contentEl.innerHTML=html;}modal.classList.add("show");}
+document.getElementById("closeDetailModal").onclick=()=>document.getElementById("detailModal").classList.remove("show");
+async function setupStatCards(){
+const tous=await getAllComptaEleves();
+const infos=await getTousElevesAvecInfos();
+const totalCard=document.querySelector('[data-stat="total"]');
+const exoneresCard=document.querySelector('[data-stat="exoneres"]');
+const listenoirCard=document.querySelector('[data-stat="listenoir"]');
+const reguliersCard=document.querySelector('[data-stat="reguliers"]');
+const abandonsCard=document.querySelector('[data-stat="abandons"]');
+if(totalCard)totalCard.onclick=async()=>{const actifs=tous.filter(e=>!e.abandon);showDetailModal("📋 TOTAL ÉLÈVES",actifs);};
+if(exoneresCard)exoneresCard.onclick=async()=>{const ex=tous.filter(e=>e.exonere&&!e.abandon);showDetailModal("🌟 EXONÉRÉS",ex);};
+if(listenoirCard)listenoirCard.onclick=async()=>{const ln=infos.filter(e=>!e.exonere&&!e.abandon&&e.moisImpayes>=3);showDetailModal("⚠️ LISTE NOIRE",ln);};
+if(reguliersCard)reguliersCard.onclick=async()=>{const reg=infos.filter(e=>!e.exonere&&!e.abandon&&e.moisImpayes>0&&e.moisImpayes<3);showDetailModal("💰 RÉGULIERS",reg);};
+if(abandonsCard)abandonsCard.onclick=async()=>{const ab=tous.filter(e=>e.abandon);showDetailModal("❌ ABANDONS",ab);};
+}
+window.genererPDFRecouvrement=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const recouv=tous.filter(e=>!e.exonere&&e.moisImpayes>0);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DE RECOUVREMENT",105,32,{align:"center"});doc.text(`Date: ${formatDateFr(new Date())}`,20,55);doc.text(`Année: ${anneeScolaire}`,20,62);if(recouv.length===0){doc.text("Aucun élève à recouvrer",105,100,{align:"center"});}else{const body=recouv.map(e=>[e.nom,`${e.classe} ${e.option||""}`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",`${e.moisImpayes} mois`,e.parentCode||'-']);doc.autoTable({startY:72,head:[["ÉLÈVE","CLASSE","MONTANT DÛ","MOIS IMPAYÉS","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[255,215,0],textColor:[0,0,0],fontStyle:"bold"}});}doc.save(`Recouvrement_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFListeNoire=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const ln=tous.filter(e=>!e.exonere&&e.moisImpayes>=3);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS",105,32,{align:"center"});if(ln.length===0){doc.text("Aucun élève en liste noire",105,100,{align:"center"});}else{const body=ln.map(e=>[e.nom,`${e.classe} ${e.option||""}`,`${e.moisImpayes} mois`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",e.parentCode||'-']);doc.autoTable({startY:55,head:[["ÉLÈVE","CLASSE","MOIS IMPAYÉS","MONTANT DÛ","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[239,68,68],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`ListeNoire_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFTousEleves=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE COMPLÈTE DES ÉLÈVES",105,32,{align:"center"});doc.text(`Total: ${actifs.length} élèves`,20,55);const body=actifs.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.exonere?"OUI":"NON",e.phone||"-",e.parentCode||'-']);doc.autoTable({startY:62,head:[["NOM","CLASSE","EXONÉRÉ","TÉLÉPHONE","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[59,130,246],textColor:[255,255,255],fontStyle:"bold"}});doc.save(`ListeEleves_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFExoneres=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DES ÉLÈVES EXONÉRÉS",105,32,{align:"center"});if(ex.length===0){doc.text("Aucun élève exonéré",105,100,{align:"center"});}else{const body=ex.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.motifExon||"-",e.parentCode||'-']);doc.autoTable({startY:55,head:[["NOM","CLASSE","MOTIF","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:9,cellPadding:4},headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`Exoneres_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
+window.genererPDFCartes=async function(){try{toast("Génération des cartes...","warning");const{jsPDF}=window.jspdf;const eleves=await getAllComptaEleves();const actifs=eleves.filter(e=>!e.abandon);const doc=new jsPDF("p","mm","a4");let y=20;for(let i=0;i<actifs.length;i++){if(i>0&&i%2===0){doc.addPage();y=20;}const e=actifs[i];doc.setFillColor(30,41,59);doc.roundedRect(10,y,85,60,5,5,"F");doc.setDrawColor(255,215,0);doc.setLineWidth(0.5);doc.roundedRect(10,y,85,60,5,5,"S");doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(e.nom+" "+(e.postnom||"")+" "+e.prenom,15,y+8);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(200,200,200);doc.text(`Classe: ${e.classe} ${e.option||""}`,15,y+16);doc.text(`Matricule: ${e.id.substring(0,12)}...`,15,y+22);doc.text(`Tél: ${e.phone||"-"}`,15,y+28);if(e.nomPere)doc.text(`Père: ${e.nomPere.substring(0,18)}`,15,y+34);if(e.nomMere)doc.text(`Mère: ${e.nomMere.substring(0,18)}`,15,y+40);doc.setFontSize(6);doc.setTextColor(59,130,246);doc.text(`Code Parent: ${e.parentCode||'Non attribué'}`,15,y+46);doc.setFontSize(6);doc.setTextColor(255,215,0);doc.text(`${currentSchoolConfig?.nom||"ÉCOLE"}`,15,y+53);if(i%2===1){y+=65;}else{y+=0;}}doc.save(`CartesIdentite_${formatDateYMD()}.pdf`);toast("Cartes générées","success");}catch(e){toast("Erreur","error");}};
+function initTabsEvents(){const tabs=document.querySelectorAll(".tab-btn");tabs.forEach(btn=>{btn.removeEventListener("click",handleTabClick);btn.addEventListener("click",handleTabClick);});}
+async function handleTabClick(){const tabId=this.dataset.tab;if(tabId==="tab7"){if(!await verifierCodeAccesConfig()){return;}}document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));const activePanel=document.getElementById(tabId);if(activePanel)activePanel.classList.add("active");if(tabId==="tab4"){await afficherCartesIdentite();}if(tabId==="tab5"){await afficherParentCodes();}}
+function verifierCodeAccesConfig(){return new Promise((resolve)=>{pendingAction={resolve,action:"configTab"};document.getElementById("codeInput").value="";document.getElementById("codeModal").classList.add("show");});}
+function initFilterEvents(){document.querySelectorAll(".filter-btn").forEach(btn=>{btn.onclick=()=>{document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");currentFilter=btn.dataset.filter;afficherListeEleves();};});}
+document.getElementById("loginBtn").onclick=async()=>{
+const btn=document.getElementById("loginBtn");
+const codeInput=document.getElementById("loginCode");
+const code=codeInput.value.trim();
+const errorDiv=document.getElementById("loginError");
+btn.disabled=true;
+btn.textContent="⏳ VÉRIFICATION...";
+try{
+await chargerConfigEcole();
+await openDB();
+if(currentSchoolConfig&&code===currentSchoolConfig.codeAcces){
+errorDiv.innerHTML="";
+document.getElementById("loginOverlay").style.display="none";
+document.getElementById("mainApp").style.display="block";
+await initApp();
+toast(`Bienvenue à ${currentSchoolConfig.nom}`,"success");
+}else{
+errorDiv.innerHTML="❌ Code d'accès incorrect";
+toast("Code d'accès incorrect","error");
+codeInput.value="";
+codeInput.focus();
+}
+}catch(error){
+errorDiv.innerHTML="❌ Erreur de connexion";
+toast("Erreur de connexion","error");
+console.error(error);
+}finally{
+btn.disabled=false;
+btn.textContent="🔐 SE CONNECTER";
+}
+};
+document.getElementById("loginCode").onkeypress=(e)=>{if(e.key==="Enter")document.getElementById("loginBtn").click();};
+document.getElementById("searchCarte").oninput=()=>afficherCartesIdentite();
+document.getElementById("searchParentCode").oninput=()=>afficherParentCodes();
+async function initApp(){
+if(isAppInitialized)return;
+await chargerOptions();
+await chargerTarifs();
+await afficherListeEleves();
+await mettreAJourStats();
+await setupStatCards();
+await afficherCartesIdentite();
+await afficherParentCodes();
+initTabsEvents();
+initFilterEvents();
+isAppInitialized=true;
+}
+function validateInscriptionForm(){
+const nom=document.getElementById("newEleveNom").value.trim();
+const prenom=document.getElementById("newElevePrenom").value.trim();
+const dateNaiss=document.getElementById("newEleveDateNaiss").value;
+const lieuNaiss=document.getElementById("newEleveLieuNaiss").value.trim();
+const sexe=document.getElementById("newEleveSexe").value;
+const adresse=document.getElementById("newEleveAdresse").value.trim();
+const phone=document.getElementById("newElevePhone").value.trim();
+const classe=document.getElementById("newEleveClasse").value;
+const option=document.getElementById("newEleveOption").value;
+const exonere=document.getElementById("newEleveExonere").value==="oui";
+const parentCode=document.getElementById("newEleveParentCode").value.trim();
+if(!nom){toast("Le nom est requis","error");return false;}
+if(!prenom){toast("Le prénom est requis","error");return false;}
+if(!dateNaiss){toast("La date de naissance est requise","error");return false;}
+if(!lieuNaiss){toast("Le lieu de naissance est requis","error");return false;}
+if(!sexe){toast("Le sexe est requis","error");return false;}
+if(!adresse){toast("L'adresse est requise","error");return false;}
+if(!phone){toast("Le téléphone est requis","error");return false;}
+if(!classe){toast("La classe est requise","error");return false;}
+if(classe!=="7eme EB"&&classe!=="8eme EB"&&!option){toast("L'option est requise pour cette classe","error");return false;}
+if(parentCode&&(parentCode.length!==6||isNaN(parentCode))){toast("Le code parent doit contenir exactement 6 chiffres","error");return false;}
+if(exonere){
+const motif=document.getElementById("newEleveMotifExon").value;
+const approbateur=document.getElementById("newEleveApprobateur").value;
+if(!motif){toast("Le motif d'exonération est requis","error");return false;}
+if(!approbateur){toast("L'approbateur est requis","error");return false;}
+}
+return true;
+}
+document.getElementById("confirmAddEleve").onclick=async()=>{
+if(!validateInscriptionForm())return;
+const nom=document.getElementById("newEleveNom").value.trim();
+const postnom=document.getElementById("newElevePostnom").value.trim();
+const prenom=document.getElementById("newElevePrenom").value.trim();
+const dateNaiss=document.getElementById("newEleveDateNaiss").value;
+const lieuNaiss=document.getElementById("newEleveLieuNaiss").value.trim();
+const nomPere=document.getElementById("newEleveNomPere").value.trim();
+const nomMere=document.getElementById("newEleveNomMere").value.trim();
+const adresse=document.getElementById("newEleveAdresse").value.trim();
+const sexe=document.getElementById("newEleveSexe").value;
+const phone=document.getElementById("newElevePhone").value.trim();
+const classe=document.getElementById("newEleveClasse").value;
+const option=document.getElementById("newEleveOption").value;
+const exonere=document.getElementById("newEleveExonere").value==="oui";
+const motif=document.getElementById("newEleveMotifExon").value;
+const approbateur=document.getElementById("newEleveApprobateur").value;
+const parentCode=document.getElementById("newEleveParentCode").value.trim()||null;
+const montantInscription=parseInt(document.getElementById("newEleveMontantInscription").value)||0;
+if(exonere&&compteurExoneres>=(currentSchoolConfig?.maxExonerations||10)){
+toast(`Limite d'exonérations atteinte (${currentSchoolConfig?.maxExonerations||10})`,"error");
+return;
+}
+if(await showConfirm(`Confirmez-vous l'inscription de ${nom} ${postnom} ${prenom} en ${classe} ?`)){
+const result=await ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motif,approbateur,parentCode,montantInscription);
+if(result){
+toast(`Élève ${nom} ${postnom} ${prenom} inscrit avec succès. Code parent: ${result.parentCode}`,"success");
+document.getElementById("addEleveModal").classList.remove("show");
+document.getElementById("newEleveNom").value="";
+document.getElementById("newElevePostnom").value="";
+document.getElementById("newElevePrenom").value="";
+document.getElementById("newEleveDateNaiss").value="";
+document.getElementById("newEleveLieuNaiss").value="";
+document.getElementById("newEleveNomPere").value="";
+document.getElementById("newEleveNomMere").value="";
+document.getElementById("newEleveAdresse").value="";
+document.getElementById("newEleveSexe").value="";
+document.getElementById("newElevePhone").value="";
+document.getElementById("newEleveClasse").value="";
+document.getElementById("newEleveOption").value="";
+document.getElementById("newEleveExonere").value="non";
+document.getElementById("newEleveMotifExon").value="";
+document.getElementById("newEleveApprobateur").value="";
+document.getElementById("newEleveParentCode").value="";
+document.getElementById("newEleveMontantInscription").value="0";
+document.getElementById("motifExonerationGroup").style.display="none";
+document.getElementById("approbateurGroup").style.display="none";
+document.getElementById("previewInscription").style.display="none";
+await afficherListeEleves();
+await mettreAJourStats();
+await afficherCartesIdentite();
+await afficherParentCodes();
+}
+}
+};
+document.getElementById("btnChangeCode").onclick=()=>changerCodeAcces();
+document.getElementById("btnSaveTarifs").onclick=async()=>{await sauverTarifs();};
+document.getElementById("btnSaveEcoleInfo").onclick=()=>sauvegarderInfosEcole();
 await chargerConfigEcole();
 document.getElementById("loginCode").focus();
-window.updatePreview = updatePreview;
-window.afficherCartesIdentite = afficherCartesIdentite;
-window.afficherParentCodes = afficherParentCodes;
-window.ouvrirEditParentCode = ouvrirEditParentCode;
+window.updatePreview=updatePreview;
+window.afficherCartesIdentite=afficherCartesIdentite;
+window.afficherParentCodes=afficherParentCodes;
+window.ouvrirEditParentCode=ouvrirEditParentCode;
 </script>
 </body>
 </html>
