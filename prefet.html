@@ -332,22 +332,16 @@ appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ============================================
-// 🏫 RÉCUPÉRATION DE L'ÉCOLE DEPUIS L'URL
-// ============================================
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
-// Si pas d'école dans l'URL, rediriger vers le sélecteur
 if (!schoolId) {
   window.location.href = '/schoolchoice';
   throw new Error('Redirection vers le sélecteur');
 }
 
-// Nettoyer l'ID de l'école (supprimer les caractères dangereux)
 schoolId = schoolId.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
 
-// Vérifier que l'école existe
 async function verifierEcoleAutorisee(ecoleId) {
   try {
     const docRef = doc(db, "ecoles", ecoleId);
@@ -383,11 +377,7 @@ const schoolNameElement = document.getElementById('schoolNameHeader');
 if (schoolNameElement) schoolNameElement.textContent = 'COMPLEXE SCOLAIRE ' + schoolNameForDisplay;
 
 console.log('✅ École autorisée:', schoolId);
-console.log('🔑 Clé de stockage:', 'school_' + schoolId);
 
-// ============================================
-// 📦 VARIABLES GLOBALES
-// ============================================
 let eleves = [];
 let paiements = [];
 let matriculeCounter = 1;
@@ -398,10 +388,8 @@ let sauvegardeTimeout = null;
 let optionsDisponibles = ['CG', 'HP', 'TCC', 'ELEC', 'MG', 'SCIENCES'];
 let codeAcces = '0000';
 let tentativeConnexion = 0;
-// 🔑 Session stockée avec l'ID de l'école
 let estConnecte = sessionStorage.getItem('gestion_paiements_connecte_' + schoolId) === 'true';
 
-// 🔧 Configuration
 let configMontants = {
   exetat: 250000,
   etat: 80000,
@@ -411,9 +399,6 @@ let configMontants = {
 
 const classesSansOptions = ['7ème EB', '8ème EB'];
 
-// ============================================
-// 💾 INDEXEDDB - Stockage par école
-// ============================================
 function initIndexedDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('GestionPaiementsDB', 3);
@@ -433,7 +418,6 @@ async function saveToIndexedDB(data) {
   return new Promise((resolve, reject) => {
     const tx = dbc.transaction('appData', 'readwrite');
     const obj = tx.objectStore('appData');
-    // 🔑 Clé unique par école
     const key = 'school_' + schoolId;
     const req = obj.put({ 
       id: key, 
@@ -452,7 +436,6 @@ async function loadFromIndexedDB() {
   return new Promise((resolve, reject) => {
     const tx = dbc.transaction('appData', 'readonly');
     const obj = tx.objectStore('appData');
-    // 🔑 Lecture avec la clé de l'école
     const key = 'school_' + schoolId;
     const req = obj.get(key);
     req.onerror = () => reject(req.error);
@@ -461,9 +444,20 @@ async function loadFromIndexedDB() {
   });
 }
 
-// ============================================
-// 🔧 CHARGEMENT DE LA CONFIGURATION
-// ============================================
+async function chargerCodeAcces() {
+  try {
+    const docRef = doc(db, "inspool_config", "data");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.codeAcces) codeAcces = data.codeAcces;
+      console.log('🔐 Code chargé:', codeAcces);
+    }
+  } catch(e) { 
+    console.log('Erreur chargement code:', e); 
+  }
+}
+
 async function chargerConfiguration() {
   try {
     const configRef = doc(db, "inspool_config", "data");
@@ -474,7 +468,6 @@ async function chargerConfiguration() {
       configMontants.etat = data.etat || 80000;
       configMontants.bulletin = data.bulletin || 45000;
       configMontants.technique = data.technique || 30000;
-      if (data.codeAcces) codeAcces = data.codeAcces;
       console.log('✅ Configuration chargée:', configMontants);
     }
   } catch(e) {
@@ -482,9 +475,6 @@ async function chargerConfiguration() {
   }
 }
 
-// ============================================
-// 💬 TOAST NOTIFICATIONS
-// ============================================
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
@@ -507,9 +497,6 @@ function showToast(message, type = 'success') {
   }, 4500);
 }
 
-// ============================================
-// 💾 SAUVEGARDE - Données par école
-// ============================================
 async function sauvegarderTout() {
   try {
     const data = { 
@@ -517,13 +504,11 @@ async function sauvegarderTout() {
       paiements: paiements, 
       compteur: matriculeCounter, 
       options: optionsDisponibles,
-      schoolId: schoolId // ✅ Stocké avec l'ID de l'école
+      schoolId: schoolId
     };
     
-    // Sauvegarde locale
     await saveToIndexedDB(data);
     
-    // Sauvegarde Firestore
     try {
       const docRef = doc(db, "ecoles", schoolId, "paiements_data", "data");
       await setDoc(docRef, {
@@ -531,7 +516,7 @@ async function sauvegarderTout() {
         paiements: paiements,
         compteur: matriculeCounter,
         options: optionsDisponibles,
-        schoolId: schoolId, // ✅ Stocké avec l'ID de l'école
+        schoolId: schoolId,
         lastUpdate: new Date().toISOString()
       });
       document.getElementById('syncStatus').innerHTML = '<i class="fas fa-circle online"></i> En ligne';
@@ -549,18 +534,13 @@ function marquerSauvegarde() {
   sauvegardeTimeout = setTimeout(() => { sauvegarderTout(); }, 2000);
 }
 
-// ============================================
-// 📥 CHARGEMENT - Données par école
-// ============================================
 async function chargerDonnees() {
   try {
     console.log('📥 Chargement des données pour:', schoolId);
     
-    // 1. Charger depuis IndexedDB (local)
     const localData = await loadFromIndexedDB();
     console.log('📁 Données locales:', localData ? 'trouvées' : 'aucune');
     
-    // 2. Charger depuis Firestore
     let firebaseData = null;
     let firebaseHasData = false;
     
@@ -571,52 +551,37 @@ async function chargerDonnees() {
         firebaseData = docSnap.data();
         firebaseHasData = true;
         console.log('☁️ Données Firestore trouvées pour:', schoolId);
-        console.log('   📊 Élèves:', firebaseData.eleves?.length || 0);
-        console.log('   💰 Paiements:', firebaseData.paiements?.length || 0);
-      } else {
-        console.log('☁️ Aucune donnée Firestore pour:', schoolId);
       }
     } catch(e) { 
       console.log('⚠️ Erreur lecture Firestore:', e);
     }
 
-    // 3. Décider quelle source utiliser
-    // 🔑 CRITIQUE : On utilise UNIQUEMENT les données de l'école courante
     let useLocal = false;
     let useFirebase = false;
 
-    // Si on a des données Firestore
     if (firebaseHasData && firebaseData) {
-      // Vérifier que les données Firestore sont bien pour cette école
       if (firebaseData.schoolId === schoolId) {
         useFirebase = true;
         console.log('✅ Données Firestore valides pour cette école');
-      } else {
-        console.log('⚠️ Données Firestore pour une autre école, ignorées');
       }
     }
 
-    // Si on a des données locales
     if (localData && localData.schoolId === schoolId) {
       useLocal = true;
       console.log('✅ Données locales valides pour cette école');
     }
 
-    // 4. Fusionner ou choisir la source
     if (useFirebase && useLocal) {
-      // Comparer les dates
       const firebaseTime = firebaseData.lastUpdate ? new Date(firebaseData.lastUpdate).getTime() : 0;
       const localTime = localData.timestamp || 0;
       
       if (firebaseTime >= localTime) {
-        // Firestore est plus récent ou égal
         eleves = firebaseData.eleves || [];
         paiements = firebaseData.paiements || [];
         matriculeCounter = firebaseData.compteur || 1;
         if (firebaseData.options) optionsDisponibles = firebaseData.options;
         console.log('📥 Utilisation des données Firestore (plus récentes)');
       } else {
-        // Local est plus récent
         eleves = localData.eleves || [];
         paiements = localData.paiements || [];
         matriculeCounter = localData.compteur || 1;
@@ -624,21 +589,18 @@ async function chargerDonnees() {
         console.log('📥 Utilisation des données locales (plus récentes)');
       }
     } else if (useFirebase) {
-      // Uniquement Firestore
       eleves = firebaseData.eleves || [];
       paiements = firebaseData.paiements || [];
       matriculeCounter = firebaseData.compteur || 1;
       if (firebaseData.options) optionsDisponibles = firebaseData.options;
       console.log('📥 Utilisation des données Firestore uniquement');
     } else if (useLocal) {
-      // Uniquement local
       eleves = localData.eleves || [];
       paiements = localData.paiements || [];
       matriculeCounter = localData.compteur || 1;
       if (localData.options) optionsDisponibles = localData.options;
       console.log('📥 Utilisation des données locales uniquement');
     } else {
-      // Aucune donnée, initialiser avec un élève par défaut
       console.log('📥 Aucune donnée trouvée, initialisation par défaut');
       eleves = [{id:'1', matricule:'2026-001', nom:'Mukendi Jean-Pierre', classe:'4ème Année', option:'CG'}];
       paiements = [];
@@ -646,10 +608,8 @@ async function chargerDonnees() {
       await sauvegarderTout();
     }
 
-    // Charger la configuration
     await chargerConfiguration();
     
-    // Mettre à jour l'interface
     afficherOptions();
     mettreAJourUI();
     
@@ -662,9 +622,6 @@ async function chargerDonnees() {
   }
 }
 
-// ============================================
-// 📊 AFFICHAGE DES OPTIONS
-// ============================================
 function afficherOptions() {
   const container = document.getElementById('optionsListe');
   if (!container) return;
@@ -716,11 +673,6 @@ function annulerEdition() {
   document.getElementById('btnAnnuler').style.display = 'none';
 }
 
-// ============================================
-// 🖥️ INTERFACE UTILISATEUR
-// ============================================
-
-// Modales
 function showModal(title, message, onConfirm, onCancel) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -773,10 +725,6 @@ function showModalCode(title, message, onSuccess) {
   overlay.querySelector('#modalCancel').onclick = () => { if (!resolved) { resolved = true; cleanup(); } };
   overlay.onclick = (e) => { if (e.target === overlay) { if (!resolved) { resolved = true; cleanup(); } } };
 }
-
-// ============================================
-// 🎯 ÉVÉNEMENTS
-// ============================================
 
 document.getElementById('btnAjouterOption').addEventListener('click', function() {
   showModalCode('Ajouter une option', 'Veuillez entrer le code d\'accès pour ajouter une option.', () => {
@@ -1020,9 +968,6 @@ document.getElementById('btnGenererPDF').addEventListener('click', function() {
   genererRapportComplet();
 });
 
-// ============================================
-// 📜 HISTORIQUE
-// ============================================
 function afficherHistorique() {
   const container = document.getElementById('histoireList');
   const filtreType = document.getElementById('filtreType').value;
@@ -1067,9 +1012,6 @@ document.getElementById('filtreType').addEventListener('change', () => { histori
 document.getElementById('filtreEleve').addEventListener('change', () => { historiquePage = 1; afficherHistorique(); });
 document.getElementById('filtreRecherche').addEventListener('input', () => { historiquePage = 1; afficherHistorique(); });
 
-// ============================================
-// 📄 RAPPORT PDF
-// ============================================
 function genererRapportComplet() {
   try {
     showToast('Génération du rapport...', 'info');
@@ -1144,9 +1086,6 @@ function genererRapportComplet() {
   } catch(e) { console.error('Erreur PDF:', e); showToast('Erreur lors de la génération du PDF', 'error'); }
 }
 
-// ============================================
-// 📊 MISE À JOUR DE L'UI
-// ============================================
 function mettreAJourUI() {
   document.getElementById('totalEleves').textContent = eleves.length;
   const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème'));
@@ -1293,9 +1232,6 @@ window.addEventListener('offline', function() {
   document.getElementById('syncStatus').innerHTML = '<i class="fas fa-circle offline"></i> Hors ligne';
 });
 
-// ============================================
-// 🔐 LOGIN
-// ============================================
 function initLogin() {
   const loginOverlay = document.getElementById('loginOverlay');
   const loginCode = document.getElementById('loginCode');
@@ -1339,9 +1275,6 @@ function initLogin() {
   loginCode.addEventListener('input', function() { if(this.value.length > 4) this.value = this.value.slice(0,4); });
 }
 
-// ============================================
-// 🚀 DÉMARRAGE
-// ============================================
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
 document.addEventListener('keydown', function(e) {
   if(e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
@@ -1350,18 +1283,18 @@ document.addEventListener('keydown', function(e) {
 });
 document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
 
-// Démarrer l'application
-chargerCodeAcces();
-setTimeout(() => {
-  chargerConfiguration().then(() => {
-    chargerDonnees();
-    initLogin();
-    console.log('✅ Gestion Paiements - Kasumbalesa');
-    console.log('🏫 École:', schoolId);
-    console.log('🔐 Code par défaut: 0000');
-    console.log('📊 Montants configurés:', configMontants);
-  });
-}, 500);
+async function demarrerApplication() {
+  await chargerCodeAcces();
+  await chargerConfiguration();
+  await chargerDonnees();
+  initLogin();
+  console.log('✅ Gestion Paiements - Kasumbalesa');
+  console.log('🏫 École:', schoolId);
+  console.log('🔐 Code:', codeAcces);
+  console.log('📊 Montants:', configMontants);
+}
+
+demarrerApplication();
 </script>
 </body>
 </html>
