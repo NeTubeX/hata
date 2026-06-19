@@ -387,6 +387,37 @@ let codeAcces = '0000';
 let tentativeConnexion = 0;
 let estConnecte = sessionStorage.getItem('gestion_paiements_connecte') === 'true';
 
+// ============================================
+// 🔧 CONFIGURATION - Lecture depuis Firestore
+// ============================================
+let configMontants = {
+  exetat: 250000,
+  etat: 80000,
+  bulletin: 45000,
+  technique: 30000
+};
+
+async function chargerConfiguration() {
+  try {
+    const configRef = doc(db, "inspool_config", "data");
+    const configSnap = await getDoc(configRef);
+    if (configSnap.exists()) {
+      const data = configSnap.data();
+      configMontants.exetat = data.exetat || 250000;
+      configMontants.etat = data.etat || 80000;
+      configMontants.bulletin = data.bulletin || 45000;
+      configMontants.technique = data.technique || 30000;
+      if (data.codeAcces) codeAcces = data.codeAcces;
+      console.log('✅ Configuration chargée depuis Firestore:', configMontants);
+    } else {
+      console.log('ℹ️ Aucune configuration trouvée, utilisation des valeurs par défaut');
+    }
+  } catch(e) {
+    console.log('⚠️ Erreur chargement configuration:', e);
+    // Utiliser les valeurs par défaut
+  }
+}
+
 const classesSansOptions = ['7ème EB', '8ème EB'];
 
 function initIndexedDB() {
@@ -580,6 +611,8 @@ if (firebaseData.options) optionsDisponibles = firebaseData.options;
 }
 } catch(e) { console.log('Erreur lecture Firestore:', e); }
 await chargerCodeAcces();
+// 🔧 Charger la configuration depuis Firestore
+await chargerConfiguration();
 if (eleves.length === 0) {
 eleves = [{id:'1', matricule:'2026-001', nom:'Mukendi Jean-Pierre', classe:'4ème Année', option:'CG'}];
 paiements = [];
@@ -949,7 +982,8 @@ doc.text('Année scolaire: 2026-2027', 20, 63);
 const totalEleves = eleves.length;
 const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème')).length;
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
-const totalAttendu = eleves.length * 80000 + finalistes.length * 250000;
+// 🔧 Utilisation des montants configurables
+const totalAttendu = eleves.length * configMontants.etat + finalistes.length * configMontants.exetat;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
 doc.setFontSize(12);
 doc.setFont('helvetica', 'bold');
@@ -962,16 +996,17 @@ doc.text('Total élèves: ' + totalEleves, 20, 88);
 doc.text('Finalistes: ' + finalistes, 20, 96);
 doc.text('Total encaissé: ' + totalEncaissé.toLocaleString() + ' CDF', 20, 104);
 doc.text('Taux de recouvrement: ' + taux + '%', 20, 112);
+doc.text('Montants forfaitaires: Exetat=' + configMontants.exetat.toLocaleString() + ' CDF, État=' + configMontants.etat.toLocaleString() + ' CDF', 20, 120);
 doc.setFont('helvetica', 'bold');
 doc.setTextColor(255, 215, 0);
-doc.text('LISTE DES ÉLÈVES', 20, 128);
+doc.text('LISTE DES ÉLÈVES', 20, 132);
 const elevesBody = eleves.map(e => {
 const paiementsEleve = paiements.filter(p => p.eleveId === e.id);
 const totalPaye = paiementsEleve.reduce((s, p) => s + p.montant, 0);
 return [e.matricule, e.nom, e.classe, e.option || '-', totalPaye.toLocaleString() + ' CDF'];
 });
 doc.autoTable({
-startY: 135,
+startY: 139,
 head: [['Matricule', 'Nom', 'Classe', 'Option', 'Total Payé']],
 body: elevesBody,
 theme: 'grid',
@@ -1008,7 +1043,8 @@ const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème'));
 document.getElementById('totalFinalistes').textContent = finalistes.length;
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
 document.getElementById('totalEncaissé').textContent = totalEncaissé.toLocaleString() + ' CDF';
-const totalAttendu = eleves.length * 80000 + finalistes.length * 250000;
+// 🔧 Utilisation des montants configurables
+const totalAttendu = eleves.length * configMontants.etat + finalistes.length * configMontants.exetat;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
 document.getElementById('tauxRecouvrement').textContent = taux + '%';
 const alertList = document.getElementById('alertList');
@@ -1072,11 +1108,12 @@ filtreEleve.innerHTML = '<option value="all">👤 Tous les élèves</option>' +
 eleves.map(e => '<option value="' + e.id + '">' + e.nom + '</option>').join('');
 if(currentFiltre && eleves.some(e => e.id === currentFiltre)) filtreEleve.value = currentFiltre;
 const statsDiv = document.getElementById('statsDetail');
+// 🔧 Utilisation des montants configurables
 const types = [
-{key:'exetat', label:'Exetat', forfait:250000},
-{key:'etat', label:'Frais État', forfait:80000},
-{key:'bulletin', label:'Bulletins', forfait:45000},
-{key:'technique', label:'Frais Techniques', forfait:30000},
+{key:'exetat', label:'Exetat', forfait:configMontants.exetat},
+{key:'etat', label:'Frais État', forfait:configMontants.etat},
+{key:'bulletin', label:'Bulletins', forfait:configMontants.bulletin},
+{key:'technique', label:'Frais Techniques', forfait:configMontants.technique},
 {key:'autre', label:'Autre frais', forfait:0}
 ];
 let statsHTML = '';
@@ -1192,12 +1229,16 @@ e.preventDefault(); return false;
 });
 document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
 
+// 🔧 Démarrage : charger d'abord la config, puis les données
 chargerCodeAcces();
 setTimeout(() => {
+chargerConfiguration().then(() => {
 chargerDonnees();
 initLogin();
 console.log('✅ Gestion Paiements - Kasumbalesa');
 console.log('🔐 Code par défaut: 0000');
+console.log('📊 Montants configurés:', configMontants);
+});
 }, 500);
 </script>
 </body>
