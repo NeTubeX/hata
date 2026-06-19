@@ -130,9 +130,28 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .option-tag .remove:hover{color:#ef4444}
 .histoire-actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
 .histoire-actions .btn{flex:1;min-width:100px}
+.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.96);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px)}
+.login-card{background:rgba(18,35,60,0.95);border-radius:32px;padding:32px;width:90%;max-width:380px;text-align:center;border:1px solid rgba(100,150,255,0.2);box-shadow:0 16px 64px rgba(0,0,0,0.5)}
+.login-card h2{font-size:22px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:8px}
+.login-card p{color:#94b0d8;font-size:13px;margin-bottom:20px}
+.login-card input{width:100%;padding:14px;margin-bottom:15px;border-radius:40px;background:#0a1a30;border:1px solid rgba(100,150,255,0.15);color:#e8f0ff;text-align:center;font-size:20px;letter-spacing:6px;outline:none}
+.login-card input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+.login-card button{width:100%;padding:14px;border-radius:40px;background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;font-weight:700;border:none;cursor:pointer;font-size:16px;transition:all 0.2s}
+.login-card button:hover{opacity:0.9;transform:scale(0.98)}
+.login-error{color:#f87171;margin-top:12px;font-size:13px;min-height:20px}
 </style>
 </head>
 <body>
+<div class="login-overlay" id="loginOverlay">
+<div class="login-card">
+<h2>🏫 Accès sécurisé</h2>
+<p>Entrez votre code d'accès</p>
+<input type="password" id="loginCode" placeholder="• • • •" maxlength="4" inputmode="numeric">
+<div id="loginError" class="login-error"></div>
+<button id="loginBtn">🔐 SE CONNECTER</button>
+</div>
+</div>
+<div id="mainApp" style="display:none">
 <div class="container">
 <div class="school-header">
 <div class="school-name" id="schoolNameHeader">COMPLEXE SCOLAIRE KASUMBALESA</div>
@@ -301,9 +320,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ============================================================
-// FIREBASE CONFIG
-// ============================================================
 const firebaseConfig = {
 apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
 authDomain: "netubexmoney.firebaseapp.com",
@@ -316,12 +332,8 @@ appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ============================================================
-// VÉRIFICATION ÉCOLE DANS "ecoles" (comme votre app)
-// ============================================================
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
-
 if (!schoolId) {
 window.location.href = '/schoolchoice';
 throw new Error('Redirection vers le sélecteur');
@@ -339,7 +351,6 @@ return false;
 }
 
 const estAutorisee = await verifierEcoleAutorisee(schoolId);
-
 if (!estAutorisee) {
 document.body.innerHTML = `
 <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
@@ -358,18 +369,12 @@ Retourner au sélecteur
 throw new Error('École non autorisée: ' + schoolId);
 }
 
-// ============================================================
-// AFFICHER LE NOM DE L'ÉCOLE
-// ============================================================
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 const schoolNameElement = document.getElementById('schoolNameHeader');
 if (schoolNameElement) schoolNameElement.textContent = 'COMPLEXE SCOLAIRE ' + schoolNameForDisplay;
 
 console.log('✅ École autorisée:', schoolId);
 
-// ============================================================
-// DONNÉES
-// ============================================================
 let eleves = [];
 let paiements = [];
 let matriculeCounter = 1;
@@ -378,37 +383,12 @@ const HISTORIQUE_PAR_PAGE = 10;
 let suppressionCallback = null;
 let sauvegardeTimeout = null;
 let optionsDisponibles = ['CG', 'HP', 'TCC', 'ELEC', 'MG', 'SCIENCES'];
+let codeAcces = '0000';
+let tentativeConnexion = 0;
+let estConnecte = sessionStorage.getItem('gestion_paiements_connecte') === 'true';
 
 const classesSansOptions = ['7ème EB', '8ème EB'];
 
-// ============================================================
-// TOAST
-// ============================================================
-function showToast(message, type = 'success') {
-const container = document.getElementById('toastContainer');
-const toast = document.createElement('div');
-toast.className = 'toast ' + type;
-const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-const titles = { success: 'Succès', error: 'Erreur', warning: 'Attention', info: 'Information' };
-toast.innerHTML = `
-<span class="icon">${icons[type] || '✅'}</span>
-<div class="content">
-<div class="title">${titles[type] || 'Succès'}</div>
-<div class="message">${message}</div>
-</div>
-<button class="close" onclick="this.parentElement.remove()">×</button>
-`;
-container.appendChild(toast);
-setTimeout(() => toast.classList.add('show'), 10);
-setTimeout(() => {
-toast.classList.remove('show');
-setTimeout(() => toast.remove(), 300);
-}, 4500);
-}
-
-// ============================================================
-// INDEXEDDB
-// ============================================================
 function initIndexedDB() {
 return new Promise((resolve, reject) => {
 const req = indexedDB.open('GestionPaiementsDB', 1);
@@ -447,15 +427,114 @@ tx.oncomplete = () => dbc.close();
 });
 }
 
-// ============================================================
-// SAUVEGARDE AUTOMATIQUE
-// ============================================================
+function showToast(message, type = 'success') {
+const container = document.getElementById('toastContainer');
+const toast = document.createElement('div');
+toast.className = 'toast ' + type;
+const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+const titles = { success: 'Succès', error: 'Erreur', warning: 'Attention', info: 'Information' };
+toast.innerHTML = `
+<span class="icon">${icons[type] || '✅'}</span>
+<div class="content">
+<div class="title">${titles[type] || 'Succès'}</div>
+<div class="message">${message}</div>
+</div>
+<button class="close" onclick="this.parentElement.remove()">×</button>
+`;
+container.appendChild(toast);
+setTimeout(() => toast.classList.add('show'), 10);
+setTimeout(() => {
+toast.classList.remove('show');
+setTimeout(() => toast.remove(), 300);
+}, 4500);
+}
+
+async function chargerCodeAcces() {
+try {
+const docRef = doc(db, "inspool_config", "data");
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+if (data.codeAcces) codeAcces = data.codeAcces;
+}
+} catch(e) { console.log('Erreur chargement code:', e); }
+}
+
+function showModal(title, message, onConfirm, onCancel) {
+const overlay = document.createElement('div');
+overlay.className = 'modal-overlay';
+overlay.innerHTML = `
+<div class="modal">
+<h3><i class="fas fa-exclamation-triangle" style="color:#fbbf24"></i> ${title}</h3>
+<p>${message}</p>
+<div class="btn-group">
+<button class="btn btn-outline" id="modalCancel">Annuler</button>
+<button class="btn btn-danger" id="modalConfirm">Confirmer</button>
+</div>
+</div>
+`;
+document.body.appendChild(overlay);
+setTimeout(() => overlay.classList.add('active'), 10);
+let resolved = false;
+const cleanup = () => { if (overlay.parentNode) overlay.remove(); };
+overlay.querySelector('#modalConfirm').onclick = () => { if (!resolved) { resolved = true; cleanup(); if (onConfirm) onConfirm(); } };
+overlay.querySelector('#modalCancel').onclick = () => { if (!resolved) { resolved = true; cleanup(); if (onCancel) onCancel(); } };
+overlay.onclick = (e) => { if (e.target === overlay) { if (!resolved) { resolved = true; cleanup(); if (onCancel) onCancel(); } } };
+}
+
+function showModalCode(title, message, onSuccess) {
+const overlay = document.createElement('div');
+overlay.className = 'modal-overlay';
+overlay.innerHTML = `
+<div class="modal">
+<h3><i class="fas fa-shield-alt" style="color:#fbbf24"></i> ${title}</h3>
+<p>${message}</p>
+<div class="form-group">
+<label>Code d'accès</label>
+<input type="password" id="modalCodeInput" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;letter-spacing:4px;font-size:20px;">
+</div>
+<div class="btn-group">
+<button class="btn btn-outline" id="modalCancel">Annuler</button>
+<button class="btn btn-success" id="modalConfirm">Valider</button>
+</div>
+</div>
+`;
+document.body.appendChild(overlay);
+setTimeout(() => overlay.classList.add('active'), 10);
+let resolved = false;
+const cleanup = () => { if (overlay.parentNode) overlay.remove(); };
+overlay.querySelector('#modalConfirm').onclick = () => {
+const val = overlay.querySelector('#modalCodeInput').value.trim();
+if (!val) { showToast('Veuillez entrer le code', 'error'); return; }
+if (val !== codeAcces) { showToast('Code incorrect', 'error'); return; }
+if (!resolved) { resolved = true; cleanup(); if (onSuccess) onSuccess(); }
+};
+overlay.querySelector('#modalCancel').onclick = () => { if (!resolved) { resolved = true; cleanup(); } };
+overlay.onclick = (e) => { if (e.target === overlay) { if (!resolved) { resolved = true; cleanup(); } } };
+}
+
+function showModalSimple(title, message, onConfirm) {
+const overlay = document.createElement('div');
+overlay.className = 'modal-overlay';
+overlay.innerHTML = `
+<div class="modal">
+<h3><i class="fas fa-info-circle" style="color:#60a5fa"></i> ${title}</h3>
+<p>${message}</p>
+<div class="btn-group">
+<button class="btn btn-success" id="modalConfirm">OK</button>
+</div>
+</div>
+`;
+document.body.appendChild(overlay);
+setTimeout(() => overlay.classList.add('active'), 10);
+overlay.querySelector('#modalConfirm').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
+overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); if (onConfirm) onConfirm(); } };
+}
+
 async function sauvegarderTout() {
 try {
 const data = { eleves, paiements, compteur: matriculeCounter, options: optionsDisponibles };
 await saveToIndexedDB(data);
-
-// Sauvegarde Firestore
 try {
 const docRef = doc(db, "ecoles", schoolId, "paiements_data", "data");
 await setDoc(docRef, {
@@ -477,14 +556,9 @@ console.error('Erreur sauvegarde:', e);
 
 function marquerSauvegarde() {
 if (sauvegardeTimeout) clearTimeout(sauvegardeTimeout);
-sauvegardeTimeout = setTimeout(() => {
-sauvegarderTout();
-}, 2000);
+sauvegardeTimeout = setTimeout(() => { sauvegarderTout(); }, 2000);
 }
 
-// ============================================================
-// CHARGEMENT
-// ============================================================
 async function chargerDonnees() {
 try {
 const localData = await loadFromIndexedDB();
@@ -494,48 +568,30 @@ paiements = localData.paiements || [];
 matriculeCounter = localData.compteur || 1;
 if (localData.options) optionsDisponibles = localData.options;
 }
-
-// Charger depuis Firestore
 try {
 const docRef = doc(db, "ecoles", schoolId, "paiements_data", "data");
 const docSnap = await getDoc(docRef);
 if (docSnap.exists()) {
 const firebaseData = docSnap.data();
-if (firebaseData.eleves && firebaseData.eleves.length > eleves.length) {
-eleves = firebaseData.eleves;
-}
-if (firebaseData.paiements && firebaseData.paiements.length > paiements.length) {
-paiements = firebaseData.paiements;
-}
-if (firebaseData.compteur && firebaseData.compteur > matriculeCounter) {
-matriculeCounter = firebaseData.compteur;
-}
+if (firebaseData.eleves && firebaseData.eleves.length > eleves.length) eleves = firebaseData.eleves;
+if (firebaseData.paiements && firebaseData.paiements.length > paiements.length) paiements = firebaseData.paiements;
+if (firebaseData.compteur && firebaseData.compteur > matriculeCounter) matriculeCounter = firebaseData.compteur;
 if (firebaseData.options) optionsDisponibles = firebaseData.options;
 }
-} catch(e) {
-console.log('Erreur lecture Firestore:', e);
-}
-
+} catch(e) { console.log('Erreur lecture Firestore:', e); }
+await chargerCodeAcces();
 if (eleves.length === 0) {
-eleves = [
-{id:'1', matricule:'2026-001', nom:'Mukendi Jean-Pierre', classe:'4ème Année', option:'CG'}
-];
+eleves = [{id:'1', matricule:'2026-001', nom:'Mukendi Jean-Pierre', classe:'4ème Année', option:'CG'}];
 paiements = [];
 matriculeCounter = 2;
 await sauvegarderTout();
 }
-
 afficherOptions();
 mettreAJourUI();
 showToast('Données chargées!', 'success');
-} catch(e) {
-console.error('Erreur chargement:', e);
-}
+} catch(e) { console.error('Erreur chargement:', e); }
 }
 
-// ============================================================
-// FONCTIONS GÉNÉRALES (copiées de votre app)
-// ============================================================
 function afficherOptions() {
 const container = document.getElementById('optionsListe');
 if (!container) return;
@@ -563,14 +619,13 @@ if (optionsDisponibles.includes(currentVal)) sel.value = currentVal;
 }
 
 function supprimerOption(option) {
-if (optionsDisponibles.length <= 1) {
-showToast('Vous devez avoir au moins une option', 'error');
-return;
-}
+if (optionsDisponibles.length <= 1) { showToast('Vous devez avoir au moins une option', 'error'); return; }
+showModal('Supprimer une option', `Voulez-vous vraiment supprimer l'option "${option}" ?`, () => {
 optionsDisponibles = optionsDisponibles.filter(o => o !== option);
 marquerSauvegarde();
 afficherOptions();
 showToast(`Option "${option}" supprimée`, 'success');
+});
 }
 
 function genererMatricule() {
@@ -588,10 +643,8 @@ document.getElementById('btnEleveTexte').textContent = 'Enregistrer';
 document.getElementById('btnAnnuler').style.display = 'none';
 }
 
-// ============================================================
-// ÉVÉNEMENTS
-// ============================================================
 document.getElementById('btnAjouterOption').addEventListener('click', function() {
+showModalCode('Ajouter une option', 'Veuillez entrer le code d\'accès pour ajouter une option.', () => {
 const input = document.getElementById('nouvelleOptionInput');
 const nom = input.value.trim();
 if (!nom) { showToast('Veuillez entrer un nom d\'option', 'error'); return; }
@@ -601,6 +654,7 @@ input.value = '';
 marquerSauvegarde();
 afficherOptions();
 showToast(`Option "${nom}" ajoutée`, 'success');
+});
 });
 
 document.querySelectorAll('.bottom-nav button, .tab').forEach(btn => {
@@ -639,20 +693,16 @@ document.getElementById('autreFraisLibelle').value = '';
 document.getElementById('btnSauvegarderEleve').addEventListener('click', function() {
 const nom = document.getElementById('nomEleve').value.trim();
 if(!nom) { showToast('Veuillez saisir un nom', 'error'); return; }
-
 const classe = document.getElementById('classeEleve').value;
 let option = document.getElementById('optionEleve').value;
 if (classesSansOptions.includes(classe)) option = '';
-
 let matricule = document.getElementById('matriculeEleve').value.trim();
 const editId = document.getElementById('editEleveId').value;
-
 if(editId) {
 const eleve = eleves.find(e => e.id === editId);
 if(eleve) {
 if(matricule && matricule !== eleve.matricule && eleves.some(e => e.matricule === matricule && e.id !== editId)) {
-showToast('Ce matricule existe déjà', 'error');
-return;
+showToast('Ce matricule existe déjà', 'error'); return;
 }
 if(!matricule) matricule = eleve.matricule;
 Object.assign(eleve, { nom, classe, option, matricule });
@@ -662,25 +712,21 @@ annulerEdition();
 } else {
 if(!matricule) matricule = genererMatricule();
 else if(eleves.some(e => e.matricule === matricule)) {
-showToast('Ce matricule existe déjà', 'error');
-return;
+showToast('Ce matricule existe déjà', 'error'); return;
 }
 eleves.push({ id: String(Date.now()), matricule, nom, classe, option });
 showToast('Élève ajouté!', 'success');
 }
-
 document.getElementById('nomEleve').value = '';
 document.getElementById('matriculeEleve').value = '';
 document.getElementById('editEleveId').value = '';
 document.getElementById('btnEleveTexte').textContent = 'Enregistrer';
 document.getElementById('btnAnnuler').style.display = 'none';
-
 marquerSauvegarde();
 mettreAJourUI();
 });
 
 document.getElementById('btnAnnuler').addEventListener('click', annulerEdition);
-
 document.getElementById('btnAnnulerEdition').addEventListener('click', function() {
 document.getElementById('modalEdition').classList.remove('active');
 });
@@ -691,16 +737,12 @@ const nom = document.getElementById('editNom').value.trim();
 const classe = document.getElementById('editClasse').value;
 let option = document.getElementById('editOption').value;
 const matricule = document.getElementById('editMatricule').value.trim();
-
 if(!nom) { showToast('Veuillez saisir un nom', 'error'); return; }
 if(!matricule) { showToast('Le matricule est obligatoire', 'error'); return; }
 if(classesSansOptions.includes(classe)) option = '';
-
 if(eleves.some(e => e.matricule === matricule && e.id !== id)) {
-showToast('Ce matricule existe déjà', 'error');
-return;
+showToast('Ce matricule existe déjà', 'error'); return;
 }
-
 const eleve = eleves.find(e => e.id === id);
 if(eleve) {
 Object.assign(eleve, { nom, classe, option, matricule });
@@ -733,7 +775,6 @@ showToast('Élève "' + nom + '" supprimé', 'success');
 document.getElementById('btnImportExcel').addEventListener('click', function() {
 document.getElementById('fileInput').click();
 });
-
 document.getElementById('uploadZone').addEventListener('click', function() {
 document.getElementById('fileInput').click();
 });
@@ -748,10 +789,7 @@ const data = new Uint8Array(event.target.result);
 const workbook = XLSX.read(data, {type:'array'});
 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
 const json = XLSX.utils.sheet_to_json(firstSheet);
-if(!json || json.length === 0) {
-showToast('Fichier vide', 'error');
-return;
-}
+if(!json || json.length === 0) { showToast('Fichier vide', 'error'); return; }
 let count = 0;
 json.forEach(row => {
 const nom = row['Nom'] || row['nom'] || row['NOM'] || row['Élève'];
@@ -776,9 +814,7 @@ count++;
 marquerSauvegarde();
 mettreAJourUI();
 showToast(count + ' élèves importés!', 'success');
-} catch(err) {
-showToast('Erreur: ' + err.message, 'error');
-}
+} catch(err) { showToast('Erreur: ' + err.message, 'error'); }
 };
 reader.readAsArrayBuffer(file);
 this.value = '';
@@ -787,34 +823,24 @@ this.value = '';
 document.getElementById('btnEnregistrerPaiement').addEventListener('click', function() {
 const eleveId = document.getElementById('elevePaiement').value;
 if(!eleveId) { showToast('Sélectionnez un élève', 'error'); return; }
-
 const type = document.getElementById('typeFrais').value;
 const montant = parseInt(document.getElementById('montantPaiement').value);
 if(!montant || montant <= 0) { showToast('Montant invalide', 'error'); return; }
-
 const eleve = eleves.find(e => e.id === eleveId);
 if(!eleve) { showToast('Élève introuvable', 'error'); return; }
-
 if(type === 'exetat' && !eleve.classe.includes('4ème')) {
-showToast('Seuls les finalistes peuvent payer Exetat', 'error');
-return;
+showToast('Seuls les finalistes peuvent payer Exetat', 'error'); return;
 }
-
 let typeLabel = '';
 let autreLibelle = '';
-
 if(type === 'autre') {
 autreLibelle = document.getElementById('autreFraisLibelle').value.trim();
 if(!autreLibelle) { showToast('Veuillez saisir le libellé de l\'autre frais', 'error'); return; }
 typeLabel = 'Autre: ' + autreLibelle;
 } else {
-const typeLabels = {
-exetat: 'Exetat', etat: 'Frais État',
-bulletin: 'Bulletins', technique: 'Frais Techniques'
-};
+const typeLabels = { exetat: 'Exetat', etat: 'Frais État', bulletin: 'Bulletins', technique: 'Frais Techniques' };
 typeLabel = typeLabels[type] || type;
 }
-
 paiements.push({
 id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
 eleveId: eleve.id,
@@ -825,7 +851,6 @@ montant: montant,
 mode: 'Cash',
 date: new Date().toLocaleString('fr-FR')
 });
-
 document.getElementById('montantPaiement').value = '';
 document.getElementById('autreFraisLibelle').value = '';
 marquerSauvegarde();
@@ -834,7 +859,13 @@ showToast('Paiement de ' + montant.toLocaleString() + ' CDF enregistré!', 'succ
 });
 
 document.getElementById('btnViderHistorique').addEventListener('click', function() {
-document.getElementById('modalViderHistorique').classList.add('active');
+showModal('Vider l\'historique', 'Voulez-vous vraiment vider tout l\'historique des paiements ? Cette action est irréversible.', () => {
+if(paiements.length === 0) { showToast('L\'historique est déjà vide', 'info'); return; }
+paiements = [];
+marquerSauvegarde();
+mettreAJourUI();
+showToast('Historique vidé avec succès!', 'success');
+});
 });
 
 document.getElementById('btnAnnulerVider').addEventListener('click', function() {
@@ -842,11 +873,7 @@ document.getElementById('modalViderHistorique').classList.remove('active');
 });
 
 document.getElementById('btnConfirmerVider').addEventListener('click', function() {
-if(paiements.length === 0) {
-showToast('L\'historique est déjà vide', 'info');
-document.getElementById('modalViderHistorique').classList.remove('active');
-return;
-}
+if(paiements.length === 0) { showToast('L\'historique est déjà vide', 'info'); return; }
 paiements = [];
 marquerSauvegarde();
 mettreAJourUI();
@@ -858,24 +885,15 @@ document.getElementById('btnGenererPDF').addEventListener('click', function() {
 genererRapportComplet();
 });
 
-// ============================================================
-// AFFICHER HISTORIQUE
-// ============================================================
 function afficherHistorique() {
 const container = document.getElementById('histoireList');
 const filtreType = document.getElementById('filtreType').value;
 const filtreEleve = document.getElementById('filtreEleve').value;
 const recherche = document.getElementById('filtreRecherche').value.toLowerCase();
-
 let filtered = [...paiements];
 if(filtreType !== 'all') filtered = filtered.filter(p => p.type === filtreType);
 if(filtreEleve !== 'all') filtered = filtered.filter(p => p.eleveId === filtreEleve);
-if(recherche) filtered = filtered.filter(p =>
-p.eleveNom.toLowerCase().includes(recherche) ||
-p.typeLabel.toLowerCase().includes(recherche) ||
-p.montant.toString().includes(recherche)
-);
-
+if(recherche) filtered = filtered.filter(p => p.eleveNom.toLowerCase().includes(recherche) || p.typeLabel.toLowerCase().includes(recherche) || p.montant.toString().includes(recherche));
 filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
 const total = filtered.length;
 const totalPages = Math.ceil(total / HISTORIQUE_PAR_PAGE);
@@ -883,13 +901,11 @@ if(historiquePage > totalPages) historiquePage = Math.max(1, totalPages);
 const start = (historiquePage - 1) * HISTORIQUE_PAR_PAGE;
 const end = start + HISTORIQUE_PAR_PAGE;
 const pageItems = filtered.slice(start, end);
-
 if(pageItems.length === 0) {
 container.innerHTML = '<div class="empty-state"><i class="fas fa-clock"></i>Aucun paiement trouvé</div>';
 document.getElementById('histoirePagination').innerHTML = '';
 return;
 }
-
 container.innerHTML = pageItems.map(p => `
 <div class="histoire-item">
 <div class="info">
@@ -900,7 +916,6 @@ container.innerHTML = pageItems.map(p => `
 <div class="date">${p.date}</div>
 </div>
 `).join('');
-
 let paginationHTML = '';
 if(totalPages > 1) {
 paginationHTML += `<button class="btn btn-sm btn-outline" onclick="historiquePage=${Math.max(1, historiquePage-1)};afficherHistorique()" ${historiquePage<=1?'disabled':''}>◀</button>`;
@@ -914,15 +929,11 @@ document.getElementById('filtreType').addEventListener('change', () => { histori
 document.getElementById('filtreEleve').addEventListener('change', () => { historiquePage = 1; afficherHistorique(); });
 document.getElementById('filtreRecherche').addEventListener('input', () => { historiquePage = 1; afficherHistorique(); });
 
-// ============================================================
-// RAPPORT PDF
-// ============================================================
 function genererRapportComplet() {
 try {
 showToast('Génération du rapport...', 'info');
 const { jsPDF } = window.jspdf;
 const doc = new jsPDF('p', 'mm', 'a4');
-
 doc.setFillColor(15, 23, 42);
 doc.rect(0, 0, 210, 45, 'F');
 doc.setFontSize(18);
@@ -935,13 +946,11 @@ doc.setTextColor(200, 200, 200);
 doc.text('RAPPORT COMPLET - GESTION DES PAIEMENTS', 105, 33, { align: 'center' });
 doc.text('Date: ' + new Date().toLocaleString('fr-FR'), 20, 55);
 doc.text('Année scolaire: 2026-2027', 20, 63);
-
 const totalEleves = eleves.length;
 const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème')).length;
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
 const totalAttendu = eleves.length * 80000 + finalistes.length * 250000;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
-
 doc.setFontSize(12);
 doc.setFont('helvetica', 'bold');
 doc.setTextColor(255, 215, 0);
@@ -953,17 +962,14 @@ doc.text('Total élèves: ' + totalEleves, 20, 88);
 doc.text('Finalistes: ' + finalistes, 20, 96);
 doc.text('Total encaissé: ' + totalEncaissé.toLocaleString() + ' CDF', 20, 104);
 doc.text('Taux de recouvrement: ' + taux + '%', 20, 112);
-
 doc.setFont('helvetica', 'bold');
 doc.setTextColor(255, 215, 0);
 doc.text('LISTE DES ÉLÈVES', 20, 128);
-
 const elevesBody = eleves.map(e => {
 const paiementsEleve = paiements.filter(p => p.eleveId === e.id);
 const totalPaye = paiementsEleve.reduce((s, p) => s + p.montant, 0);
 return [e.matricule, e.nom, e.classe, e.option || '-', totalPaye.toLocaleString() + ' CDF'];
 });
-
 doc.autoTable({
 startY: 135,
 head: [['Matricule', 'Nom', 'Classe', 'Option', 'Total Payé']],
@@ -973,18 +979,14 @@ styles: { fontSize: 8, cellPadding: 3, textColor: [0, 0, 0] },
 headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: 'bold' },
 alternateRowStyles: { fillColor: [245, 245, 245] }
 });
-
 let yPosition = doc.lastAutoTable.finalY + 10;
-
 if (paiements.length > 0) {
 doc.setFont('helvetica', 'bold');
 doc.setTextColor(255, 215, 0);
 doc.text('DÉTAIL DES PAIEMENTS (' + paiements.length + ')', 20, yPosition);
-
 const paiementsBody = paiements.slice(-20).reverse().map(p => {
 return [p.eleveNom, p.typeLabel, p.montant.toLocaleString() + ' CDF', p.date];
 });
-
 doc.autoTable({
 startY: yPosition + 7,
 head: [['Élève', 'Type', 'Montant', 'Date']],
@@ -995,50 +997,36 @@ headStyles: { fillColor: [52, 211, 153], textColor: [255, 255, 255], fontStyle: 
 alternateRowStyles: { fillColor: [245, 245, 245] }
 });
 }
-
 doc.save('Rapport_Complet_' + new Date().toISOString().slice(0,10) + '.pdf');
 showToast('Rapport PDF généré avec succès!', 'success');
-} catch(e) {
-console.error('Erreur PDF:', e);
-showToast('Erreur lors de la génération du PDF', 'error');
-}
+} catch(e) { console.error('Erreur PDF:', e); showToast('Erreur lors de la génération du PDF', 'error'); }
 }
 
-// ============================================================
-// METTRE À JOUR L'UI
-// ============================================================
 function mettreAJourUI() {
 document.getElementById('totalEleves').textContent = eleves.length;
 const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème'));
 document.getElementById('totalFinalistes').textContent = finalistes.length;
-
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
 document.getElementById('totalEncaissé').textContent = totalEncaissé.toLocaleString() + ' CDF';
-
 const totalAttendu = eleves.length * 80000 + finalistes.length * 250000;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
 document.getElementById('tauxRecouvrement').textContent = taux + '%';
-
 const alertList = document.getElementById('alertList');
 let alertes = [];
 const elevesAvecPaiement = new Set(paiements.map(p => p.eleveId));
 const sansPaiement = eleves.filter(e => !elevesAvecPaiement.has(e.id));
 if(sansPaiement.length > 0) alertes.push({type:'danger', msg: sansPaiement.length + ' élèves sans paiement'});
-
 const paiementsExetat = new Set(paiements.filter(p => p.type === 'exetat').map(p => p.eleveId));
 const finalistesSansExetat = finalistes.filter(e => !paiementsExetat.has(e.id));
 if(finalistesSansExetat.length > 0) alertes.push({type:'danger', msg: finalistesSansExetat.length + ' finalistes non payés Exetat'});
-
 if(taux < 30) alertes.push({type:'danger', msg: 'Taux très bas (' + taux + '%)'});
 else if(taux < 60) alertes.push({type:'warning', msg: 'Taux faible (' + taux + '%)'});
 else if(taux > 80) alertes.push({type:'success', msg: 'Bon taux (' + taux + '%)'});
-
 if(alertes.length === 0) {
 alertList.innerHTML = '<div class="alert-item success"><span class="alert-text">✅ Tout est à jour</span></div>';
 } else {
 alertList.innerHTML = alertes.map(a => '<div class="alert-item ' + a.type + '"><span class="alert-text">⚠️ ' + a.msg + '</span></div>').join('');
 }
-
 const recent = paiements.slice(-3).reverse();
 const tbody = document.getElementById('recentPayments');
 if(recent.length === 0) {
@@ -1048,11 +1036,9 @@ tbody.innerHTML = recent.map(p =>
 '<tr><td style="font-size:15px;font-weight:500;">' + p.eleveNom + '</td><td style="font-size:15px;">' + p.typeLabel + '</td><td style="font-size:15px;color:#fbbf24;font-weight:600;">' + p.montant.toLocaleString() + ' CDF</td><td><span class="status paid" style="font-size:13px;">Payé</span></td></tr>'
 ).join('');
 }
-
 const eleveTbody = document.getElementById('eleveList');
 document.getElementById('eleveCount').textContent = eleves.length;
 document.getElementById('eleveCountList').textContent = eleves.length;
-
 if(eleves.length === 0) {
 eleveTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;font-size:15px">Aucun élève</td></tr>';
 } else {
@@ -1075,19 +1061,16 @@ return `<tr>
 </tr>`;
 }).join('');
 }
-
 const select = document.getElementById('elevePaiement');
 const currentVal = select.value;
 select.innerHTML = '<option value="">-- Sélectionner --</option>' +
 eleves.map(e => '<option value="' + e.id + '">' + e.nom + ' - ' + e.classe + (e.option ? ' (' + e.option + ')' : '') + '</option>').join('');
 if(currentVal && eleves.some(e => e.id === currentVal)) select.value = currentVal;
-
 const filtreEleve = document.getElementById('filtreEleve');
 const currentFiltre = filtreEleve.value;
 filtreEleve.innerHTML = '<option value="all">👤 Tous les élèves</option>' +
 eleves.map(e => '<option value="' + e.id + '">' + e.nom + '</option>').join('');
 if(currentFiltre && eleves.some(e => e.id === currentFiltre)) filtreEleve.value = currentFiltre;
-
 const statsDiv = document.getElementById('statsDetail');
 const types = [
 {key:'exetat', label:'Exetat', forfait:250000},
@@ -1096,7 +1079,6 @@ const types = [
 {key:'technique', label:'Frais Techniques', forfait:30000},
 {key:'autre', label:'Autre frais', forfait:0}
 ];
-
 let statsHTML = '';
 types.forEach(t => {
 const paiementsType = paiements.filter(p => p.type === t.key);
@@ -1117,7 +1099,6 @@ ${t.forfait > 0 ? `<div class="row"><span class="label">Attendu</span><span clas
 `;
 });
 statsDiv.innerHTML = statsHTML;
-
 const resumeDiv = document.getElementById('statsResume');
 const totalPayeGlobal = paiements.reduce((sum, p) => sum + p.montant, 0);
 resumeDiv.innerHTML = `
@@ -1128,13 +1109,9 @@ resumeDiv.innerHTML = `
 <div class="stat-item"><div class="label">Taux global</div><div class="value gold">${taux}%</div></div>
 </div>
 `;
-
 if(document.getElementById('tab-histoire').classList.contains('active')) afficherHistorique();
 }
 
-// ============================================================
-// EXPOSER LES FONCTIONS GLOBALES
-// ============================================================
 window.ouvrirEdition = function(id) {
 const eleve = eleves.find(e => e.id === id);
 if(!eleve) return;
@@ -1156,23 +1133,72 @@ window.supprimerOption = supprimerOption;
 window.afficherHistorique = afficherHistorique;
 window.historiquePage = historiquePage;
 
-// ============================================================
-// STATUT EN LIGNE
-// ============================================================
 window.addEventListener('online', function() {
 document.getElementById('syncStatus').innerHTML = '<i class="fas fa-circle online"></i> En ligne';
 sauvegarderTout();
 });
-
 window.addEventListener('offline', function() {
 document.getElementById('syncStatus').innerHTML = '<i class="fas fa-circle offline"></i> Hors ligne';
 });
 
-// ============================================================
-// INIT
-// ============================================================
+function initLogin() {
+const loginOverlay = document.getElementById('loginOverlay');
+const loginCode = document.getElementById('loginCode');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+if(estConnecte) {
+loginOverlay.style.display = 'none';
+document.getElementById('mainApp').style.display = 'block';
+return;
+}
+
+loginBtn.addEventListener('click', function() {
+const code = loginCode.value.trim();
+if(!code) { loginError.innerHTML = 'Veuillez entrer le code'; return; }
+if(code === codeAcces) {
+tentativeConnexion = 0;
+loginError.innerHTML = '';
+loginOverlay.style.display = 'none';
+document.getElementById('mainApp').style.display = 'block';
+estConnecte = true;
+sessionStorage.setItem('gestion_paiements_connecte', 'true');
+showToast('Bienvenue!', 'success');
+} else {
+tentativeConnexion++;
+loginError.innerHTML = 'Code incorrect';
+loginCode.value = '';
+loginCode.focus();
+if(tentativeConnexion >= 3) {
+loginError.innerHTML = '🔒 Trop de tentatives. Réessayez dans 30s.';
+loginBtn.disabled = true;
+setTimeout(() => {
+loginBtn.disabled = false;
+loginError.innerHTML = '';
+tentativeConnexion = 0;
+}, 30000);
+}
+}
+});
+loginCode.addEventListener('keypress', function(e) { if(e.key === 'Enter') loginBtn.click(); });
+loginCode.addEventListener('input', function() { if(this.value.length > 4) this.value = this.value.slice(0,4); });
+}
+
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+document.addEventListener('keydown', function(e) {
+if(e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || (e.ctrlKey && e.key === 'u')) {
+e.preventDefault(); return false;
+}
+});
+document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
+
+chargerCodeAcces();
+setTimeout(() => {
 chargerDonnees();
+initLogin();
 console.log('✅ Gestion Paiements - Kasumbalesa');
+console.log('🔐 Code par défaut: 0000');
+}, 500);
 </script>
 </body>
 </html>
