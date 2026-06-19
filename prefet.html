@@ -375,6 +375,9 @@ if (schoolNameElement) schoolNameElement.textContent = 'COMPLEXE SCOLAIRE ' + sc
 
 console.log('✅ École autorisée:', schoolId);
 
+// ============================================
+// 📦 DONNÉES SPÉCIFIQUES À L'ÉCOLE
+// ============================================
 let eleves = [];
 let paiements = [];
 let matriculeCounter = 1;
@@ -385,11 +388,9 @@ let sauvegardeTimeout = null;
 let optionsDisponibles = ['CG', 'HP', 'TCC', 'ELEC', 'MG', 'SCIENCES'];
 let codeAcces = '0000';
 let tentativeConnexion = 0;
-let estConnecte = sessionStorage.getItem('gestion_paiements_connecte') === 'true';
+let estConnecte = sessionStorage.getItem('gestion_paiements_connecte_' + schoolId) === 'true';
 
-// ============================================
-// 🔧 CONFIGURATION - Lecture depuis Firestore
-// ============================================
+// 🔧 Configuration
 let configMontants = {
   exetat: 250000,
   etat: 80000,
@@ -409,26 +410,35 @@ async function chargerConfiguration() {
       configMontants.technique = data.technique || 30000;
       if (data.codeAcces) codeAcces = data.codeAcces;
       console.log('✅ Configuration chargée depuis Firestore:', configMontants);
-    } else {
-      console.log('ℹ️ Aucune configuration trouvée, utilisation des valeurs par défaut');
     }
   } catch(e) {
     console.log('⚠️ Erreur chargement configuration:', e);
-    // Utiliser les valeurs par défaut
   }
 }
 
 const classesSansOptions = ['7ème EB', '8ème EB'];
 
+// ============================================
+// 💾 INDEXEDDB - Avec clé par école
+// ============================================
 function initIndexedDB() {
 return new Promise((resolve, reject) => {
-const req = indexedDB.open('GestionPaiementsDB', 1);
+const req = indexedDB.open('GestionPaiementsDB', 2);
 req.onerror = () => reject(req.error);
 req.onsuccess = () => resolve(req.result);
 req.onupgradeneeded = (e) => {
 const db = e.target.result;
 if (!db.objectStoreNames.contains('appData')) {
 db.createObjectStore('appData', { keyPath: 'id' });
+} else {
+// Migration pour supporter les données par école
+try {
+const store = e.target.transaction.objectStore('appData');
+if (!store.indexNames.contains('schoolId')) {
+// On recrée la structure avec une clé composite
+// Simplification : on garde la même structure mais on préfixe les IDs
+}
+} catch(err) { console.log('Migration:', err); }
 }
 };
 });
@@ -439,7 +449,9 @@ const dbc = await initIndexedDB();
 return new Promise((resolve, reject) => {
 const tx = dbc.transaction('appData', 'readwrite');
 const obj = tx.objectStore('appData');
-const req = obj.put({ id: 'all', data: data });
+// Clé unique par école
+const key = 'school_' + schoolId;
+const req = obj.put({ id: key, data: data, schoolId: schoolId, timestamp: Date.now() });
 req.onerror = () => reject(req.error);
 req.onsuccess = () => resolve();
 tx.oncomplete = () => dbc.close();
@@ -451,7 +463,8 @@ const dbc = await initIndexedDB();
 return new Promise((resolve, reject) => {
 const tx = dbc.transaction('appData', 'readonly');
 const obj = tx.objectStore('appData');
-const req = obj.get('all');
+const key = 'school_' + schoolId;
+const req = obj.get(key);
 req.onerror = () => reject(req.error);
 req.onsuccess = () => resolve(req.result ? req.result.data : null);
 tx.oncomplete = () => dbc.close();
@@ -562,10 +575,15 @@ overlay.querySelector('#modalConfirm').onclick = () => { overlay.remove(); if (o
 overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); if (onConfirm) onConfirm(); } };
 }
 
+// ============================================
+// 💾 SAUVEGARDE - Données par école
+// ============================================
 async function sauvegarderTout() {
 try {
 const data = { eleves, paiements, compteur: matriculeCounter, options: optionsDisponibles };
+// Sauvegarde locale avec clé par école
 await saveToIndexedDB(data);
+// Sauvegarde Firestore
 try {
 const docRef = doc(db, "ecoles", schoolId, "paiements_data", "data");
 await setDoc(docRef, {
@@ -573,7 +591,8 @@ eleves: eleves,
 paiements: paiements,
 compteur: matriculeCounter,
 options: optionsDisponibles,
-lastUpdate: new Date().toISOString()
+lastUpdate: new Date().toISOString(),
+schoolId: schoolId // Ajout de l'identifiant pour sécurité
 });
 document.getElementById('syncStatus').innerHTML = '<i class="fas fa-circle online"></i> En ligne';
 } catch(e) {
@@ -590,39 +609,77 @@ if (sauvegardeTimeout) clearTimeout(sauvegardeTimeout);
 sauvegardeTimeout = setTimeout(() => { sauvegarderTout(); }, 2000);
 }
 
+// ============================================
+// 📥 CHARGEMENT - Données par école
+// ============================================
 async function chargerDonnees() {
 try {
+// 1. Charger depuis IndexedDB (local)
 const localData = await loadFromIndexedDB();
-if (localData) {
-eleves = localData.eleves || [];
-paiements = localData.paiements || [];
-matriculeCounter = localData.compteur || 1;
-if (localData.options) optionsDisponibles = localData.options;
-}
+let firebaseData = null;
+let firebaseHasData = false;
+
+// 2. Charger depuis Firestore
 try {
 const docRef = doc(db, "ecoles", schoolId, "paiements_data", "data");
 const docSnap = await getDoc(docRef);
 if (docSnap.exists()) {
-const firebaseData = docSnap.data();
-if (firebaseData.eleves && firebaseData.eleves.length > eleves.length) eleves = firebaseData.eleves;
-if (firebaseData.paiements && firebaseData.paiements.length > paiements.length) paiements = firebaseData.paiements;
-if (firebaseData.compteur && firebaseData.compteur > matriculeCounter) matriculeCounter = firebaseData.compteur;
-if (firebaseData.options) optionsDisponibles = firebaseData.options;
+firebaseData = docSnap.data();
+firebaseHasData = true;
+console.log('📥 Données Firestore chargées pour:', schoolId);
 }
 } catch(e) { console.log('Erreur lecture Firestore:', e); }
-await chargerCodeAcces();
-// 🔧 Charger la configuration depuis Firestore
+
+// 3. Fusion des données (Firestore prioritaire si plus récent ou plus complet)
+if (firebaseHasData && firebaseData) {
+// On compare les dates de mise à jour
+const firebaseTime = firebaseData.lastUpdate ? new Date(firebaseData.lastUpdate).getTime() : 0;
+const localTime = localData?.timestamp || 0;
+
+// Si Firestore est plus récent ou si les données Firestore sont plus complètes
+if (firebaseTime > localTime || 
+    (firebaseData.eleves && firebaseData.eleves.length > (localData?.eleves?.length || 0))) {
+  // Utiliser les données Firestore
+  eleves = firebaseData.eleves || [];
+  paiements = firebaseData.paiements || [];
+  matriculeCounter = firebaseData.compteur || 1;
+  if (firebaseData.options) optionsDisponibles = firebaseData.options;
+  console.log('📥 Utilisation des données Firestore (plus récentes/complètes)');
+} else if (localData) {
+  // Utiliser les données locales
+  eleves = localData.eleves || [];
+  paiements = localData.paiements || [];
+  matriculeCounter = localData.compteur || 1;
+  if (localData.options) optionsDisponibles = localData.options;
+  console.log('📥 Utilisation des données locales (cachées)');
+}
+} else if (localData) {
+// Pas de données Firestore, utiliser locales
+eleves = localData.eleves || [];
+paiements = localData.paiements || [];
+matriculeCounter = localData.compteur || 1;
+if (localData.options) optionsDisponibles = localData.options;
+console.log('📥 Utilisation des données locales uniquement');
+}
+
+// Charger la configuration
 await chargerConfiguration();
+
+// Si aucune donnée, créer un élève par défaut
 if (eleves.length === 0) {
 eleves = [{id:'1', matricule:'2026-001', nom:'Mukendi Jean-Pierre', classe:'4ème Année', option:'CG'}];
 paiements = [];
 matriculeCounter = 2;
 await sauvegarderTout();
 }
+
 afficherOptions();
 mettreAJourUI();
-showToast('Données chargées!', 'success');
-} catch(e) { console.error('Erreur chargement:', e); }
+showToast('Données chargées pour ' + schoolNameForDisplay, 'success');
+} catch(e) { 
+console.error('Erreur chargement:', e);
+showToast('Erreur lors du chargement des données', 'error');
+}
 }
 
 function afficherOptions() {
@@ -982,7 +1039,6 @@ doc.text('Année scolaire: 2026-2027', 20, 63);
 const totalEleves = eleves.length;
 const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème')).length;
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
-// 🔧 Utilisation des montants configurables
 const totalAttendu = eleves.length * configMontants.etat + finalistes.length * configMontants.exetat;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
 doc.setFontSize(12);
@@ -1043,7 +1099,6 @@ const finalistes = eleves.filter(e => e.classe && e.classe.includes('4ème'));
 document.getElementById('totalFinalistes').textContent = finalistes.length;
 const totalEncaissé = paiements.reduce((sum, p) => sum + p.montant, 0);
 document.getElementById('totalEncaissé').textContent = totalEncaissé.toLocaleString() + ' CDF';
-// 🔧 Utilisation des montants configurables
 const totalAttendu = eleves.length * configMontants.etat + finalistes.length * configMontants.exetat;
 const taux = totalAttendu > 0 ? Math.round((totalEncaissé / totalAttendu) * 100) : 0;
 document.getElementById('tauxRecouvrement').textContent = taux + '%';
@@ -1108,7 +1163,6 @@ filtreEleve.innerHTML = '<option value="all">👤 Tous les élèves</option>' +
 eleves.map(e => '<option value="' + e.id + '">' + e.nom + '</option>').join('');
 if(currentFiltre && eleves.some(e => e.id === currentFiltre)) filtreEleve.value = currentFiltre;
 const statsDiv = document.getElementById('statsDetail');
-// 🔧 Utilisation des montants configurables
 const types = [
 {key:'exetat', label:'Exetat', forfait:configMontants.exetat},
 {key:'etat', label:'Frais État', forfait:configMontants.etat},
@@ -1199,7 +1253,7 @@ loginError.innerHTML = '';
 loginOverlay.style.display = 'none';
 document.getElementById('mainApp').style.display = 'block';
 estConnecte = true;
-sessionStorage.setItem('gestion_paiements_connecte', 'true');
+sessionStorage.setItem('gestion_paiements_connecte_' + schoolId, 'true');
 showToast('Bienvenue!', 'success');
 } else {
 tentativeConnexion++;
@@ -1229,13 +1283,16 @@ e.preventDefault(); return false;
 });
 document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
 
-// 🔧 Démarrage : charger d'abord la config, puis les données
+// ============================================
+// 🚀 DÉMARRAGE
+// ============================================
 chargerCodeAcces();
 setTimeout(() => {
 chargerConfiguration().then(() => {
 chargerDonnees();
 initLogin();
 console.log('✅ Gestion Paiements - Kasumbalesa');
+console.log('🏫 École:', schoolId);
 console.log('🔐 Code par défaut: 0000');
 console.log('📊 Montants configurés:', configMontants);
 });
