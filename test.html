@@ -339,22 +339,26 @@ let dbInstance = null;
 
 function openDB() {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onerror = (event) => reject(event.target.error);
-        request.onsuccess = (event) => {
-            dbInstance = event.target.result;
-            resolve(dbInstance);
-        };
-        request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(STORE_NAME)) {
-                const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                store.createIndex('classe', 'classe', { unique: false });
-                store.createIndex('nom', 'nom', { unique: false });
-                store.createIndex('parentCode', 'parentCode', { unique: false });
-                store.createIndex('abandon', 'abandon', { unique: false });
-            }
-        };
+        try {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+            request.onerror = (event) => reject(event.target.error);
+            request.onsuccess = (event) => {
+                dbInstance = event.target.result;
+                resolve(dbInstance);
+            };
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    store.createIndex('classe', 'classe', { unique: false });
+                    store.createIndex('nom', 'nom', { unique: false });
+                    store.createIndex('parentCode', 'parentCode', { unique: false });
+                    store.createIndex('abandon', 'abandon', { unique: false });
+                }
+            };
+        } catch (error) {
+            reject(error);
+        }
     });
 }
 
@@ -594,21 +598,17 @@ async function getMinervalEleve(classe, option) {
     return 45000; 
 }
 
-// ========== MODIFICATION: getAllComptaEleves avec IndexedDB ==========
-let dernierChargementFirebase = 0;
-const CACHE_DELAY = 60000;
-
+// ========== getAllComptaEleves avec IndexedDB ==========
 async function getAllComptaEleves(forceRefresh = false) {
-    // Si des données sont en mémoire et pas de force refresh, les utiliser
     if (localEleves.length > 0 && !forceRefresh) {
         return localEleves;
     }
     
-    // Essayer de charger depuis IndexedDB d'abord (silencieux)
+    // Charger depuis IndexedDB en silence
     const cached = await chargerDepuisIndexedDB();
     if (cached && cached.length > 0) {
         localEleves = cached;
-        // Mettre à jour depuis Firebase en arrière-plan si connecté
+        // Mettre à jour depuis Firebase en arrière-plan
         try {
             const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
             const snap = await getDocs(q); 
@@ -623,12 +623,11 @@ async function getAllComptaEleves(forceRefresh = false) {
             }
             return localEleves;
         } catch (error) {
-            // Erreur Firebase, on reste sur le cache
             return localEleves;
         }
     }
     
-    // Si IndexedDB est vide, charger depuis Firebase
+    // Charger depuis Firebase
     try { 
         const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); 
         const snap = await getDocs(q); 
@@ -642,7 +641,6 @@ async function getAllComptaEleves(forceRefresh = false) {
         return eleves; 
     } catch (error) { 
         console.error("Erreur chargement Firebase:", error);
-        // En cas d'erreur Firebase, retourner le cache IndexedDB
         const fallback = await chargerDepuisIndexedDB();
         if (fallback && fallback.length > 0) {
             localEleves = fallback;
@@ -691,7 +689,7 @@ async function enregistrerPaiement(eleveId, mois, montant) {
     paiementsMisAJour[mois] = { montant: nouveauMontant, date: dateStr, historique: nvHist };
     await updateDoc(ref, { paiements: paiementsMisAJour }); 
     
-    // Mettre à jour le cache local
+    // Mettre à jour le cache
     const idx = localEleves.findIndex(e => e.id === eleveId);
     if (idx !== -1) {
         localEleves[idx].paiements = paiementsMisAJour;
@@ -707,15 +705,12 @@ async function marquerAbandon(eleveId) {
     const id = `compta_${eleveId}`; 
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
     await updateDoc(ref, { abandon: true, dateAbandon: formatDateYMD() }); 
-    
-    // Mettre à jour le cache local
     const idx = localEleves.findIndex(e => e.id === eleveId);
     if (idx !== -1) {
         localEleves[idx].abandon = true;
         localEleves[idx].dateAbandon = formatDateYMD();
         sauvegarderDansIndexedDB(localEleves);
     }
-    
     await mettreAJourStats(); 
     await afficherListeEleves(); 
     await afficherAbandons(); 
@@ -727,15 +722,12 @@ async function annulerAbandon(eleveId) {
     const id = `compta_${eleveId}`; 
     const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", id); 
     await updateDoc(ref, { abandon: false, dateAbandon: null }); 
-    
-    // Mettre à jour le cache local
     const idx = localEleves.findIndex(e => e.id === eleveId);
     if (idx !== -1) {
         localEleves[idx].abandon = false;
         localEleves[idx].dateAbandon = null;
         sauvegarderDansIndexedDB(localEleves);
     }
-    
     await mettreAJourStats(); 
     await afficherListeEleves(); 
     await afficherAbandons(); 
@@ -760,7 +752,6 @@ async function ajouterEleveCompta(nom, postnom, prenom, dateNaiss, lieuNaiss, no
     const newCompta = { _type: "compta_eleve", eleveId: id, nom: nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe: classe, option: option || "", minerval: minerval, anneeScolaire: anneeScolaire, paiements: paiements, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, parentCode: codeParent }; 
     await setDoc(doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId), newCompta); 
     
-    // Ajouter au cache local
     const newEleve = { id, nom, postnom: postnom || "", prenom: prenom || "", dateNaiss: dateNaiss || "", lieuNaiss: lieuNaiss || "", nomPere: nomPere || "", nomMere: nomMere || "", adresse: adresse || "", sexe: sexe || "M", phone: phone || "", classe, option: option || "", minerval, exonere: exonere || false, motifExon: motifExon || "", approbateur: approbateur || "", abandon: false, dateAbandon: null, paiements, parentCode: codeParent };
     localEleves.push(newEleve);
     sauvegarderDansIndexedDB(localEleves);
@@ -785,7 +776,6 @@ async function modifierParentCode(eleveId, nouveauCode, appliquerFamille = false
         const snapFamille = await getDocs(q);
         for(const docFam of snapFamille.docs) {
             await updateDoc(docFam.ref, { parentCode: nouveauCode });
-            // Mettre à jour le cache
             const famId = docFam.data().eleveId;
             const idx = localEleves.findIndex(e => e.id === famId);
             if (idx !== -1) localEleves[idx].parentCode = nouveauCode;
@@ -1135,20 +1125,52 @@ function verifierCodeAccesConfig() { return new Promise((resolve) => { pendingAc
 
 function initFilterEvents() { document.querySelectorAll(".filter-btn").forEach(btn => { btn.onclick = () => { document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentFilter = btn.dataset.filter; afficherListeEleves(); }; }); }
 
-document.getElementById("loginBtn").onclick = async () => { const btn = document.getElementById("loginBtn"); const codeInput = document.getElementById("loginCode"); const code = codeInput.value.trim(); const errorDiv = document.getElementById("loginError"); btn.disabled = true; btn.textContent = "⏳ VÉRIFICATION..."; try { await chargerConfigEcole(); await openDB(); // Initialiser IndexedDB if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) { errorDiv.innerHTML = ""; document.getElementById("loginOverlay").style.display = "none"; document.getElementById("mainApp").style.display = "block"; await initApp(); toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success"); } else { errorDiv.innerHTML = "❌ Code d'accès incorrect"; toast("Code d'accès incorrect", "error"); codeInput.value = ""; codeInput.focus(); } } catch (error) { errorDiv.innerHTML = "❌ Erreur de connexion"; toast("Erreur de connexion", "error"); } finally { btn.disabled = false; btn.textContent = "🔐 SE CONNECTER"; } };
+document.getElementById("loginBtn").onclick = async () => { 
+    const btn = document.getElementById("loginBtn"); 
+    const codeInput = document.getElementById("loginCode"); 
+    const code = codeInput.value.trim(); 
+    const errorDiv = document.getElementById("loginError"); 
+    btn.disabled = true; 
+    btn.textContent = "⏳ VÉRIFICATION..."; 
+    
+    try { 
+        await chargerConfigEcole();
+        await openDB(); // Initialiser IndexedDB
+        
+        if (currentSchoolConfig && code === currentSchoolConfig.codeAcces) { 
+            errorDiv.innerHTML = ""; 
+            document.getElementById("loginOverlay").style.display = "none"; 
+            document.getElementById("mainApp").style.display = "block"; 
+            await initApp(); 
+            toast(`Bienvenue à ${currentSchoolConfig.nom}`, "success"); 
+        } else { 
+            errorDiv.innerHTML = "❌ Code d'accès incorrect"; 
+            toast("Code d'accès incorrect", "error"); 
+            codeInput.value = ""; 
+            codeInput.focus(); 
+        } 
+    } catch (error) { 
+        errorDiv.innerHTML = "❌ Erreur de connexion"; 
+        toast("Erreur de connexion", "error"); 
+        console.error(error);
+    } finally { 
+        btn.disabled = false; 
+        btn.textContent = "🔐 SE CONNECTER"; 
+    } 
+};
 
 document.getElementById("loginCode").onkeypress = (e) => { if (e.key === "Enter") document.getElementById("loginBtn").click(); };
 document.getElementById("searchCarte").oninput = () => afficherCartesIdentite();
 document.getElementById("searchParentCode").oninput = () => afficherParentCodes();
 
-// ========== MODIFICATION: initApp sans élèves de démonstration ==========
+// ========== initApp SANS ÉLÈVES DE DÉMONSTRATION ==========
 async function initApp() { 
     if (isAppInitialized) return; 
     await chargerOptions(); 
     await chargerTarifs(); 
     
-    // SUPPRESSION DES ÉLÈVES DE DÉMONSTRATION
-    // La base Firebase reste vide par défaut
+    // SUPPRESSION TOTALE DES ÉLÈVES DE DÉMONSTRATION
+    // La base Firebase reste complètement vide par défaut
     
     await afficherListeEleves(); 
     await mettreAJourStats(); 
