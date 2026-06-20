@@ -440,6 +440,7 @@ const db = getFirestore(app);
 
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
+let schoolNameDisplay = '';
 
 const SCHOOL_PREFIX = schoolId ? schoolId.replace(/-/g, '_') : '';
 const schoolNameForDisplay = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : '';
@@ -1760,7 +1761,8 @@ function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + (schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'ÉCOLE') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    const schoolNameForHeader = schoolNameDisplay || (schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'ÉCOLE');
+    d.innerHTML = '<div class="login-card"><h2>' + schoolNameForHeader + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
 }
 
@@ -4427,11 +4429,15 @@ window.speechSynthesis.onvoiceschanged = () => {
     const voices = window.speechSynthesis.getVoices();
 };
 
-document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
-    showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => {
-        window.location.href = 'https://www.netubex.com/schoolchoice';
+document.getElementById('changeSchoolBtn').onclick = function() {
+    showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", function() {
+        localStorage.removeItem('ecole_selectionnee');
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('schoolSelector').classList.add('active');
+        document.getElementById('schoolSelector').style.display = 'block';
+        chargerEcoles();
     });
-});
+};
 
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
@@ -4439,25 +4445,97 @@ if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
 await initIndexedDB();
 await chargerOptionsParClasse();
 
-if (!schoolId) {
-    document.getElementById('schoolSelector').classList.add('active');
-    document.getElementById('mainApp').style.display = 'none';
-    chargerEcoles();
-} else {
+function chargerEcoles() {
+    const list = document.getElementById('selectorList');
+    list.innerHTML = '<div class="selector-loading">Chargement des écoles...</div>';
+    
+    getDocs(collection(db, "ecoles_autorisees")).then(snapshot => {
+        if (snapshot.empty) {
+            list.innerHTML = '<div class="selector-error">⚠️ Aucune école trouvée</div>';
+            return;
+        }
+        
+        let html = '';
+        let hasActive = false;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const prefixe = doc.id;
+            const nom = data.nom || prefixe;
+            const actif = data.actif !== false;
+            const ville = data.ville || '';
+            
+            if (actif) hasActive = true;
+            
+            html += `
+                <div class="selector-item ${!actif ? 'inactive-item' : ''}" 
+                     data-prefixe="${prefixe}" 
+                     data-nom="${nom}"
+                     data-actif="${actif}">
+                    <div>
+                        <div class="name">${nom}</div>
+                        <div style="font-size:11px;color:#94a3b8;">${ville} ${prefixe ? '· ' + prefixe : ''}</div>
+                    </div>
+                    <span class="status ${actif ? 'active' : 'inactive'}">${actif ? 'Actif' : 'Inactif'}</span>
+                </div>
+            `;
+        });
+        
+        if (!hasActive) {
+            html += '<div style="text-align:center;padding:20px;color:#f59e0b;">⚠️ Aucune école active trouvée</div>';
+        }
+        
+        list.innerHTML = html;
+        
+        document.querySelectorAll('.selector-item').forEach(el => {
+            el.addEventListener('click', function() {
+                const prefixe = this.dataset.prefixe;
+                const nom = this.dataset.nom;
+                const actif = this.dataset.actif === 'true';
+                
+                if (prefixe && actif) {
+                    selectionnerEcole(prefixe, nom);
+                } else if (!actif) {
+                    toast("Cette école est inactive", 'warning');
+                }
+            });
+        });
+    }).catch(error => {
+        list.innerHTML = '<div class="selector-error">❌ Erreur: ' + error.message + '</div>';
+        console.error('Erreur chargement écoles:', error);
+    });
+}
+
+function selectionnerEcole(prefixe, nom) {
+    localStorage.setItem('ecole_selectionnee', JSON.stringify({ prefixe: prefixe, nom: nom }));
+    
+    schoolId = prefixe;
+    schoolNameDisplay = nom;
+    SCHOOL_PREFIX = prefixe.replace(/-/g, '_');
+    
+    const displayName = nom.toUpperCase();
+    document.getElementById('schoolNameHeader').textContent = `COMPLEXE SCOLAIRE ${displayName}`;
+    document.getElementById('schoolSubHeader').textContent = `Année scolaire 2026-2027`;
+    document.getElementById('footerNote').textContent = `COMPLEXE SCOLAIRE ${displayName} | Année scolaire 2026-2027`;
+    
     document.getElementById('schoolSelector').classList.remove('active');
+    document.getElementById('schoolSelector').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
+    
+    const newUrl = window.location.pathname + '?ecole=' + encodeURIComponent(prefixe);
+    window.history.pushState({ ecole: prefixe }, '', newUrl);
+    
     showLogin();
     
     (async function initAppInBackground() {
         try {
-            const estAutorisee = await verifierEcoleAutorisee(schoolId);
+            const estAutorisee = await verifierEcoleAutorisee(prefixe);
             if (!estAutorisee) {
                 document.body.innerHTML = `
                     <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
                         <div style="font-size:64px;margin-bottom:20px;">🚫</div>
                         <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
                         <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
-                            L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.
+                            L'établissement "<strong>${prefixe}</strong>" n'est pas enregistré dans notre système.
                         </p>
                         <button onclick="window.location.href='/schoolchoice'" 
                                 style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
@@ -4511,60 +4589,13 @@ if (!schoolId) {
             console.error('Erreur d\'initialisation:', error);
         }
     })();
-}
-
-function chargerEcoles() {
-    const list = document.getElementById('selectorList');
-    const db = getFirestore(app);
     
-    getDocs(collection(db, "ecoles_autorisees")).then(snapshot => {
-        if (snapshot.empty) {
-            list.innerHTML = '<div class="selector-error">⚠️ Aucune école trouvée</div>';
-            return;
-        }
-        
-        let html = '';
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            const prefixe = doc.id;
-            const nom = data.nom || prefixe;
-            const actif = data.actif !== false;
-            const ville = data.ville || '';
-            
-            html += `
-                <div class="selector-item" data-prefixe="${prefixe}" data-nom="${nom}">
-                    <div>
-                        <div class="name">${nom}</div>
-                        <div style="font-size:11px;color:#94a3b8;">${ville} ${prefixe ? '· ' + prefixe : ''}</div>
-                    </div>
-                    <span class="status ${actif ? 'active' : 'inactive'}">${actif ? 'Actif' : 'Inactif'}</span>
-                </div>
-            `;
-        });
-        
-        list.innerHTML = html;
-        
-        document.querySelectorAll('.selector-item').forEach(el => {
-            el.addEventListener('click', function() {
-                const prefixe = this.dataset.prefixe;
-                const nom = this.dataset.nom;
-                if (prefixe) {
-                    // Sauvegarder l'école dans Firebase pour l'utilisateur
-                    sauvegarderEcoleFirebase(prefixe, nom);
-                    // Recharger la page avec l'école sélectionnée
-                    window.location.href = window.location.pathname + '?ecole=' + encodeURIComponent(prefixe);
-                }
-            });
-        });
-    }).catch(error => {
-        list.innerHTML = '<div class="selector-error">❌ Erreur de chargement: ' + error.message + '</div>';
-        console.error('Erreur chargement écoles:', error);
-    });
+    toast(`École sélectionnée: ${nom}`, 'success');
 }
 
 async function verifierEcoleAutorisee(ecoleId) {
     try {
-        const docRef = doc(db, "ecoles", ecoleId);
+        const docRef = doc(db, "ecoles_autorisees", ecoleId);
         const docSnap = await getDoc(docRef);
         return docSnap.exists();
     } catch (error) {
@@ -4573,22 +4604,30 @@ async function verifierEcoleAutorisee(ecoleId) {
     }
 }
 
-async function sauvegarderEcoleFirebase(prefixe, nom) {
-    try {
-        const deviceId = localStorage.getItem('device_id') || 'device_' + Date.now();
-        localStorage.setItem('device_id', deviceId);
-        const docRef = doc(db, "utilisateurs_ecoles", deviceId);
-        await setDoc(docRef, {
-            deviceId: deviceId,
-            ecolePrefixe: prefixe,
-            ecoleNom: nom,
-            dateSelection: new Date().toISOString()
-        });
-        console.log('✅ École sauvegardée:', prefixe);
-    } catch (e) {
-        console.error('Erreur sauvegarde:', e);
+function verifierEcoleStockee() {
+    const stored = localStorage.getItem('ecole_selectionnee');
+    if (stored) {
+        try {
+            const data = JSON.parse(stored);
+            if (data.prefixe) {
+                document.getElementById('schoolSelector').style.display = 'none';
+                document.getElementById('schoolSelector').classList.remove('active');
+                document.getElementById('mainApp').style.display = 'block';
+                selectionnerEcole(data.prefixe, data.nom || data.prefixe);
+                return true;
+            }
+        } catch (e) {
+            console.error('Erreur lecture stockage:', e);
+        }
     }
+    document.getElementById('schoolSelector').style.display = 'block';
+    document.getElementById('schoolSelector').classList.add('active');
+    document.getElementById('mainApp').style.display = 'none';
+    chargerEcoles();
+    return false;
 }
+
+verifierEcoleStockee();
 
 document.getElementById('loginBtn').onclick = async function() {
     let n = document.getElementById('loginNom').value;
