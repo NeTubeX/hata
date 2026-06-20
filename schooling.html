@@ -414,9 +414,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ============================================================
-// 1. VÉRIFICATION STRICTE DE L'ÉCOLE DANS LA COLLECTION "ecoles"
-// ============================================================
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
@@ -425,41 +422,6 @@ if (!schoolId) {
     throw new Error('Redirection vers le sélecteur');
 }
 
-// Fonction pour vérifier si l'école existe dans Firestore
-async function verifierEcoleAutorisee(ecoleId) {
-    try {
-        const docRef = doc(db, "ecoles", ecoleId);
-        const docSnap = await getDoc(docRef);
-        return docSnap.exists();
-    } catch (error) {
-        console.error("Erreur de vérification:", error);
-        return false;
-    }
-}
-
-// Vérification immédiate
-const estAutorisee = await verifierEcoleAutorisee(schoolId);
-
-if (!estAutorisee) {
-    // BLOQUER L'ACCÈS
-    document.body.innerHTML = `
-        <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
-            <div style="font-size:64px;margin-bottom:20px;">🚫</div>
-            <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
-            <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
-                L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>
-                Veuillez contacter l'administrateur.
-            </p>
-            <button onclick="window.location.href='/schoolchoice'" 
-                    style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
-                Retourner au sélecteur
-            </button>
-        </div>
-    `;
-    throw new Error('École non autorisée: ' + schoolId);
-}
-
-// Si l'école est autorisée, continuer...
 const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 
@@ -491,12 +453,9 @@ let iaInstructions = null;
 let dernierEleveConsulte = null;
 let dernierEleveData = null;
 
-// ==================== COMPTEUR DE TENTATIVES DE CONNEXION ====================
 let tentativeConnexion = 0;
 let derniereTentative = 0;
 const SEUIL_ALERTE = 3;
-
-// ==================== FONCTIONS UTILITAIRES ====================
 
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
@@ -558,8 +517,6 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
     d.querySelector('#styledConfirmOk').onclick = () => { d.remove(); if (onConfirm) onConfirm(); };
     d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
 }
-
-// ==================== LOGS ET ALERTES ====================
 
 async function enregistrerLog(action, details, statut = "info") {
     try {
@@ -703,8 +660,6 @@ function obtenirCategoriesAlerte(action) {
     return categories[action] || ["général"];
 }
 
-// ==================== MESSAGES PARENTAUX (Firebase) ====================
-
 async function enregistrerMessageParental(message, reponse, codeOuNom) {
     try {
         const msgId = "parent_msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -774,8 +729,6 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
-
-// ==================== INDEXEDDB ====================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -879,8 +832,6 @@ window.addEventListener('online', function() {
     synchroniserMessagesParentaux();
 });
 
-// ==================== SESSION ====================
-
 function sauvegarderSession(prof) {
     if (prof) {
         localStorage.setItem('gloria_session_prof', JSON.stringify({
@@ -923,8 +874,6 @@ async function restaurerSession() {
     }
     return false;
 }
-
-// ==================== FICHE ====================
 
 async function chargerSelecteursDynamiques() {
     const toutes = await getAllFromIndexedDB('fiches');
@@ -1053,8 +1002,6 @@ function mettreAJourSelectOptions(c) {
     if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) s.value = currentFiche.option;
 }
 
-// ==================== COMPTEUR D'ÉLÈVES ====================
-
 function mettreAJourCompteurEleves() {
     const countSpan = document.getElementById('eleveCount');
     if (countSpan && currentFiche) {
@@ -1062,8 +1009,6 @@ function mettreAJourCompteurEleves() {
         countSpan.textContent = nb;
     }
 }
-
-// ==================== ÉLÈVES ====================
 
 function afficherEleves() {
     let c = document.getElementById('elevesListContainer');
@@ -1113,8 +1058,6 @@ window.delEleve = function(i) {
         toast(n + " a été supprimé", 'warning');
     });
 };
-
-// ==================== COTATION ====================
 
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
 
@@ -1179,8 +1122,6 @@ function getMoyenneGenerale(eleve) {
     return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal };
 }
 
-// ==================== RECHERCHE AVANCÉE ====================
-
 let advancedFilters = {
     classe: '',
     option: '',
@@ -1209,14 +1150,11 @@ function reinitialiserFiltresAvances() {
     toast("Filtres réinitialisés", 'info');
 }
 
-// ==================== AFFICHAGE COTATION (CORRIGÉ) ====================
-
 function afficherCotation() {
     let th = document.getElementById('cotationHeader');
     let tb = document.getElementById('cotationBody');
     let ev = currentFiche?.eleves || [];
 
-    // Filtrage
     let elevesFiltres = [...ev];
     if (advancedFilters.classe && currentFiche?.classe !== advancedFilters.classe) {
         elevesFiltres = elevesFiltres.filter(e => e.classe === advancedFilters.classe);
@@ -1245,7 +1183,6 @@ function afficherCotation() {
         return;
     }
 
-    // ===== RÉCUPÉRER LA NOTE MAX DEPUIS LA CONFIGURATION =====
     let p1m = getPeriodeMax(1);
     let p2m = getPeriodeMax(2);
     let p3m = getPeriodeMax(3);
@@ -1264,7 +1201,6 @@ function afficherCotation() {
 
     const periodeFiltre = advancedFilters.periode || 'all';
 
-    // ===== EN-TÊTES AVEC LES BONNES NOTES MAX =====
     if (periodeFiltre === 'all' || periodeFiltre === '1') {
         for (let ep of e1) {
             h.push('<th>' + ep.nom + '<br>P1 /' + ep.max + '</th>');
@@ -1303,7 +1239,6 @@ function afficherCotation() {
     th.innerHTML = h.join('');
     tb.innerHTML = '';
 
-    // ===== AFFICHER LES LIGNES =====
     for (let i = 0; i < elevesFiltres.length; i++) {
         let e = elevesFiltres[i];
         if (!e.notes) e.notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
@@ -1433,8 +1368,6 @@ window.updExam = function(i, s, v) {
     refreshGroupes();
 };
 
-// ==================== EPREUVES ====================
-
 function afficherEpreuves() {
     let c = document.getElementById('epreuvesContainer');
     if (!c) return;
@@ -1510,8 +1443,6 @@ function mettreAJourEpreuvesSelect() {
     if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>';
 }
 
-// ==================== EXPORT ====================
-
 function updateExportSelect() {
     let es = document.getElementById('eleveForExportSelect');
     if (es && currentFiche) {
@@ -1526,8 +1457,6 @@ function updateExportSelect() {
         }
     }
 }
-
-// ==================== GROUPES ====================
 
 function refreshGroupes() {
     let c = document.getElementById('listePresenceEleves');
@@ -1596,8 +1525,6 @@ function rafraichirGroupesPourCotation() {
     });
     c.innerHTML = h;
 }
-
-// ==================== HORAIRE ====================
 
 function getJourReel() {
     const j = new Date().getDay();
@@ -1817,99 +1744,13 @@ window.allerHier = allerHier;
 window.allerDemain = allerDemain;
 window.revenirAujourdhui = revenirAujourdhui;
 
-// ==================== CONNEXION / DECONNEXION ====================
-
-async function showLogin() {
+function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
     d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
-    await refreshTeachersList();
-
-    document.getElementById('loginBtn').onclick = async function() {
-        let n = document.getElementById('loginNom').value;
-        let c = document.getElementById('loginCode').value;
-
-        const maintenant = Date.now();
-        if (maintenant - derniereTentative > 60000) {
-            tentativeConnexion = 0;
-        }
-        tentativeConnexion++;
-        derniereTentative = maintenant;
-
-        let ap = await getAllFromIndexedDB('professeurs');
-        let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
-
-        if (!fp) {
-            if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", {
-                    message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
-                    ip: "client",
-                    tentative: tentativeConnexion,
-                    userAgent: navigator.userAgent,
-                    raison: "Compte non trouvé"
-                }, "critical");
-                toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
-            } else {
-                await enregistrerLog("connexion_echouee", {
-                    message: 'Tentative de connexion échouée pour "' + n + '"',
-                    raison: "Compte non trouvé",
-                    tentative: tentativeConnexion
-                }, "error");
-            }
-
-            document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
-            toast("Compte désactivé ou identifiants incorrects", 'error');
-            return;
-        }
-
-        tentativeConnexion = 0;
-
-        if (c === fp.code) {
-            await enregistrerLog("connexion_reussie", {
-                message: 'Connexion réussie de ' + n,
-                code_utilise: c
-            }, "success");
-            currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
-            sauvegarderSession(currentProf);
-            document.getElementById('loginOverlay').remove();
-            document.getElementById('mainApp').style.display = 'block';
-            const parentBtn = document.getElementById('parentFloatingBtn');
-            if (parentBtn) parentBtn.style.display = 'flex';
-            toutesFiches = await loadAllFiches();
-            if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
-            await refreshSelectors();
-            await chargerHoraireFirebase();
-            await chargerSelecteursDynamiques();
-            await getAllComptaEleves();
-            await getAllFiches();
-            syncToFirebase();
-            toast("Bienvenue " + currentProf.nom, 'success');
-        } else {
-            if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", {
-                    message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
-                    code_saisi: c,
-                    code_attendu: fp.code,
-                    tentative: tentativeConnexion
-                }, "critical");
-                toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
-            } else {
-                await enregistrerLog("connexion_echouee", {
-                    message: 'Code incorrect pour ' + n,
-                    code_saisi: c,
-                    code_attendu: fp.code
-                }, "error");
-            }
-            document.getElementById('loginError').innerHTML = 'Code incorrect';
-            toast("Code d'accès incorrect", 'error');
-        }
-    };
-    document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
 }
-
-// ==================== ADMIN / DIRECTRICE ====================
 
 async function refreshTeachersList() {
     let ap = await getAllFromIndexedDB('professeurs');
@@ -1964,8 +1805,6 @@ async function showAdminModal() {
         }
     };
 }
-
-// ==================== PROFESSEURS (Admin) ====================
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
@@ -2237,8 +2076,6 @@ async function refreshProfsList() {
     });
 }
 
-// ==================== CORBEILLE ====================
-
 function afficherCorbeille() {
     let c = document.getElementById('corbeilleList');
     if (!c) return;
@@ -2355,8 +2192,6 @@ window.supprimerFicheCorbeille = function(ficheId) {
     });
 };
 
-// ==================== PARENTS ====================
-
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
     const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
@@ -2426,8 +2261,6 @@ async function typeWriterEffect(element, text, speed = 15) {
         await new Promise(r => setTimeout(r, speed));
     }
 }
-
-// ==================== CORRECTION ====================
 
 function correctionUpdateEpreuveList() {
     const periodeSelect = document.getElementById('correctionPeriodeSelect');
@@ -2527,8 +2360,6 @@ function correctionPrevStudent() {
         speak("Vous êtes déjà au premier élève.");
     }
 }
-
-// ==================== TITULAIRE ====================
 
 let titulaireConfig = null,
     toutesFichesTitu = [],
@@ -3214,8 +3045,6 @@ async function initTitulaire() {
     }
 }
 
-// ==================== RECO (SUPPORT NETUBEX) ====================
-
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = schoolId;
@@ -3370,8 +3199,6 @@ function initRecoSupport() {
     });
 }
 
-// ==================== PARENTS MODAL ====================
-
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -3428,7 +3255,6 @@ if (parentSendBtnNew) {
         await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
 
-        // === ENREGISTRER LE MESSAGE DANS FIREBASE ===
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
         await enregistrerMessageParental(message, reponse, codeOuNom);
 
@@ -3462,8 +3288,6 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
-
-// ==================== DONNÉES ÉLÈVES (Compta) ====================
 
 async function getAllComptaEleves() {
     try {
@@ -3727,8 +3551,6 @@ async function traiterMessage(message) {
     }
     return "👋 Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
 }
-
-// ==================== EVENT LISTENERS ====================
 
 document.getElementById('addEleveBtn').onclick = function() {
     if (!currentFiche) {
@@ -4454,8 +4276,6 @@ document.getElementById('configJourSelect')?.addEventListener('change', () => af
 document.getElementById('ajouterHeureBtn')?.addEventListener('click', () => ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () => sauvegarderHoraireAuto());
 
-// ==================== CORRECTION QUICK / GESTURE ====================
-
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     if (!currentFiche || !currentFiche.eleves?.length) {
         toast("Aucune fiche ou élève sélectionné", 'error');
@@ -4601,41 +4421,159 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
-// ==================== INITIALISATION ====================
-
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
 if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
 await initIndexedDB();
 await chargerOptionsParClasse();
 
-if (navigator.onLine) {
-    try {
-        let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
-        for (let ds of fp.docs) {
-            let pd = ds.data();
-            await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
-        }
-        let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
-        for (let ds of allDocs.docs) {
-            let data = ds.data();
-            if (!data._type && data.profId && data.ficheId) {
-                await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
-            }
-        }
-        let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
-        if (cs.exists()) {
-            await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
-        }
-    } catch (e) { console.log(e); }
-}
+showLogin();
 
-let sessionRestored = await restaurerSession();
-if (!sessionRestored) {
-    showLogin();
-} else {
-    if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
-}
+(async function initAppInBackground() {
+    try {
+        const estAutorisee = await verifierEcoleAutorisee(schoolId);
+        if (!estAutorisee) {
+            document.body.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
+                    <div style="font-size:64px;margin-bottom:20px;">🚫</div>
+                    <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
+                    <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
+                        L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.
+                    </p>
+                    <button onclick="window.location.href='/schoolchoice'" 
+                            style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
+                        Retourner au sélecteur
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        let professeurs = await getAllFromIndexedDB('professeurs');
+        if (professeurs.length > 0) {
+            await refreshTeachersList();
+        }
+
+        if (navigator.onLine) {
+            setTimeout(async () => {
+                try {
+                    let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
+                    for (let ds of fp.docs) {
+                        let pd = ds.data();
+                        await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
+                    }
+                    let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+                    for (let ds of allDocs.docs) {
+                        let data = ds.data();
+                        if (!data._type && data.profId && data.ficheId) {
+                            await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
+                        }
+                    }
+                    let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
+                    if (cs.exists()) {
+                        await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
+                    }
+                    await refreshTeachersList();
+                } catch (e) {
+                    console.error('Erreur synchronisation:', e);
+                }
+            }, 1000);
+        }
+
+        let sessionRestored = await restaurerSession();
+        if (sessionRestored) {
+            document.getElementById('loginOverlay')?.remove();
+            document.getElementById('mainApp').style.display = 'block';
+            const parentBtn = document.getElementById('parentFloatingBtn');
+            if (parentBtn) parentBtn.style.display = 'flex';
+        }
+
+    } catch (error) {
+        console.error('Erreur d\'initialisation:', error);
+    }
+})();
+
+document.getElementById('loginBtn').onclick = async function() {
+    let n = document.getElementById('loginNom').value;
+    let c = document.getElementById('loginCode').value;
+
+    const maintenant = Date.now();
+    if (maintenant - derniereTentative > 60000) {
+        tentativeConnexion = 0;
+    }
+    tentativeConnexion++;
+    derniereTentative = maintenant;
+
+    let ap = await getAllFromIndexedDB('professeurs');
+    let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
+
+    if (!fp) {
+        if (tentativeConnexion >= SEUIL_ALERTE) {
+            await enregistrerLog("tentative_hack", {
+                message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
+                ip: "client",
+                tentative: tentativeConnexion,
+                userAgent: navigator.userAgent,
+                raison: "Compte non trouvé"
+            }, "critical");
+            toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
+        } else {
+            await enregistrerLog("connexion_echouee", {
+                message: 'Tentative de connexion échouée pour "' + n + '"',
+                raison: "Compte non trouvé",
+                tentative: tentativeConnexion
+            }, "error");
+        }
+
+        document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
+        toast("Compte désactivé ou identifiants incorrects", 'error');
+        return;
+    }
+
+    tentativeConnexion = 0;
+
+    if (c === fp.code) {
+        await enregistrerLog("connexion_reussie", {
+            message: 'Connexion réussie de ' + n,
+            code_utilise: c
+        }, "success");
+        currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
+        sauvegarderSession(currentProf);
+        document.getElementById('loginOverlay').remove();
+        document.getElementById('mainApp').style.display = 'block';
+        const parentBtn = document.getElementById('parentFloatingBtn');
+        if (parentBtn) parentBtn.style.display = 'flex';
+        toutesFiches = await loadAllFiches();
+        if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
+        await refreshSelectors();
+        await chargerHoraireFirebase();
+        await chargerSelecteursDynamiques();
+        await getAllComptaEleves();
+        await getAllFiches();
+        syncToFirebase();
+        toast("Bienvenue " + currentProf.nom, 'success');
+    } else {
+        if (tentativeConnexion >= SEUIL_ALERTE) {
+            await enregistrerLog("tentative_hack", {
+                message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
+                code_saisi: c,
+                code_attendu: fp.code,
+                tentative: tentativeConnexion
+            }, "critical");
+            toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
+        } else {
+            await enregistrerLog("connexion_echouee", {
+                message: 'Code incorrect pour ' + n,
+                code_saisi: c,
+                code_attendu: fp.code
+            }, "error");
+        }
+        document.getElementById('loginError').innerHTML = 'Code incorrect';
+        toast("Code d'accès incorrect", 'error');
+    }
+};
+
+document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
 
 initTitulaire();
 
