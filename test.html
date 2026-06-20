@@ -302,9 +302,35 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .reco-chat-container .parent-input-area{padding:10px;}
 .reco-chat-container .parent-input{padding:8px 14px;font-size:13px;}
 .reco-chat-container .parent-send{padding:0 16px;font-size:13px;}
+
+.school-selector{display:none;min-height:100vh;background:#0a0e1a;padding:20px;flex-direction:column;align-items:center;justify-content:center;}
+.school-selector.active{display:flex;}
+.school-selector .selector-card{background:rgba(18,18,31,0.95);border-radius:32px;padding:32px;width:100%;max-width:600px;border:1px solid rgba(59,130,246,0.2);}
+.school-selector .selector-title{font-size:24px;font-weight:700;text-align:center;margin-bottom:8px;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.school-selector .selector-sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:24px;}
+.school-selector .selector-list{display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;}
+.school-selector .selector-item{background:rgba(30,41,59,0.6);border-radius:16px;padding:16px 20px;border:1px solid rgba(59,130,246,0.15);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.school-selector .selector-item:hover{background:rgba(59,130,246,0.15);border-color:#3b82f6;transform:translateX(4px);}
+.school-selector .selector-item .name{font-weight:600;color:#fff;font-size:15px;}
+.school-selector .selector-item .status{font-size:11px;padding:4px 12px;border-radius:40px;}
+.school-selector .selector-item .status.active{background:rgba(16,185,129,0.2);color:#10b981;}
+.school-selector .selector-item .status.inactive{background:rgba(239,68,68,0.2);color:#ef4444;}
+.school-selector .selector-loading{text-align:center;padding:40px;color:#94a3b8;}
+.school-selector .selector-error{text-align:center;padding:40px;color:#ef4444;}
 </style>
 </head>
 <body>
+
+<div class="school-selector active" id="schoolSelector">
+    <div class="selector-card">
+        <div class="selector-title">🏫 Sélectionnez votre école</div>
+        <div class="selector-sub">Choisissez l'établissement que vous souhaitez gérer</div>
+        <div class="selector-list" id="selectorList">
+            <div class="selector-loading">Chargement des écoles...</div>
+        </div>
+    </div>
+</div>
+
 <div class="container" id="mainApp" style="display:none">
 <div class="school-header"><div class="school-name" id="schoolNameHeader">COMPLEXE SCOLAIRE</div><div class="school-sub" id="schoolSubHeader">CHARGEMENT...</div><div style="font-size:13px;margin-top:8px;color:#fff;">GESTION DE SCOLARITÉ</div></div>
 <div class="tabs-container"><div class="tabs" id="tabsContainer">
@@ -398,6 +424,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -417,20 +444,205 @@ const db = getFirestore(app);
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
-if (!schoolId) {
-    window.location.href = '/schoolchoice';
-    throw new Error('Redirection vers le sélecteur');
+let SCHOOL_PREFIX = '';
+let schoolNameForDisplay = '';
+
+function verifierEcoleAutorisee(ecoleId) {
+    try {
+        const docRef = doc(db, "ecoles_autorisees", ecoleId);
+        return getDoc(docRef);
+    } catch (error) {
+        console.error("Erreur de vérification:", error);
+        return null;
+    }
 }
 
-const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
-const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
+function selectionnerEcole(prefixe, nom) {
+    schoolId = prefixe;
+    schoolNameForDisplay = nom || prefixe;
+    SCHOOL_PREFIX = prefixe.replace(/-/g, '_');
+    
+    const displayName = (nom || prefixe).toUpperCase();
+    document.getElementById('schoolNameHeader').textContent = `COMPLEXE SCOLAIRE ${displayName}`;
+    document.getElementById('schoolSubHeader').textContent = `Année scolaire 2026-2027`;
+    document.getElementById('footerNote').textContent = `COMPLEXE SCOLAIRE ${displayName} | Année scolaire 2026-2027`;
+    
+    document.getElementById('schoolSelector').style.display = 'none';
+    document.getElementById('schoolSelector').classList.remove('active');
+    document.getElementById('mainApp').style.display = 'block';
+    
+    const newUrl = window.location.pathname + '?ecole=' + encodeURIComponent(prefixe);
+    window.history.pushState({ ecole: prefixe }, '', newUrl);
+    
+    // Stocker dans localStorage
+    localStorage.setItem('ecole_selectionnee', JSON.stringify({ prefixe: prefixe, nom: nom || prefixe }));
+    
+    // Afficher le formulaire de connexion
+    showLogin();
+    
+    // Initialiser l'application en arrière-plan
+    setTimeout(() => {
+        initAppInBackground(prefixe);
+    }, 100);
+}
 
-const schoolNameElement = document.querySelector('.school-name');
-const schoolSubElement = document.querySelector('.school-sub');
-const footerElement = document.getElementById('footerNote');
-if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
-if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
-if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
+async function initAppInBackground(prefixe) {
+    try {
+        // Charger les professeurs depuis IndexedDB
+        let professeurs = await getAllFromIndexedDB('professeurs');
+        if (professeurs.length > 0) {
+            await refreshTeachersList();
+        }
+
+        if (navigator.onLine) {
+            try {
+                let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
+                for (let ds of fp.docs) {
+                    let pd = ds.data();
+                    await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
+                }
+                let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+                for (let ds of allDocs.docs) {
+                    let data = ds.data();
+                    if (!data._type && data.profId && data.ficheId) {
+                        await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
+                    }
+                }
+                let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
+                if (cs.exists()) {
+                    await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
+                }
+                await refreshTeachersList();
+            } catch (e) {
+                console.error('Erreur synchronisation:', e);
+            }
+        }
+
+        let sessionRestored = await restaurerSession();
+        if (sessionRestored) {
+            document.getElementById('loginOverlay')?.remove();
+            document.getElementById('mainApp').style.display = 'block';
+            const parentBtn = document.getElementById('parentFloatingBtn');
+            if (parentBtn) parentBtn.style.display = 'flex';
+            toast("Bienvenue dans " + (schoolNameForDisplay || prefixe).toUpperCase(), 'success');
+        }
+
+    } catch (error) {
+        console.error('Erreur d\'initialisation:', error);
+    }
+}
+
+// ============================================================
+// DÉMARRAGE
+// ============================================================
+async function demarrerApp() {
+    const ecoleFromUrl = urlParams.get('ecole');
+    
+    if (ecoleFromUrl) {
+        const docSnap = await verifierEcoleAutorisee(ecoleFromUrl);
+        if (docSnap && docSnap.exists()) {
+            const data = docSnap.data();
+            const nom = data.nom || ecoleFromUrl;
+            selectionnerEcole(ecoleFromUrl, nom);
+            return;
+        } else {
+            // L'école n'existe pas → afficher le sélecteur
+            document.getElementById('schoolSelector').style.display = 'block';
+            document.getElementById('schoolSelector').classList.add('active');
+            document.getElementById('mainApp').style.display = 'none';
+            chargerEcoles();
+            return;
+        }
+    }
+    
+    // Vérifier le localStorage
+    const stored = localStorage.getItem('ecole_selectionnee');
+    if (stored) {
+        try {
+            const data = JSON.parse(stored);
+            if (data.prefixe) {
+                const docSnap = await verifierEcoleAutorisee(data.prefixe);
+                if (docSnap && docSnap.exists()) {
+                    selectionnerEcole(data.prefixe, data.nom || data.prefixe);
+                    return;
+                } else {
+                    localStorage.removeItem('ecole_selectionnee');
+                }
+            }
+        } catch(e) {
+            console.error('Erreur lecture stockage:', e);
+        }
+    }
+    
+    // Aucune école trouvée → afficher le sélecteur
+    document.getElementById('schoolSelector').style.display = 'block';
+    document.getElementById('schoolSelector').classList.add('active');
+    document.getElementById('mainApp').style.display = 'none';
+    chargerEcoles();
+}
+
+function chargerEcoles() {
+    const list = document.getElementById('selectorList');
+    list.innerHTML = '<div class="selector-loading">Chargement des écoles...</div>';
+    
+    getDocs(collection(db, "ecoles_autorisees")).then(snapshot => {
+        if (snapshot.empty) {
+            list.innerHTML = '<div class="selector-error">⚠️ Aucune école trouvée</div>';
+            return;
+        }
+        
+        let html = '';
+        let hasActive = false;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const prefixe = doc.id;
+            const nom = data.nom || prefixe;
+            const actif = data.actif !== false;
+            const ville = data.ville || '';
+            
+            if (actif) hasActive = true;
+            
+            html += `
+                <div class="selector-item ${!actif ? 'inactive-item' : ''}" 
+                     data-prefixe="${prefixe}" 
+                     data-nom="${nom}"
+                     data-actif="${actif}">
+                    <div>
+                        <div class="name">${nom}</div>
+                        <div style="font-size:11px;color:#94a3b8;">${ville} ${prefixe ? '· ' + prefixe : ''}</div>
+                    </div>
+                    <span class="status ${actif ? 'active' : 'inactive'}">${actif ? 'Actif' : 'Inactif'}</span>
+                </div>
+            `;
+        });
+        
+        if (!hasActive) {
+            html += '<div style="text-align:center;padding:20px;color:#f59e0b;">⚠️ Aucune école active trouvée</div>';
+        }
+        
+        list.innerHTML = html;
+        
+        document.querySelectorAll('.selector-item').forEach(el => {
+            el.addEventListener('click', function() {
+                const prefixe = this.dataset.prefixe;
+                const nom = this.dataset.nom;
+                const actif = this.dataset.actif === 'true';
+                
+                if (prefixe && actif) {
+                    const docSnap = verifierEcoleAutorisee(prefixe);
+                    if (docSnap) {
+                        selectionnerEcole(prefixe, nom);
+                    }
+                } else if (!actif) {
+                    toast("Cette école est inactive", 'warning');
+                }
+            });
+        });
+    }).catch(error => {
+        list.innerHTML = '<div class="selector-error">❌ Erreur: ' + error.message + '</div>';
+        console.error('Erreur chargement écoles:', error);
+    });
+}
 
 let currentProf=null,currentFicheId=null,currentFiche=null,toutesFiches=[];
 let saveTimeout=null,isCreatingFiche=false;
@@ -1748,7 +1960,8 @@ function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    const schoolNameForHeader = schoolNameForDisplay || (schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'ÉCOLE');
+    d.innerHTML = '<div class="login-card"><h2>' + schoolNameForHeader + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
 }
 
@@ -4415,11 +4628,15 @@ window.speechSynthesis.onvoiceschanged = () => {
     const voices = window.speechSynthesis.getVoices();
 };
 
-document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
-    showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => {
-        window.location.href = 'https://www.netubex.com/schoolchoice';
+document.getElementById('changeSchoolBtn').onclick = function() {
+    showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", function() {
+        localStorage.removeItem('ecole_selectionnee');
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('schoolSelector').classList.add('active');
+        document.getElementById('schoolSelector').style.display = 'block';
+        chargerEcoles();
     });
-});
+};
 
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
@@ -4427,153 +4644,33 @@ if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
 await initIndexedDB();
 await chargerOptionsParClasse();
 
-showLogin();
-
-(async function initAppInBackground() {
+if (navigator.onLine) {
     try {
-        const estAutorisee = await verifierEcoleAutorisee(schoolId);
-        if (!estAutorisee) {
-            document.body.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
-                    <div style="font-size:64px;margin-bottom:20px;">🚫</div>
-                    <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
-                    <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
-                        L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.
-                    </p>
-                    <button onclick="window.location.href='/schoolchoice'" 
-                            style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
-                        Retourner au sélecteur
-                    </button>
-                </div>
-            `;
-            return;
+        let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
+        for (let ds of fp.docs) {
+            let pd = ds.data();
+            await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
         }
-
-        let professeurs = await getAllFromIndexedDB('professeurs');
-        if (professeurs.length > 0) {
-            await refreshTeachersList();
+        let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+        for (let ds of allDocs.docs) {
+            let data = ds.data();
+            if (!data._type && data.profId && data.ficheId) {
+                await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
+            }
         }
-
-        if (navigator.onLine) {
-            setTimeout(async () => {
-                try {
-                    let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
-                    for (let ds of fp.docs) {
-                        let pd = ds.data();
-                        await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
-                    }
-                    let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
-                    for (let ds of allDocs.docs) {
-                        let data = ds.data();
-                        if (!data._type && data.profId && data.ficheId) {
-                            await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
-                        }
-                    }
-                    let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
-                    if (cs.exists()) {
-                        await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
-                    }
-                    await refreshTeachersList();
-                } catch (e) {
-                    console.error('Erreur synchronisation:', e);
-                }
-            }, 1000);
+        let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
+        if (cs.exists()) {
+            await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
         }
+    } catch (e) { console.log(e); }
+}
 
-        let sessionRestored = await restaurerSession();
-        if (sessionRestored) {
-            document.getElementById('loginOverlay')?.remove();
-            document.getElementById('mainApp').style.display = 'block';
-            const parentBtn = document.getElementById('parentFloatingBtn');
-            if (parentBtn) parentBtn.style.display = 'flex';
-        }
-
-    } catch (error) {
-        console.error('Erreur d\'initialisation:', error);
-    }
-})();
-
-document.getElementById('loginBtn').onclick = async function() {
-    let n = document.getElementById('loginNom').value;
-    let c = document.getElementById('loginCode').value;
-
-    const maintenant = Date.now();
-    if (maintenant - derniereTentative > 60000) {
-        tentativeConnexion = 0;
-    }
-    tentativeConnexion++;
-    derniereTentative = maintenant;
-
-    let ap = await getAllFromIndexedDB('professeurs');
-    let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
-
-    if (!fp) {
-        if (tentativeConnexion >= SEUIL_ALERTE) {
-            await enregistrerLog("tentative_hack", {
-                message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
-                ip: "client",
-                tentative: tentativeConnexion,
-                userAgent: navigator.userAgent,
-                raison: "Compte non trouvé"
-            }, "critical");
-            toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
-        } else {
-            await enregistrerLog("connexion_echouee", {
-                message: 'Tentative de connexion échouée pour "' + n + '"',
-                raison: "Compte non trouvé",
-                tentative: tentativeConnexion
-            }, "error");
-        }
-
-        document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
-        toast("Compte désactivé ou identifiants incorrects", 'error');
-        return;
-    }
-
-    tentativeConnexion = 0;
-
-    if (c === fp.code) {
-        await enregistrerLog("connexion_reussie", {
-            message: 'Connexion réussie de ' + n,
-            code_utilise: c
-        }, "success");
-        currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
-        sauvegarderSession(currentProf);
-        document.getElementById('loginOverlay').remove();
-        document.getElementById('mainApp').style.display = 'block';
-        const parentBtn = document.getElementById('parentFloatingBtn');
-        if (parentBtn) parentBtn.style.display = 'flex';
-        toutesFiches = await loadAllFiches();
-        if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
-        await refreshSelectors();
-        await chargerHoraireFirebase();
-        await chargerSelecteursDynamiques();
-        await getAllComptaEleves();
-        await getAllFiches();
-        syncToFirebase();
-        toast("Bienvenue " + currentProf.nom, 'success');
-    } else {
-        if (tentativeConnexion >= SEUIL_ALERTE) {
-            await enregistrerLog("tentative_hack", {
-                message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
-                code_saisi: c,
-                code_attendu: fp.code,
-                tentative: tentativeConnexion
-            }, "critical");
-            toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
-        } else {
-            await enregistrerLog("connexion_echouee", {
-                message: 'Code incorrect pour ' + n,
-                code_saisi: c,
-                code_attendu: fp.code
-            }, "error");
-        }
-        document.getElementById('loginError').innerHTML = 'Code incorrect';
-        toast("Code d'accès incorrect", 'error');
-    }
-};
-
-document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
+let sessionRestored = await restaurerSession();
+if (!sessionRestored) {
+    showLogin();
+} else {
+    if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
+}
 
 initTitulaire();
 
@@ -4607,7 +4704,12 @@ setInterval(function() {
     synchroniserMessagesParentaux();
 }, 30000);
 
-console.log('✅ École autorisée:', schoolId);
+// ============================================================
+// DÉMARRAGE
+// ============================================================
+// Demarrer l'application avec vérification de l'URL et du localStorage
+demarrerApp();
+
 </script>
 </body>
 </html>
