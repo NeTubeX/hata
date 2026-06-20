@@ -302,9 +302,33 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .reco-chat-container .parent-input-area{padding:10px;}
 .reco-chat-container .parent-input{padding:8px 14px;font-size:13px;}
 .reco-chat-container .parent-send{padding:0 16px;font-size:13px;}
+
+.school-selector{display:none;min-height:100vh;background:#0a0e1a;padding:20px;flex-direction:column;align-items:center;justify-content:center;}
+.school-selector.active{display:flex;}
+.school-selector .selector-card{background:rgba(18,18,31,0.95);border-radius:32px;padding:32px;width:100%;max-width:600px;border:1px solid rgba(59,130,246,0.2);}
+.school-selector .selector-title{font-size:24px;font-weight:700;text-align:center;margin-bottom:8px;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.school-selector .selector-sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:24px;}
+.school-selector .selector-list{display:flex;flex-direction:column;gap:10px;max-height:400px;overflow-y:auto;}
+.school-selector .selector-item{background:rgba(30,41,59,0.6);border-radius:16px;padding:16px 20px;border:1px solid rgba(59,130,246,0.15);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.school-selector .selector-item:hover{background:rgba(59,130,246,0.15);border-color:#3b82f6;transform:translateX(4px);}
+.school-selector .selector-item .name{font-weight:600;color:#fff;font-size:15px;}
+.school-selector .selector-item .status{font-size:11px;padding:4px 12px;border-radius:40px;}
+.school-selector .selector-item .status.active{background:rgba(16,185,129,0.2);color:#10b981;}
+.school-selector .selector-item .status.inactive{background:rgba(239,68,68,0.2);color:#ef4444;}
+.school-selector .selector-loading{text-align:center;padding:40px;color:#94a3b8;}
+.school-selector .selector-error{text-align:center;padding:40px;color:#ef4444;}
 </style>
 </head>
 <body>
+<div class="school-selector active" id="schoolSelector">
+    <div class="selector-card">
+        <div class="selector-title">🏫 Sélectionnez votre école</div>
+        <div class="selector-sub">Choisissez l'établissement que vous souhaitez gérer</div>
+        <div class="selector-list" id="selectorList">
+            <div class="selector-loading">Chargement des écoles...</div>
+        </div>
+    </div>
+</div>
 <div class="container" id="mainApp" style="display:none">
 <div class="school-header"><div class="school-name" id="schoolNameHeader">COMPLEXE SCOLAIRE</div><div class="school-sub" id="schoolSubHeader">CHARGEMENT...</div><div style="font-size:13px;margin-top:8px;color:#fff;">GESTION DE SCOLARITÉ</div></div>
 <div class="tabs-container"><div class="tabs" id="tabsContainer">
@@ -417,20 +441,8 @@ const db = getFirestore(app);
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 
-if (!schoolId) {
-    window.location.href = '/schoolchoice';
-    throw new Error('Redirection vers le sélecteur');
-}
-
-const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
-const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
-
-const schoolNameElement = document.querySelector('.school-name');
-const schoolSubElement = document.querySelector('.school-sub');
-const footerElement = document.getElementById('footerNote');
-if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
-if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
-if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
+const SCHOOL_PREFIX = schoolId ? schoolId.replace(/-/g, '_') : '';
+const schoolNameForDisplay = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : '';
 
 let currentProf=null,currentFicheId=null,currentFiche=null,toutesFiches=[];
 let saveTimeout=null,isCreatingFiche=false;
@@ -1748,7 +1760,7 @@ function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    d.innerHTML = '<div class="login-card"><h2>' + (schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'ÉCOLE') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
 }
 
@@ -4427,71 +4439,156 @@ if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
 await initIndexedDB();
 await chargerOptionsParClasse();
 
-showLogin();
+if (!schoolId) {
+    document.getElementById('schoolSelector').classList.add('active');
+    document.getElementById('mainApp').style.display = 'none';
+    chargerEcoles();
+} else {
+    document.getElementById('schoolSelector').classList.remove('active');
+    document.getElementById('mainApp').style.display = 'block';
+    showLogin();
+    
+    (async function initAppInBackground() {
+        try {
+            const estAutorisee = await verifierEcoleAutorisee(schoolId);
+            if (!estAutorisee) {
+                document.body.innerHTML = `
+                    <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
+                        <div style="font-size:64px;margin-bottom:20px;">🚫</div>
+                        <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
+                        <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
+                            L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.
+                        </p>
+                        <button onclick="window.location.href='/schoolchoice'" 
+                                style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
+                            Retourner au sélecteur
+                        </button>
+                    </div>
+                `;
+                return;
+            }
 
-(async function initAppInBackground() {
-    try {
-        const estAutorisee = await verifierEcoleAutorisee(schoolId);
-        if (!estAutorisee) {
-            document.body.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
-                    <div style="font-size:64px;margin-bottom:20px;">🚫</div>
-                    <h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1>
-                    <p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">
-                        L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.
-                    </p>
-                    <button onclick="window.location.href='/schoolchoice'" 
-                            style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">
-                        Retourner au sélecteur
-                    </button>
-                </div>
-            `;
+            let professeurs = await getAllFromIndexedDB('professeurs');
+            if (professeurs.length > 0) {
+                await refreshTeachersList();
+            }
+
+            if (navigator.onLine) {
+                setTimeout(async () => {
+                    try {
+                        let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
+                        for (let ds of fp.docs) {
+                            let pd = ds.data();
+                            await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
+                        }
+                        let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+                        for (let ds of allDocs.docs) {
+                            let data = ds.data();
+                            if (!data._type && data.profId && data.ficheId) {
+                                await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
+                            }
+                        }
+                        let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
+                        if (cs.exists()) {
+                            await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
+                        }
+                        await refreshTeachersList();
+                    } catch (e) {
+                        console.error('Erreur synchronisation:', e);
+                    }
+                }, 1000);
+            }
+
+            let sessionRestored = await restaurerSession();
+            if (sessionRestored) {
+                document.getElementById('loginOverlay')?.remove();
+                document.getElementById('mainApp').style.display = 'block';
+                const parentBtn = document.getElementById('parentFloatingBtn');
+                if (parentBtn) parentBtn.style.display = 'flex';
+            }
+
+        } catch (error) {
+            console.error('Erreur d\'initialisation:', error);
+        }
+    })();
+}
+
+function chargerEcoles() {
+    const list = document.getElementById('selectorList');
+    const db = getFirestore(app);
+    
+    getDocs(collection(db, "ecoles_autorisees")).then(snapshot => {
+        if (snapshot.empty) {
+            list.innerHTML = '<div class="selector-error">⚠️ Aucune école trouvée</div>';
             return;
         }
-
-        let professeurs = await getAllFromIndexedDB('professeurs');
-        if (professeurs.length > 0) {
-            await refreshTeachersList();
-        }
-
-        if (navigator.onLine) {
-            setTimeout(async () => {
-                try {
-                    let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
-                    for (let ds of fp.docs) {
-                        let pd = ds.data();
-                        await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
-                    }
-                    let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
-                    for (let ds of allDocs.docs) {
-                        let data = ds.data();
-                        if (!data._type && data.profId && data.ficheId) {
-                            await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
-                        }
-                    }
-                    let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
-                    if (cs.exists()) {
-                        await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
-                    }
-                    await refreshTeachersList();
-                } catch (e) {
-                    console.error('Erreur synchronisation:', e);
+        
+        let html = '';
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const prefixe = doc.id;
+            const nom = data.nom || prefixe;
+            const actif = data.actif !== false;
+            const ville = data.ville || '';
+            
+            html += `
+                <div class="selector-item" data-prefixe="${prefixe}" data-nom="${nom}">
+                    <div>
+                        <div class="name">${nom}</div>
+                        <div style="font-size:11px;color:#94a3b8;">${ville} ${prefixe ? '· ' + prefixe : ''}</div>
+                    </div>
+                    <span class="status ${actif ? 'active' : 'inactive'}">${actif ? 'Actif' : 'Inactif'}</span>
+                </div>
+            `;
+        });
+        
+        list.innerHTML = html;
+        
+        document.querySelectorAll('.selector-item').forEach(el => {
+            el.addEventListener('click', function() {
+                const prefixe = this.dataset.prefixe;
+                const nom = this.dataset.nom;
+                if (prefixe) {
+                    // Sauvegarder l'école dans Firebase pour l'utilisateur
+                    sauvegarderEcoleFirebase(prefixe, nom);
+                    // Recharger la page avec l'école sélectionnée
+                    window.location.href = window.location.pathname + '?ecole=' + encodeURIComponent(prefixe);
                 }
-            }, 1000);
-        }
+            });
+        });
+    }).catch(error => {
+        list.innerHTML = '<div class="selector-error">❌ Erreur de chargement: ' + error.message + '</div>';
+        console.error('Erreur chargement écoles:', error);
+    });
+}
 
-        let sessionRestored = await restaurerSession();
-        if (sessionRestored) {
-            document.getElementById('loginOverlay')?.remove();
-            document.getElementById('mainApp').style.display = 'block';
-            const parentBtn = document.getElementById('parentFloatingBtn');
-            if (parentBtn) parentBtn.style.display = 'flex';
-        }
-
+async function verifierEcoleAutorisee(ecoleId) {
+    try {
+        const docRef = doc(db, "ecoles", ecoleId);
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists();
     } catch (error) {
-        console.error('Erreur d\'initialisation:', error);
+        console.error("Erreur de vérification:", error);
+        return false;
     }
-})();
+}
+
+async function sauvegarderEcoleFirebase(prefixe, nom) {
+    try {
+        const deviceId = localStorage.getItem('device_id') || 'device_' + Date.now();
+        localStorage.setItem('device_id', deviceId);
+        const docRef = doc(db, "utilisateurs_ecoles", deviceId);
+        await setDoc(docRef, {
+            deviceId: deviceId,
+            ecolePrefixe: prefixe,
+            ecoleNom: nom,
+            dateSelection: new Date().toISOString()
+        });
+        console.log('✅ École sauvegardée:', prefixe);
+    } catch (e) {
+        console.error('Erreur sauvegarde:', e);
+    }
+}
 
 document.getElementById('loginBtn').onclick = async function() {
     let n = document.getElementById('loginNom').value;
