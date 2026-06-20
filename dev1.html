@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -21,12 +22,15 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 #splashScreen .title .cursor{display:inline-block;width:2px;height:28px;background:#a78bfa;margin-left:2px;animation:blink 0.8s step-end infinite;vertical-align:middle;}
 #splashScreen .subtitle{font-size:12px;color:#475569;margin-top:12px;letter-spacing:6px;text-transform:uppercase;}
 #splashScreen .loader-track{width:200px;height:3px;background:#1e293b;border-radius:10px;margin-top:30px;overflow:hidden;position:relative;}
-#splashScreen .loader-track .fill{height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#a78bfa);border-radius:10px;transition:width 0.3s ease;}
+#splashScreen .loader-track .fill{height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#a78bfa);border-radius:10px;transition:width 0.4s ease;}
 #splashScreen .loader-track .glow{position:absolute;top:-2px;left:0;width:60px;height:7px;background:linear-gradient(90deg,transparent,rgba(167,139,250,0.4),transparent);border-radius:10px;filter:blur(6px);animation:glide 1.5s ease-in-out infinite;}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06);opacity:0.8}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 @keyframes glide{0%{left:-60px}100%{left:calc(100% + 20px)}}
-#splashScreen .status-text{font-size:11px;color:#64748b;margin-top:14px;min-height:20px;font-weight:400;letter-spacing:1px;transition:opacity 0.3s;}
+#splashScreen .status-text{font-size:11px;color:#64748b;margin-top:14px;min-height:20px;font-weight:400;letter-spacing:1px;}
+#splashScreen .reset-btn{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:8px 20px;border-radius:40px;font-size:12px;cursor:pointer;margin-top:20px;transition:all 0.2s;display:none;font-family:'Inter',sans-serif;}
+#splashScreen .reset-btn:hover{background:rgba(239,68,68,0.25);border-color:#ef4444;}
+#splashScreen .debug-info{font-size:9px;color:#1e293b;margin-top:10px;font-family:monospace;letter-spacing:0;}
 #mainApp{display:none !important;}
 #mainApp.ready{display:block !important;}
 #mainApp.ready-with-login{display:block !important;}
@@ -395,6 +399,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <div class="subtitle">NeTubeX SARL</div>
 <div class="loader-track"><div class="fill" id="loaderFill"></div><div class="glow"></div></div>
 <div class="status-text" id="statusText">Initialisation...</div>
+<button class="reset-btn" id="resetSchoolBtn">🔄 Changer d'école</button>
 </div>
 <div id="schoolSelector" class="school-selector-overlay">
 <div class="header-fixed">
@@ -541,8 +546,6 @@ let allCards = [];
 let schoolSelectorResolve = null;
 let isSchoolSelectorActive = false;
 let splashHidden = false;
-let typingComplete = false;
-let loaderComplete = false;
 
 function typeText(element, text, speed, callback) {
     let index = 0;
@@ -567,6 +570,29 @@ function hideSplash() {
     setTimeout(() => {
         splash.style.display = 'none';
     }, 700);
+}
+
+function updateLoader(percent, status) {
+    const fill = document.getElementById('loaderFill');
+    const statusText = document.getElementById('statusText');
+    if (fill) fill.style.width = Math.min(percent, 100) + '%';
+    if (statusText && status) statusText.textContent = status;
+}
+
+function resetSchool() {
+    localStorage.removeItem('lastSchool');
+    sessionStorage.removeItem('schoolSelected');
+    const url = new URL(window.location);
+    url.searchParams.delete('ecole');
+    window.history.replaceState({}, '', url);
+    document.getElementById('schoolSelector').classList.add('visible');
+    document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
+    document.getElementById('splashScreen').classList.remove('hide');
+    document.getElementById('splashScreen').style.display = 'flex';
+    splashHidden = false;
+    document.getElementById('resetSchoolBtn').style.display = 'none';
+    updateLoader(60, 'Sélectionnez une école');
+    chargerEcoles();
 }
 
 async function synchroniserEcole(prefixe, data) {
@@ -724,6 +750,7 @@ function showSchoolSelector() {
         schoolSelectorResolve = resolve;
         document.getElementById('schoolSelector').classList.add('visible');
         document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
+        document.getElementById('resetSchoolBtn').style.display = 'none';
         chargerEcoles();
     });
 }
@@ -1131,7 +1158,6 @@ async function restaurerSession() {
                 await chargerHoraireFirebase();
                 await chargerSelecteursDynamiques();
                 toast("Bienvenue " + currentProf.nom, 'success');
-                hideSplash();
                 return true;
             }
         } catch (e) { console.log(e); }
@@ -2101,7 +2127,6 @@ async function showLogin() {
             await getAllFiches();
             syncToFirebase();
             toast("Bienvenue " + currentProf.nom, 'success');
-            hideSplash();
         } else {
             if (tentativeConnexion >= SEUIL_ALERTE) {
                 await enregistrerLog("tentative_hack", {
@@ -2123,7 +2148,6 @@ async function showLogin() {
         }
     };
     document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
-    hideSplash();
 }
 
 async function refreshTeachersList() {
@@ -4800,58 +4824,49 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
+document.getElementById('resetSchoolBtn')?.addEventListener('click', resetSchool);
+
 async function initApp() {
     const splash = document.getElementById('splashScreen');
     const typedEl = document.getElementById('typedText');
     const statusText = document.getElementById('statusText');
     const loaderFill = document.getElementById('loaderFill');
+    const resetBtn = document.getElementById('resetSchoolBtn');
 
-    statusText.textContent = 'Chargement des modules...';
+    resetBtn.style.display = 'block';
+
+    updateLoader(10, 'Chargement des modules...');
 
     typeText(typedEl, 'NeTubeX SARL', 120, () => {
-        typingComplete = true;
-        statusText.textContent = 'Connexion aux services...';
-        loaderFill.style.width = '40%';
-        if (loaderComplete && typingComplete) {
-            setTimeout(() => { hideSplash(); }, 400);
-        }
+        updateLoader(30, 'Connexion aux services...');
     });
 
     const existingSchool = getSchoolFromSources();
 
     if (existingSchool) {
-        statusText.textContent = 'École trouvée, préparation...';
-        loaderFill.style.width = '30%';
+        updateLoader(50, `École trouvée: ${existingSchool.toUpperCase().replace(/-/g, ' ')}`);
         await initAppWithSchool(existingSchool);
-        loaderComplete = true;
-        if (typingComplete) {
-            setTimeout(() => { hideSplash(); }, 400);
-        }
+        updateLoader(100, 'Prêt !');
+        setTimeout(() => { hideSplash(); }, 300);
         return;
     }
 
-    statusText.textContent = 'Aucune école sélectionnée';
-    loaderFill.style.width = '60%';
+    updateLoader(60, 'Aucune école sélectionnée');
     const selectedSchool = await showSchoolSelector();
 
     if (!selectedSchool) {
         document.getElementById('schoolSelector').classList.add('visible');
         document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
-        loaderComplete = true;
-        if (typingComplete) {
-            setTimeout(() => { hideSplash(); }, 400);
-        }
+        updateLoader(100, 'Sélectionnez une école');
+        setTimeout(() => { hideSplash(); }, 300);
         return;
     }
 
-    statusText.textContent = 'École sélectionnée, initialisation...';
-    loaderFill.style.width = '80%';
+    updateLoader(80, 'École sélectionnée, initialisation...');
     saveSchool(selectedSchool);
     await initAppWithSchool(selectedSchool);
-    loaderComplete = true;
-    if (typingComplete) {
-        setTimeout(() => { hideSplash(); }, 400);
-    }
+    updateLoader(100, 'Prêt !');
+    setTimeout(() => { hideSplash(); }, 300);
 }
 
 async function initAppWithSchool(school) {
