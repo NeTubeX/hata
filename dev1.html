@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -30,10 +29,8 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 #splashScreen .status-text{font-size:11px;color:#64748b;margin-top:14px;min-height:20px;font-weight:400;letter-spacing:1px;}
 #splashScreen .reset-btn{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:8px 20px;border-radius:40px;font-size:12px;cursor:pointer;margin-top:20px;transition:all 0.2s;display:none;font-family:'Inter',sans-serif;}
 #splashScreen .reset-btn:hover{background:rgba(239,68,68,0.25);border-color:#ef4444;}
-#splashScreen .debug-info{font-size:9px;color:#1e293b;margin-top:10px;font-family:monospace;letter-spacing:0;}
 #mainApp{display:none !important;}
 #mainApp.ready{display:block !important;}
-#mainApp.ready-with-login{display:block !important;}
 #schoolSelector{display:none !important;}
 #schoolSelector.visible{display:flex !important;}
 .school-selector-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#0b1120;z-index:99999;display:flex;flex-direction:column;align-items:center;padding:0;overflow-y:auto;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e8edf5;}
@@ -387,7 +384,6 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .reco-chat-container .parent-send{padding:0 16px;font-size:13px;}
 #mainApp{display:none !important;}
 #mainApp.ready{display:block !important;}
-#mainApp.ready-with-login{display:block !important;}
 #schoolSelector{display:none !important;}
 #schoolSelector.visible{display:flex !important;}
 </style>
@@ -524,6 +520,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -546,6 +543,10 @@ let allCards = [];
 let schoolSelectorResolve = null;
 let isSchoolSelectorActive = false;
 let splashHidden = false;
+
+// ============================================================
+// FONCTIONS DE GESTION DU SPLASH
+// ============================================================
 
 function typeText(element, text, speed, callback) {
     let index = 0;
@@ -582,18 +583,21 @@ function updateLoader(percent, status) {
 function resetSchool() {
     localStorage.removeItem('lastSchool');
     sessionStorage.removeItem('schoolSelected');
+    localStorage.removeItem('gloria_titulaire_config');
+    localStorage.removeItem('gloria_session_prof');
+    localStorage.removeItem('gloria_corbeille');
+    if (window.currentProf) {
+        localStorage.removeItem('gloria_horaire_' + window.currentProf.id);
+    }
     const url = new URL(window.location);
     url.searchParams.delete('ecole');
     window.history.replaceState({}, '', url);
-    document.getElementById('schoolSelector').classList.add('visible');
-    document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
-    document.getElementById('splashScreen').classList.remove('hide');
-    document.getElementById('splashScreen').style.display = 'flex';
-    splashHidden = false;
-    document.getElementById('resetSchoolBtn').style.display = 'none';
-    updateLoader(60, 'Sélectionnez une école');
-    chargerEcoles();
+    window.location.reload();
 }
+
+// ============================================================
+// SÉLECTEUR D'ÉCOLE
+// ============================================================
 
 async function synchroniserEcole(prefixe, data) {
     try {
@@ -749,7 +753,7 @@ function showSchoolSelector() {
         isSchoolSelectorActive = true;
         schoolSelectorResolve = resolve;
         document.getElementById('schoolSelector').classList.add('visible');
-        document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
+        document.getElementById('mainApp').classList.remove('ready');
         document.getElementById('resetSchoolBtn').style.display = 'none';
         chargerEcoles();
     });
@@ -760,25 +764,13 @@ function hideSchoolSelector() {
     document.getElementById('schoolSelector').classList.remove('visible');
 }
 
-function getSchoolFromSources() {
+// ============================================================
+// GESTION DE L'ÉCOLE ET SESSION
+// ============================================================
+
+function getSchoolFromURL() {
     const urlParams = new URLSearchParams(window.location.search);
-    const urlSchool = urlParams.get('ecole');
-    if (urlSchool) {
-        localStorage.setItem('lastSchool', urlSchool);
-        sessionStorage.setItem('schoolSelected', urlSchool);
-        return urlSchool;
-    }
-    const sessionSchool = sessionStorage.getItem('schoolSelected');
-    if (sessionSchool) {
-        localStorage.setItem('lastSchool', sessionSchool);
-        return sessionSchool;
-    }
-    const localSchool = localStorage.getItem('lastSchool');
-    if (localSchool) {
-        sessionStorage.setItem('schoolSelected', localSchool);
-        return localSchool;
-    }
-    return null;
+    return urlParams.get('ecole') || null;
 }
 
 function saveSchool(school) {
@@ -794,6 +786,25 @@ function clearSchoolSelection() {
     window.history.replaceState({}, '', url);
 }
 
+// VÉRIFICATION CRITIQUE : Est-ce que le professeur est connecté ?
+function isProfessorConnected() {
+    const session = localStorage.getItem('gloria_session_prof');
+    if (!session) return false;
+    try {
+        const prof = JSON.parse(session);
+        if (!prof.school || !prof.id || !prof.nom) return false;
+        // Vérifier si l'école correspond
+        if (prof.school !== window.SCHOOL_PREFIX) return false;
+        return true;
+    } catch(e) {
+        return false;
+    }
+}
+
+// ============================================================
+// FONCTIONS UTILITAIRES (toast, modals, etc.)
+// ============================================================
+
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
     if (!c) return;
@@ -808,11 +819,6 @@ function toast(message, type) {
         e.classList.remove('show');
         setTimeout(() => { if (e.parentNode) e.remove(); }, 300);
     }, 3000);
-}
-
-function clearAllToasts() {
-    const c = document.getElementById('toastContainer');
-    if (c) c.innerHTML = '';
 }
 
 function formatNumero(n) { return n ? 'F' + String(n).padStart(3, '0') : '???'; }
@@ -855,15 +861,19 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
     d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
 }
 
+// ============================================================
+// LOGS
+// ============================================================
+
 async function enregistrerLog(action, details, statut = "info") {
     try {
         const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
         const now = new Date();
         const userInfo = {
-            nom: currentProf?.nom || "Inconnu",
-            id: currentProf?.id || "inconnu",
-            type: currentProf ? "professeur" : "systeme",
-            ecole: SCHOOL_PREFIX
+            nom: window.currentProf?.nom || "Inconnu",
+            id: window.currentProf?.id || "inconnu",
+            type: window.currentProf ? "professeur" : "systeme",
+            ecole: window.SCHOOL_PREFIX
         };
         const browserInfo = {
             userAgent: navigator.userAgent,
@@ -888,7 +898,7 @@ async function enregistrerLog(action, details, statut = "info") {
         };
         if (navigator.onLine) {
             try {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_logs", logId), logData);
             } catch (error) {
                 sauvegarderLogLocal(logData);
             }
@@ -919,7 +929,7 @@ async function synchroniserLogsLocaux() {
         let compteur = 0;
         for (const log of logsLocaux) {
             try {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_logs", log.id), log);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_logs", log.id), log);
                 compteur++;
             } catch (error) { console.error("Erreur synchro log:", error); }
         }
@@ -957,7 +967,7 @@ async function alerterAdmin(logData) {
             lue: false,
             priorite: logData.statut === "critical" ? "haute" : logData.statut === "error" ? "moyenne" : "normale"
         };
-        await setDoc(doc(db, SCHOOL_PREFIX + "_alertes_admin", alertId), alertData);
+        await setDoc(doc(db, window.SCHOOL_PREFIX + "_alertes_admin", alertId), alertData);
     } catch (error) { console.error("Erreur envoi alerte admin:", error); }
 }
 
@@ -973,12 +983,12 @@ async function enregistrerMessageParental(message, reponse, codeOuNom) {
             reponse: reponse,
             date: now.toISOString(),
             dateTimestamp: now.getTime(),
-            ecole: SCHOOL_PREFIX,
+            ecole: window.SCHOOL_PREFIX,
             source: "espace_parental"
         };
         if (navigator.onLine) {
             try {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msgId), messageData);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_parent_messages", msgId), messageData);
             } catch (error) {
                 sauvegarderMessageLocal(messageData);
             }
@@ -1010,7 +1020,7 @@ async function synchroniserMessagesParentaux() {
         let compteur = 0;
         for (const msg of messagesLocaux) {
             try {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msg.id), msg);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_parent_messages", msg.id), msg);
                 compteur++;
             } catch (error) { console.error("Erreur synchro message:", error); }
         }
@@ -1019,6 +1029,10 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
+
+// ============================================================
+// INDEXEDDB
+// ============================================================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -1093,23 +1107,23 @@ async function syncToFirebase() {
     for (let i of p) {
         try {
             if (i.action === 'saveFiche') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", i.data.ficheId), i.data);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_fiches", i.data.ficheId), i.data);
             } else if (i.action === 'deleteFiche') {
-                await deleteDoc(doc(db, SCHOOL_PREFIX + "_fiches", i.data));
+                await deleteDoc(doc(db, window.SCHOOL_PREFIX + "_fiches", i.data));
             } else if (i.action === 'saveProf') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_professeurs", i.data.id), i.data);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_professeurs", i.data.id), i.data);
             } else if (i.action === 'deleteProf') {
-                await deleteDoc(doc(db, SCHOOL_PREFIX + "_professeurs", i.data));
+                await deleteDoc(doc(db, window.SCHOOL_PREFIX + "_professeurs", i.data));
             } else if (i.action === 'updateCompteur') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"), { valeur: i.data });
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_compteur", "global"), { valeur: i.data });
             } else if (i.action === 'saveHoraire') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_horaires", "horaire_" + i.data.profId), { profId: i.data.profId, horaire: i.data.horaire, lastUpdated: new Date() });
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_horaires", "horaire_" + i.data.profId), { profId: i.data.profId, horaire: i.data.horaire, lastUpdated: new Date() });
             } else if (i.action === 'saveLog') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_logs", i.data.id), i.data);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_logs", i.data.id), i.data);
             } else if (i.action === 'saveAlerte') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_alertes_admin", i.data.id), i.data);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_alertes_admin", i.data.id), i.data);
             } else if (i.action === 'saveParentMessage') {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", i.data.id), i.data);
+                await setDoc(doc(db, window.SCHOOL_PREFIX + "_parent_messages", i.data.id), i.data);
             }
             await deleteFromIndexedDB('pendingSync', i.id);
         } catch (e) { console.error('Sync failed', e); }
@@ -1122,6 +1136,10 @@ window.addEventListener('online', function() {
     synchroniserMessagesParentaux();
 });
 
+// ============================================================
+// SESSION PROFESSEUR
+// ============================================================
+
 function sauvegarderSession(prof) {
     if (prof) {
         localStorage.setItem('gloria_session_prof', JSON.stringify({
@@ -1129,7 +1147,7 @@ function sauvegarderSession(prof) {
             nom: prof.nom,
             code: prof.code,
             createdAt: prof.createdAt,
-            school: SCHOOL_PREFIX
+            school: window.SCHOOL_PREFIX
         }));
     } else {
         localStorage.removeItem('gloria_session_prof');
@@ -1141,23 +1159,17 @@ async function restaurerSession() {
     if (session) {
         try {
             let prof = JSON.parse(session);
-            if (prof.school !== SCHOOL_PREFIX) {
+            if (prof.school !== window.SCHOOL_PREFIX) {
                 localStorage.removeItem('gloria_session_prof');
                 return false;
             }
             let ap = await getAllFromIndexedDB('professeurs');
-            let fp = ap.find(function(p) { return p.id === prof.id && p.school === SCHOOL_PREFIX; });
+            let fp = ap.find(function(p) { return p.id === prof.id && p.school === window.SCHOOL_PREFIX; });
             if (fp) {
-                currentProf = fp;
+                window.currentProf = fp;
                 document.getElementById('mainApp').classList.add('ready');
                 const parentBtn = document.getElementById('parentFloatingBtn');
                 if (parentBtn) parentBtn.style.display = 'flex';
-                toutesFiches = await loadAllFiches();
-                if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
-                await refreshSelectors();
-                await chargerHoraireFirebase();
-                await chargerSelecteursDynamiques();
-                toast("Bienvenue " + currentProf.nom, 'success');
                 return true;
             }
         } catch (e) { console.log(e); }
@@ -1165,10 +1177,13 @@ async function restaurerSession() {
     return false;
 }
 
+// ============================================================
+// CODE PRINCIPAL - TOUTES LES FONCTIONS DE L'APP
+// ============================================================
+
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [];
 let saveTimeout = null, isCreatingFiche = false;
 let directriceCode = "1111";
-let pendingSync = [];
 let groupesActuels = [];
 let optionsParClasse = {
     "1ère Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],
@@ -1191,6 +1206,7 @@ const SEUIL_ALERTE = 3;
 let SCHOOL_PREFIX = "";
 let schoolId = "";
 
+// Fonctions de l'application
 async function chargerSelecteursDynamiques() {
     const toutes = await getAllFromIndexedDB('fiches');
     const matieresSet = new Set();
@@ -1268,7 +1284,6 @@ async function refreshSelectors() {
 }
 
 async function selectFiche(id) {
-    clearAllToasts();
     if (!id || isCreatingFiche) return;
     currentFicheId = id;
     let st = await getFromIndexedDB('fiches', id);
@@ -2060,6 +2075,10 @@ window.allerHier = allerHier;
 window.allerDemain = allerDemain;
 window.revenirAujourdhui = revenirAujourdhui;
 
+// ============================================================
+// LOGIN
+// ============================================================
+
 async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
@@ -2203,6 +2222,10 @@ async function showAdminModal() {
         }
     };
 }
+
+// ============================================================
+// ADMIN
+// ============================================================
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
@@ -2758,6 +2781,10 @@ function correctionPrevStudent() {
         speak("Vous êtes déjà au premier élève.");
     }
 }
+
+// ============================================================
+// TITULAIRE
+// ============================================================
 
 let titulaireConfig = null,
     toutesFichesTitu = [],
@@ -3443,6 +3470,10 @@ async function initTitulaire() {
     }
 }
 
+// ============================================================
+// RECO
+// ============================================================
+
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = "";
@@ -3597,6 +3628,10 @@ function initRecoSupport() {
     });
 }
 
+// ============================================================
+// PARENTS MODAL
+// ============================================================
+
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -3686,6 +3721,10 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
+
+// ============================================================
+// DONNÉES ÉLÈVES
+// ============================================================
 
 async function getAllComptaEleves() {
     try {
@@ -3950,6 +3989,10 @@ async function traiterMessage(message) {
     return "👋 Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
 }
 
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
 document.getElementById('addEleveBtn').onclick = function() {
     if (!currentFiche) {
         toast("Veuillez sélectionner une fiche", 'error');
@@ -4010,7 +4053,7 @@ document.getElementById('logoutBtnParam').onclick = function() {
         sauvegarderSession(null);
         currentProf = null;
         currentFiche = null;
-        document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
+        document.getElementById('mainApp').classList.remove('ready');
         const parentBtn = document.getElementById('parentFloatingBtn');
         if (parentBtn) parentBtn.style.display = 'flex';
         showLogin();
@@ -4826,6 +4869,10 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
 
 document.getElementById('resetSchoolBtn')?.addEventListener('click', resetSchool);
 
+// ============================================================
+// INITIALISATION
+// ============================================================
+
 async function initApp() {
     const splash = document.getElementById('splashScreen');
     const typedEl = document.getElementById('typedText');
@@ -4841,22 +4888,29 @@ async function initApp() {
         updateLoader(30, 'Connexion aux services...');
     });
 
-    const existingSchool = getSchoolFromSources();
+    // Étape 1: Vérifier l'école dans l'URL
+    const urlSchool = getSchoolFromURL();
 
-    if (existingSchool) {
-        updateLoader(50, `École trouvée: ${existingSchool.toUpperCase().replace(/-/g, ' ')}`);
-        await initAppWithSchool(existingSchool);
+    if (urlSchool) {
+        // École trouvée dans l'URL
+        updateLoader(40, `École: ${urlSchool.toUpperCase().replace(/-/g, ' ')}`);
+        saveSchool(urlSchool);
+        await initAppWithSchool(urlSchool);
         updateLoader(100, 'Prêt !');
         setTimeout(() => { hideSplash(); }, 300);
         return;
     }
 
-    updateLoader(60, 'Aucune école sélectionnée');
+    // Étape 2: Pas d'école dans l'URL → Afficher le sélecteur
+    updateLoader(50, 'Sélectionnez une école');
+    document.getElementById('schoolSelector').classList.add('visible');
+    document.getElementById('mainApp').classList.remove('ready');
+    localStorage.removeItem('lastSchool');
+    sessionStorage.removeItem('schoolSelected');
+
     const selectedSchool = await showSchoolSelector();
 
     if (!selectedSchool) {
-        document.getElementById('schoolSelector').classList.add('visible');
-        document.getElementById('mainApp').classList.remove('ready', 'ready-with-login');
         updateLoader(100, 'Sélectionnez une école');
         setTimeout(() => { hideSplash(); }, 300);
         return;
@@ -4873,6 +4927,8 @@ async function initAppWithSchool(school) {
     window.schoolId = school;
     window.SCHOOL_PREFIX = school.replace(/-/g, '_');
     window.currentRecoEcole = school;
+    SCHOOL_PREFIX = window.SCHOOL_PREFIX;
+    schoolId = window.schoolId;
 
     const schoolNameDisplay = school.toUpperCase().replace(/-/g, ' ');
     document.querySelector('.school-name').textContent = `COMPLEXE SCOLAIRE ${schoolNameDisplay}`;
@@ -4908,13 +4964,33 @@ async function initAppWithSchool(school) {
         } catch (e) { console.log(e); }
     }
 
-    let sessionRestored = await restaurerSession();
+    // VÉRIFICATION CRITIQUE: Le professeur est-il connecté ?
+    const isConnected = isProfessorConnected();
 
-    if (sessionRestored) {
-        document.getElementById('mainApp').classList.add('ready');
-        if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
+    if (isConnected) {
+        // Session existante → restaurer
+        const sessionRestored = await restaurerSession();
+        if (sessionRestored) {
+            document.getElementById('mainApp').classList.add('ready');
+            if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
+            // Charger les données
+            toutesFiches = await loadAllFiches();
+            if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
+            await refreshSelectors();
+            await chargerHoraireFirebase();
+            await chargerSelecteursDynamiques();
+            await getAllComptaEleves();
+            await getAllFiches();
+            syncToFirebase();
+            toast("Bienvenue " + currentProf.nom, 'success');
+        } else {
+            // Session corrompue → forcer la connexion
+            document.getElementById('mainApp').classList.add('ready');
+            showLogin();
+        }
     } else {
-        document.getElementById('mainApp').classList.add('ready-with-login');
+        // Pas de session → forcer la connexion
+        document.getElementById('mainApp').classList.add('ready');
         showLogin();
     }
 
@@ -4951,8 +5027,10 @@ async function initAppWithSchool(school) {
     }, 30000);
 
     console.log('✅ École sélectionnée:', school);
+    console.log('✅ Professeur connecté:', isConnected);
 }
 
+// Lancer l'application
 initApp();
 </script>
 </body>
