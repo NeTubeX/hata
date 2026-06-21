@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -226,6 +227,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 @media(min-width:768px){.tab-content .card .assistant-grid{grid-template-columns:repeat(2,1fr);}}
 .tab-content .card .result-area-full{margin-top:20px;}
 .parent-floating-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);border:none;font-size:28px;cursor:pointer;z-index:10001;box-shadow:0 8px 20px rgba(16,185,129,0.4);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;color:#fff;}
+.parent-floating-btn span{font-size:11px;font-weight:600;letter-spacing:0.5px;background:rgba(0,0,0,0.6);padding:2px 10px;border-radius:30px;position:absolute;bottom:-10px;color:#fff;}
 .parent-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(16px);z-index:10002;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all 0.3s ease;}
 .parent-modal-overlay.active{visibility:visible;opacity:1;}
 .parent-modal{background:linear-gradient(135deg,#1e293b,#0f172a);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;}
@@ -817,9 +819,53 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
         font-size: 10px
     }
 }
+#loadingScreen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #0a0e1a, #0f172a);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 24px;
+    font-family: 'Inter', sans-serif;
+}
+#loadingScreen.show {
+    display: flex;
+}
+#loadingScreen img {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+}
+#loadingScreen .brand {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+#loadingScreen .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(59, 130, 246, 0.2);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
 </style>
 </head>
 <body>
+
+<div id="loadingScreen">
+    <img src="https://www.netubex.com/favicon.png.png" alt="NeTubeX">
+    <div class="brand">NeTubeX SARL</div>
+    <div class="spinner"></div>
+</div>
 
 <div id="schoolSelector" class="school-selector-overlay" style="display:none;">
     <div class="header-fixed">
@@ -915,7 +961,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <div style="margin-top:20px"><button id="closeSaisieModal" style="background:#334155;padding:14px 20px;border-radius:30px;color:white;font-size:18px;">Fermer</button></div>
 </div>
 </div>
-<button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;">👪</button>
+<button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;">👪<span>Parent</span></button>
 <div class="parent-modal-overlay" id="parentModalOverlay">
 <div class="parent-modal">
 <div class="parent-modal-header">
@@ -961,10 +1007,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// ============================================================
-// SÉLECTEUR D'ÉCOLE
-// ============================================================
 
 const ECOLES_AUTORISEES = "ecoles_autorisees";
 const ECOLES = "ecoles";
@@ -1137,12 +1179,7 @@ function hideSchoolSelector() {
     document.getElementById('mainApp').style.display = 'block';
 }
 
-// ============================================================
-// GESTION DE L'ÉCOLE SÉLECTIONNÉE (OPTIONS 1, 2, 3)
-// ============================================================
-
 function getSchoolFromSources() {
-    // Option 2 : URL
     const urlParams = new URLSearchParams(window.location.search);
     const urlSchool = urlParams.get('ecole');
     if (urlSchool) {
@@ -1151,14 +1188,12 @@ function getSchoolFromSources() {
         return urlSchool;
     }
     
-    // Option 3 : Session
     const sessionSchool = sessionStorage.getItem('schoolSelected');
     if (sessionSchool) {
         localStorage.setItem('lastSchool', sessionSchool);
         return sessionSchool;
     }
     
-    // Option 1 : Local Storage
     const localSchool = localStorage.getItem('lastSchool');
     if (localSchool) {
         sessionStorage.setItem('schoolSelected', localSchool);
@@ -1176,15 +1211,10 @@ function saveSchool(school) {
 function clearSchoolSelection() {
     localStorage.removeItem('lastSchool');
     sessionStorage.removeItem('schoolSelected');
-    // Supprimer l'URL
     const url = new URL(window.location);
     url.searchParams.delete('ecole');
     window.history.replaceState({}, '', url);
 }
-
-// ============================================================
-// CODE PRINCIPAL (CODES 1 & 2 FUSIONNÉS)
-// ============================================================
 
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [];
 let saveTimeout = null, isCreatingFiche = false;
@@ -1272,8 +1302,6 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
     d.querySelector('#styledConfirmOk').onclick = () => { d.remove(); if (onConfirm) onConfirm(); };
     d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
 }
-
-// ==================== LOGS ====================
 
 async function enregistrerLog(action, details, statut = "info") {
     try {
@@ -1381,8 +1409,6 @@ async function alerterAdmin(logData) {
     } catch (error) { console.error("Erreur envoi alerte admin:", error); }
 }
 
-// ==================== MESSAGES PARENTAUX ====================
-
 async function enregistrerMessageParental(message, reponse, codeOuNom) {
     try {
         const msgId = "parent_msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -1441,8 +1467,6 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
-
-// ==================== INDEXEDDB ====================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -1546,8 +1570,6 @@ window.addEventListener('online', function() {
     synchroniserMessagesParentaux();
 });
 
-// ==================== SESSION ====================
-
 function sauvegarderSession(prof) {
     if (prof) {
         localStorage.setItem('gloria_session_prof', JSON.stringify({
@@ -1578,6 +1600,8 @@ async function restaurerSession() {
                 document.getElementById('mainApp').style.display = 'block';
                 const parentBtn = document.getElementById('parentFloatingBtn');
                 if (parentBtn) parentBtn.style.display = 'flex';
+                const loginOverlay = document.getElementById('loginOverlay');
+                if (loginOverlay) loginOverlay.remove();
                 toutesFiches = await loadAllFiches();
                 if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
                 await refreshSelectors();
@@ -1590,8 +1614,6 @@ async function restaurerSession() {
     }
     return false;
 }
-
-// ==================== FICHE ====================
 
 async function chargerSelecteursDynamiques() {
     const toutes = await getAllFromIndexedDB('fiches');
@@ -1728,8 +1750,6 @@ function mettreAJourCompteurEleves() {
     }
 }
 
-// ==================== ÉLÈVES ====================
-
 function afficherEleves() {
     let c = document.getElementById('elevesListContainer');
     if (!c) return;
@@ -1778,8 +1798,6 @@ window.delEleve = function(i) {
         toast(n + " a été supprimé", 'warning');
     });
 };
-
-// ==================== COTATION ====================
 
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
 
@@ -1844,8 +1862,6 @@ function getMoyenneGenerale(eleve) {
     return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal };
 }
 
-// ==================== RECHERCHE AVANCÉE ====================
-
 let advancedFilters = {
     classe: '',
     option: '',
@@ -1873,8 +1889,6 @@ function reinitialiserFiltresAvances() {
     afficherCotation();
     toast("Filtres réinitialisés", 'info');
 }
-
-// ==================== AFFICHAGE COTATION ====================
 
 function afficherCotation() {
     let th = document.getElementById('cotationHeader');
@@ -2094,8 +2108,6 @@ window.updExam = function(i, s, v) {
     refreshGroupes();
 };
 
-// ==================== EPREUVES ====================
-
 function afficherEpreuves() {
     let c = document.getElementById('epreuvesContainer');
     if (!c) return;
@@ -2171,8 +2183,6 @@ function mettreAJourEpreuvesSelect() {
     if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>';
 }
 
-// ==================== EXPORT ====================
-
 function updateExportSelect() {
     let es = document.getElementById('eleveForExportSelect');
     if (es && currentFiche) {
@@ -2187,8 +2197,6 @@ function updateExportSelect() {
         }
     }
 }
-
-// ==================== GROUPES ====================
 
 function refreshGroupes() {
     let c = document.getElementById('listePresenceEleves');
@@ -2257,8 +2265,6 @@ function rafraichirGroupesPourCotation() {
     });
     c.innerHTML = h;
 }
-
-// ==================== HORAIRE ====================
 
 function getJourReel() {
     const j = new Date().getDay();
@@ -2478,99 +2484,130 @@ window.allerHier = allerHier;
 window.allerDemain = allerDemain;
 window.revenirAujourdhui = revenirAujourdhui;
 
-// ==================== CONNEXION / DECONNEXION ====================
-
 async function showLogin() {
+    document.getElementById('mainApp').style.display = 'none';
+    
+    const existingOverlay = document.getElementById('loginOverlay');
+    if (existingOverlay) existingOverlay.remove();
+    
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    d.innerHTML = `
+        <div class="login-card">
+            <h2>${schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'}</h2>
+            <p>Accès enseignant</p>
+            <select id="loginNom">
+                <option value="">-- Choisir --</option>
+            </select>
+            <input type="password" id="loginCode" placeholder="Code d'accès">
+            <button id="loginBtn">Se connecter</button>
+            <div style="margin-top:16px">
+                <button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button>
+            </div>
+            <div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div>
+        </div>
+    `;
     document.body.appendChild(d);
+    
     await refreshTeachersList();
-
-    document.getElementById('loginBtn').onclick = async function() {
-        let n = document.getElementById('loginNom').value;
-        let c = document.getElementById('loginCode').value;
-
-        const maintenant = Date.now();
-        if (maintenant - derniereTentative > 60000) {
-            tentativeConnexion = 0;
-        }
-        tentativeConnexion++;
-        derniereTentative = maintenant;
-
-        let ap = await getAllFromIndexedDB('professeurs');
-        let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
-
-        if (!fp) {
-            if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", {
-                    message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
-                    ip: "client",
-                    tentative: tentativeConnexion,
-                    userAgent: navigator.userAgent,
-                    raison: "Compte non trouvé"
-                }, "critical");
-                toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
-            } else {
-                await enregistrerLog("connexion_echouee", {
-                    message: 'Tentative de connexion échouée pour "' + n + '"',
-                    raison: "Compte non trouvé",
-                    tentative: tentativeConnexion
-                }, "error");
-            }
-
-            document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
-            toast("Compte désactivé ou identifiants incorrects", 'error');
-            return;
-        }
-
-        tentativeConnexion = 0;
-
-        if (c === fp.code) {
-            await enregistrerLog("connexion_reussie", {
-                message: 'Connexion réussie de ' + n,
-                code_utilise: c
-            }, "success");
-            currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
-            sauvegarderSession(currentProf);
-            document.getElementById('loginOverlay').remove();
-            document.getElementById('mainApp').style.display = 'block';
-            const parentBtn = document.getElementById('parentFloatingBtn');
-            if (parentBtn) parentBtn.style.display = 'flex';
-            toutesFiches = await loadAllFiches();
-            if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
-            await refreshSelectors();
-            await chargerHoraireFirebase();
-            await chargerSelecteursDynamiques();
-            await getAllComptaEleves();
-            await getAllFiches();
-            syncToFirebase();
-            toast("Bienvenue " + currentProf.nom, 'success');
-        } else {
-            if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", {
-                    message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
-                    code_saisi: c,
-                    code_attendu: fp.code,
-                    tentative: tentativeConnexion
-                }, "critical");
-                toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
-            } else {
-                await enregistrerLog("connexion_echouee", {
-                    message: 'Code incorrect pour ' + n,
-                    code_saisi: c,
-                    code_attendu: fp.code
-                }, "error");
-            }
-            document.getElementById('loginError').innerHTML = 'Code incorrect';
-            toast("Code d'accès incorrect", 'error');
-        }
-    };
-    document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
+    setupLoginListeners();
 }
 
-// ==================== ADMIN / DIRECTRICE ====================
+function setupLoginListeners() {
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.onclick = async function() {
+            let n = document.getElementById('loginNom').value;
+            let c = document.getElementById('loginCode').value;
+
+            const maintenant = Date.now();
+            if (maintenant - derniereTentative > 60000) {
+                tentativeConnexion = 0;
+            }
+            tentativeConnexion++;
+            derniereTentative = maintenant;
+
+            let ap = await getAllFromIndexedDB('professeurs');
+            let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
+
+            if (!fp) {
+                if (tentativeConnexion >= SEUIL_ALERTE) {
+                    await enregistrerLog("tentative_hack", {
+                        message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
+                        ip: "client",
+                        tentative: tentativeConnexion,
+                        userAgent: navigator.userAgent,
+                        raison: "Compte non trouvé"
+                    }, "critical");
+                    toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
+                } else {
+                    await enregistrerLog("connexion_echouee", {
+                        message: 'Tentative de connexion échouée pour "' + n + '"',
+                        raison: "Compte non trouvé",
+                        tentative: tentativeConnexion
+                    }, "error");
+                }
+
+                document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
+                toast("Compte désactivé ou identifiants incorrects", 'error');
+                return;
+            }
+
+            tentativeConnexion = 0;
+
+            if (c === fp.code) {
+                await enregistrerLog("connexion_reussie", {
+                    message: 'Connexion réussie de ' + n,
+                    code_utilise: c
+                }, "success");
+                currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
+                sauvegarderSession(currentProf);
+                
+                const overlay = document.getElementById('loginOverlay');
+                if (overlay) overlay.remove();
+                
+                document.getElementById('mainApp').style.display = 'block';
+                
+                const parentBtn = document.getElementById('parentFloatingBtn');
+                if (parentBtn) parentBtn.style.display = 'flex';
+                
+                toutesFiches = await loadAllFiches();
+                if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
+                await refreshSelectors();
+                await chargerHoraireFirebase();
+                await chargerSelecteursDynamiques();
+                await getAllComptaEleves();
+                await getAllFiches();
+                syncToFirebase();
+                toast("Bienvenue " + currentProf.nom, 'success');
+            } else {
+                if (tentativeConnexion >= SEUIL_ALERTE) {
+                    await enregistrerLog("tentative_hack", {
+                        message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
+                        code_saisi: c,
+                        code_attendu: fp.code,
+                        tentative: tentativeConnexion
+                    }, "critical");
+                    toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
+                } else {
+                    await enregistrerLog("connexion_echouee", {
+                        message: 'Code incorrect pour ' + n,
+                        code_saisi: c,
+                        code_attendu: fp.code
+                    }, "error");
+                }
+                document.getElementById('loginError').innerHTML = 'Code incorrect';
+                toast("Code d'accès incorrect", 'error');
+            }
+        };
+    }
+    
+    const adminBtn = document.getElementById('adminIconBtn');
+    if (adminBtn) {
+        adminBtn.onclick = function() { showAdminModal(); };
+    }
+}
 
 async function refreshTeachersList() {
     let ap = await getAllFromIndexedDB('professeurs');
@@ -2625,8 +2662,6 @@ async function showAdminModal() {
         }
     };
 }
-
-// ==================== PROFESSEURS (Admin) ====================
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
@@ -2898,8 +2933,6 @@ async function refreshProfsList() {
     });
 }
 
-// ==================== CORBEILLE ====================
-
 function afficherCorbeille() {
     let c = document.getElementById('corbeilleList');
     if (!c) return;
@@ -3016,8 +3049,6 @@ window.supprimerFicheCorbeille = function(ficheId) {
     });
 };
 
-// ==================== PARENTS ====================
-
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
     const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
@@ -3087,8 +3118,6 @@ async function typeWriterEffect(element, text, speed = 15) {
         await new Promise(r => setTimeout(r, speed));
     }
 }
-
-// ==================== CORRECTION ====================
 
 function correctionUpdateEpreuveList() {
     const periodeSelect = document.getElementById('correctionPeriodeSelect');
@@ -3188,8 +3217,6 @@ function correctionPrevStudent() {
         speak("Vous êtes déjà au premier élève.");
     }
 }
-
-// ==================== TITULAIRE ====================
 
 let titulaireConfig = null,
     toutesFichesTitu = [],
@@ -3875,8 +3902,6 @@ async function initTitulaire() {
     }
 }
 
-// ==================== RECO ====================
-
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = "";
@@ -4031,8 +4056,6 @@ function initRecoSupport() {
     });
 }
 
-// ==================== PARENTS MODAL ====================
-
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -4122,8 +4145,6 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
-
-// ==================== DONNÉES ÉLÈVES ====================
 
 async function getAllComptaEleves() {
     try {
@@ -4387,8 +4408,6 @@ async function traiterMessage(message) {
     }
     return "👋 Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
 }
-
-// ==================== EVENT LISTENERS ====================
 
 document.getElementById('addEleveBtn').onclick = function() {
     if (!currentFiche) {
@@ -5114,8 +5133,6 @@ document.getElementById('configJourSelect')?.addEventListener('change', () => af
 document.getElementById('ajouterHeureBtn')?.addEventListener('click', () => ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () => sauvegarderHoraireAuto());
 
-// ==================== CORRECTION QUICK / GESTURE ====================
-
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     if (!currentFiche || !currentFiche.eleves?.length) {
         toast("Aucune fiche ou élève sélectionné", 'error');
@@ -5255,8 +5272,6 @@ window.speechSynthesis.onvoiceschanged = () => {
     const voices = window.speechSynthesis.getVoices();
 };
 
-// ==================== BOUTON CHANGER D'ÉCOLE ====================
-
 document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     showStyledConfirm("Changer d'école ?", "⚠️ Toutes les données locales seront effacées.<br><br>Voulez-vous continuer ?", () => {
         clearSchoolSelection();
@@ -5268,56 +5283,62 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
-// ==================== INITIALISATION ====================
-
 async function initApp() {
-    // 1. Vérifier si une école est déjà sélectionnée (Options 1, 2, 3)
     const existingSchool = getSchoolFromSources();
     
     if (existingSchool) {
-        // École trouvée, l'utiliser directement
         await initAppWithSchool(existingSchool);
         return;
     }
     
-    // 2. Aucune école trouvée, afficher le sélecteur
     const selectedSchool = await showSchoolSelector();
     
     if (!selectedSchool) {
-        // L'utilisateur a fermé ou annulé, on reste sur le sélecteur
         document.getElementById('schoolSelector').style.display = 'flex';
         document.getElementById('mainApp').style.display = 'none';
         return;
     }
     
-    // 3. Sauvegarder l'école sélectionnée
     saveSchool(selectedSchool);
     await initAppWithSchool(selectedSchool);
 }
 
 async function initAppWithSchool(school) {
-    // Configuration de l'école
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loginOverlay = document.getElementById('loginOverlay');
+    const schoolSelector = document.getElementById('schoolSelector');
+    const mainApp = document.getElementById('mainApp');
+
     schoolId = school;
     SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
     currentRecoEcole = schoolId;
-    
-    // Mise à jour de l'affichage
+
     const schoolNameDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
     document.querySelector('.school-name').textContent = `COMPLEXE SCOLAIRE ${schoolNameDisplay}`;
     document.querySelector('.school-sub').textContent = `Année scolaire 2026-2027`;
     document.getElementById('footerNote').textContent = `COMPLEXE SCOLAIRE ${schoolNameDisplay} | Année scolaire 2026-2027`;
-    
-    // Cacher le sélecteur, afficher l'app
-    hideSchoolSelector();
-    
-    // Initialiser les données
+
+    const sessionRestored = await restaurerSession();
+
+    if (sessionRestored) {
+        loadingScreen.classList.remove('show');
+        schoolSelector.style.display = 'none';
+        mainApp.style.display = 'block';
+        if (loginOverlay) loginOverlay.remove();
+        initTitulaire();
+        return;
+    }
+
+    loadingScreen.classList.add('show');
+    schoolSelector.style.display = 'none';
+    mainApp.style.display = 'none';
+
     let compteurKey = 'global_' + SCHOOL_PREFIX;
     let ce = await getFromIndexedDB('compteur', compteurKey);
     if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
     await initIndexedDB();
     await chargerOptionsParClasse();
-    
-    // Synchronisation initiale
+
     if (navigator.onLine) {
         try {
             let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
@@ -5338,56 +5359,14 @@ async function initAppWithSchool(school) {
             }
         } catch (e) { console.log(e); }
     }
-    
-    // Restaurer la session ou afficher le login
-    let sessionRestored = await restaurerSession();
-    if (!sessionRestored) {
-        showLogin();
-    } else {
-        if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
-    }
-    
-    // Initialiser l'espace titulaire
-    initTitulaire();
-    
-    // Nettoyage automatique de la corbeille
-    setInterval(function() {
-        let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
-        let modifie = false;
-        corbeille = corbeille.filter(f => {
-            if (f.dateExpiration && new Date(f.dateExpiration) <= new Date()) {
-                modifie = true;
-                return false;
-            }
-            if (f.school && f.school !== SCHOOL_PREFIX) return false;
-            return true;
-        });
-        if (modifie) {
-            localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
-            if (document.getElementById('modalTabCorbeille')?.classList.contains('active')) {
-                afficherCorbeille();
-            }
-        }
-    }, 24 * 60 * 60 * 1000);
-    
-    // Synchronisation périodique
-    window.addEventListener('online', function() {
-        syncToFirebase();
-        synchroniserLogsLocaux();
-        synchroniserMessagesParentaux();
-    });
-    
-    setInterval(function() {
-        synchroniserLogsLocaux();
-        synchroniserMessagesParentaux();
-    }, 30000);
-    
-    console.log('✅ École sélectionnée:', schoolId);
+
+    loadingScreen.classList.remove('show');
+    showLogin();
 }
 
-// Lancer l'application
 initApp();
 
 </script>
 </body>
 </html>
+```
