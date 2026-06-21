@@ -2,246 +2,132 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0e1a">
-    <title>TEST CACHE BARRE</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>TEST</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
-        body{background:#0a0e1a;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#fff;padding:20px;}
-        .box{background:rgba(18,18,31,0.9);border-radius:24px;padding:40px;max-width:500px;width:100%;text-align:center;border:1px solid rgba(59,130,246,0.2);}
-        h1{font-size:28px;margin-bottom:10px;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent;}
-        p{color:#94a3b8;font-size:14px;margin-bottom:20px;line-height:1.6;}
-        .status{background:#1e293b;border-radius:16px;padding:20px;margin:20px 0;border-left:3px solid #10b981;}
-        .status .label{font-size:12px;color:#64748b;}
-        .status .value{font-size:18px;font-weight:bold;color:#f1f5f9;margin-top:5px;}
-        .badge{display:inline-block;padding:4px 16px;border-radius:40px;font-size:12px;font-weight:600;margin:5px;}
-        .badge-android{background:#3b82f6;color:#fff;}
-        .badge-ios{background:#8b5cf6;color:#fff;}
-        .badge-other{background:#475569;color:#fff;}
-        .btn{background:#3b82f6;border:none;padding:12px 24px;border-radius:40px;color:#fff;font-weight:600;cursor:pointer;font-size:14px;margin:5px;}
-        .btn:hover{opacity:0.9;}
+        body{background:#0a0e1a;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;padding:20px;}
+        .box{background:rgba(18,18,31,0.9);border-radius:24px;padding:40px;max-width:400px;width:100%;text-align:center;border:1px solid rgba(59,130,246,0.2);}
+        h1{font-size:24px;color:#60a5fa;margin-bottom:10px;}
+        p{color:#94a3b8;font-size:14px;margin-bottom:15px;}
+        .status{background:#1e293b;border-radius:12px;padding:15px;margin:15px 0;border-left:3px solid #10b981;}
+        .status .value{font-size:20px;font-weight:bold;color:#f1f5f9;}
+        .btn{background:#3b82f6;border:none;padding:12px 20px;border-radius:40px;color:#fff;font-weight:600;cursor:pointer;font-size:14px;margin:5px;}
         .btn-green{background:#10b981;}
-        .info{font-size:11px;color:#4a5568;margin-top:15px;}
-        .log{background:#0f172a;border-radius:12px;padding:12px;margin-top:15px;font-size:11px;color:#94a3b8;text-align:left;max-height:150px;overflow-y:auto;font-family:monospace;}
+        .log{background:#0f172a;border-radius:12px;padding:10px;margin-top:10px;font-size:11px;color:#94a3b8;text-align:left;max-height:100px;overflow-y:auto;font-family:monospace;}
         .log span{color:#10b981;}
     </style>
 </head>
 <body>
     <div class="box">
-        <h1>📱 Test Cache Barre</h1>
-        <p>Vérifiez si la barre d'adresse est cachée sur votre appareil</p>
+        <h1>📱 TEST BARRE</h1>
+        <p>Appuyez pour cacher la barre</p>
         
         <div class="status">
-            <div class="label">📱 Appareil détecté</div>
-            <div class="value" id="deviceType">Chargement...</div>
-            <div id="badgeContainer"></div>
+            <div class="value" id="status">👆 Appuyez</div>
         </div>
         
-        <div class="status" style="border-left-color:#f59e0b;">
-            <div class="label">🔍 Statut de la barre</div>
-            <div class="value" id="barStatus">Vérification...</div>
-        </div>
+        <button class="btn" id="hideBtn">🙈 Cacher la barre</button>
+        <button class="btn btn-green" id="checkBtn">🔍 Vérifier</button>
         
-        <div>
-            <button class="btn" id="fullscreenBtn">🖥️ Activer plein écran</button>
-            <button class="btn btn-green" id="checkBtn">🔍 Vérifier maintenant</button>
-        </div>
-        
-        <div class="log" id="logContainer">
-            <span>📋</span> Logs d'activité...
-        </div>
-        
-        <div class="info">
-            💡 Sur iPhone : ajoutez à l'écran d'accueil pour une expérience complète<br>
-            🤖 Sur Android : la barre se cache automatiquement
-        </div>
+        <div class="log" id="log">📋 En attente...</div>
     </div>
 
     <script>
     // ============================================================
-    // MÉCANISME DE CACHE DE BARRE POUR ANDROID ET IPHONE
+    // SOLUTION ULTRA SIMPLE - FORCE LE CACHE DE LA BARRE
     // ============================================================
     
     const isAndroid = /android/i.test(navigator.userAgent);
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     
-    function logMessage(msg) {
-        const container = document.getElementById('logContainer');
-        const time = new Date().toLocaleTimeString();
-        container.innerHTML += `<br><span>${time}</span> ${msg}`;
-        container.scrollTop = container.scrollHeight;
+    function log(msg) {
+        document.getElementById('log').innerHTML += `<br><span>→</span> ${msg}`;
     }
     
     function cacherBarre() {
-        // 1. Scroll vers le haut (fonctionne sur les deux)
+        // 1. Scroll tout en haut (cache la barre sur les deux)
         window.scrollTo(0, 1);
         
-        // 2. Plein écran
+        // 2. Plein écran (cache TOUT)
         const el = document.documentElement;
-        
-        if (isAndroid && el.requestFullscreen && !document.fullscreenElement) {
+        if (isAndroid && el.requestFullscreen) {
             el.requestFullscreen().catch(() => {});
-            logMessage('🔄 Tentative plein écran Android');
         }
-        
-        if (isIOS && el.webkitRequestFullscreen && !document.webkitFullscreenElement) {
+        if (isIOS && el.webkitRequestFullscreen) {
             el.webkitRequestFullscreen();
-            logMessage('🔄 Tentative plein écran iOS');
         }
         
-        // Mettre à jour le statut
-        updateStatus();
-    }
-    
-    function updateStatus() {
-        const status = document.getElementById('barStatus');
-        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        // 3. Forcer le scroll encore
+        setTimeout(() => window.scrollTo(0, 1), 100);
+        setTimeout(() => window.scrollTo(0, 1), 300);
         
-        if (isFullscreen) {
-            status.textContent = '✅ Plein écran activé';
-            status.style.color = '#10b981';
-        } else if (window.innerHeight >= screen.height - 50) {
-            status.textContent = '✅ Barre cachée (mode app)';
-            status.style.color = '#10b981';
-        } else {
-            status.textContent = '⚠️ Barre visible - Cliquez sur "Activer plein écran"';
-            status.style.color = '#f59e0b';
-        }
+        document.getElementById('status').textContent = '✅ Barre cachée !';
+        document.getElementById('status').style.color = '#10b981';
+        log('Barre cachée');
     }
     
     // ============================================================
-    // DÉTECTION DE L'APPAREIL
+    // DÉCLENCHEMENT AUTOMATIQUE AU CHARGEMENT
     // ============================================================
     
-    function detectDevice() {
-        const deviceEl = document.getElementById('deviceType');
-        const badgeContainer = document.getElementById('badgeContainer');
-        
-        if (isAndroid) {
-            deviceEl.textContent = '📱 Android';
-            badgeContainer.innerHTML = '<span class="badge badge-android">🤖 Android</span>';
-            logMessage('✅ Appareil Android détecté');
-        } else if (isIOS) {
-            deviceEl.textContent = '📱 iPhone / iPad';
-            badgeContainer.innerHTML = '<span class="badge badge-ios">🍎 iOS</span>';
-            logMessage('✅ Appareil iOS détecté');
-        } else {
-            deviceEl.textContent = '💻 Autre (Desktop)';
-            badgeContainer.innerHTML = '<span class="badge badge-other">🖥️ Desktop</span>';
-            logMessage('✅ Appareil Desktop détecté');
-        }
-        
-        // Vérifier si en mode standalone (app installée)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                             window.navigator.standalone;
-        
-        if (isStandalone) {
-            logMessage('📱 Mode standalone (app installée)');
-            document.querySelector('.status:last-child .value').textContent = '✅ Mode app - Barre normalement cachée';
-        }
-    }
+    window.addEventListener('load', function() {
+        log('Page chargée');
+        setTimeout(cacherBarre, 100);
+        setTimeout(cacherBarre, 500);
+        setTimeout(cacherBarre, 1000);
+    });
     
-    // ============================================================
-    // DÉCLENCHEMENT AUTOMATIQUE
-    // ============================================================
-    
-    if (isAndroid || isIOS) {
-        logMessage('🚀 Activation du mode mobile');
-        
-        // 1. Au chargement
-        window.addEventListener('load', function() {
-            logMessage('📄 Page chargée');
-            setTimeout(cacherBarre, 100);
-            setTimeout(cacherBarre, 500);
-            setTimeout(cacherBarre, 1500);
-            setTimeout(updateStatus, 2000);
-        });
-        
-        // 2. Au premier clic (nécessaire pour le plein écran)
-        document.addEventListener('click', function premierClic() {
-            cacherBarre();
-            logMessage('👆 Clic détecté - cache barre');
-            document.removeEventListener('click', premierClic);
-        }, { once: true });
-        
-        // 3. Au premier touch
-        document.addEventListener('touchstart', function premierTouch() {
-            cacherBarre();
-            logMessage('👆 Touch détecté - cache barre');
-            document.removeEventListener('touchstart', premierTouch);
-        }, { once: true });
-        
-        // 4. Après rotation
-        window.addEventListener('orientationchange', function() {
-            logMessage('🔄 Rotation détectée');
-            setTimeout(cacherBarre, 200);
-            setTimeout(cacherBarre, 500);
-            setTimeout(updateStatus, 600);
-        });
-        
-        // 5. Après redimensionnement
-        window.addEventListener('resize', function() {
-            setTimeout(cacherBarre, 100);
-            setTimeout(updateStatus, 200);
-        });
-        
-        // 6. INTERVALLE : Vérifier toutes les 3 secondes
-        setInterval(function() {
-            cacherBarre();
-        }, 3000);
-        
-        logMessage('⏰ Intervalle activé (toutes les 3s)');
-    } else {
-        logMessage('💻 Mode Desktop - pas de cache automatique');
-    }
-    
-    // ============================================================
-    // BOUTONS MANUELS
-    // ============================================================
-    
-    document.getElementById('fullscreenBtn').addEventListener('click', function() {
+    // Premier clic = cache la barre
+    document.addEventListener('click', function premierClic() {
         cacherBarre();
-        logMessage('🖥️ Plein écran activé manuellement');
-        
-        // Afficher un retour visuel
-        this.textContent = '✅ Plein écran activé';
-        this.style.background = '#10b981';
-        setTimeout(() => {
-            this.textContent = '🖥️ Activer plein écran';
-            this.style.background = '#3b82f6';
-        }, 2000);
-    });
+        document.removeEventListener('click', premierClic);
+    }, { once: true });
     
-    document.getElementById('checkBtn').addEventListener('click', function() {
-        updateStatus();
-        logMessage('🔍 Vérification manuelle');
-        
-        const status = document.getElementById('barStatus');
-        if (status.textContent.includes('✅')) {
-            this.textContent = '✅ OK';
-            this.style.background = '#10b981';
+    // Premier touch = cache la barre
+    document.addEventListener('touchstart', function premierTouch() {
+        cacherBarre();
+        document.removeEventListener('touchstart', premierTouch);
+    }, { once: true });
+    
+    // Intervalle toutes les 2 secondes (agressif)
+    setInterval(cacherBarre, 2000);
+    
+    // ============================================================
+    // BOUTONS
+    // ============================================================
+    
+    document.getElementById('hideBtn').onclick = cacherBarre;
+    
+    document.getElementById('checkBtn').onclick = function() {
+        const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+        const status = document.getElementById('status');
+        if (isFullscreen || window.innerHeight >= screen.height - 50) {
+            status.textContent = '✅ Barre cachée !';
+            status.style.color = '#10b981';
+            log('✅ OK - Barre cachée');
         } else {
-            this.textContent = '⚠️ Barre visible';
-            this.style.background = '#ef4444';
+            status.textContent = '⚠️ Barre visible - Appuyez sur "Cacher"';
+            status.style.color = '#f59e0b';
+            log('⚠️ Barre visible');
         }
-        setTimeout(() => {
-            this.textContent = '🔍 Vérifier maintenant';
-            this.style.background = '#10b981';
-        }, 2000);
-    });
+    };
     
-    // ============================================================
-    // INITIALISATION
-    // ============================================================
-    
-    detectDevice();
-    setTimeout(updateStatus, 1000);
-    
-    console.log('🧪 App de test - Cache barre activé');
-    console.log('📱 Android:', isAndroid);
-    console.log('🍎 iOS:', isIOS);
+    // Détection
+    if (isAndroid) {
+        document.getElementById('status').textContent = '🤖 Android - Barre va se cacher';
+        log('Android détecté');
+    } else if (isIOS) {
+        document.getElementById('status').textContent = '🍎 iPhone - Barre va se cacher';
+        log('iPhone détecté');
+    } else {
+        document.getElementById('status').textContent = '💻 Desktop';
+        log('Desktop détecté');
+    }
     </script>
 </body>
 </html>
