@@ -2452,6 +2452,31 @@ function updateCounterDisplay() {
     }
 }
 
+// ==================== FONCTION SYNTHÈSE VOCALE POUR ESPACE PARENTAL ====================
+
+function voixParentale(texte) {
+    if (!texte) return;
+    if (!window.speechSynthesis) return;
+    
+    // Annule la parole précédente
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(texte);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;  // Vitesse lente et claire
+    utterance.pitch = 1;
+    
+    // Sélectionne une voix féminine française si disponible
+    const voices = window.speechSynthesis.getVoices();
+    const voixFR = voices.find(v => 
+        v.lang.startsWith('fr') && 
+        (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Marie') || v.name.includes('Sophie'))
+    );
+    if (voixFR) utterance.voice = voixFR;
+    
+    window.speechSynthesis.speak(utterance);
+}
+
 function speak(text, onEnd) {
     if (!text) return;
     if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -3444,16 +3469,23 @@ if (parentFloatingBtnNew) {
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
         updateCounterDisplay();
+        
+        // Lecture vocale du message d'accueil
+        setTimeout(() => {
+            voixParentale("🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.");
+        }, 500);
     };
 }
 if (closeParentModalNew) closeParentModalNew.onclick = () => {
     parentModalOverlayNew.classList.remove('active');
     document.body.style.overflow = '';
+    stopSpeaking();
 };
 parentModalOverlayNew.onclick = (e) => {
     if (e.target === parentModalOverlayNew) {
         parentModalOverlayNew.classList.remove('active');
         document.body.style.overflow = '';
+        stopSpeaking();
     }
 };
 
@@ -3482,6 +3514,9 @@ if (parentSendBtnNew) {
         bubbleBot.innerHTML = '';
         await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+
+        // Lecture vocale de la réponse
+        voixParentale(reponse);
 
         // === ENREGISTRER LE MESSAGE DANS FIREBASE ===
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
