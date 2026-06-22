@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1120">
+<link rel="manifest" href="/manifest.json">
 <title>Sélectionnez votre établissement</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
@@ -118,15 +122,24 @@ const ECOLES_AUTORISEES = "ecoles_autorisees";
 const ECOLES = "ecoles";
 let allCards = [];
 
-// ============================================================
-// SYNCHRONISATION VERS "ecoles" POUR LA GESTION SCOLAIRE
-// ============================================================
+const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+if (isPWA) {
+    const savedSchool = localStorage.getItem('pwa_school_id');
+    if (savedSchool && !window.location.search.includes('ecole')) {
+        const targetUrl = new URL('/', window.location.origin);
+        targetUrl.searchParams.set('ecole', savedSchool);
+        targetUrl.searchParams.set('from', 'pwa');
+        targetUrl.searchParams.set('t', Date.now());
+        window.location.href = targetUrl.toString();
+        throw new Error('Redirection PWA');
+    }
+}
+
 async function synchroniserEcole(prefixe, data) {
     try {
         const ecoleRef = doc(db, ECOLES, prefixe);
         const ecoleSnap = await getDoc(ecoleRef);
-        
-        // Si l'école n'existe pas dans "ecoles", on la crée
         if (!ecoleSnap.exists()) {
             await setDoc(ecoleRef, {
                 ...data,
@@ -134,81 +147,39 @@ async function synchroniserEcole(prefixe, data) {
                 synchroniseLe: new Date().toISOString(),
                 _source: "ecoles_autorisees"
             });
-            console.log(`✅ École synchronisée vers "ecoles": ${prefixe}`);
             return true;
-        } else {
-            // Mise à jour si nécessaire
-            const existing = ecoleSnap.data();
-            if (JSON.stringify(existing) !== JSON.stringify(data)) {
-                await setDoc(ecoleRef, {
-                    ...data,
-                    prefixe: prefixe,
-                    synchroniseLe: new Date().toISOString(),
-                    _source: "ecoles_autorisees",
-                    _anciennesDonnees: existing
-                });
-                console.log(`🔄 École mise à jour dans "ecoles": ${prefixe}`);
-                return true;
-            }
-            return false;
         }
+        return false;
     } catch(e) {
-        console.error(`❌ Erreur synchronisation ${prefixe}:`, e);
+        console.error(e);
         return false;
     }
 }
 
-// ============================================================
-// CHARGEMENT DES ÉCOLES
-// ============================================================
 async function chargerEcoles() {
     const container = document.getElementById('schoolsList');
-    
     try {
         const snapshot = await getDocs(collection(db, ECOLES_AUTORISEES));
-        
         if (snapshot.empty) {
             container.innerHTML = '<div class="error">⚠️ Aucune école autorisée trouvée</div>';
             updateStats(0, 0, 0);
             return;
         }
-
         let total = 0, active = 0, inactive = 0;
         const cardsData = [];
         let index = 0;
-
-        // Traiter chaque école
         for (const docSnap of snapshot.docs) {
             const ecole = docSnap.data();
             const prefixe = docSnap.id;
             const estActif = ecole.actif !== false;
-            
-            // 🔄 SYNCHRONISER VERS "ecoles"
             await synchroniserEcole(prefixe, ecole);
-            
             total++;
             if (estActif) active++;
             else inactive++;
             index++;
-
-            const statusHtml = estActif 
-                ? '<span class="school-status status-active">● Actif</span>'
-                : '<span class="school-status status-inactive">⛔ Inactif</span>';
-
-            const nomSafe = (ecole.nom || prefixe || '').replace(/[&<>]/g, m => {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-
-            const villeSafe = (ecole.ville || '').replace(/[&<>]/g, m => {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            });
-
+            const statusHtml = estActif ? '<span class="school-status status-active">● Actif</span>' : '<span class="school-status status-inactive">⛔ Inactif</span>';
+            const nomSafe = (ecole.nom || prefixe || '').replace(/[&<>]/g, m => { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; });
+            const villeSafe = (ecole.ville || '').replace(/[&<>]/g, m => { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; });
             cardsData.push({
                 html: `
                     <div class="school-card" data-prefixe="${prefixe}" data-nom="${nomSafe.toLowerCase()}" data-ville="${villeSafe.toLowerCase()}" data-index="${index}">
@@ -235,20 +206,14 @@ async function chargerEcoles() {
                 actif: estActif
             });
         }
-
         updateStats(total, active, inactive);
         allCards = cardsData;
         renderCards(cardsData);
         setupSearch();
         setupClicks();
-
-        // Afficher un message de synchronisation
-        const syncCount = cardsData.filter(c => c.actif).length;
-        console.log(`✅ ${syncCount} écoles synchronisées vers la collection "ecoles"`);
-
     } catch(error) {
         container.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
-        console.error("Erreur chargement écoles:", error);
+        console.error(error);
     }
 }
 
@@ -270,7 +235,6 @@ function updateStats(total, active, inactive) {
 function setupSearch() {
     const input = document.getElementById('searchInput');
     const clear = document.getElementById('searchClear');
-
     input.addEventListener('input', function() {
         const q = this.value.trim().toLowerCase();
         if (q.length > 0) {
@@ -278,13 +242,10 @@ function setupSearch() {
         } else {
             clear.style.display = 'none';
         }
-        const filtered = allCards.filter(c => 
-            c.nom.includes(q) || c.ville.includes(q)
-        );
+        const filtered = allCards.filter(c => c.nom.includes(q) || c.ville.includes(q));
         renderCards(filtered);
         setupClicks();
     });
-
     clear.addEventListener('click', function() {
         document.getElementById('searchInput').value = '';
         this.style.display = 'none';
@@ -300,17 +261,27 @@ function setupClicks() {
             e.stopPropagation();
             const prefixe = this.getAttribute('data-prefixe');
             if (prefixe && prefixe !== 'null' && prefixe !== 'undefined') {
-                // Rediriger vers la gestion scolaire
-                window.location.href = `/schooling?ecole=${encodeURIComponent(prefixe)}`;
+                localStorage.setItem('pwa_school_id', prefixe);
+                localStorage.setItem('lastSchoolId', prefixe);
+                const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                let targetUrl;
+                if (isPWA) {
+                    const baseUrl = new URL('/', window.location.origin);
+                    baseUrl.searchParams.set('ecole', prefixe);
+                    baseUrl.searchParams.set('from', 'pwa');
+                    baseUrl.searchParams.set('t', Date.now());
+                    targetUrl = baseUrl.toString();
+                } else {
+                    targetUrl = `/schooling?ecole=${encodeURIComponent(prefixe)}`;
+                }
+                window.location.href = targetUrl;
             }
         });
     });
 }
 
-// Lancer le chargement
 chargerEcoles();
 
-// Sécurité
 (function() {
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
     document.addEventListener('keydown', function(e) {
@@ -319,10 +290,7 @@ chargerEcoles();
             return false;
         }
     });
-    document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
 })();
-
-console.log('🏫 Sélecteur d\'établissements - Synchronisation automatique vers "ecoles"');
 </script>
 </body>
 </html>
