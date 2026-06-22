@@ -303,7 +303,6 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .reco-chat-container .parent-input{padding:8px 14px;font-size:13px;}
 .reco-chat-container .parent-send{padding:0 16px;font-size:13px;}
 
-/* ===== ÉCRAN DE CHARGEMENT ===== */
 #loadingScreen {
     display: none;
     position: fixed;
@@ -346,7 +345,6 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </head>
 <body>
 
-<!-- ===== ÉCRAN DE CHARGEMENT ===== -->
 <div id="loadingScreen">
     <img src="https://www.netubex.com/favicon.png.png" alt="NeTubeX">
     <div class="brand">NeTubeX SARL</div>
@@ -462,14 +460,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ============================================================
-// 1. VÉRIFICATION STRICTE DE L'ÉCOLE DANS LA COLLECTION "ecoles"
-// ============================================================
-
-// Récupérer l'écran de chargement
 const loadingScreen = document.getElementById('loadingScreen');
-
-// AFFICHER L'ÉCRAN DE CHARGEMENT
 loadingScreen.classList.add('show');
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -480,7 +471,6 @@ if (!schoolId) {
     throw new Error('Redirection vers le sélecteur');
 }
 
-// Fonction pour vérifier si l'école existe dans Firestore
 async function verifierEcoleAutorisee(ecoleId) {
     try {
         const docRef = doc(db, "ecoles", ecoleId);
@@ -492,11 +482,9 @@ async function verifierEcoleAutorisee(ecoleId) {
     }
 }
 
-// Vérification immédiate
 const estAutorisee = await verifierEcoleAutorisee(schoolId);
 
 if (!estAutorisee) {
-    // BLOQUER L'ACCÈS
     document.body.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
             <div style="font-size:64px;margin-bottom:20px;">🚫</div>
@@ -514,7 +502,6 @@ if (!estAutorisee) {
     throw new Error('École non autorisée: ' + schoolId);
 }
 
-// Si l'école est autorisée, continuer...
 const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 
@@ -546,12 +533,9 @@ let iaInstructions = null;
 let dernierEleveConsulte = null;
 let dernierEleveData = null;
 
-// ==================== COMPTEUR DE TENTATIVES DE CONNEXION ====================
 let tentativeConnexion = 0;
 let derniereTentative = 0;
 const SEUIL_ALERTE = 3;
-
-// ==================== FONCTIONS UTILITAIRES ====================
 
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
@@ -613,8 +597,6 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
     d.querySelector('#styledConfirmOk').onclick = () => { d.remove(); if (onConfirm) onConfirm(); };
     d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
 }
-
-// ==================== LOGS ET ALERTES ====================
 
 async function enregistrerLog(action, details, statut = "info") {
     try {
@@ -758,8 +740,6 @@ function obtenirCategoriesAlerte(action) {
     return categories[action] || ["général"];
 }
 
-// ==================== MESSAGES PARENTAUX (Firebase) ====================
-
 async function enregistrerMessageParental(message, reponse, codeOuNom) {
     try {
         const msgId = "parent_msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -829,8 +809,6 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
-
-// ==================== INDEXEDDB ====================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -934,8 +912,6 @@ window.addEventListener('online', function() {
     synchroniserMessagesParentaux();
 });
 
-// ==================== SESSION ====================
-
 function sauvegarderSession(prof) {
     if (prof) {
         localStorage.setItem('gloria_session_prof', JSON.stringify({
@@ -978,8 +954,6 @@ async function restaurerSession() {
     }
     return false;
 }
-
-// ==================== FICHE ====================
 
 async function chargerSelecteursDynamiques() {
     const toutes = await getAllFromIndexedDB('fiches');
@@ -1108,8 +1082,6 @@ function mettreAJourSelectOptions(c) {
     if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) s.value = currentFiche.option;
 }
 
-// ==================== COMPTEUR D'ÉLÈVES ====================
-
 function mettreAJourCompteurEleves() {
     const countSpan = document.getElementById('eleveCount');
     if (countSpan && currentFiche) {
@@ -1117,8 +1089,6 @@ function mettreAJourCompteurEleves() {
         countSpan.textContent = nb;
     }
 }
-
-// ==================== ÉLÈVES ====================
 
 function afficherEleves() {
     let c = document.getElementById('elevesListContainer');
@@ -1168,8 +1138,6 @@ window.delEleve = function(i) {
         toast(n + " a été supprimé", 'warning');
     });
 };
-
-// ==================== COTATION ====================
 
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
 
@@ -1234,8 +1202,6 @@ function getMoyenneGenerale(eleve) {
     return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal };
 }
 
-// ==================== RECHERCHE AVANCÉE ====================
-
 let advancedFilters = {
     classe: '',
     option: '',
@@ -1264,14 +1230,11 @@ function reinitialiserFiltresAvances() {
     toast("Filtres réinitialisés", 'info');
 }
 
-// ==================== AFFICHAGE COTATION (CORRIGÉ) ====================
-
 function afficherCotation() {
     let th = document.getElementById('cotationHeader');
     let tb = document.getElementById('cotationBody');
     let ev = currentFiche?.eleves || [];
 
-    // Filtrage
     let elevesFiltres = [...ev];
     if (advancedFilters.classe && currentFiche?.classe !== advancedFilters.classe) {
         elevesFiltres = elevesFiltres.filter(e => e.classe === advancedFilters.classe);
@@ -1300,7 +1263,6 @@ function afficherCotation() {
         return;
     }
 
-    // ===== RÉCUPÉRER LA NOTE MAX DEPUIS LA CONFIGURATION =====
     let p1m = getPeriodeMax(1);
     let p2m = getPeriodeMax(2);
     let p3m = getPeriodeMax(3);
@@ -1319,7 +1281,6 @@ function afficherCotation() {
 
     const periodeFiltre = advancedFilters.periode || 'all';
 
-    // ===== EN-TÊTES AVEC LES BONNES NOTES MAX =====
     if (periodeFiltre === 'all' || periodeFiltre === '1') {
         for (let ep of e1) {
             h.push('<th>' + ep.nom + '<br>P1 /' + ep.max + '</th>');
@@ -1358,7 +1319,6 @@ function afficherCotation() {
     th.innerHTML = h.join('');
     tb.innerHTML = '';
 
-    // ===== AFFICHER LES LIGNES =====
     for (let i = 0; i < elevesFiltres.length; i++) {
         let e = elevesFiltres[i];
         if (!e.notes) e.notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
@@ -1488,8 +1448,6 @@ window.updExam = function(i, s, v) {
     refreshGroupes();
 };
 
-// ==================== EPREUVES ====================
-
 function afficherEpreuves() {
     let c = document.getElementById('epreuvesContainer');
     if (!c) return;
@@ -1565,8 +1523,6 @@ function mettreAJourEpreuvesSelect() {
     if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>';
 }
 
-// ==================== EXPORT ====================
-
 function updateExportSelect() {
     let es = document.getElementById('eleveForExportSelect');
     if (es && currentFiche) {
@@ -1581,8 +1537,6 @@ function updateExportSelect() {
         }
     }
 }
-
-// ==================== GROUPES ====================
 
 function refreshGroupes() {
     let c = document.getElementById('listePresenceEleves');
@@ -1651,8 +1605,6 @@ function rafraichirGroupesPourCotation() {
     });
     c.innerHTML = h;
 }
-
-// ==================== HORAIRE ====================
 
 function getJourReel() {
     const j = new Date().getDay();
@@ -1872,8 +1824,6 @@ window.allerHier = allerHier;
 window.allerDemain = allerDemain;
 window.revenirAujourdhui = revenirAujourdhui;
 
-// ==================== CONNEXION / DECONNEXION ====================
-
 async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
@@ -1964,8 +1914,6 @@ async function showLogin() {
     document.getElementById('adminIconBtn').onclick = function() { showAdminModal(); };
 }
 
-// ==================== ADMIN / DIRECTRICE ====================
-
 async function refreshTeachersList() {
     let ap = await getAllFromIndexedDB('professeurs');
     let apFiltres = ap.filter(p => p.school === SCHOOL_PREFIX);
@@ -2019,8 +1967,6 @@ async function showAdminModal() {
         }
     };
 }
-
-// ==================== PROFESSEURS (Admin) ====================
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 
@@ -2292,8 +2238,6 @@ async function refreshProfsList() {
     });
 }
 
-// ==================== CORBEILLE ====================
-
 function afficherCorbeille() {
     let c = document.getElementById('corbeilleList');
     if (!c) return;
@@ -2410,8 +2354,6 @@ window.supprimerFicheCorbeille = function(ficheId) {
     });
 };
 
-// ==================== PARENTS ====================
-
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
     const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
@@ -2452,41 +2394,33 @@ function updateCounterDisplay() {
     }
 }
 
-// ==================== FONCTION SYNTHÈSE VOCALE POUR ESPACE PARENTAL ====================
-
 function voixParentale(texte) {
     if (!texte) return;
     if (!window.speechSynthesis) return;
-    
-    // Annule la parole précédente
+    const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{231A}\u{231B}\u{2328}\u{23CF}\u{23E9}-\u{23F3}\u{23F8}-\u{23FA}\u{FE0F}\u{200D}\u{1F004}\u{1F0CF}\u{1F170}\u{1F171}\u{1F17E}\u{1F17F}\u{1F18E}\u{1F191}-\u{1F19A}\u{1F1E6}-\u{1F1FF}\u{1F201}\u{1F202}\u{1F21A}\u{1F22F}\u{1F232}-\u{1F23A}\u{1F250}\u{1F251}]/gu;
+    const textePropre = texte.replace(emojiRegex, '').replace(/[^\w\s.,;:!?()'"]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!textePropre) return;
     window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(texte);
+    const utterance = new SpeechSynthesisUtterance(textePropre);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;  // Vitesse lente et claire
+    utterance.rate = 0.8;
     utterance.pitch = 1;
-    
-    // Sélectionne une voix féminine française si disponible
     const voices = window.speechSynthesis.getVoices();
-    const voixFR = voices.find(v => 
-        v.lang.startsWith('fr') && 
-        (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Marie') || v.name.includes('Sophie'))
-    );
+    let voixFR = voices.find(v => v.lang.startsWith('fr') && (v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Marie')));
+    if (!voixFR) voixFR = voices.find(v => v.lang.startsWith('fr'));
     if (voixFR) utterance.voice = voixFR;
-    
     window.speechSynthesis.speak(utterance);
 }
 
 function speak(text, onEnd) {
     if (!text) return;
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-    let utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.7;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    let voices = window.speechSynthesis.getVoices();
-    let frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
     if (frenchVoice) utterance.voice = frenchVoice;
     utterance.onend = () => { if (onEnd) onEnd(); };
     utterance.onerror = () => { if (onEnd) onEnd(); };
@@ -2506,8 +2440,6 @@ async function typeWriterEffect(element, text, speed = 15) {
         await new Promise(r => setTimeout(r, speed));
     }
 }
-
-// ==================== CORRECTION ====================
 
 function correctionUpdateEpreuveList() {
     const periodeSelect = document.getElementById('correctionPeriodeSelect');
@@ -2607,8 +2539,6 @@ function correctionPrevStudent() {
         speak("Vous êtes déjà au premier élève.");
     }
 }
-
-// ==================== TITULAIRE ====================
 
 let titulaireConfig = null,
     toutesFichesTitu = [],
@@ -3294,8 +3224,6 @@ async function initTitulaire() {
     }
 }
 
-// ==================== RECO (SUPPORT NETUBEX) ====================
-
 let recoMessages = [];
 let recoUnsubscribe = null;
 let currentRecoEcole = schoolId;
@@ -3450,8 +3378,6 @@ function initRecoSupport() {
     });
 }
 
-// ==================== PARENTS MODAL ====================
-
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -3469,11 +3395,9 @@ if (parentFloatingBtnNew) {
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
         updateCounterDisplay();
-        
-        // Lecture vocale du message d'accueil
         setTimeout(() => {
-            voixParentale("🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.");
-        }, 500);
+            voixParentale("Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.");
+        }, 800);
     };
 }
 if (closeParentModalNew) closeParentModalNew.onclick = () => {
@@ -3514,14 +3438,9 @@ if (parentSendBtnNew) {
         bubbleBot.innerHTML = '';
         await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-
-        // Lecture vocale de la réponse
         voixParentale(reponse);
-
-        // === ENREGISTRER LE MESSAGE DANS FIREBASE ===
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
         await enregistrerMessageParental(message, reponse, codeOuNom);
-
         const newCount = incrementQuestionCount();
         updateCounterDisplay();
         if (10 - newCount <= 2 && 10 - newCount > 0) {
@@ -3534,7 +3453,6 @@ if (parentSendBtnNew) {
             warningDiv.innerHTML = `⚠️ Il vous reste ${10 - newCount} question(s) aujourd'hui`;
             bubbleBot.appendChild(warningDiv);
         }
-
         await synchroniserMessagesParentaux();
     };
 }
@@ -3552,8 +3470,6 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
-
-// ==================== DONNÉES ÉLÈVES (Compta) ====================
 
 async function getAllComptaEleves() {
     try {
@@ -3815,10 +3731,8 @@ async function traiterMessage(message) {
     if (dernierEleveConsulte && dernierEleveData) {
         return await genererReponseNaturelle(msg, dernierEleveData);
     }
-    return "👋 Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
+    return "Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
 }
-
-// ==================== EVENT LISTENERS ====================
 
 document.getElementById('addEleveBtn').onclick = function() {
     if (!currentFiche) {
@@ -4544,8 +4458,6 @@ document.getElementById('configJourSelect')?.addEventListener('change', () => af
 document.getElementById('ajouterHeureBtn')?.addEventListener('click', () => ajouterHeure());
 document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () => sauvegarderHoraireAuto());
 
-// ==================== CORRECTION QUICK / GESTURE ====================
-
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     if (!currentFiche || !currentFiche.eleves?.length) {
         toast("Aucune fiche ou élève sélectionné", 'error');
@@ -4691,8 +4603,6 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
-// ==================== INITIALISATION ====================
-
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
 if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
@@ -4761,7 +4671,6 @@ setInterval(function() {
 
 console.log('✅ École autorisée:', schoolId);
 
-// CACHER L'ÉCRAN DE CHARGEMENT
 loadingScreen.classList.remove('show');
 </script>
 </body>
