@@ -1952,7 +1952,7 @@ async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
     await refreshTeachersList();
 
@@ -2035,58 +2035,6 @@ async function showLogin() {
             toast("Code d'accès incorrect", 'error');
         }
     };
-    document.getElementById('adminIconBtn').onclick = function() { showPresentationModal(); };
-}
-
-// ===== NOUVELLE FONCTION : CARTE PRÉSENTATION DE L'ÉCOLE =====
-async function showPresentationModal() {
-    let m = document.createElement('div');
-    m.className = 'modal-fullscreen';
-    m.id = 'presentationModal';
-    
-    let schoolName = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-    
-    m.innerHTML = `<div class="modal-content" style="max-width:500px;text-align:center;padding:40px;cursor:pointer;" id="presentationCard">
-        <div style="font-size:72px;margin-bottom:16px;">🏫</div>
-        <h3 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;">COMPLEXE SCOLAIRE</h3>
-        <p style="font-size:18px;font-weight:600;color:#60a5fa;margin-bottom:16px;">${schoolName}</p>
-        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;max-width:400px;margin:0 auto 16px;">
-            Un établissement d'excellence dédié à la formation des leaders de demain. 
-            Qualité, rigueur et innovation au service de la réussite de chaque élève.
-        </p>
-        <div style="display:inline-block;background:rgba(59,130,246,0.2);color:#60a5fa;padding:6px 20px;border-radius:40px;font-size:12px;border:1px solid rgba(59,130,246,0.2);">⭐ École d'Excellence</div>
-        <div style="margin-top:20px;font-size:11px;color:#64748b;opacity:0.3;">PRÉSENTATION DE L'ÉCOLE</div>
-    </div>`;
-    
-    document.body.appendChild(m);
-    setTimeout(function() { m.classList.add('show'); }, 10);
-    
-    // Gestion des 3 clics sur la carte
-    let clickCount = 0;
-    let clickTimeout = null;
-    
-    document.getElementById('presentationCard').addEventListener('click', function(e) {
-        e.stopPropagation();
-        clickCount++;
-        
-        if (clickTimeout) clearTimeout(clickTimeout);
-        clickTimeout = setTimeout(() => { clickCount = 0; }, 1000);
-        
-        if (clickCount >= 3) {
-            clickCount = 0;
-            if (clickTimeout) clearTimeout(clickTimeout);
-            window.open('https://www.netubex.com/direction', '_blank');
-            m.remove();
-            toast("Redirection vers la direction...", 'success');
-        }
-    });
-    
-    // Fermeture avec la croix
-    let closeBtn = document.createElement('span');
-    closeBtn.style.cssText = 'font-size:28px;cursor:pointer;color:#94a3b8;position:absolute;top:16px;right:20px;';
-    closeBtn.innerHTML = '&times;';
-    closeBtn.onclick = function() { m.remove(); };
-    m.querySelector('.modal-content').appendChild(closeBtn);
 }
 
 async function refreshTeachersList() {
@@ -2106,22 +2054,6 @@ async function refreshTeachersList() {
             });
         }
     }
-}
-
-function toast(message, type) {
-    const c = document.getElementById('toastContainer');
-    if (!c) return;
-    const ic = { success: '✓', error: '✕', warning: '⚠' };
-    const ti = { success: 'Succès', error: 'Erreur', warning: 'Attention' };
-    const e = document.createElement('div');
-    e.className = 'toast-notification ' + (type || '');
-    e.innerHTML = '<div class="toast-icon">' + (ic[type] || '✓') + '</div><div class="toast-content"><div class="toast-title">' + (ti[type] || 'Succès') + '</div><div class="toast-message">' + message + '</div></div>';
-    c.appendChild(e);
-    setTimeout(() => e.classList.add('show'), 10);
-    setTimeout(() => {
-        e.classList.remove('show');
-        setTimeout(() => { if (e.parentNode) e.remove(); }, 300);
-    }, 3000);
 }
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
@@ -2241,6 +2173,122 @@ async function refreshProfsList() {
         };
     });
 }
+
+function afficherCorbeille() {
+    let c = document.getElementById('corbeilleList');
+    if (!c) return;
+    let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+    let maintenant = new Date();
+    corbeille = corbeille.filter(f => {
+        if (f.dateExpiration && new Date(f.dateExpiration) <= maintenant) return false;
+        if (f.school && f.school !== SCHOOL_PREFIX) return false;
+        return true;
+    });
+    localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
+    if (corbeille.length === 0) {
+        c.innerHTML = '<div class="empty-state">📭 Corbeille vide</div>';
+        return;
+    }
+    c.innerHTML = '<div style="margin-bottom:15px;padding:10px;background:rgba(59,130,246,0.15);border-radius:12px;text-align:center;font-size:13px;color:#cbd5e1;">⏳ Les fiches restent 30 jours dans la corbeille avant suppression définitive</div>';
+    for (let f of corbeille) {
+        let dateSupp = new Date(f.dateSuppression).toLocaleString();
+        let joursRestants = Math.ceil((new Date(f.dateExpiration) - new Date()) / (1000 * 60 * 60 * 24));
+        let couleurCss = joursRestants <= 7 ? '#ef4444' : (joursRestants <= 15 ? '#f59e0b' : '#10b981');
+        let d = document.createElement('div');
+        d.style.cssText = 'background:rgba(18,18,31,0.8);border-radius:16px;margin-bottom:12px;padding:16px;border:1px solid rgba(59,130,246,0.2);';
+        d.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;"><span style="background:linear-gradient(135deg,#1e3a5f,#0f2b44);padding:4px 12px;border-radius:40px;font-family:monospace;font-size:13px;font-weight:600;color:#60a5fa;">' + (f.numeroRef ? formatNumero(f.numeroRef) : '???') + '</span><span style="font-size:12px;color:' + couleurCss + ';">⏰ ' + joursRestants + ' jour(s) restant(s)</span></div><div style="margin-bottom:8px;"><span style="color:#e2e8f0;font-weight:500;">' + (f.cours || '?') + '</span> - <span style="color:#94a3b8;">' + (f.classe || '?') + '</span>' + (f.option ? '<span style="color:#94a3b8;"> (' + f.option + ')</span>' : '') + '</div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">🧑‍🏫 Professeur: ' + (f.professeurNom || f.profId || '?') + '</div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">🗑️ Supprimée le: ' + dateSupp + '</div><div style="font-size:12px;color:#f59e0b;margin-bottom:12px;">⚠️ Expire le: ' + new Date(f.dateExpiration).toLocaleDateString() + '</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><select id="restaureProf_' + (f.ficheId) + '" style="padding:6px 12px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155;font-size:12px;"><option value="' + (f.profId) + '">📁 Restaurer chez ' + (f.professeurNom || 'ancien professeur') + '</option><option value="autre">👤 Restaurer chez un autre professeur</option><option value="nouveau">➕ Créer nouveau professeur</option></select><button class="btn btn-success btn-sm" onclick="window.restaurerFicheCorbeille(\'' + (f.ficheId) + '\')" style="background:#14532d;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">RESTAURER</button><button class="btn btn-danger btn-sm" onclick="window.supprimerFicheCorbeille(\'' + (f.ficheId) + '\')" style="background:#7f1d1d;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">SUPPRIMER</button></div>';
+        c.appendChild(d);
+    }
+}
+
+window.restaurerFicheCorbeille = async function(ficheId) {
+    let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+    let fiche = corbeille.find(f => f.ficheId === ficheId);
+    if (fiche) {
+        let select = document.getElementById('restaureProf_' + ficheId);
+        let choix = select ? select.value : fiche.profId;
+        let nouveauProfId = fiche.profId;
+        let nouveauProfNom = fiche.professeurNom;
+        if (choix === "nouveau") {
+            showPrompt("Nom du nouveau professeur", "Nom complet", async function(nouveauNom) {
+                if (nouveauNom) {
+                    let nouveauCode = Math.floor(1000 + Math.random() * 9000).toString();
+                    nouveauProfId = 'prof_' + Date.now();
+                    nouveauProfNom = nouveauNom;
+                    let nouveauProf = {
+                        _type: "prof",
+                        id: nouveauProfId,
+                        profId: nouveauProfId,
+                        nom: nouveauNom,
+                        code: nouveauCode,
+                        createdAt: Date.now(),
+                        actif: true,
+                        school: SCHOOL_PREFIX
+                    };
+                    await saveToIndexedDB('professeurs', nouveauProf);
+                    if (navigator.onLine) {
+                        try { await setDoc(doc(db, SCHOOL_PREFIX + "_professeurs", nouveauProfId), nouveauProf); } catch (e) {}
+                    }
+                    toast('Nouveau professeur ' + nouveauNom + ' créé avec code: ' + nouveauCode, 'success');
+                } else {
+                    toast("Opération annulée", 'warning');
+                }
+            });
+            return;
+        } else if (choix === "autre") {
+            let professeurs = await getAllFromIndexedDB('professeurs');
+            let profsFiltres = professeurs.filter(p => p.school === SCHOOL_PREFIX);
+            if (profsFiltres.length === 0) {
+                toast("Aucun professeur disponible dans cette école", 'error');
+                return;
+            }
+            let listeProfs = profsFiltres.map(p => p.nom + ' (' + p.id + ')').join('\n');
+            showPrompt("Nom ou ID du professeur", listeProfs, async function(reponse) {
+                if (reponse) {
+                    let profTrouve = profsFiltres.find(p => p.nom === reponse || p.id === reponse);
+                    if (profTrouve) {
+                        nouveauProfId = profTrouve.id;
+                        nouveauProfNom = profTrouve.nom;
+                    } else {
+                        toast("Professeur non trouvé", 'error');
+                    }
+                } else { return; }
+            });
+            if (!nouveauProfId) return;
+        }
+        delete fiche.dateSuppression;
+        delete fiche.supprimee;
+        delete fiche.professeurNom;
+        delete fiche.dateExpiration;
+        fiche.profId = nouveauProfId;
+        fiche.school = SCHOOL_PREFIX;
+        await saveToIndexedDB('fiches', { ...fiche, id: fiche.ficheId });
+        if (navigator.onLine) {
+            try {
+                await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", fiche.ficheId), fiche);
+                await deleteDoc(doc(db, SCHOOL_PREFIX + "_corbeille", fiche.ficheId));
+            } catch (e) { await addPendingSync('saveFiche', fiche); }
+        }
+        let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
+        localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
+        afficherCorbeille();
+        await refreshSelectors();
+        toast('Fiche restaurée chez ' + nouveauProfNom, 'success');
+    }
+};
+
+window.supprimerFicheCorbeille = function(ficheId) {
+    showConfirm("⚠️ SUPPRESSION DÉFINITIVE !\n\nCette action est IRRÉVERSIBLE.\nLa fiche disparaîtra immédiatement.\n\nConfirmer ?", async function() {
+        let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+        let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
+        localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
+        if (navigator.onLine) {
+            try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_corbeille", ficheId)); } catch (e) {}
+        }
+        afficherCorbeille();
+        toast("Fiche supprimée définitivement", 'warning');
+    });
+};
 
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
@@ -3498,6 +3546,7 @@ async function chercherInfosFinancieresParNom(nom) {
     } catch (e) { return null; }
 }
 
+// --- FONCTION AMÉLIORÉE POUR RÉCUPÉRER LE SEXE ET LE NOMBRE D'ÉLÈVES ---
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -3505,8 +3554,10 @@ async function chercherNotesParNom(nom) {
     for (const fiche of fiches) {
         for (const eleve of (fiche.eleves || [])) {
             const nomEleve = (eleve.nom || '').toLowerCase();
+            // Vérifier si le nom de l'élève correspond à la recherche
             if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
                 const epreuvesList = [];
+                // Récupérer les épreuves et notes
                 if (eleve.notes) {
                     for (let periode = 1; periode <= 4; periode++) {
                         const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
@@ -3530,18 +3581,20 @@ async function chercherNotesParNom(nom) {
                         }
                     }
                 }
+                // Récupérer le sexe de l'élève
                 const sexe = eleve.sexe || 'Non spécifié';
+                // Récupérer le nombre d'élèves dans la classe
                 const nombreElevesClasse = fiche.eleves ? fiche.eleves.length : 0;
                 
                 if (epreuvesList.length > 0) {
                     resultats.push({
                         eleveNom: eleve.nom,
-                        sexe: sexe,
+                        sexe: sexe,  // <- AJOUT DU SEXE ICI
                         classe: fiche.classe,
                         option: fiche.option || '',
                         titulaire: fiche.titulaire || null,
                         epreuves: epreuvesList,
-                        nombreElevesClasse: nombreElevesClasse
+                        nombreElevesClasse: nombreElevesClasse  // <- AJOUT DU NOMBRE D'ÉLÈVES ICI
                     });
                 }
             }
@@ -3587,9 +3640,11 @@ Règles IMPÉRATIVES :
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    // Construction du contexte avec le sexe et le nombre d'élèves
     let contexte = `École: ${nomEcole}. `;
     contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
     
+    // Utiliser le bon pronom en fonction du sexe
     const sexe = eleveData.sexe || 'Non spécifié';
     let pronom = "il";
     let possessif = "son";
@@ -3665,6 +3720,7 @@ RAPPEL IMPORTANT :
         
         let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
         
+        // Nettoyer les pourcentages et les remplacer par "points"
         reponse = reponse.replace(/\d+%/g, '');
         reponse = reponse.replace(/\d+,\d+%/g, '');
         reponse = reponse.replace(/pourcent/g, 'points');
@@ -3757,11 +3813,11 @@ async function traiterMessage(message) {
                 statut: infos.statut
             }
         };
-        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève.`, dernierEleveData);
+        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
     }
     
-    // Recherche par nom
-    if (msg.length >= 2) {
+    // Recherche par nom (si pas de code)
+    if (msg.length >= 2 && !dernierEleveConsulte) {
         const resultats = await chercherNotesParNom(msg);
         if (resultats.length > 0) {
             const premier = resultats[0];
