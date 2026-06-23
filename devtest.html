@@ -250,8 +250,8 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .parent-msg .bubble{max-width:85%;padding:16px 20px;border-radius:24px;font-size:15px;line-height:1.5;word-wrap:break-word;font-weight:400;transition:all 0.3s cubic-bezier(0.2,0.9,0.4,1.1);white-space:pre-wrap;font-family:'Inter',sans-serif;}
 .parent-msg.user .bubble{background:linear-gradient(135deg,rgba(59,130,246,0.95),rgba(30,64,175,0.95));backdrop-filter:blur(12px);color:#fff;font-weight:500;box-shadow:0 15px 30px -10px rgba(59,130,246,0.5),0 5px 10px -3px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -2px 0 rgba(0,0,0,0.1);border:1px solid rgba(255,255,255,0.25);border-radius:24px 24px 8px 24px;}
 .parent-msg.user .bubble:hover{transform:translateY(-3px);box-shadow:0 22px 35px -12px rgba(59,130,246,0.6),0 8px 12px -4px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.3);}
-.parent-msg.bot .bubble{background:rgba(18,25,45,0.85);backdrop-filter:blur(16px);color:#e2e8f0;border:2px solid rgba(255,107,107,0.3);animation:rainbowSoft 4s linear infinite, rainbowGlowSoft 4s linear infinite;box-shadow:0 12px 28px -8px rgba(0,0,0,0.4),0 4px 8px -2px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.08);border-radius:24px 24px 24px 8px;overflow:hidden;position:relative;}
 
+/* ===== ARC-EN-CIEL POUR LES CARTES DE RÉPONSE DU BOT ===== */
 @keyframes rainbowSoft {
     0% { border-color: rgba(255,107,107,0.3); }
     16% { border-color: rgba(255,159,67,0.3); }
@@ -271,6 +271,19 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
     83% { box-shadow: 0 0 15px rgba(162,155,254,0.1), 0 0 30px rgba(162,155,254,0.03); }
     100% { box-shadow: 0 0 15px rgba(255,107,107,0.1), 0 0 30px rgba(255,107,107,0.03); }
 }
+
+.parent-msg.bot .bubble {
+    background: rgba(18, 25, 45, 0.85);
+    backdrop-filter: blur(16px);
+    color: #e2e8f0;
+    border: 2px solid rgba(255,107,107,0.3);
+    animation: rainbowSoft 4s linear infinite, rainbowGlowSoft 4s linear infinite;
+    box-shadow: 0 12px 28px -8px rgba(0,0,0,0.4), 0 4px 8px -2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.08);
+    border-radius: 24px 24px 24px 8px;
+    overflow: hidden;
+    position: relative;
+}
+/* ===== FIN ARC-EN-CIEL ===== */
 
 .parent-msg.bot .bubble strong,.parent-msg.bot .bubble b{color:#60a5fa;font-weight:600;}
 .parent-msg.bot .bubble hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.5),rgba(96,165,250,0.8),rgba(59,130,246,0.5),transparent);margin:14px 0;}
@@ -3637,200 +3650,6 @@ parentModalOverlayNew.onclick = (e) => {
     }
 };
 
-// ===== AJOUT 1: FONCTION POUR LES STATISTIQUES DE CLASSE =====
-async function getClasseStats(classe, option) {
-    try {
-        const fiches = await getAllFiches();
-        let totalFilles = 0;
-        let totalGarcons = 0;
-        let totalEleves = 0;
-        const matieresSet = new Set();
-        
-        for (const fiche of fiches) {
-            if (fiche.classe === classe) {
-                if (option && option !== "TOUTES" && fiche.option !== option) continue;
-                if (fiche.eleves) {
-                    for (const eleve of fiche.eleves) {
-                        totalEleves++;
-                        if (eleve.sexe === 'F' || eleve.sexe === 'Féminin') {
-                            totalFilles++;
-                        } else {
-                            totalGarcons++;
-                        }
-                    }
-                }
-                if (fiche.cours) matieresSet.add(fiche.cours);
-            }
-        }
-        
-        return {
-            totalEleves,
-            totalFilles,
-            totalGarcons,
-            nbMatieres: matieresSet.size,
-            matieres: Array.from(matieresSet)
-        };
-    } catch (error) {
-        console.error("Erreur getClasseStats:", error);
-        return { totalEleves: 0, totalFilles: 0, totalGarcons: 0, nbMatieres: 0, matieres: [] };
-    }
-}
-// ===== FIN AJOUT 1 =====
-
-// ===== AJOUT 2: MODIFICATION DE chercherNotesParNom POUR AJOUTER LE SEXE =====
-async function chercherNotesParNom(nom) {
-    const fiches = await getAllFiches();
-    const resultats = [];
-    const searchTerm = nom.toLowerCase().trim();
-    for (const fiche of fiches) {
-        for (const eleve of (fiche.eleves || [])) {
-            const nomEleve = (eleve.nom || '').toLowerCase();
-            if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
-                const epreuvesList = [];
-                if (eleve.notes) {
-                    for (let periode = 1; periode <= 4; periode++) {
-                        const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
-                        const notesPeriode = eleve.notes[`p${periode}`] || [];
-                        for (let i = 0; i < epreuves.length; i++) {
-                            const nomEpreuve = epreuves[i].nom || "Epreuve";
-                            if (!nomEpreuve.toLowerCase().includes("examen")) {
-                                let note = notesPeriode[i] || 0;
-                                let max = epreuves[i].max || 1;
-                                epreuvesList.push({
-                                    matiere: fiche.cours,
-                                    epreuve: nomEpreuve,
-                                    note: note,
-                                    max: max,
-                                    periode: periode,
-                                    titulaire: fiche.titulaire || null,
-                                    classe: fiche.classe,
-                                    option: fiche.option || ''
-                                });
-                            }
-                        }
-                    }
-                }
-                if (epreuvesList.length > 0) {
-                    resultats.push({
-                        eleveNom: eleve.nom,
-                        sexe: eleve.sexe || 'M',
-                        classe: fiche.classe,
-                        option: fiche.option || '',
-                        titulaire: fiche.titulaire || null,
-                        epreuves: epreuvesList
-                    });
-                }
-            }
-        }
-    }
-    return resultats;
-}
-// ===== FIN AJOUT 2 =====
-
-// ===== AJOUT 3: MODIFICATION DE genererReponseNaturelle =====
-async function genererReponseNaturelle(question, eleveData) {
-    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-    
-    const sexe = eleveData.sexe || 'M';
-    const pronomSujet = sexe === 'M' ? 'il' : 'elle';
-    const pronomPossessif = sexe === 'M' ? 'son' : 'sa';
-    const pronomObjet = sexe === 'M' ? 'le' : 'la';
-    
-    let contexte = `École: ${nomEcole}. `;
-    contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
-    contexte += `${pronomSujet} est en classe de ${eleveData.classe}. `;
-    
-    if (eleveData.option && eleveData.option !== "TOUTES") {
-        contexte += `Option ${eleveData.option}. `;
-    }
-    
-    if (eleveData.titulaire) {
-        contexte += `${pronomPossessif} professeur est ${eleveData.titulaire}. `;
-    }
-    
-    const questionLower = question.toLowerCase();
-    const demandeEffectif = questionLower.includes('combien') && 
-        (questionLower.includes('élève') || questionLower.includes('classe') || questionLower.includes('effectif') || questionLower.includes('nombre'));
-    
-    if (demandeEffectif) {
-        const classeStats = await getClasseStats(eleveData.classe, eleveData.option);
-        if (classeStats.totalEleves > 0) {
-            contexte += `Sa classe compte ${classeStats.totalEleves} élèves : `;
-            contexte += `${classeStats.totalGarcons} garçons et ${classeStats.totalFilles} filles. `;
-        }
-    }
-    
-    if (eleveData.notes && eleveData.notes.length > 0) {
-        contexte += "Ses notes (en points) : ";
-        const notesEnPoints = eleveData.notes.map(ep => {
-            if (ep.note > 0) {
-                return `${ep.epreuve}: ${ep.note}/${ep.max}`;
-            }
-            return null;
-        }).filter(n => n !== null);
-        
-        if (notesEnPoints.length > 0) {
-            contexte += notesEnPoints.join(", ");
-        } else {
-            contexte += "Aucune note enregistrée pour le moment. ";
-        }
-    } else {
-        contexte += "Il n'a aucune note enregistrée pour le moment. ";
-    }
-    
-    if (eleveData.frais) {
-        contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval.toLocaleString()} FC/mois, `;
-        contexte += `total payé ${eleveData.frais.totalPaye.toLocaleString()} FC, `;
-        contexte += `reste à payer ${eleveData.frais.reste.toLocaleString()} FC. `;
-        
-        if (eleveData.frais.moisImpayes && eleveData.frais.moisImpayes.length > 0) {
-            contexte += `Mois impayés : ${eleveData.frais.moisImpayes.join(", ")}. `;
-        } else {
-            contexte += "Compte financier à jour. ";
-        }
-    }
-    
-    const instructions = await chargerInstructionsIA();
-    const prompt = `${instructions}
-
-CONTEXTE DE L'ÉLÈVE : ${contexte}
-
-QUESTION : ${question}
-
-RAPPEL IMPORTANT : 
-- Utilise le nom de l'école ${nomEcole} dans ta réponse
-- Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages
-- Sois chaleureux et encourageant
-- Maximum 3 phrases
-- Si le titulaire est mentionné, dis ${pronomPossessif} professeur est [nom du titulaire]`;
-    
-    try {
-        const response = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: prompt })
-        });
-        const data = await response.json();
-        
-        let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
-        
-        reponse = reponse.replace(/\d+%/g, '');
-        reponse = reponse.replace(/\d+,\d+%/g, '');
-        reponse = reponse.replace(/pourcent/g, 'points');
-        reponse = reponse.replace(/pour cent/g, 'points');
-        reponse = reponse.replace(/pourcentage/g, 'points');
-        
-        if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) {
-            reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
-        }
-        
-        return reponse;
-    } catch (e) {
-        return `Je suis désolé, il y a un problème de connexion. Veuillez réessayer.`;
-    }
-}
-// ===== FIN AJOUT 3 =====
-
 if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
         const message = parentQuestionInputNew.value.trim();
@@ -4001,6 +3820,7 @@ async function chercherInfosFinancieresParNom(nom) {
     } catch (e) { return null; }
 }
 
+// --- FONCTIONS AMÉLIORÉES POUR L'ESPACE PARENTAL ---
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -4008,8 +3828,10 @@ async function chercherNotesParNom(nom) {
     for (const fiche of fiches) {
         for (const eleve of (fiche.eleves || [])) {
             const nomEleve = (eleve.nom || '').toLowerCase();
+            // On vérifie si le nom de l'élève correspond à la recherche
             if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
                 const epreuvesList = [];
+                // Récupérer les épreuves et notes
                 if (eleve.notes) {
                     for (let periode = 1; periode <= 4; periode++) {
                         const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
@@ -4033,14 +3855,19 @@ async function chercherNotesParNom(nom) {
                         }
                     }
                 }
+                // On ajoute le sexe de l'élève et le nombre d'élèves dans sa classe
+                const sexe = eleve.sexe || 'Non spécifié';
+                const elevesClasse = fiche.eleves ? fiche.eleves.length : 0;
+                
                 if (epreuvesList.length > 0) {
                     resultats.push({
                         eleveNom: eleve.nom,
-                        sexe: eleve.sexe || 'M',
+                        sexe: sexe,
                         classe: fiche.classe,
                         option: fiche.option || '',
                         titulaire: fiche.titulaire || null,
-                        epreuves: epreuvesList
+                        epreuves: epreuvesList,
+                        nombreElevesClasse: elevesClasse
                     });
                 }
             }
@@ -4049,70 +3876,21 @@ async function chercherNotesParNom(nom) {
     return resultats;
 }
 
-async function chargerInstructionsIA() {
-    if (iaInstructions) return iaInstructions;
-    
-    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-    
-    try {
-        const response = await fetch('https://www.netubex.com/ecole-config.txt');
-        if (response.ok) {
-            iaInstructions = await response.text();
-        } else {
-            iaInstructions = `Tu es un assistant scolaire chaleureux et bienveillant de l'école ${nomEcole}. 
-Règles IMPÉRATIVES :
-1. Utilise le nom de l'école ${nomEcole} dans tes réponses
-2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
-3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
-5. Sois encourageant et bienveillant
-6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
-7. Ne mentionne JAMAIS les notes en pourcentage`;
-        }
-    } catch (e) {
-        iaInstructions = `Tu es un assistant scolaire chaleureux et bienveillant de l'école ${nomEcole}. 
-Règles IMPÉRATIVES :
-1. Utilise le nom de l'école ${nomEcole} dans tes réponses
-2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
-3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
-5. Sois encourageant et bienveillant
-6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
-7. Ne mentionne JAMAIS les notes en pourcentage`;
-    }
-    return iaInstructions;
-}
-
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    const sexe = eleveData.sexe || 'M';
-    const pronomSujet = sexe === 'M' ? 'il' : 'elle';
-    const pronomPossessif = sexe === 'M' ? 'son' : 'sa';
-    const pronomObjet = sexe === 'M' ? 'le' : 'la';
-    
+    // Construction du contexte avec le sexe et le nombre d'élèves
     let contexte = `École: ${nomEcole}. `;
     contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
-    contexte += `${pronomSujet} est en classe de ${eleveData.classe}. `;
+    contexte += `Son sexe est ${eleveData.sexe || 'Non spécifié'}. `;
+    contexte += `Il est en classe de ${eleveData.classe}. `;
+    contexte += `Sa classe compte ${eleveData.nombreElevesClasse || 0} élèves. `;
     
     if (eleveData.option && eleveData.option !== "TOUTES") {
         contexte += `Option ${eleveData.option}. `;
     }
-    
     if (eleveData.titulaire) {
-        contexte += `${pronomPossessif} professeur est ${eleveData.titulaire}. `;
-    }
-    
-    const questionLower = question.toLowerCase();
-    const demandeEffectif = questionLower.includes('combien') && 
-        (questionLower.includes('élève') || questionLower.includes('classe') || questionLower.includes('effectif') || questionLower.includes('nombre'));
-    
-    if (demandeEffectif) {
-        const classeStats = await getClasseStats(eleveData.classe, eleveData.option);
-        if (classeStats.totalEleves > 0) {
-            contexte += `Sa classe compte ${classeStats.totalEleves} élèves : `;
-            contexte += `${classeStats.totalGarcons} garçons et ${classeStats.totalFilles} filles. `;
-        }
+        contexte += `Son professeur est ${eleveData.titulaire}. `;
     }
     
     if (eleveData.notes && eleveData.notes.length > 0) {
@@ -4157,7 +3935,8 @@ RAPPEL IMPORTANT :
 - Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages
 - Sois chaleureux et encourageant
 - Maximum 3 phrases
-- Si le titulaire est mentionné, dis ${pronomPossessif} professeur est [nom du titulaire]`;
+- Si on te demande le sexe, réponds clairement "C'est un garçon" ou "C'est une fille"
+- Si on te demande le nombre d'élèves, donne le nombre exact`;
     
     try {
         const response = await fetch(WORKER_URL, {
@@ -4169,6 +3948,7 @@ RAPPEL IMPORTANT :
         
         let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
         
+        // Nettoyer les pourcentages et les remplacer par "points"
         reponse = reponse.replace(/\d+%/g, '');
         reponse = reponse.replace(/\d+,\d+%/g, '');
         reponse = reponse.replace(/pourcent/g, 'points');
@@ -4189,6 +3969,7 @@ async function traiterMessage(message) {
     const msg = message.trim();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    // Vérifier si c'est un code à 6 chiffres
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
         if (!infos) {
@@ -4198,15 +3979,19 @@ async function traiterMessage(message) {
         }
         dernierEleveConsulte = infos.nom;
         const resultatsNotes = await chercherNotesParNom(infos.nom);
+        // Prendre le premier résultat (le plus pertinent)
+        const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+        
         dernierEleveData = {
             nom: infos.nom,
             prenom: infos.prenom,
-            sexe: resultatsNotes.length > 0 ? resultatsNotes[0].sexe : 'M',
+            sexe: noteData ? noteData.sexe : 'Non spécifié',
             classe: infos.classe,
-            option: infos.option || '',
+            option: infos.option,
             ecole: nomEcole,
-            titulaire: resultatsNotes.length > 0 ? resultatsNotes[0].titulaire : null,
-            notes: resultatsNotes.length > 0 ? resultatsNotes[0].epreuves : [],
+            notes: noteData ? noteData.epreuves : [],
+            titulaire: noteData ? noteData.titulaire : null,
+            nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
             frais: {
                 minerval: infos.minerval,
                 totalPaye: infos.totalPaye,
@@ -4218,20 +4003,23 @@ async function traiterMessage(message) {
         return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
     }
     
+    // Recherche par nom (si pas de code)
     if (msg.length >= 2 && !dernierEleveConsulte) {
         const resultats = await chercherNotesParNom(msg);
         if (resultats.length > 0) {
-            dernierEleveConsulte = resultats[0].eleveNom;
+            const premier = resultats[0];
+            dernierEleveConsulte = premier.eleveNom;
             const infosFrais = await chercherInfosFinancieresParNom(dernierEleveConsulte);
             dernierEleveData = {
-                nom: resultats[0].eleveNom,
+                nom: premier.eleveNom,
                 prenom: "",
-                sexe: resultats[0].sexe || 'M',
-                classe: resultats[0].classe,
-                option: resultats[0].option || '',
+                sexe: premier.sexe || 'Non spécifié',
+                classe: premier.classe,
+                option: premier.option,
                 ecole: nomEcole,
-                titulaire: resultats[0].titulaire,
-                notes: resultats[0].epreuves,
+                notes: premier.epreuves,
+                titulaire: premier.titulaire,
+                nombreElevesClasse: premier.nombreElevesClasse || 0,
                 frais: infosFrais ? {
                     minerval: infosFrais.minerval,
                     totalPaye: infosFrais.totalPaye,
@@ -4239,10 +4027,11 @@ async function traiterMessage(message) {
                     moisImpayes: infosFrais.moisImpayes
                 } : null
             };
-            return await genererReponseNaturelle(`L'utilisateur demande des informations sur l'élève ${resultats[0].eleveNom}. Présente un résumé chaleureux.`, dernierEleveData);
+            return await genererReponseNaturelle(`L'utilisateur demande des informations sur l'élève ${premier.eleveNom}. Présente un résumé chaleureux.`, dernierEleveData);
         }
     }
     
+    // Si on a déjà consulté un élève, on répond dans son contexte
     if (dernierEleveConsulte && dernierEleveData) {
         return await genererReponseNaturelle(msg, dernierEleveData);
     }
