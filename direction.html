@@ -147,6 +147,21 @@ html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow
 #tabReco{width:100%}
 #tabReco .card{width:100%;max-width:100%}
 #tabReco .card-body{padding:20px 24px}
+
+/* Styles de la corbeille - importés du premier code */
+.corbeille-item{background:rgba(18,18,31,0.8);border-radius:16px;margin-bottom:12px;padding:16px;border:1px solid rgba(59,130,246,0.2)}
+.corbeille-item .header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.corbeille-item .ref{background:linear-gradient(135deg,#1e3a5f,#0f2b44);padding:4px 12px;border-radius:40px;font-family:monospace;font-size:13px;font-weight:600;color:#6ea8fe}
+.corbeille-item .jours{font-size:12px}
+.corbeille-item .jours.urgent{color:#f87171}
+.corbeille-item .jours.moyen{color:#fbbf24}
+.corbeille-item .jours.ok{color:#4ade80}
+.corbeille-item .info{margin-bottom:8px}
+.corbeille-item .info .cours{color:#e8edf5;font-weight:500}
+.corbeille-item .info .classe{color:#94a3b8}
+.corbeille-item .prof{font-size:12px;color:#94a3b8;margin-bottom:4px}
+.corbeille-item .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.corbeille-item .actions select{padding:6px 12px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155;font-size:12px}
 </style>
 </head>
 <body>
@@ -301,6 +316,12 @@ html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow
 <input type="password" id="newCode2" placeholder="Confirmer" style="width:100%;padding:12px;border-radius:14px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.06);color:#e8edf5;margin-bottom:8px;outline:none;">
 <button class="btn btn-sm btn-primary" id="changeCodeBtn" style="width:100%;"><i class="fas fa-key"></i> Changer le code</button>
 </div>
+</div>
+<!-- CARD CORBEILLE AJOUTÉE DANS L'ONGLET ADMIN -->
+<div class="admin-card" style="margin-top:20px;">
+<h4><i class="fas fa-trash-alt" style="color:#f87171;"></i> Corbeille</h4>
+<p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">⏳ Les fiches restent 30 jours dans la corbeille avant suppression définitive</p>
+<div id="corbeilleList" style="max-height:400px;overflow-y:auto;"></div>
 </div>
 </div>
 </div>
@@ -475,6 +496,7 @@ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
 document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
 this.classList.add('active');
 document.getElementById(this.dataset.tab).classList.add('active');
+afficherCorbeille();
 });
 return;
 }
@@ -483,8 +505,131 @@ document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'
 this.classList.add('active');
 document.getElementById(this.dataset.tab).classList.add('active');
 if(this.dataset.tab==='tabReco')initReco();
+if(this.dataset.tab==='tabAdmin')afficherCorbeille();
 }
 });
+
+// ============================================================
+// CORBEILLE - FONCTIONS IMPORTÉES DU 1ER CODE
+// ============================================================
+
+function afficherCorbeille() {
+const c = document.getElementById('corbeilleList');
+if (!c) return;
+let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+const maintenant = new Date();
+corbeille = corbeille.filter(f => {
+if (f.dateExpiration && new Date(f.dateExpiration) <= maintenant) return false;
+if (f.school && f.school !== SCHOOL_PREFIX) return false;
+return true;
+});
+localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
+if (corbeille.length === 0) {
+c.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#64748b;"><i class="fas fa-trash-alt" style="font-size:32px;display:block;margin-bottom:10px;color:rgba(255,255,255,0.05);"></i><p>Corbeille vide</p></div>';
+return;
+}
+c.innerHTML = '';
+for (let f of corbeille) {
+let joursRestants = Math.ceil((new Date(f.dateExpiration) - new Date()) / (1000 * 60 * 60 * 24));
+let couleurCls = joursRestants <= 7 ? 'urgent' : (joursRestants <= 15 ? 'moyen' : 'ok');
+let d = document.createElement('div');
+d.className = 'corbeille-item';
+d.innerHTML = `
+<div class="header">
+<span class="ref">${f.numeroRef ? 'F' + String(f.numeroRef).padStart(3, '0') : '???'}</span>
+<span class="jours ${couleurCls}">⏰ ${joursRestants} jour(s) restant(s)</span>
+</div>
+<div class="info">
+<span class="cours">${escapeHtml(f.cours || '?')}</span> - 
+<span class="classe">${escapeHtml(f.classe || '?')}</span>
+${f.option ? `(${escapeHtml(f.option)})` : ''}
+</div>
+<div class="prof">🧑‍🏫 Professeur: ${escapeHtml(f.professeurNom || f.profId || '?')}</div>
+<div class="actions">
+<select id="restaureProf_${f.ficheId}" style="padding:6px 12px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155;font-size:12px;">
+<option value="${f.profId}">📁 Restaurer chez ${escapeHtml(f.professeurNom || 'ancien professeur')}</option>
+<option value="autre">👤 Restaurer chez un autre professeur</option>
+<option value="nouveau">➕ Créer nouveau professeur</option>
+</select>
+<button class="btn btn-sm btn-success" onclick="window.restaurerFicheCorbeille('${f.ficheId}')" style="background:#1a7a4a;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">RESTAURER</button>
+<button class="btn btn-sm btn-danger" onclick="window.supprimerFicheCorbeille('${f.ficheId}')" style="background:#7f1d1d;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">SUPPRIMER</button>
+</div>
+`;
+c.appendChild(d);
+}
+}
+
+window.restaurerFicheCorbeille = async function(ficheId) {
+let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+let fiche = corbeille.find(f => f.ficheId === ficheId);
+if (!fiche) { toast('Fiche non trouvée', 'error'); return; }
+
+let select = document.getElementById('restaureProf_' + ficheId);
+let choix = select ? select.value : fiche.profId;
+let nouveauProfId = fiche.profId;
+let nouveauProfNom = fiche.professeurNom;
+
+if (choix === "nouveau") {
+showPrompt("Nom du nouveau professeur", "Nom complet du professeur", "Nom", async function(nouveauNom) {
+if (nouveauNom && nouveauNom.trim()) {
+let code = Math.floor(1000 + Math.random() * 9000).toString();
+nouveauProfId = 'prof_' + Date.now();
+nouveauProfNom = nouveauNom.trim();
+let data = { _type: "prof", id: nouveauProfId, profId: nouveauProfId, nom: nouveauProfNom, code: code, createdAt: Date.now(), actif: true, school: SCHOOL_PREFIX };
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_professeurs", nouveauProfId), data);
+toast('Nouveau professeur créé avec code: ' + code, 'success');
+} catch(e) { toast('Erreur création professeur', 'error'); }
+} else { toast("Opération annulée", 'warning'); }
+});
+return;
+} else if (choix === "autre") {
+let profs = [];
+try {
+const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_professeurs"));
+snap.forEach(ds => { const d = ds.data(); if (d._type === 'prof') profs.push(d); });
+} catch(e) { toast('Erreur chargement professeurs', 'error'); return; }
+if (profs.length === 0) { toast("Aucun professeur disponible", 'error'); return; }
+let profList = profs.map(p => p.nom).join(', ');
+showPrompt("Nom du professeur", "Entrez le nom du professeur", profList, async function(reponse) {
+if (reponse && reponse.trim()) {
+let profTrouve = profs.find(p => p.nom === reponse.trim() || p.id === reponse.trim());
+if (profTrouve) { nouveauProfId = profTrouve.id; nouveauProfNom = profTrouve.nom; } 
+else { toast("Professeur non trouvé", 'error'); }
+}
+});
+if (!nouveauProfId) return;
+}
+
+// Restauration de la fiche
+try {
+delete fiche.dateSuppression;
+delete fiche.supprimee;
+delete fiche.professeurNom;
+delete fiche.dateExpiration;
+fiche.profId = nouveauProfId;
+fiche.school = SCHOOL_PREFIX;
+await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", fiche.ficheId), { ...fiche, id: fiche.ficheId });
+let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
+localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
+afficherCorbeille();
+toast('Fiche restaurée chez ' + nouveauProfNom, 'success');
+} catch(e) { toast('Erreur restauration', 'error'); }
+};
+
+window.supprimerFicheCorbeille = function(ficheId) {
+showConfirm("⚠️ SUPPRESSION DÉFINITIVE", "Cette action est IRRÉVERSIBLE. Confirmer ?", async function() {
+let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
+localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
+afficherCorbeille();
+toast("Fiche supprimée définitivement", 'warning');
+});
+};
+
+// ============================================================
+// FIN CORBEILLE
+// ============================================================
 
 async function chargerPresences(){
 const c=document.getElementById('presenceClasseSelect').value;
@@ -534,7 +679,7 @@ const hs=await getDocs(collection(db,SCHOOL_PREFIX+"_presences"));
 hs.forEach(ds=>{
 const d=ds.data();
 if(d.eleves){
-d.eleves.forEach(e=>{if(e.nom)historiques.push({nom:e.nom,present:e.present,date:d.date})});
+d.eleves.forEach(e=>{if(e.nom)historiques.push({nom:e.nom,present:e.present,date:e.date||d.date})});
 }
 });
 }catch(e){console.error(e)}
@@ -985,6 +1130,7 @@ await chargerPunitions();
 afficherProfs();
 chargerAdminOptions();
 initReco();
+afficherCorbeille();
 }
 
 setInterval(()=>{
@@ -993,6 +1139,9 @@ chargerPresences();
 }
 if(document.getElementById('tabPunitions').classList.contains('active')){
 chargerPunitions();
+}
+if(document.getElementById('tabAdmin').classList.contains('active')){
+afficherCorbeille();
 }
 },300000);
 
