@@ -250,7 +250,28 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .parent-msg .bubble{max-width:85%;padding:16px 20px;border-radius:24px;font-size:15px;line-height:1.5;word-wrap:break-word;font-weight:400;transition:all 0.3s cubic-bezier(0.2,0.9,0.4,1.1);white-space:pre-wrap;font-family:'Inter',sans-serif;}
 .parent-msg.user .bubble{background:linear-gradient(135deg,rgba(59,130,246,0.95),rgba(30,64,175,0.95));backdrop-filter:blur(12px);color:#fff;font-weight:500;box-shadow:0 15px 30px -10px rgba(59,130,246,0.5),0 5px 10px -3px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.2),inset 0 -2px 0 rgba(0,0,0,0.1);border:1px solid rgba(255,255,255,0.25);border-radius:24px 24px 8px 24px;}
 .parent-msg.user .bubble:hover{transform:translateY(-3px);box-shadow:0 22px 35px -12px rgba(59,130,246,0.6),0 8px 12px -4px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.3);}
-.parent-msg.bot .bubble{background:rgba(18,25,45,0.85);backdrop-filter:blur(16px);color:#e2e8f0;box-shadow:0 12px 28px -8px rgba(0,0,0,0.4),0 4px 8px -2px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.08);border:1px solid rgba(59,130,246,0.35);border-radius:24px 24px 24px 8px;overflow:hidden;}
+.parent-msg.bot .bubble{background:rgba(18,25,45,0.85);backdrop-filter:blur(16px);color:#e2e8f0;border:2px solid rgba(255,107,107,0.3);animation:rainbowSoft 4s linear infinite, rainbowGlowSoft 4s linear infinite;box-shadow:0 12px 28px -8px rgba(0,0,0,0.4),0 4px 8px -2px rgba(0,0,0,0.2),inset 0 1px 0 rgba(255,255,255,0.08);border-radius:24px 24px 24px 8px;overflow:hidden;position:relative;}
+
+@keyframes rainbowSoft {
+    0% { border-color: rgba(255,107,107,0.3); }
+    16% { border-color: rgba(255,159,67,0.3); }
+    33% { border-color: rgba(254,202,87,0.3); }
+    50% { border-color: rgba(29,209,161,0.3); }
+    66% { border-color: rgba(84,160,255,0.3); }
+    83% { border-color: rgba(162,155,254,0.3); }
+    100% { border-color: rgba(255,107,107,0.3); }
+}
+
+@keyframes rainbowGlowSoft {
+    0% { box-shadow: 0 0 15px rgba(255,107,107,0.1), 0 0 30px rgba(255,107,107,0.03); }
+    16% { box-shadow: 0 0 15px rgba(255,159,67,0.1), 0 0 30px rgba(255,159,67,0.03); }
+    33% { box-shadow: 0 0 15px rgba(254,202,87,0.1), 0 0 30px rgba(254,202,87,0.03); }
+    50% { box-shadow: 0 0 15px rgba(29,209,161,0.1), 0 0 30px rgba(29,209,161,0.03); }
+    66% { box-shadow: 0 0 15px rgba(84,160,255,0.1), 0 0 30px rgba(84,160,255,0.03); }
+    83% { box-shadow: 0 0 15px rgba(162,155,254,0.1), 0 0 30px rgba(162,155,254,0.03); }
+    100% { box-shadow: 0 0 15px rgba(255,107,107,0.1), 0 0 30px rgba(255,107,107,0.03); }
+}
+
 .parent-msg.bot .bubble strong,.parent-msg.bot .bubble b{color:#60a5fa;font-weight:600;}
 .parent-msg.bot .bubble hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.5),rgba(96,165,250,0.8),rgba(59,130,246,0.5),transparent);margin:14px 0;}
 .parent-input-area{flex-shrink:0;display:flex;gap:12px;background:#0f172a;padding:16px;border-top:1px solid #334155;}
@@ -3616,6 +3637,201 @@ parentModalOverlayNew.onclick = (e) => {
     }
 };
 
+// ===== AJOUT 1: FONCTION POUR LES STATISTIQUES DE CLASSE =====
+async function getClasseStats(classe, option) {
+    try {
+        const fiches = await getAllFiches();
+        let totalFilles = 0;
+        let totalGarcons = 0;
+        let totalEleves = 0;
+        const matieresSet = new Set();
+        
+        for (const fiche of fiches) {
+            if (fiche.classe === classe) {
+                if (option && option !== "TOUTES" && fiche.option !== option) continue;
+                if (option === "TOUTES") {}
+                if (fiche.eleves) {
+                    for (const eleve of fiche.eleves) {
+                        totalEleves++;
+                        if (eleve.sexe === 'F' || eleve.sexe === 'Féminin') {
+                            totalFilles++;
+                        } else {
+                            totalGarcons++;
+                        }
+                    }
+                }
+                if (fiche.cours) matieresSet.add(fiche.cours);
+            }
+        }
+        
+        return {
+            totalEleves,
+            totalFilles,
+            totalGarcons,
+            nbMatieres: matieresSet.size,
+            matieres: Array.from(matieresSet)
+        };
+    } catch (error) {
+        console.error("Erreur getClasseStats:", error);
+        return { totalEleves: 0, totalFilles: 0, totalGarcons: 0, nbMatieres: 0, matieres: [] };
+    }
+}
+// ===== FIN AJOUT 1 =====
+
+// ===== AJOUT 2: MODIFICATION DE chercherNotesParNom POUR AJOUTER LE SEXE =====
+async function chercherNotesParNom(nom) {
+    const fiches = await getAllFiches();
+    const resultats = [];
+    const searchTerm = nom.toLowerCase().trim();
+    for (const fiche of fiches) {
+        for (const eleve of (fiche.eleves || [])) {
+            const nomEleve = (eleve.nom || '').toLowerCase();
+            if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
+                const epreuvesList = [];
+                if (eleve.notes) {
+                    for (let periode = 1; periode <= 4; periode++) {
+                        const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
+                        const notesPeriode = eleve.notes[`p${periode}`] || [];
+                        for (let i = 0; i < epreuves.length; i++) {
+                            const nomEpreuve = epreuves[i].nom || "Epreuve";
+                            if (!nomEpreuve.toLowerCase().includes("examen")) {
+                                let note = notesPeriode[i] || 0;
+                                let max = epreuves[i].max || 1;
+                                epreuvesList.push({
+                                    matiere: fiche.cours,
+                                    epreuve: nomEpreuve,
+                                    note: note,
+                                    max: max,
+                                    periode: periode,
+                                    titulaire: fiche.titulaire || null,
+                                    classe: fiche.classe,
+                                    option: fiche.option || ''
+                                });
+                            }
+                        }
+                    }
+                }
+                if (epreuvesList.length > 0) {
+                    resultats.push({
+                        eleveNom: eleve.nom,
+                        sexe: eleve.sexe || 'M',
+                        classe: fiche.classe,
+                        option: fiche.option || '',
+                        titulaire: fiche.titulaire || null,
+                        epreuves: epreuvesList
+                    });
+                }
+            }
+        }
+    }
+    return resultats;
+}
+// ===== FIN AJOUT 2 =====
+
+// ===== AJOUT 3: MODIFICATION DE genererReponseNaturelle =====
+async function genererReponseNaturelle(question, eleveData) {
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    const sexe = eleveData.sexe || 'M';
+    const pronomSujet = sexe === 'M' ? 'il' : 'elle';
+    const pronomPossessif = sexe === 'M' ? 'son' : 'sa';
+    const pronomObjet = sexe === 'M' ? 'le' : 'la';
+    
+    let contexte = `École: ${nomEcole}. `;
+    contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
+    contexte += `${pronomSujet} est en classe de ${eleveData.classe}. `;
+    
+    if (eleveData.option && eleveData.option !== "TOUTES") {
+        contexte += `Option ${eleveData.option}. `;
+    }
+    
+    if (eleveData.titulaire) {
+        contexte += `${pronomPossessif} professeur est ${eleveData.titulaire}. `;
+    }
+    
+    const questionLower = question.toLowerCase();
+    const demandeEffectif = questionLower.includes('combien') && 
+        (questionLower.includes('élève') || questionLower.includes('classe') || questionLower.includes('effectif') || questionLower.includes('nombre'));
+    
+    if (demandeEffectif) {
+        const classeStats = await getClasseStats(eleveData.classe, eleveData.option);
+        if (classeStats.totalEleves > 0) {
+            contexte += `Sa classe compte ${classeStats.totalEleves} élèves : `;
+            contexte += `${classeStats.totalGarcons} garçons et ${classeStats.totalFilles} filles. `;
+        }
+    }
+    
+    if (eleveData.notes && eleveData.notes.length > 0) {
+        contexte += "Ses notes (en points) : ";
+        const notesEnPoints = eleveData.notes.map(ep => {
+            if (ep.note > 0) {
+                return `${ep.epreuve}: ${ep.note}/${ep.max}`;
+            }
+            return null;
+        }).filter(n => n !== null);
+        
+        if (notesEnPoints.length > 0) {
+            contexte += notesEnPoints.join(", ");
+        } else {
+            contexte += "Aucune note enregistrée pour le moment. ";
+        }
+    } else {
+        contexte += "Il n'a aucune note enregistrée pour le moment. ";
+    }
+    
+    if (eleveData.frais) {
+        contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval.toLocaleString()} FC/mois, `;
+        contexte += `total payé ${eleveData.frais.totalPaye.toLocaleString()} FC, `;
+        contexte += `reste à payer ${eleveData.frais.reste.toLocaleString()} FC. `;
+        
+        if (eleveData.frais.moisImpayes && eleveData.frais.moisImpayes.length > 0) {
+            contexte += `Mois impayés : ${eleveData.frais.moisImpayes.join(", ")}. `;
+        } else {
+            contexte += "Compte financier à jour. ";
+        }
+    }
+    
+    const instructions = await chargerInstructionsIA();
+    const prompt = `${instructions}
+
+CONTEXTE DE L'ÉLÈVE : ${contexte}
+
+QUESTION : ${question}
+
+RAPPEL IMPORTANT : 
+- Utilise le nom de l'école ${nomEcole} dans ta réponse
+- Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages
+- Sois chaleureux et encourageant
+- Maximum 3 phrases
+- Si le titulaire est mentionné, dis ${pronomPossessif} professeur est [nom du titulaire]`;
+    
+    try {
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question: prompt })
+        });
+        const data = await response.json();
+        
+        let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
+        
+        reponse = reponse.replace(/\d+%/g, '');
+        reponse = reponse.replace(/\d+,\d+%/g, '');
+        reponse = reponse.replace(/pourcent/g, 'points');
+        reponse = reponse.replace(/pour cent/g, 'points');
+        reponse = reponse.replace(/pourcentage/g, 'points');
+        
+        if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) {
+            reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
+        }
+        
+        return reponse;
+    } catch (e) {
+        return `Je suis désolé, il y a un problème de connexion. Veuillez réessayer.`;
+    }
+}
+// ===== FIN AJOUT 3 =====
+
 if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
         const message = parentQuestionInputNew.value.trim();
@@ -3821,6 +4037,7 @@ async function chercherNotesParNom(nom) {
                 if (epreuvesList.length > 0) {
                     resultats.push({
                         eleveNom: eleve.nom,
+                        sexe: eleve.sexe || 'M',
                         classe: fiche.classe,
                         option: fiche.option || '',
                         titulaire: fiche.titulaire || null,
@@ -3870,15 +4087,33 @@ Règles IMPÉRATIVES :
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    const sexe = eleveData.sexe || 'M';
+    const pronomSujet = sexe === 'M' ? 'il' : 'elle';
+    const pronomPossessif = sexe === 'M' ? 'son' : 'sa';
+    const pronomObjet = sexe === 'M' ? 'le' : 'la';
+    
     let contexte = `École: ${nomEcole}. `;
     contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
-    contexte += `Il est en classe de ${eleveData.classe}. `;
+    contexte += `${pronomSujet} est en classe de ${eleveData.classe}. `;
     
     if (eleveData.option && eleveData.option !== "TOUTES") {
         contexte += `Option ${eleveData.option}. `;
     }
+    
     if (eleveData.titulaire) {
-        contexte += `Son professeur est ${eleveData.titulaire}. `;
+        contexte += `${pronomPossessif} professeur est ${eleveData.titulaire}. `;
+    }
+    
+    const questionLower = question.toLowerCase();
+    const demandeEffectif = questionLower.includes('combien') && 
+        (questionLower.includes('élève') || questionLower.includes('classe') || questionLower.includes('effectif') || questionLower.includes('nombre'));
+    
+    if (demandeEffectif) {
+        const classeStats = await getClasseStats(eleveData.classe, eleveData.option);
+        if (classeStats.totalEleves > 0) {
+            contexte += `Sa classe compte ${classeStats.totalEleves} élèves : `;
+            contexte += `${classeStats.totalGarcons} garçons et ${classeStats.totalFilles} filles. `;
+        }
     }
     
     if (eleveData.notes && eleveData.notes.length > 0) {
@@ -3922,7 +4157,8 @@ RAPPEL IMPORTANT :
 - Utilise le nom de l'école ${nomEcole} dans ta réponse
 - Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages
 - Sois chaleureux et encourageant
-- Maximum 3 phrases`;
+- Maximum 3 phrases
+- Si le titulaire est mentionné, dis ${pronomPossessif} professeur est [nom du titulaire]`;
     
     try {
         const response = await fetch(WORKER_URL, {
@@ -3966,11 +4202,12 @@ async function traiterMessage(message) {
         dernierEleveData = {
             nom: infos.nom,
             prenom: infos.prenom,
+            sexe: resultatsNotes.length > 0 ? resultatsNotes[0].sexe : 'M',
             classe: infos.classe,
-            option: infos.option,
+            option: infos.option || '',
             ecole: nomEcole,
-            notes: resultatsNotes.length > 0 ? resultatsNotes[0].epreuves : [],
             titulaire: resultatsNotes.length > 0 ? resultatsNotes[0].titulaire : null,
+            notes: resultatsNotes.length > 0 ? resultatsNotes[0].epreuves : [],
             frais: {
                 minerval: infos.minerval,
                 totalPaye: infos.totalPaye,
@@ -3990,11 +4227,12 @@ async function traiterMessage(message) {
             dernierEleveData = {
                 nom: resultats[0].eleveNom,
                 prenom: "",
+                sexe: resultats[0].sexe || 'M',
                 classe: resultats[0].classe,
-                option: resultats[0].option,
+                option: resultats[0].option || '',
                 ecole: nomEcole,
-                notes: resultats[0].epreuves,
                 titulaire: resultats[0].titulaire,
+                notes: resultats[0].epreuves,
                 frais: infosFrais ? {
                     minerval: infosFrais.minerval,
                     totalPaye: infosFrais.totalPaye,
