@@ -6,6 +6,7 @@
     <title>Espace Direction</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
         html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow-x:hidden;color:#e8edf5}
@@ -48,6 +49,8 @@
         .btn-warning:hover{box-shadow:0 12px 32px rgba(180,83,9,0.35)}
         .btn-primary{background:linear-gradient(145deg,#2563eb,#1a3a5c)}
         .btn-primary:hover{box-shadow:0 12px 32px rgba(37,99,235,0.35)}
+        .btn-pdf{background:linear-gradient(145deg,#dc2626,#991b1b)}
+        .btn-pdf:hover{box-shadow:0 12px 32px rgba(220,38,38,0.35)}
         .btn-send{background:linear-gradient(145deg,#1a3a5c,#0d2137);color:#fff;border:none;width:52px;height:52px;border-radius:50%;font-size:20px;cursor:pointer;transition:all 0.3s cubic-bezier(0.16,1,0.3,1);box-shadow:0 6px 20px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;flex-shrink:0}
         .btn-send:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 12px 32px rgba(26,58,92,0.4)}
         .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:24px}
@@ -178,6 +181,10 @@
         .communique-item .delete-comm{color:#f87171;cursor:pointer;font-size:14px;padding:4px 10px;border-radius:30px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.1);transition:all 0.2s}
         .communique-item .delete-comm:hover{background:rgba(248,113,113,0.2)}
         .communique-item .header-comm{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+
+        /* Styles pour le PDF */
+        .presence-date-display{font-size:14px;color:#94a3b8;font-weight:500;padding:8px 16px;background:rgba(255,255,255,0.03);border-radius:50px;display:inline-flex;align-items:center;gap:10px}
+        .presence-date-display i{color:#6ea8fe}
     </style>
 </head>
 <body>
@@ -214,7 +221,13 @@
 
         <div id="tabPresences" class="tab-content active">
             <div class="card">
-                <div class="card-header"><i class="fas fa-users"></i> Suivi des présences</div>
+                <div class="card-header">
+                    <span><i class="fas fa-users"></i> Suivi des présences</span>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <span class="presence-date-display" id="presenceDateDisplay"><i class="far fa-calendar-alt"></i> <span id="presenceDateText"></span></span>
+                        <button class="btn btn-sm btn-pdf" id="pdfExportBtn"><i class="fas fa-file-pdf"></i> PDF</button>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div class="filter-row">
                         <div class="filter-group">
@@ -246,8 +259,8 @@
                         <div class="stat-card"><div class="value red" id="statAbsent">0</div><div class="label">Absents</div></div>
                         <div class="stat-card"><div class="value amber" id="statTaux">0%</div><div class="label">Taux présence</div></div>
                     </div>
-                    <div class="table-wrapper">
-                        <table class="student-table">
+                    <div class="table-wrapper" id="presenceTableWrapper">
+                        <table class="student-table" id="presenceTable">
                             <thead>
                                 <tr>
                                     <th style="text-align:center;width:45px;">N°</th>
@@ -680,6 +693,14 @@ window.supprimerFicheCorbeille = function(ficheId) {
 // ============================================================
 // FIN CORBEILLE
 // ============================================================
+
+// Afficher la date du jour
+function updateDateDisplay(){
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateStr = now.toLocaleDateString('fr-FR', options);
+    document.getElementById('presenceDateText').textContent = dateStr;
+}
 
 async function chargerPresences(){
     const c=document.getElementById('presenceClasseSelect').value;
@@ -1275,10 +1296,176 @@ document.getElementById('commPublierBtn').onclick=async function(){
 };
 
 // ============================================================
+// EXPORT PDF - REGISTRE DE PRÉSENCE PROFESSIONNEL
+// ============================================================
+
+document.getElementById('pdfExportBtn').onclick=function(){
+    if(presenceData.length===0){
+        toast('Aucune donnée à exporter','error');
+        return;
+    }
+    // Générer le contenu HTML pour le PDF
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const classe = document.getElementById('presenceClasseSelect').value || 'Toutes classes';
+    const option = document.getElementById('presenceOptionSelect').value || 'Toutes options';
+
+    let tableRows = '';
+    presenceData.forEach((e, i) => {
+        let status = 'Non enregistré';
+        let statusClass = '';
+        if(e.present === true){ status = 'Présent'; statusClass = '✓'; }
+        else if(e.present === false){ status = 'Absent'; statusClass = '✗'; }
+        tableRows += `
+        <tr>
+            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${String(i+1).padStart(2,'0')}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:500;">${escapeHtml(e.nom)}</td>
+            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(e.classe || '')}</td>
+            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(e.option || '-')}</td>
+            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:${e.present===true?'#16a34a':e.present===false?'#dc2626':'#94a3b8'};">${statusClass}</td>
+            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${status}</td>
+        </tr>`;
+    });
+
+    const total = presenceData.length;
+    const pres = presenceData.filter(e => e.present === true).length;
+    const abs = presenceData.filter(e => e.present === false).length;
+    const taux = total > 0 ? Math.round((pres/total)*100) : 0;
+
+    const pdfContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Inter', 'Arial', sans-serif; background: white; padding: 40px; }
+            .registre-container { max-width: 1100px; margin: 0 auto; }
+            .entete { text-align: center; border-bottom: 3px solid #1a3a5c; padding-bottom: 20px; margin-bottom: 25px; }
+            .entete h1 { font-size: 22px; color: #0b1424; letter-spacing: 2px; }
+            .entete h1 span { color: #1a3a5c; }
+            .entete .sous-titre { color: #64748b; font-size: 14px; margin-top: 4px; }
+            .entete .date-registre { font-size: 16px; font-weight: 600; color: #1a3a5c; margin-top: 8px; }
+            .infos-classe { display: flex; justify-content: space-between; background: #f1f5f9; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #1e293b; }
+            .infos-classe span { font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            thead { background: #1a3a5c; color: white; }
+            thead th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+            tbody tr:nth-child(even) { background: #f8fafc; }
+            tbody tr:hover { background: #eef2ff; }
+            .signature-section { margin-top: 30px; display: flex; justify-content: space-between; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+            .signature-section .block { text-align: center; }
+            .signature-section .block .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+            .signature-section .block .line { width: 200px; border-bottom: 2px solid #94a3b8; margin: 8px auto 4px; }
+            .signature-section .block .nom { font-size: 12px; color: #1e293b; font-weight: 500; }
+            .footer-registre { margin-top: 25px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+            .stat-badge { display: inline-block; padding: 2px 14px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+            .stat-badge.pres { background: #dcfce7; color: #16a34a; }
+            .stat-badge.abs { background: #fee2e2; color: #dc2626; }
+            .stat-badge.total { background: #dbeafe; color: #2563eb; }
+            .stats-pdf { display: flex; gap: 15px; justify-content: center; margin-top: 8px; }
+        </style>
+    </head>
+    <body>
+        <div class="registre-container">
+            <div class="entete">
+                <h1>COMPLEXE SCOLAIRE <span>${escapeHtml(schoolNameDisplay)}</span></h1>
+                <div class="sous-titre">REGISTRE DE PRÉSENCE DES ÉLÈVES</div>
+                <div class="date-registre">📅 ${dateStr}</div>
+            </div>
+
+            <div class="infos-classe">
+                <div><span>Classe :</span> ${escapeHtml(classe)}</div>
+                <div><span>Option :</span> ${escapeHtml(option)}</div>
+                <div><span>Enseignant :</span> Direction</div>
+            </div>
+
+            <div style="margin-bottom: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
+                <span class="stat-badge total">👥 Total : ${total}</span>
+                <span class="stat-badge pres">✅ Présents : ${pres}</span>
+                <span class="stat-badge abs">❌ Absents : ${abs}</span>
+                <span style="font-weight:600;color:#0b1424;font-size:13px;">📊 Taux : ${taux}%</span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="text-align:center;width:45px;">N°</th>
+                        <th style="text-align:left;">Nom & Prénom</th>
+                        <th style="text-align:center;">Classe</th>
+                        <th style="text-align:center;">Option</th>
+                        <th style="text-align:center;width:50px;">État</th>
+                        <th style="text-align:center;">Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+
+            <div class="signature-section">
+                <div class="block">
+                    <div class="label">Le Chef d'Établissement</div>
+                    <div class="line"></div>
+                    <div class="nom">Signature & cachet</div>
+                </div>
+                <div class="block">
+                    <div class="label">Le Surveillant Général</div>
+                    <div class="line"></div>
+                    <div class="nom">Signature</div>
+                </div>
+                <div class="block">
+                    <div class="label">Date d'édition</div>
+                    <div class="line"></div>
+                    <div class="nom">${new Date().toLocaleDateString('fr-FR')}</div>
+                </div>
+            </div>
+
+            <div class="footer-registre">
+                Document généré automatiquement - Registre de présence ${escapeHtml(schoolNameDisplay)} - ${new Date().getFullYear()}
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // Utiliser html2pdf pour générer le PDF
+    const opt = {
+        margin:        [10, 10, 10, 10],
+        filename:     `Registre_Presence_${schoolId}_${new Date().toISOString().slice(0,10)}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, letterRendering: true, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    // Créer un élément temporaire pour le rendu
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = pdfContent;
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.width = '1100px';
+    tempDiv.style.background = 'white';
+    document.body.appendChild(tempDiv);
+
+    toast('Génération du PDF en cours...', 'warning');
+
+    html2pdf().set(opt).from(tempDiv).save().then(() => {
+        document.body.removeChild(tempDiv);
+        toast('PDF généré avec succès !', 'success');
+    }).catch((err) => {
+        document.body.removeChild(tempDiv);
+        toast('Erreur lors de la génération du PDF', 'error');
+        console.error(err);
+    });
+};
+
+// ============================================================
 // INITIALISATION
 // ============================================================
 
 async function initApp(){
+    updateDateDisplay();
     try{
         const od=await getDoc(doc(db,SCHOOL_PREFIX+"_config","options_par_classe"));
         if(od.exists()){optionsParClasse=od.data();}
