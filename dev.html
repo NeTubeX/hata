@@ -446,7 +446,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
                 </div>
             </div>
             <div id="parentChatMessages" class="parent-messages">
-                <div class="parent-msg bot"><div class="bubble">👩‍✈️ Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
+                <div class="parent-msg bot"><div class="bubble">🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
             </div>
             <div class="parent-input-area">
                 <textarea id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres ou Nom de l'élève..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea>
@@ -555,11 +555,15 @@ const SEUIL_ALERTE = 3;
 let dernierCommunique = null;
 let communiqueAffiche = false;
 
+// ============================================================
+// FONCTIONS CORRIGÉES POUR L'ESPACE PARENTAL
+// ============================================================
+
 async function getDernierCommunique() {
     try {
+        // ✅ Suppression du where("school") - la collection est déjà préfixée par l'école
         const q = query(
             collection(db, SCHOOL_PREFIX + "_communiques"),
-            where("school", "==", SCHOOL_PREFIX),
             orderBy("date", "desc"),
             limit(1)
         );
@@ -718,6 +722,50 @@ async function chercherPresencesParNom(nom) {
         presences.sort((a,b) => b.date.localeCompare(a.date));
         return presences.slice(0, 3);
     } catch(e) { return []; }
+}
+
+// ✅ FONCTION VOCALE CORRIGÉE - "X sur Y" au lieu de "X Y"
+function voixParentale(texte) {
+    if (!texte) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    // Remplacer "X/Y" par "X sur Y"
+    let texteParle = texte.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const voixFR = voices.find(v => v.lang.startsWith('fr'));
+    if (voixFR) utterance.voice = voixFR;
+    window.speechSynthesis.speak(utterance);
+}
+
+function speak(text, onEnd) {
+    if (!text) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    
+    // Remplacer "X/Y" par "X sur Y"
+    let texteParle = text.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frenchVoice) utterance.voice = frenchVoice;
+    utterance.onend = () => { if (onEnd) onEnd(); };
+    utterance.onerror = () => { if (onEnd) onEnd(); };
+    window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
 }
 
 function toast(message, type) {
@@ -1969,41 +2017,6 @@ function updateCounterDisplay() {
     }
 }
 
-function voixParentale(texte) {
-    if (!texte) return;
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(texte);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const voixFR = voices.find(v => v.lang.startsWith('fr'));
-    if (voixFR) utterance.voice = voixFR;
-    window.speechSynthesis.speak(utterance);
-}
-
-function speak(text, onEnd) {
-    if (!text) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frenchVoice) utterance.voice = frenchVoice;
-    utterance.onend = () => { if (onEnd) onEnd(); };
-    utterance.onerror = () => { if (onEnd) onEnd(); };
-    window.speechSynthesis.speak(utterance);
-}
-
-function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-}
-
 async function typeWriterEffect(element, text, speed = 15) {
     element.innerHTML = '';
     for (let i = 0; i < text.length; i++) {
@@ -3147,6 +3160,8 @@ async function chercherInfosFinancieresParNom(nom) {
     } catch (e) { return null; }
 }
 
+// ✅ FONCTION chercherNotesParNom CORRIGÉE
+// Filtrer les notes à 0 et récupérer punitions/présences
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -3168,16 +3183,19 @@ async function chercherNotesParNom(nom) {
                             if (!nomEpreuve.toLowerCase().includes("examen")) {
                                 let note = notesPeriode[i] || 0;
                                 let max = epreuves[i].max || 1;
-                                epreuvesList.push({
-                                    matiere: fiche.cours,
-                                    epreuve: nomEpreuve,
-                                    note: note,
-                                    max: max,
-                                    periode: periode,
-                                    titulaire: fiche.titulaire || null,
-                                    classe: fiche.classe,
-                                    option: fiche.option || ''
-                                });
+                                // ✅ NE GARDER QUE LES NOTES > 0
+                                if (note > 0) {
+                                    epreuvesList.push({
+                                        matiere: fiche.cours,
+                                        epreuve: nomEpreuve,
+                                        note: note,
+                                        max: max,
+                                        periode: periode,
+                                        titulaire: fiche.titulaire || null,
+                                        classe: fiche.classe,
+                                        option: fiche.option || ''
+                                    });
+                                }
                             }
                         }
                     }
@@ -3263,15 +3281,14 @@ async function genererReponseNaturelle(question, eleveData) {
     
     if (eleveData.notes && eleveData.notes.length > 0) {
         contexte += "Ses notes (en points) : ";
-        const notesEnPoints = eleveData.notes.map(ep => {
-            if (ep.note > 0) {
-                return `${ep.epreuve}: ${ep.note}/${ep.max}`;
-            }
-            return null;
-        }).filter(n => n !== null);
+        // ✅ Filtrer les notes > 0
+        const notesEnPoints = eleveData.notes
+            .filter(ep => ep.note > 0)
+            .map(ep => `${ep.epreuve}: ${ep.note}/${ep.max}`)
+            .join(", ");
         
-        if (notesEnPoints.length > 0) {
-            contexte += notesEnPoints.join(", ");
+        if (notesEnPoints) {
+            contexte += notesEnPoints;
         } else {
             contexte += "Aucune note enregistrée pour le moment. ";
         }
@@ -3401,7 +3418,11 @@ async function traiterMessage(message) {
             let reponse = `À l'école ${nomEcole}, ${premier.eleveNom} est en ${premier.classe}${premier.option ? ' option '+premier.option : ''}.`;
             if (premier.titulaire) reponse += ` Son professeur est ${premier.titulaire}.`;
             if (premier.epreuves && premier.epreuves.length > 0) {
-                reponse += ` Ses notes : ${premier.epreuves.map(ep => ep.epreuve + ' : ' + ep.note + '/' + ep.max).join(', ')}.`;
+                // ✅ Filtrer les notes > 0
+                const notesFiltrees = premier.epreuves.filter(ep => ep.note > 0);
+                if (notesFiltrees.length > 0) {
+                    reponse += ` Ses notes : ${notesFiltrees.map(ep => ep.epreuve + ' : ' + ep.note + '/' + ep.max).join(', ')}.`;
+                }
             }
             return reponse;
         }
