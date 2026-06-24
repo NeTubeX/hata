@@ -446,7 +446,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
                 </div>
             </div>
             <div id="parentChatMessages" class="parent-messages">
-                <div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
+                <div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" alt="Système Intelligent" style="width:50px;height:50px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 12px auto;border:3px solid rgba(255,215,0,0.4);box-shadow:0 0 20px rgba(255,215,0,0.15);">Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
             </div>
             <div class="parent-input-area">
                 <textarea id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres ou Nom de l'élève..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea>
@@ -555,6 +555,10 @@ const SEUIL_ALERTE = 3;
 let dernierCommunique = null;
 let communiqueAffiche = false;
 
+// ============================================================
+// FONCTIONS CORRIGÉES POUR L'ESPACE PARENTAL
+// ============================================================
+
 async function getDernierCommunique() {
     try {
         const q = query(
@@ -643,8 +647,7 @@ function afficherCommuniqueDansChat(comm) {
     bubble.className = 'bubble';
     
     bubble.innerHTML = `
-        <img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:top;margin-right:10px;display:inline-block;float:left;">
-        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border-radius:16px;padding:16px 20px;border:1px solid rgba(245,158,11,0.25);margin-top:4px;">
+        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border-radius:16px;padding:16px 20px;border:1px solid rgba(245,158,11,0.25);">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid rgba(245,158,11,0.15);padding-bottom:10px;">
                 <span style="font-size:24px;">📢</span>
                 <div style="font-size:14px;font-weight:700;color:#fbbf24;">COMMUNIQUÉ DE LA DIRECTION</div>
@@ -720,6 +723,47 @@ async function chercherPresencesParNom(nom) {
     } catch(e) { return []; }
 }
 
+function voixParentale(texte) {
+    if (!texte) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    let texteParle = texte.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const voixFR = voices.find(v => v.lang.startsWith('fr'));
+    if (voixFR) utterance.voice = voixFR;
+    window.speechSynthesis.speak(utterance);
+}
+
+function speak(text, onEnd) {
+    if (!text) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    
+    let texteParle = text.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frenchVoice) utterance.voice = frenchVoice;
+    utterance.onend = () => { if (onEnd) onEnd(); };
+    utterance.onerror = () => { if (onEnd) onEnd(); };
+    window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+}
+
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
     if (!c) return;
@@ -774,51 +818,6 @@ function showPrompt(msg, placeholder, onConfirm) {
     d.querySelector('#promptOk').onclick = function() { let val = d.querySelector('#promptInput').value.trim();
         d.remove(); if (onConfirm) onConfirm(val); };
     d.querySelector('#promptCancel').onclick = function() { d.remove(); if (onConfirm) onConfirm(null); };
-}
-
-function voixParentale(texte) {
-    if (!texte) return;
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    let texteParle = texte.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
-    const utterance = new SpeechSynthesisUtterance(texteParle);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const voixFR = voices.find(v => v.lang.startsWith('fr'));
-    if (voixFR) utterance.voice = voixFR;
-    window.speechSynthesis.speak(utterance);
-}
-
-function speak(text, onEnd) {
-    if (!text) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    let texteParle = text.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
-    const utterance = new SpeechSynthesisUtterance(texteParle);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frenchVoice) utterance.voice = frenchVoice;
-    utterance.onend = () => { if (onEnd) onEnd(); };
-    utterance.onerror = () => { if (onEnd) onEnd(); };
-    window.speechSynthesis.speak(utterance);
-}
-
-function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-}
-
-async function typeWriterEffect(element, text, speed = 15) {
-    element.innerHTML = '';
-    for (let i = 0; i < text.length; i++) {
-        element.innerHTML += text.charAt(i);
-        await new Promise(r => setTimeout(r, speed));
-    }
 }
 
 async function initIndexedDB() {
@@ -2956,12 +2955,7 @@ if (parentFloatingBtnNew) {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">🏫 Bienvenue à l'école ${nomEcole} !
-Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.
-
-Veuillez me donner :
-• Un code à 6 chiffres (pour les frais)
-• Ou le nom complet d'un élève (pour les notes)</div></div>`;
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" alt="Système Intelligent" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 14px auto;border:3px solid rgba(255,215,0,0.5);box-shadow:0 0 30px rgba(255,215,0,0.2);"><strong>🏫 ${nomEcole}</strong><br><br>Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.<br><br>Veuillez me donner :<br>• Un code à 6 chiffres (pour les frais)<br>• Ou le nom complet d'un élève (pour les notes)</div></div>`;
         parentInfoEleveNew.innerHTML = `🏫 ${nomEcole}`;
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
@@ -3004,13 +2998,13 @@ if (parentSendBtnNew) {
         msgBotDiv.className = 'parent-msg bot';
         const bubbleBot = document.createElement('div');
         bubbleBot.className = 'bubble';
-        bubbleBot.innerHTML = `<img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;"><span class="loader"></span>`;
+        bubbleBot.innerHTML = '<span class="loader"></span>';
         msgBotDiv.appendChild(bubbleBot);
         parentChatMessagesNew.appendChild(msgBotDiv);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         const reponse = await traiterMessage(message);
         bubbleBot.innerHTML = '';
-        bubbleBot.innerHTML = `<img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">${reponse}`;
+        await typeWriterEffect(bubbleBot, reponse, 12);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         voixParentale(reponse);
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
