@@ -60,7 +60,17 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .modal-fullscreen.show{visibility:visible;opacity:1;}
 .modal-content{background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:32px;width:90%;max-width:95vw;padding:24px;border:1px solid rgba(59,130,246,0.3);max-height:90vh;overflow-y:auto;}
 .modal-content h3{font-size:18px;margin-bottom:16px;color:#fff;font-weight:600;}
+.modal-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid #334155;padding-bottom:12px;flex-wrap:wrap;}
+.modal-tab{background:transparent;border:none;padding:8px 16px;border-radius:30px;cursor:pointer;color:#94a3b8;font-size:13px;transition:all 0.2s;}
+.modal-tab.active{background:#1e3a5f;color:#fff;}
+.modal-tab-content{display:none;}
+.modal-tab-content.active{display:block;}
 .modal-content input,.modal-content select,.modal-content textarea{width:100%;padding:12px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;margin:8px 0;}
+.prof-list-item{display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #334155;flex-wrap:wrap;gap:12px;background:rgba(0,0,0,0.2);border-radius:12px;margin-bottom:8px;}
+.prof-info{flex:2;min-width:180px;}
+.prof-name{font-weight:700;font-size:16px;color:#fff;margin-bottom:6px;}
+.prof-date{font-size:12px;color:#94a3b8;}
+.prof-actions{display:flex;gap:8px;}
 .toast-container{position:fixed;top:20px;right:20px;z-index:30000;display:flex;flex-direction:column;gap:12px;pointer-events:none;}
 .toast-notification{background:rgba(18,25,45,0.95);backdrop-filter:blur(12px);border-radius:16px;padding:18px 24px;min-width:340px;max-width:380px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);border-left:4px solid #10b981;transform:translateX(400px);transition:transform 0.3s ease;pointer-events:auto;}
 .toast-notification.show{transform:translateX(0);}
@@ -464,6 +474,7 @@ if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${
 
 let currentProf=null,currentFicheId=null,currentFiche=null,toutesFiches=[];
 let saveTimeout=null,isCreatingFiche=false;
+let directriceCode="1111";
 let pendingSync=[];
 let groupesActuels = [];
 let optionsParClasse = {
@@ -1952,7 +1963,7 @@ async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
     await refreshTeachersList();
 
@@ -2035,6 +2046,58 @@ async function showLogin() {
             toast("Code d'accès incorrect", 'error');
         }
     };
+    document.getElementById('adminIconBtn').onclick = function() { showPresentationModal(); };
+}
+
+// ===== NOUVELLE FONCTION : CARTE PRÉSENTATION DE L'ÉCOLE =====
+// Cette fonction remplace l'ancien showAdminModal() et showGestionProfsModal()
+async function showPresentationModal() {
+    let m = document.createElement('div');
+    m.className = 'modal-fullscreen';
+    m.id = 'presentationModal';
+    
+    let schoolName = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    m.innerHTML = `<div class="modal-content" style="max-width:500px;text-align:center;padding:40px;cursor:pointer;" id="presentationCard">
+        <div style="font-size:72px;margin-bottom:16px;">🏫</div>
+        <h3 style="font-size:24px;font-weight:800;color:#fff;margin-bottom:8px;">PRÉSENTATION DE L'ÉCOLE</h3>
+        <p style="font-size:18px;font-weight:600;color:#60a5fa;margin-bottom:16px;">COMPLEXE SCOLAIRE ${schoolName}</p>
+        <p style="color:#cbd5e1;font-size:14px;line-height:1.6;max-width:400px;margin:0 auto 16px;">
+            Un établissement d'excellence dédié à la formation des leaders de demain. 
+            Qualité, rigueur et innovation au service de la réussite de chaque élève.
+        </p>
+        <div style="display:inline-block;background:rgba(59,130,246,0.2);color:#60a5fa;padding:6px 20px;border-radius:40px;font-size:12px;border:1px solid rgba(59,130,246,0.2);">⭐ École d'Excellence</div>
+    </div>`;
+    
+    document.body.appendChild(m);
+    setTimeout(function() { m.classList.add('show'); }, 10);
+    
+    // Gestion des 3 clics sur la carte
+    let clickCount = 0;
+    let clickTimeout = null;
+    
+    document.getElementById('presentationCard').addEventListener('click', function(e) {
+        e.stopPropagation();
+        clickCount++;
+        
+        if (clickTimeout) clearTimeout(clickTimeout);
+        clickTimeout = setTimeout(() => { clickCount = 0; }, 1000);
+        
+        if (clickCount >= 3) {
+            clickCount = 0;
+            if (clickTimeout) clearTimeout(clickTimeout);
+            window.open('https://www.netubex.com/direction', '_blank');
+            m.remove();
+            toast("Redirection vers la direction...", 'success');
+        }
+    });
+    
+    // Fermeture avec la croix
+    let closeBtn = document.createElement('span');
+    closeBtn.style.cssText = 'font-size:28px;cursor:pointer;color:#94a3b8;position:absolute;top:16px;right:20px;';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = function() { m.remove(); };
+    m.querySelector('.modal-content').appendChild(closeBtn);
 }
 
 async function refreshTeachersList() {
@@ -2054,6 +2117,242 @@ async function refreshTeachersList() {
             });
         }
     }
+}
+
+// ===== FONCTIONS POUR L'ESPACE PARENTAL - PRÉSENCES ET PUNITIONS =====
+// Récupérer la présence d'un élève pour une date donnée
+async function chercherPresenceParDate(nom, date) {
+    try {
+        const q = query(
+            collection(db, SCHOOL_PREFIX + "_presences"),
+            where("date", "==", date)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const data = snap.docs[0].data();
+        if (data.eleves) {
+            const eleve = data.eleves.find(e => 
+                e.nom && e.nom.toLowerCase().includes(nom.toLowerCase())
+            );
+            if (eleve) return eleve.present;
+        }
+        return null;
+    } catch(e) { return null; }
+}
+
+// Récupérer les punitions d'un élève
+async function chercherPunitionsParNom(nom) {
+    try {
+        const q = query(
+            collection(db, SCHOOL_PREFIX + "_punitions"),
+            where("eleveNom", "==", nom),
+            where("statut", "==", "active")
+        );
+        const snap = await getDocs(q);
+        const punitions = [];
+        snap.forEach(ds => {
+            const data = ds.data();
+            punitions.push({
+                motif: data.motif || "Non spécifié",
+                date: data.date || new Date().toISOString(),
+                gravite: data.gravite || "moyenne"
+            });
+        });
+        return punitions;
+    } catch(e) { return []; }
+}
+
+// ===== FONCTION TRAITER MESSAGE MODIFIÉE POUR PRÉSENCES ET PUNITIONS =====
+// Cette fonction est appelée dans l'espace parental
+// Elle détecte les questions sur les présences et punitions
+
+async function traiterMessage(message) {
+    const msg = message.trim();
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    // Vérifier si c'est un code à 6 chiffres
+    if (/^\d{6}$/.test(msg)) {
+        const infos = await chercherInfosFinancieresParCode(msg);
+        if (!infos) {
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
+        }
+        dernierEleveConsulte = infos.nom;
+        const resultatsNotes = await chercherNotesParNom(infos.nom);
+        const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+        
+        dernierEleveData = {
+            nom: infos.nom,
+            prenom: infos.prenom,
+            sexe: noteData ? noteData.sexe : 'Non spécifié',
+            classe: infos.classe,
+            option: infos.option,
+            ecole: nomEcole,
+            notes: noteData ? noteData.epreuves : [],
+            titulaire: noteData ? noteData.titulaire : null,
+            nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
+            frais: {
+                minerval: infos.minerval,
+                totalPaye: infos.totalPaye,
+                reste: infos.reste,
+                moisImpayes: infos.moisImpayes,
+                statut: infos.statut
+            }
+        };
+        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+    }
+    
+    // Recherche par nom
+    if (msg.length >= 2) {
+        const resultats = await chercherNotesParNom(msg);
+        if (resultats.length > 0) {
+            const premier = resultats[0];
+            dernierEleveConsulte = premier.eleveNom;
+            const infosFrais = await chercherInfosFinancieresParNom(dernierEleveConsulte);
+            
+            // Récupérer les présences (aujourd'hui et hier) - NOUVEAU
+            const aujourdhui = new Date().toISOString().slice(0, 10);
+            const hier = new Date();
+            hier.setDate(hier.getDate() - 1);
+            const hierStr = hier.toISOString().slice(0, 10);
+            
+            const presentAujourdhui = await chercherPresenceParDate(dernierEleveConsulte, aujourdhui);
+            const presentHier = await chercherPresenceParDate(dernierEleveConsulte, hierStr);
+            
+            // Récupérer les punitions - NOUVEAU
+            const punitions = await chercherPunitionsParNom(dernierEleveConsulte);
+            
+            dernierEleveData = {
+                nom: premier.eleveNom,
+                prenom: "",
+                sexe: premier.sexe || 'Non spécifié',
+                classe: premier.classe,
+                option: premier.option,
+                ecole: nomEcole,
+                notes: premier.epreuves,
+                titulaire: premier.titulaire,
+                nombreElevesClasse: premier.nombreElevesClasse || 0,
+                frais: infosFrais ? {
+                    minerval: infosFrais.minerval,
+                    totalPaye: infosFrais.totalPaye,
+                    reste: infosFrais.reste,
+                    moisImpayes: infosFrais.moisImpayes
+                } : null,
+                presence: { aujourdhui: presentAujourdhui, hier: presentHier },
+                punitions: punitions
+            };
+            
+            // Détecter si la question demande la présence
+            const question = msg.toLowerCase();
+            const demandePresence = question.includes("présent") || question.includes("absent") || 
+                                   question.includes("aujourd'hui") || question.includes("hier") ||
+                                   question.includes("venu") || question.includes("manqué") ||
+                                   question.includes("présence") || question.includes("absence");
+            
+            const demandePunition = question.includes("punition") || question.includes("sanction") ||
+                                    question.includes("retard") || question.includes("exclusion") ||
+                                    question.includes("punitions");
+            
+            let reponse = "";
+            
+            // Si la question demande la présence - NOUVEAU
+            if (demandePresence) {
+                const nom = dernierEleveConsulte;
+                if (presentAujourdhui === true) reponse = `${nom} était présent aujourd'hui. `;
+                else if (presentAujourdhui === false) reponse = `${nom} était absent aujourd'hui. `;
+                else reponse = `${nom} : aucune information de présence pour aujourd'hui. `;
+                
+                if (presentHier === true) reponse += `Il était présent hier. `;
+                else if (presentHier === false) reponse += `Il était absent hier. `;
+                else reponse += `Aucune information de présence pour hier. `;
+                
+                return reponse;
+            }
+            
+            // Si la question demande les punitions - NOUVEAU
+            if (demandePunition) {
+                const nom = dernierEleveConsulte;
+                const nbPunitions = punitions.length;
+                if (nbPunitions === 0) {
+                    return `${nom} n'a aucune punition.`;
+                } else {
+                    const motifs = punitions.map(p => p.motif).join(', ');
+                    return `${nom} a ${nbPunitions} punition${nbPunitions > 1 ? 's' : ''} : ${motifs}.`;
+                }
+            }
+            
+            // Si la question ne demande ni présence ni punition, réponse générale
+            return await genererReponseNaturelle(`L'utilisateur demande des informations sur l'élève ${premier.eleveNom}.`, dernierEleveData);
+        }
+    }
+    
+    // Si un élève a déjà été consulté, répondre dans son contexte
+    if (dernierEleveConsulte && dernierEleveData) {
+        const question = msg.toLowerCase();
+        const demandePresence = question.includes("présent") || question.includes("absent") || 
+                               question.includes("aujourd'hui") || question.includes("hier") ||
+                               question.includes("venu") || question.includes("manqué") ||
+                               question.includes("présence") || question.includes("absence");
+        const demandePunition = question.includes("punition") || question.includes("sanction") ||
+                                question.includes("retard") || question.includes("exclusion") ||
+                                question.includes("punitions");
+        
+        if (demandePresence) {
+            const nom = dernierEleveConsulte;
+            const aujourdhui = new Date().toISOString().slice(0, 10);
+            const hier = new Date();
+            hier.setDate(hier.getDate() - 1);
+            const hierStr = hier.toISOString().slice(0, 10);
+            const presentAujourdhui = await chercherPresenceParDate(nom, aujourdhui);
+            const presentHier = await chercherPresenceParDate(nom, hierStr);
+            
+            let reponse = "";
+            if (presentAujourdhui === true) reponse = `${nom} était présent aujourd'hui. `;
+            else if (presentAujourdhui === false) reponse = `${nom} était absent aujourd'hui. `;
+            else reponse = `${nom} : aucune information de présence pour aujourd'hui. `;
+            
+            if (presentHier === true) reponse += `Il était présent hier. `;
+            else if (presentHier === false) reponse += `Il était absent hier. `;
+            else reponse += `Aucune information de présence pour hier. `;
+            
+            return reponse;
+        }
+        
+        if (demandePunition) {
+            const punitions = await chercherPunitionsParNom(dernierEleveConsulte);
+            const nbPunitions = punitions.length;
+            if (nbPunitions === 0) {
+                return `${dernierEleveConsulte} n'a aucune punition.`;
+            } else {
+                const motifs = punitions.map(p => p.motif).join(', ');
+                return `${dernierEleveConsulte} a ${nbPunitions} punition${nbPunitions > 1 ? 's' : ''} : ${motifs}.`;
+            }
+        }
+        
+        return await genererReponseNaturelle(msg, dernierEleveData);
+    }
+    
+    return `Bonjour ! Je suis un système intelligent de l'école ${nomEcole} qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.`;
+}
+
+// ===== FONCTIONS EXISTANTES CONSERVÉES =====
+// Les fonctions suivantes sont conservées telles quelles
+
+function toast(message, type) {
+    const c = document.getElementById('toastContainer');
+    if (!c) return;
+    const ic = { success: '✓', error: '✕', warning: '⚠' };
+    const ti = { success: 'Succès', error: 'Erreur', warning: 'Attention' };
+    const e = document.createElement('div');
+    e.className = 'toast-notification ' + (type || '');
+    e.innerHTML = '<div class="toast-icon">' + (ic[type] || '✓') + '</div><div class="toast-content"><div class="toast-title">' + (ti[type] || 'Succès') + '</div><div class="toast-message">' + message + '</div></div>';
+    c.appendChild(e);
+    setTimeout(() => e.classList.add('show'), 10);
+    setTimeout(() => {
+        e.classList.remove('show');
+        setTimeout(() => { if (e.parentNode) e.remove(); }, 300);
+    }, 3000);
 }
 
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
@@ -2173,122 +2472,6 @@ async function refreshProfsList() {
         };
     });
 }
-
-function afficherCorbeille() {
-    let c = document.getElementById('corbeilleList');
-    if (!c) return;
-    let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
-    let maintenant = new Date();
-    corbeille = corbeille.filter(f => {
-        if (f.dateExpiration && new Date(f.dateExpiration) <= maintenant) return false;
-        if (f.school && f.school !== SCHOOL_PREFIX) return false;
-        return true;
-    });
-    localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
-    if (corbeille.length === 0) {
-        c.innerHTML = '<div class="empty-state">📭 Corbeille vide</div>';
-        return;
-    }
-    c.innerHTML = '<div style="margin-bottom:15px;padding:10px;background:rgba(59,130,246,0.15);border-radius:12px;text-align:center;font-size:13px;color:#cbd5e1;">⏳ Les fiches restent 30 jours dans la corbeille avant suppression définitive</div>';
-    for (let f of corbeille) {
-        let dateSupp = new Date(f.dateSuppression).toLocaleString();
-        let joursRestants = Math.ceil((new Date(f.dateExpiration) - new Date()) / (1000 * 60 * 60 * 24));
-        let couleurCss = joursRestants <= 7 ? '#ef4444' : (joursRestants <= 15 ? '#f59e0b' : '#10b981');
-        let d = document.createElement('div');
-        d.style.cssText = 'background:rgba(18,18,31,0.8);border-radius:16px;margin-bottom:12px;padding:16px;border:1px solid rgba(59,130,246,0.2);';
-        d.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;"><span style="background:linear-gradient(135deg,#1e3a5f,#0f2b44);padding:4px 12px;border-radius:40px;font-family:monospace;font-size:13px;font-weight:600;color:#60a5fa;">' + (f.numeroRef ? formatNumero(f.numeroRef) : '???') + '</span><span style="font-size:12px;color:' + couleurCss + ';">⏰ ' + joursRestants + ' jour(s) restant(s)</span></div><div style="margin-bottom:8px;"><span style="color:#e2e8f0;font-weight:500;">' + (f.cours || '?') + '</span> - <span style="color:#94a3b8;">' + (f.classe || '?') + '</span>' + (f.option ? '<span style="color:#94a3b8;"> (' + f.option + ')</span>' : '') + '</div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">🧑‍🏫 Professeur: ' + (f.professeurNom || f.profId || '?') + '</div><div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">🗑️ Supprimée le: ' + dateSupp + '</div><div style="font-size:12px;color:#f59e0b;margin-bottom:12px;">⚠️ Expire le: ' + new Date(f.dateExpiration).toLocaleDateString() + '</div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;"><select id="restaureProf_' + (f.ficheId) + '" style="padding:6px 12px;border-radius:40px;background:#2d3748;color:#fff;border:1px solid #334155;font-size:12px;"><option value="' + (f.profId) + '">📁 Restaurer chez ' + (f.professeurNom || 'ancien professeur') + '</option><option value="autre">👤 Restaurer chez un autre professeur</option><option value="nouveau">➕ Créer nouveau professeur</option></select><button class="btn btn-success btn-sm" onclick="window.restaurerFicheCorbeille(\'' + (f.ficheId) + '\')" style="background:#14532d;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">RESTAURER</button><button class="btn btn-danger btn-sm" onclick="window.supprimerFicheCorbeille(\'' + (f.ficheId) + '\')" style="background:#7f1d1d;color:white;border:none;padding:6px 16px;border-radius:40px;cursor:pointer;">SUPPRIMER</button></div>';
-        c.appendChild(d);
-    }
-}
-
-window.restaurerFicheCorbeille = async function(ficheId) {
-    let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
-    let fiche = corbeille.find(f => f.ficheId === ficheId);
-    if (fiche) {
-        let select = document.getElementById('restaureProf_' + ficheId);
-        let choix = select ? select.value : fiche.profId;
-        let nouveauProfId = fiche.profId;
-        let nouveauProfNom = fiche.professeurNom;
-        if (choix === "nouveau") {
-            showPrompt("Nom du nouveau professeur", "Nom complet", async function(nouveauNom) {
-                if (nouveauNom) {
-                    let nouveauCode = Math.floor(1000 + Math.random() * 9000).toString();
-                    nouveauProfId = 'prof_' + Date.now();
-                    nouveauProfNom = nouveauNom;
-                    let nouveauProf = {
-                        _type: "prof",
-                        id: nouveauProfId,
-                        profId: nouveauProfId,
-                        nom: nouveauNom,
-                        code: nouveauCode,
-                        createdAt: Date.now(),
-                        actif: true,
-                        school: SCHOOL_PREFIX
-                    };
-                    await saveToIndexedDB('professeurs', nouveauProf);
-                    if (navigator.onLine) {
-                        try { await setDoc(doc(db, SCHOOL_PREFIX + "_professeurs", nouveauProfId), nouveauProf); } catch (e) {}
-                    }
-                    toast('Nouveau professeur ' + nouveauNom + ' créé avec code: ' + nouveauCode, 'success');
-                } else {
-                    toast("Opération annulée", 'warning');
-                }
-            });
-            return;
-        } else if (choix === "autre") {
-            let professeurs = await getAllFromIndexedDB('professeurs');
-            let profsFiltres = professeurs.filter(p => p.school === SCHOOL_PREFIX);
-            if (profsFiltres.length === 0) {
-                toast("Aucun professeur disponible dans cette école", 'error');
-                return;
-            }
-            let listeProfs = profsFiltres.map(p => p.nom + ' (' + p.id + ')').join('\n');
-            showPrompt("Nom ou ID du professeur", listeProfs, async function(reponse) {
-                if (reponse) {
-                    let profTrouve = profsFiltres.find(p => p.nom === reponse || p.id === reponse);
-                    if (profTrouve) {
-                        nouveauProfId = profTrouve.id;
-                        nouveauProfNom = profTrouve.nom;
-                    } else {
-                        toast("Professeur non trouvé", 'error');
-                    }
-                } else { return; }
-            });
-            if (!nouveauProfId) return;
-        }
-        delete fiche.dateSuppression;
-        delete fiche.supprimee;
-        delete fiche.professeurNom;
-        delete fiche.dateExpiration;
-        fiche.profId = nouveauProfId;
-        fiche.school = SCHOOL_PREFIX;
-        await saveToIndexedDB('fiches', { ...fiche, id: fiche.ficheId });
-        if (navigator.onLine) {
-            try {
-                await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", fiche.ficheId), fiche);
-                await deleteDoc(doc(db, SCHOOL_PREFIX + "_corbeille", fiche.ficheId));
-            } catch (e) { await addPendingSync('saveFiche', fiche); }
-        }
-        let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
-        localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
-        afficherCorbeille();
-        await refreshSelectors();
-        toast('Fiche restaurée chez ' + nouveauProfNom, 'success');
-    }
-};
-
-window.supprimerFicheCorbeille = function(ficheId) {
-    showConfirm("⚠️ SUPPRESSION DÉFINITIVE !\n\nCette action est IRRÉVERSIBLE.\nLa fiche disparaîtra immédiatement.\n\nConfirmer ?", async function() {
-        let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
-        let nouvelleCorbeille = corbeille.filter(f => f.ficheId !== ficheId);
-        localStorage.setItem('gloria_corbeille', JSON.stringify(nouvelleCorbeille));
-        if (navigator.onLine) {
-            try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_corbeille", ficheId)); } catch (e) {}
-        }
-        afficherCorbeille();
-        toast("Fiche supprimée définitivement", 'warning');
-    });
-};
 
 function getTodayKey() {
     const today = new Date().toISOString().slice(0, 10);
@@ -3335,6 +3518,7 @@ function initRecoSupport() {
     });
 }
 
+// ===== CODE EXISTANT DE L'ESPACE PARENTAL =====
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -3353,7 +3537,7 @@ if (parentFloatingBtnNew) {
 
 Veuillez me donner :
 • Un code à 6 chiffres (pour les frais)
-• Ou le nom complet d'un élève (pour les notes)</div></div>`;
+• Ou le nom complet d'un élève (pour les notes et plus)</div></div>`;
         parentInfoEleveNew.innerHTML = `🏫 ${nomEcole}`;
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
@@ -3434,6 +3618,7 @@ if (parentQuestionInputNew) {
 }
 updateCounterDisplay();
 
+// ===== FONCTIONS EXISTANTES CONSERVÉES POUR L'ESPACE PARENTAL =====
 async function getAllComptaEleves() {
     try {
         const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve"));
@@ -3546,7 +3731,6 @@ async function chercherInfosFinancieresParNom(nom) {
     } catch (e) { return null; }
 }
 
-// --- FONCTION AMÉLIORÉE POUR RÉCUPÉRER LE SEXE ET LE NOMBRE D'ÉLÈVES ---
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -3554,10 +3738,8 @@ async function chercherNotesParNom(nom) {
     for (const fiche of fiches) {
         for (const eleve of (fiche.eleves || [])) {
             const nomEleve = (eleve.nom || '').toLowerCase();
-            // Vérifier si le nom de l'élève correspond à la recherche
             if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
                 const epreuvesList = [];
-                // Récupérer les épreuves et notes
                 if (eleve.notes) {
                     for (let periode = 1; periode <= 4; periode++) {
                         const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
@@ -3581,20 +3763,18 @@ async function chercherNotesParNom(nom) {
                         }
                     }
                 }
-                // Récupérer le sexe de l'élève
                 const sexe = eleve.sexe || 'Non spécifié';
-                // Récupérer le nombre d'élèves dans la classe
                 const nombreElevesClasse = fiche.eleves ? fiche.eleves.length : 0;
                 
                 if (epreuvesList.length > 0) {
                     resultats.push({
                         eleveNom: eleve.nom,
-                        sexe: sexe,  // <- AJOUT DU SEXE ICI
+                        sexe: sexe,
                         classe: fiche.classe,
                         option: fiche.option || '',
                         titulaire: fiche.titulaire || null,
                         epreuves: epreuvesList,
-                        nombreElevesClasse: nombreElevesClasse  // <- AJOUT DU NOMBRE D'ÉLÈVES ICI
+                        nombreElevesClasse: nombreElevesClasse
                     });
                 }
             }
@@ -3640,11 +3820,9 @@ Règles IMPÉRATIVES :
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    // Construction du contexte avec le sexe et le nombre d'élèves
     let contexte = `École: ${nomEcole}. `;
     contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
     
-    // Utiliser le bon pronom en fonction du sexe
     const sexe = eleveData.sexe || 'Non spécifié';
     let pronom = "il";
     let possessif = "son";
@@ -3720,7 +3898,6 @@ RAPPEL IMPORTANT :
         
         let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
         
-        // Nettoyer les pourcentages et les remplacer par "points"
         reponse = reponse.replace(/\d+%/g, '');
         reponse = reponse.replace(/\d+,\d+%/g, '');
         reponse = reponse.replace(/pourcent/g, 'points');
@@ -3737,220 +3914,7 @@ RAPPEL IMPORTANT :
     }
 }
 
-// Fonction pour récupérer les présences d'un élève
-async function chercherPresenceParDate(nom, date) {
-    try {
-        const q = query(
-            collection(db, SCHOOL_PREFIX + "_presences"),
-            where("date", "==", date)
-        );
-        const snap = await getDocs(q);
-        if (snap.empty) return null;
-        const data = snap.docs[0].data();
-        if (data.eleves) {
-            const eleve = data.eleves.find(e => 
-                e.nom && e.nom.toLowerCase().includes(nom.toLowerCase())
-            );
-            if (eleve) return eleve.present;
-        }
-        return null;
-    } catch(e) { return null; }
-}
-
-// Fonction pour récupérer les punitions d'un élève
-async function chercherPunitionsParNom(nom) {
-    try {
-        const q = query(
-            collection(db, SCHOOL_PREFIX + "_punitions"),
-            where("eleveNom", "==", nom),
-            where("statut", "==", "active")
-        );
-        const snap = await getDocs(q);
-        const punitions = [];
-        snap.forEach(ds => {
-            const data = ds.data();
-            punitions.push({
-                motif: data.motif || "Non spécifié",
-                date: data.date || new Date().toISOString(),
-                gravite: data.gravite || "moyenne"
-            });
-        });
-        return punitions;
-    } catch(e) { return []; }
-}
-
-async function traiterMessage(message) {
-    const msg = message.trim();
-    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-    
-    // Vérifier si c'est un code à 6 chiffres
-    if (/^\d{6}$/.test(msg)) {
-        const infos = await chercherInfosFinancieresParCode(msg);
-        if (!infos) {
-            dernierEleveConsulte = null;
-            dernierEleveData = null;
-            return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
-        }
-        dernierEleveConsulte = infos.nom;
-        const resultatsNotes = await chercherNotesParNom(infos.nom);
-        const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
-        
-        dernierEleveData = {
-            nom: infos.nom,
-            prenom: infos.prenom,
-            sexe: noteData ? noteData.sexe : 'Non spécifié',
-            classe: infos.classe,
-            option: infos.option,
-            ecole: nomEcole,
-            notes: noteData ? noteData.epreuves : [],
-            titulaire: noteData ? noteData.titulaire : null,
-            nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
-            frais: {
-                minerval: infos.minerval,
-                totalPaye: infos.totalPaye,
-                reste: infos.reste,
-                moisImpayes: infos.moisImpayes,
-                statut: infos.statut
-            }
-        };
-        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
-    }
-    
-    // Recherche par nom (si pas de code)
-    if (msg.length >= 2 && !dernierEleveConsulte) {
-        const resultats = await chercherNotesParNom(msg);
-        if (resultats.length > 0) {
-            const premier = resultats[0];
-            dernierEleveConsulte = premier.eleveNom;
-            const infosFrais = await chercherInfosFinancieresParNom(dernierEleveConsulte);
-            
-            // Récupérer les présences (aujourd'hui et hier)
-            const aujourdhui = new Date().toISOString().slice(0, 10);
-            const hier = new Date();
-            hier.setDate(hier.getDate() - 1);
-            const hierStr = hier.toISOString().slice(0, 10);
-            
-            const presentAujourdhui = await chercherPresenceParDate(dernierEleveConsulte, aujourdhui);
-            const presentHier = await chercherPresenceParDate(dernierEleveConsulte, hierStr);
-            
-            // Récupérer les punitions
-            const punitions = await chercherPunitionsParNom(dernierEleveConsulte);
-            
-            dernierEleveData = {
-                nom: premier.eleveNom,
-                prenom: "",
-                sexe: premier.sexe || 'Non spécifié',
-                classe: premier.classe,
-                option: premier.option,
-                ecole: nomEcole,
-                notes: premier.epreuves,
-                titulaire: premier.titulaire,
-                nombreElevesClasse: premier.nombreElevesClasse || 0,
-                frais: infosFrais ? {
-                    minerval: infosFrais.minerval,
-                    totalPaye: infosFrais.totalPaye,
-                    reste: infosFrais.reste,
-                    moisImpayes: infosFrais.moisImpayes
-                } : null,
-                presence: { aujourdhui: presentAujourdhui, hier: presentHier },
-                punitions: punitions
-            };
-            
-            // Vérifier si la question demande la présence
-            const question = msg.toLowerCase();
-            const demandePresence = question.includes("présent") || question.includes("absent") || 
-                                   question.includes("aujourd'hui") || question.includes("hier") ||
-                                   question.includes("venu") || question.includes("manqué");
-            
-            const demandePunition = question.includes("punition") || question.includes("sanction") ||
-                                    question.includes("retard") || question.includes("exclusion") ||
-                                    question.includes("punitions");
-            
-            let reponse = "";
-            
-            if (demandePresence) {
-                const nom = dernierEleveConsulte;
-                let presenceMsg = "";
-                if (presentAujourdhui === true) presenceMsg = `${nom} était présent aujourd'hui. `;
-                else if (presentAujourdhui === false) presenceMsg = `${nom} était absent aujourd'hui. `;
-                else presenceMsg = `${nom} : aucune information de présence pour aujourd'hui. `;
-                
-                if (presentHier === true) presenceMsg += `Il était présent hier. `;
-                else if (presentHier === false) presenceMsg += `Il était absent hier. `;
-                else presenceMsg += `Aucune information de présence pour hier. `;
-                
-                reponse = presenceMsg;
-            }
-            
-            if (demandePunition) {
-                const nom = dernierEleveConsulte;
-                const nbPunitions = punitions.length;
-                if (nbPunitions === 0) {
-                    reponse += `${nom} n'a aucune punition. `;
-                } else {
-                    reponse += `${nom} a ${nbPunitions} punition${nbPunitions > 1 ? 's' : ''} : `;
-                    const motifs = punitions.map(p => p.motif).join(', ');
-                    reponse += motifs + '. ';
-                }
-            }
-            
-            // Si la question ne demande ni présence ni punition, réponse générale
-            if (!demandePresence && !demandePunition) {
-                return await genererReponseNaturelle(`L'utilisateur demande des informations sur l'élève ${premier.eleveNom}.`, dernierEleveData);
-            }
-            
-            return reponse;
-        }
-    }
-    
-    // Si un élève a déjà été consulté, répondre dans son contexte
-    if (dernierEleveConsulte && dernierEleveData) {
-        const question = msg.toLowerCase();
-        const demandePresence = question.includes("présent") || question.includes("absent") || 
-                               question.includes("aujourd'hui") || question.includes("hier") ||
-                               question.includes("venu") || question.includes("manqué");
-        const demandePunition = question.includes("punition") || question.includes("sanction") ||
-                                question.includes("retard") || question.includes("exclusion") ||
-                                question.includes("punitions");
-        
-        if (demandePresence) {
-            const nom = dernierEleveConsulte;
-            const aujourdhui = new Date().toISOString().slice(0, 10);
-            const hier = new Date();
-            hier.setDate(hier.getDate() - 1);
-            const hierStr = hier.toISOString().slice(0, 10);
-            const presentAujourdhui = await chercherPresenceParDate(nom, aujourdhui);
-            const presentHier = await chercherPresenceParDate(nom, hierStr);
-            
-            let reponse = "";
-            if (presentAujourdhui === true) reponse = `${nom} était présent aujourd'hui. `;
-            else if (presentAujourdhui === false) reponse = `${nom} était absent aujourd'hui. `;
-            else reponse = `${nom} : aucune information de présence pour aujourd'hui. `;
-            
-            if (presentHier === true) reponse += `Il était présent hier. `;
-            else if (presentHier === false) reponse += `Il était absent hier. `;
-            else reponse += `Aucune information de présence pour hier. `;
-            
-            return reponse;
-        }
-        
-        if (demandePunition) {
-            const punitions = await chercherPunitionsParNom(dernierEleveConsulte);
-            const nbPunitions = punitions.length;
-            if (nbPunitions === 0) {
-                return `${dernierEleveConsulte} n'a aucune punition.`;
-            } else {
-                const motifs = punitions.map(p => p.motif).join(', ');
-                return `${dernierEleveConsulte} a ${nbPunitions} punition${nbPunitions > 1 ? 's' : ''} : ${motifs}.`;
-            }
-        }
-        
-        return await genererReponseNaturelle(msg, dernierEleveData);
-    }
-    
-    return `Bonjour ! Je suis un système intelligent de l'école ${nomEcole} qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.`;
-}
-
+// ===== FONCTIONS EXISTANTES POUR LA GESTION DES PROFESSEURS =====
 function ajouterEleve() {
     if (!currentFiche.eleves) currentFiche.eleves = [];
     currentFiche.eleves.push({
@@ -4836,6 +4800,7 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
+// ===== INITIALISATION =====
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
 if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
