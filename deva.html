@@ -446,7 +446,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
                 </div>
             </div>
             <div id="parentChatMessages" class="parent-messages">
-                <div class="parent-msg bot"><div class="bubble">🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
+                <div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.</div></div>
             </div>
             <div class="parent-input-area">
                 <textarea id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres ou Nom de l'élève..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea>
@@ -643,7 +643,8 @@ function afficherCommuniqueDansChat(comm) {
     bubble.className = 'bubble';
     
     bubble.innerHTML = `
-        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border-radius:16px;padding:16px 20px;border:1px solid rgba(245,158,11,0.25);">
+        <img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:top;margin-right:10px;display:inline-block;float:left;">
+        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border-radius:16px;padding:16px 20px;border:1px solid rgba(245,158,11,0.25);margin-top:4px;">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;border-bottom:1px solid rgba(245,158,11,0.15);padding-bottom:10px;">
                 <span style="font-size:24px;">📢</span>
                 <div style="font-size:14px;font-weight:700;color:#fbbf24;">COMMUNIQUÉ DE LA DIRECTION</div>
@@ -773,6 +774,51 @@ function showPrompt(msg, placeholder, onConfirm) {
     d.querySelector('#promptOk').onclick = function() { let val = d.querySelector('#promptInput').value.trim();
         d.remove(); if (onConfirm) onConfirm(val); };
     d.querySelector('#promptCancel').onclick = function() { d.remove(); if (onConfirm) onConfirm(null); };
+}
+
+function voixParentale(texte) {
+    if (!texte) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    let texteParle = texte.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const voixFR = voices.find(v => v.lang.startsWith('fr'));
+    if (voixFR) utterance.voice = voixFR;
+    window.speechSynthesis.speak(utterance);
+}
+
+function speak(text, onEnd) {
+    if (!text) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    let texteParle = text.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frenchVoice) utterance.voice = frenchVoice;
+    utterance.onend = () => { if (onEnd) onEnd(); };
+    utterance.onerror = () => { if (onEnd) onEnd(); };
+    window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+}
+
+async function typeWriterEffect(element, text, speed = 15) {
+    element.innerHTML = '';
+    for (let i = 0; i < text.length; i++) {
+        element.innerHTML += text.charAt(i);
+        await new Promise(r => setTimeout(r, speed));
+    }
 }
 
 async function initIndexedDB() {
@@ -1786,7 +1832,7 @@ async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div style="margin-top:16px"><button id="adminIconBtn" style="background:rgba(59,130,246,0.2);border:none;padding:8px;border-radius:50%;width:40px;height:40px;cursor:pointer">⚙️</button></div><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
     await refreshTeachersList();
 
@@ -1893,21 +1939,6 @@ async function showLogin() {
             toast("Code d'accès incorrect", 'error');
         }
     };
-    
-    document.getElementById('adminIconBtn').onclick = function() {
-        clickCount++;
-        if (clickTimeout) clearTimeout(clickTimeout);
-        clickTimeout = setTimeout(() => {
-            clickCount = 0;
-        }, 1000);
-        if (clickCount === 3) {
-            clickCount = 0;
-            if (clickTimeout) clearTimeout(clickTimeout);
-            const currentUrl = new URL(window.location.href);
-            const ecoleParam = currentUrl.searchParams.get('ecole') || '';
-            window.location.href = `https://www.netubex.com/direction?ecole=${encodeURIComponent(ecoleParam)}`;
-        }
-    };
 }
 
 async function refreshTeachersList() {
@@ -1980,41 +2011,6 @@ function updateCounterDisplay() {
         } else {
             counterSpan.style.background = '#10b981';
         }
-    }
-}
-
-function voixParentale(texte) {
-    if (!texte) return;
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(texte);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const voixFR = voices.find(v => v.lang.startsWith('fr'));
-    if (voixFR) utterance.voice = voixFR;
-    window.speechSynthesis.speak(utterance);
-}
-
-function speak(text, onEnd) {
-    if (!text) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frenchVoice) utterance.voice = frenchVoice;
-    utterance.onend = () => { if (onEnd) onEnd(); };
-    utterance.onerror = () => { if (onEnd) onEnd(); };
-    window.speechSynthesis.speak(utterance);
-}
-
-function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
     }
 }
 
@@ -2856,16 +2852,9 @@ function escapeRecoHtml(t) {
     return t.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;' : m);
 }
 
-function updateRecoUnreadBadge() {
-    let unreadCount = recoMessages.filter(m => m.sender === 'netubex' && !m.read).length;
-    let badge = document.getElementById('recoUnreadCount');
-    if (badge) badge.textContent = unreadCount;
-}
-
 function updateRecoUI() {
     let container = document.getElementById('recoMessagesContainer');
     if (!container) return;
-    updateRecoUnreadBadge();
     if (recoMessages.length === 0) {
         container.innerHTML = '<div class="empty-state">💬 Aucun message. Commencez la discussion !</div>';
         return;
@@ -2874,53 +2863,16 @@ function updateRecoUI() {
     container.innerHTML = '';
     sorted.forEach(msg => {
         let isDirection = msg.sender === 'direction';
-        let isUnread = !isDirection && !msg.read;
         let logo = !isDirection ? '<div class="logo-small"><img src="https://www.netubex.com/favicon.png.png" onerror="this.style.display=\'none\'"></div>' : '';
         let div = document.createElement('div');
         div.className = `parent-msg ${isDirection ? 'user' : 'bot'}`;
         div.setAttribute('data-message-id', msg.id);
-        div.innerHTML = `<div class="bubble"><div class="msg-header">${!isDirection ? logo : ''}<span class="msg-number">${formatRecoNumber(msg.number)}</span><span class="msg-sender">${escapeRecoHtml(msg.nom)}</span>${isUnread ? '<span class="unread-badge">NON LU</span>' : ''}</div><div class="msg-text">${escapeRecoHtml(msg.message)}</div><div class="msg-date">📅 ${formatRecoDate(msg.date)}</div></div>`;
+        div.innerHTML = `<div class="bubble"><div class="msg-header">${!isDirection ? logo : ''}<span class="msg-number">${formatRecoNumber(msg.number)}</span><span class="msg-sender">${escapeRecoHtml(msg.nom)}</span></div><div class="msg-text">${escapeRecoHtml(msg.message)}</div><div class="msg-date">📅 ${formatRecoDate(msg.date)}</div></div>`;
         container.appendChild(div);
     });
     setTimeout(() => {
         container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
     }, 100);
-}
-
-async function markRecoMessageAsRead(messageId) {
-    try {
-        const supportMessagesDocRef = doc(db, "communication", "support_netubex_board");
-        const docSnap = await getDoc(supportMessagesDocRef);
-        if (docSnap.exists()) {
-            let currentMsgs = docSnap.data().messages || [];
-            const updatedMsgs = currentMsgs.map(msg => msg.id === messageId ? { ...msg, read: true, readAt: new Date().toISOString() } : msg);
-            await setDoc(supportMessagesDocRef, { messages: updatedMsgs, lastUpdated: new Date().toISOString() });
-        }
-    } catch (error) { console.error("Erreur marquage lu:", error); }
-}
-
-function observeRecoMessages() {
-    let container = document.getElementById('recoMessagesContainer');
-    if (!container) return;
-    let observer = new IntersectionObserver((entries) => {
-        for (let e of entries) {
-            if (e.isIntersecting) {
-                let messageId = e.target.getAttribute('data-message-id');
-                if (messageId) {
-                    let msg = recoMessages.find(m => m.id === messageId);
-                    if (msg && msg.sender === 'netubex' && !msg.read) {
-                        markRecoMessageAsRead(messageId);
-                        msg.read = true;
-                        updateRecoUI();
-                    }
-                }
-            }
-        }
-    }, { threshold: 0.5 });
-    let mo = new MutationObserver(() => {
-        document.querySelectorAll('#recoMessagesContainer .parent-msg.bot').forEach(el => observer.observe(el));
-    });
-    mo.observe(container, { childList: true, subtree: true });
 }
 
 async function sendRecoMessageToFirebase(message) {
@@ -2980,7 +2932,6 @@ function listenToRecoMessages() {
 
 function initRecoSupport() {
     listenToRecoMessages();
-    observeRecoMessages();
     let sendBtn = document.getElementById('recoSendBtn');
     let input = document.getElementById('recoMessageInput');
     if (sendBtn) sendBtn.onclick = sendRecoMessage;
@@ -3005,8 +2956,8 @@ if (parentFloatingBtnNew) {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble">🏫 Bienvenue à l'école ${nomEcole} !
-🤖 Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">🏫 Bienvenue à l'école ${nomEcole} !
+Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.
 
 Veuillez me donner :
 • Un code à 6 chiffres (pour les frais)
@@ -3053,13 +3004,13 @@ if (parentSendBtnNew) {
         msgBotDiv.className = 'parent-msg bot';
         const bubbleBot = document.createElement('div');
         bubbleBot.className = 'bubble';
-        bubbleBot.innerHTML = '<span class="loader"></span>';
+        bubbleBot.innerHTML = `<img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;"><span class="loader"></span>`;
         msgBotDiv.appendChild(bubbleBot);
         parentChatMessagesNew.appendChild(msgBotDiv);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         const reponse = await traiterMessage(message);
         bubbleBot.innerHTML = '';
-        await typeWriterEffect(bubbleBot, reponse, 12);
+        bubbleBot.innerHTML = `<img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;vertical-align:middle;margin-right:10px;display:inline-block;float:left;">${reponse}`;
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         voixParentale(reponse);
         const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
@@ -3227,16 +3178,18 @@ async function chercherNotesParNom(nom) {
                             if (!nomEpreuve.toLowerCase().includes("examen")) {
                                 let note = notesPeriode[i] || 0;
                                 let max = epreuves[i].max || 1;
-                                epreuvesList.push({
-                                    matiere: fiche.cours,
-                                    epreuve: nomEpreuve,
-                                    note: note,
-                                    max: max,
-                                    periode: periode,
-                                    titulaire: fiche.titulaire || null,
-                                    classe: fiche.classe,
-                                    option: fiche.option || ''
-                                });
+                                if (note > 0) {
+                                    epreuvesList.push({
+                                        matiere: fiche.cours,
+                                        epreuve: nomEpreuve,
+                                        note: note,
+                                        max: max,
+                                        periode: periode,
+                                        titulaire: fiche.titulaire || null,
+                                        classe: fiche.classe,
+                                        option: fiche.option || ''
+                                    });
+                                }
                             }
                         }
                     }
@@ -3322,15 +3275,13 @@ async function genererReponseNaturelle(question, eleveData) {
     
     if (eleveData.notes && eleveData.notes.length > 0) {
         contexte += "Ses notes (en points) : ";
-        const notesEnPoints = eleveData.notes.map(ep => {
-            if (ep.note > 0) {
-                return `${ep.epreuve}: ${ep.note}/${ep.max}`;
-            }
-            return null;
-        }).filter(n => n !== null);
+        const notesEnPoints = eleveData.notes
+            .filter(ep => ep.note > 0)
+            .map(ep => `${ep.epreuve}: ${ep.note}/${ep.max}`)
+            .join(", ");
         
-        if (notesEnPoints.length > 0) {
-            contexte += notesEnPoints.join(", ");
+        if (notesEnPoints) {
+            contexte += notesEnPoints;
         } else {
             contexte += "Aucune note enregistrée pour le moment. ";
         }
@@ -3460,7 +3411,10 @@ async function traiterMessage(message) {
             let reponse = `À l'école ${nomEcole}, ${premier.eleveNom} est en ${premier.classe}${premier.option ? ' option '+premier.option : ''}.`;
             if (premier.titulaire) reponse += ` Son professeur est ${premier.titulaire}.`;
             if (premier.epreuves && premier.epreuves.length > 0) {
-                reponse += ` Ses notes : ${premier.epreuves.map(ep => ep.epreuve + ' : ' + ep.note + '/' + ep.max).join(', ')}.`;
+                const notesFiltrees = premier.epreuves.filter(ep => ep.note > 0);
+                if (notesFiltrees.length > 0) {
+                    reponse += ` Ses notes : ${notesFiltrees.map(ep => ep.epreuve + ' : ' + ep.note + '/' + ep.max).join(', ')}.`;
+                }
             }
             return reponse;
         }
