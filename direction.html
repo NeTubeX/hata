@@ -6,7 +6,8 @@
     <title>Espace Direction</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
         html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow-x:hidden;color:#e8edf5}
@@ -185,33 +186,6 @@
         /* Styles pour la date */
         .presence-date-display{font-size:14px;color:#94a3b8;font-weight:500;padding:8px 16px;background:rgba(255,255,255,0.03);border-radius:50px;display:inline-flex;align-items:center;gap:10px}
         .presence-date-display i{color:#6ea8fe}
-
-        /* Style pour le conteneur PDF caché */
-        #pdfContentContainer{position:fixed;left:-9999px;top:0;width:1100px;background:white;padding:40px;font-family:'Inter','Arial',sans-serif;color:#0b1424;z-index:-1}
-        #pdfContentContainer .registre-container{max-width:1100px;margin:0 auto}
-        #pdfContentContainer .entete{text-align:center;border-bottom:3px solid #1a3a5c;padding-bottom:20px;margin-bottom:25px}
-        #pdfContentContainer .entete h1{font-size:22px;color:#0b1424;letter-spacing:2px}
-        #pdfContentContainer .entete h1 span{color:#1a3a5c}
-        #pdfContentContainer .entete .sous-titre{color:#64748b;font-size:14px;margin-top:4px}
-        #pdfContentContainer .entete .date-registre{font-size:16px;font-weight:600;color:#1a3a5c;margin-top:8px}
-        #pdfContentContainer .infos-classe{display:flex;justify-content:space-between;background:#f1f5f9;padding:12px 20px;border-radius:8px;margin-bottom:20px;font-size:13px;color:#1e293b}
-        #pdfContentContainer .infos-classe span{font-weight:600}
-        #pdfContentContainer table{width:100%;border-collapse:collapse;font-size:12px}
-        #pdfContentContainer thead{background:#1a3a5c;color:white}
-        #pdfContentContainer thead th{padding:10px 12px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
-        #pdfContentContainer tbody tr:nth-child(even){background:#f8fafc}
-        #pdfContentContainer tbody tr:hover{background:#eef2ff}
-        #pdfContentContainer .signature-section{margin-top:30px;display:flex;justify-content:space-between;padding-top:20px;border-top:2px solid #e2e8f0}
-        #pdfContentContainer .signature-section .block{text-align:center}
-        #pdfContentContainer .signature-section .block .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
-        #pdfContentContainer .signature-section .block .line{width:200px;border-bottom:2px solid #94a3b8;margin:8px auto 4px}
-        #pdfContentContainer .signature-section .block .nom{font-size:12px;color:#1e293b;font-weight:500}
-        #pdfContentContainer .footer-registre{margin-top:25px;text-align:center;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:15px}
-        #pdfContentContainer .stat-badge{display:inline-block;padding:2px 14px;border-radius:30px;font-size:11px;font-weight:600}
-        #pdfContentContainer .stat-badge.pres{background:#dcfce7;color:#16a34a}
-        #pdfContentContainer .stat-badge.abs{background:#fee2e2;color:#dc2626}
-        #pdfContentContainer .stat-badge.total{background:#dbeafe;color:#2563eb}
-        #pdfContentContainer .stats-pdf{display:flex;gap:15px;justify-content:center;margin-top:8px}
     </style>
 </head>
 <body>
@@ -434,9 +408,6 @@
 
     </div>
 </div>
-
-<!-- Conteneur caché pour la génération du PDF -->
-<div id="pdfContentContainer"></div>
 
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1326,7 +1297,7 @@ document.getElementById('commPublierBtn').onclick=async function(){
 };
 
 // ============================================================
-// EXPORT PDF - REGISTRE DE PRÉSENCE DU JOUR
+// EXPORT PDF - REGISTRE DE PRÉSENCE DU JOUR AVEC JSPDF
 // ============================================================
 
 document.getElementById('pdfExportBtn').onclick=function(){
@@ -1335,132 +1306,148 @@ document.getElementById('pdfExportBtn').onclick=function(){
         return;
     }
 
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("l", "mm", "a4"); // paysage
+
+    // En-tête
     const now = new Date();
     const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const classe = document.getElementById('presenceClasseSelect').value || 'Toutes classes';
     const option = document.getElementById('presenceOptionSelect').value || 'Toutes options';
 
-    let tableRows = '';
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 297, 45, "F");
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 215, 0);
+    doc.text(`COMPLEXE SCOLAIRE ${schoolNameDisplay}`, 148.5, 18, { align: "center" });
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(200, 200, 200);
+    doc.text("REGISTRE DE PRÉSENCE DES ÉLÈVES", 148.5, 30, { align: "center" });
+
+    // Infos classe
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Classe: ${classe}`, 20, 55);
+    doc.text(`Option: ${option}`, 120, 55);
+    doc.text(`Date: ${dateStr}`, 220, 55);
+
+    // Préparer les données du tableau
     let presentCount = 0;
     let absentCount = 0;
     let nonEnrCount = 0;
 
-    presenceData.forEach((e, i) => {
+    const tableData = presenceData.map((e, i) => {
         let status = 'Non enr.';
-        let statusClass = '';
-        let etat = '';
+        let etat = '—';
         if(e.present === true){ 
             status = 'Présent'; 
-            statusClass = '✓'; 
-            etat = 'P';
+            etat = '✓';
             presentCount++;
         } else if(e.present === false){ 
             status = 'Absent'; 
-            statusClass = '✗'; 
-            etat = 'A';
+            etat = '✗';
             absentCount++;
         } else {
             nonEnrCount++;
-            etat = '—';
         }
         const displayClasse = e.classe === '7ème EB' || e.classe === '8ème EB' ? e.classe + ' (sans opt)' : e.classe;
         const displayOption = e.option === 'TOUTES' ? 'Toutes' : (e.option || '-');
-        tableRows += `
-        <tr>
-            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${String(i+1).padStart(2,'0')}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:500;">${escapeHtml(e.nom)}</td>
-            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(displayClasse)}</td>
-            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;">${escapeHtml(displayOption)}</td>
-            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:700;color:${e.present===true?'#16a34a':e.present===false?'#dc2626':'#94a3b8'};">${etat}</td>
-            <td style="text-align:center;padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:${e.present===true?'#16a34a':e.present===false?'#dc2626':'#94a3b8'};">${status}</td>
-        </tr>`;
+        return [String(i+1).padStart(2,'0'), e.nom, displayClasse, displayOption, etat, status];
     });
 
     const total = presenceData.length;
     const taux = total > 0 ? Math.round((presentCount/total)*100) : 0;
 
-    const pdfHTML = `
-    <div class="registre-container">
-        <div class="entete">
-            <h1>COMPLEXE SCOLAIRE <span>${escapeHtml(schoolNameDisplay)}</span></h1>
-            <div class="sous-titre">REGISTRE DE PRÉSENCE DES ÉLÈVES</div>
-            <div class="date-registre">📅 ${dateStr}</div>
-        </div>
+    // Statistiques
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`👥 Total: ${total}`, 20, 68);
+    doc.text(`✅ Présents: ${presentCount}`, 80, 68);
+    doc.text(`❌ Absents: ${absentCount}`, 140, 68);
+    doc.text(`📊 Taux: ${taux}%`, 200, 68);
+    if(nonEnrCount > 0) {
+        doc.text(`⚠️ Non enr.: ${nonEnrCount}`, 250, 68);
+    }
 
-        <div class="infos-classe">
-            <div><span>Classe :</span> ${escapeHtml(classe)}</div>
-            <div><span>Option :</span> ${escapeHtml(option)}</div>
-            <div><span>Enseignant :</span> Direction</div>
-        </div>
-
-        <div style="margin-bottom: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
-            <span class="stat-badge total">👥 Total : ${total}</span>
-            <span class="stat-badge pres">✅ Présents : ${presentCount}</span>
-            <span class="stat-badge abs">❌ Absents : ${absentCount}</span>
-            <span style="font-weight:600;color:#0b1424;font-size:13px;">📊 Taux de présence : ${taux}%</span>
-            ${nonEnrCount > 0 ? `<span style="font-weight:500;color:#94a3b8;font-size:12px;">⚠️ ${nonEnrCount} non enregistré(s)</span>` : ''}
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th style="text-align:center;width:40px;">N°</th>
-                    <th style="text-align:left;">Nom & Prénom</th>
-                    <th style="text-align:center;">Classe</th>
-                    <th style="text-align:center;">Option</th>
-                    <th style="text-align:center;width:35px;">État</th>
-                    <th style="text-align:center;">Statut</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-            </tbody>
-        </table>
-
-        <div class="signature-section">
-            <div class="block">
-                <div class="label">Le Chef d'Établissement</div>
-                <div class="line"></div>
-                <div class="nom">Signature & cachet</div>
-            </div>
-            <div class="block">
-                <div class="label">Le Surveillant Général</div>
-                <div class="line"></div>
-                <div class="nom">Signature</div>
-            </div>
-            <div class="block">
-                <div class="label">Date d'édition</div>
-                <div class="line"></div>
-                <div class="nom">${new Date().toLocaleDateString('fr-FR')}</div>
-            </div>
-        </div>
-
-        <div class="footer-registre">
-            Document généré automatiquement - Registre de présence ${escapeHtml(schoolNameDisplay)} - ${new Date().getFullYear()}
-        </div>
-    </div>
-    `;
-
-    // Insérer le contenu dans le conteneur caché
-    const container = document.getElementById('pdfContentContainer');
-    container.innerHTML = pdfHTML;
-
-    const opt = {
-        margin:        [10, 10, 10, 10],
-        filename:     `Registre_Presence_${schoolId}_${new Date().toISOString().slice(0,10)}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, letterRendering: true, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-
-    toast('Génération du PDF en cours...', 'warning');
-
-    html2pdf().set(opt).from(container).save().then(() => {
-        toast('PDF généré avec succès !', 'success');
-    }).catch((err) => {
-        toast('Erreur lors de la génération du PDF', 'error');
-        console.error(err);
+    // Tableau avec autoTable
+    doc.autoTable({
+        startY: 75,
+        head: [['N°', 'Nom & Prénom', 'Classe', 'Option', 'État', 'Statut']],
+        body: tableData,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [26, 58, 92], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 20, halign: 'center' },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 50, halign: 'center' },
+            3: { cellWidth: 50, halign: 'center' },
+            4: { cellWidth: 25, halign: 'center' },
+            5: { cellWidth: 45, halign: 'center' }
+        },
+        didDrawCell: function(data) {
+            // Colorer les statuts
+            if(data.section === 'body' && data.column.index === 4) {
+                const cell = data.cell;
+                const text = cell.raw;
+                if(text === '✓') {
+                    cell.styles.textColor = [22, 163, 74];
+                    cell.styles.fontStyle = 'bold';
+                } else if(text === '✗') {
+                    cell.styles.textColor = [220, 38, 38];
+                    cell.styles.fontStyle = 'bold';
+                }
+            }
+            if(data.section === 'body' && data.column.index === 5) {
+                const cell = data.cell;
+                const text = cell.raw;
+                if(text === 'Présent') {
+                    cell.styles.textColor = [22, 163, 74];
+                } else if(text === 'Absent') {
+                    cell.styles.textColor = [220, 38, 38];
+                }
+            }
+        }
     });
+
+    const finalY = doc.lastAutoTable.finalY + 15;
+
+    // Signatures
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    
+    // Chef d'établissement
+    doc.text("Le Chef d'Établissement", 40, finalY + 10);
+    doc.line(20, finalY + 20, 120, finalY + 20);
+    doc.setFontSize(8);
+    doc.text("Signature & cachet", 70, finalY + 28, { align: "center" });
+
+    // Surveillant Général
+    doc.setFontSize(10);
+    doc.text("Le Surveillant Général", 160, finalY + 10);
+    doc.line(140, finalY + 20, 220, finalY + 20);
+    doc.setFontSize(8);
+    doc.text("Signature", 180, finalY + 28, { align: "center" });
+
+    // Date d'édition
+    doc.setFontSize(10);
+    doc.text("Date d'édition", 250, finalY + 10);
+    doc.line(230, finalY + 20, 280, finalY + 20);
+    doc.setFontSize(8);
+    doc.text(new Date().toLocaleDateString('fr-FR'), 255, finalY + 28, { align: "center" });
+
+    // Pied de page
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Document généré automatiquement - Registre de présence ${schoolNameDisplay} - ${new Date().getFullYear()}`, 148.5, finalY + 40, { align: "center" });
+
+    // Sauvegarde
+    doc.save(`Registre_Presence_${schoolId}_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('PDF généré avec succès !', 'success');
 };
 
 // ============================================================
