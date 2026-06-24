@@ -75,10 +75,34 @@ body{background:#0a0e1a;min-height:100vh;display:flex;align-items:center;justify
     </div>
 </div>
 
-<script>
-// ===== CONFIGURATION =====
-const SCHOOL_PREFIX = 'ecole_exemple';
-const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+}
+</script>
+
+<script type="module">
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const urlParams = new URLSearchParams(window.location.search);
+const schoolId = urlParams.get('ecole') || 'complexe_scolaire';
+const SCHOOL_PREFIX = schoolId.replace(/-/g, '_');
 
 // ===== ÉTAT =====
 let dernierEleveConsulte = null;
@@ -207,137 +231,455 @@ function typeWriterEffect(element, text, speed = 12) {
     });
 }
 
-// ===== IA =====
+// ===== FONCTIONS FIREBASE =====
 async function chercherInfosFinancieresParCode(code) {
-    // Simulé - à remplacer par votre API Firebase
-    return {
-        nom: "Jean KASONGO",
-        prenom: "Marie",
-        classe: "3ème Année",
-        option: "CG",
-        minerval: 45000,
-        totalPaye: 270000,
-        reste: 180000,
-        moisImpayes: ["Avril", "Mai"],
-        statut: "Paiement partiel"
-    };
+    try {
+        let q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
+        let snap = await getDocs(q);
+        if (snap.empty) {
+            q = query(collection(db, SCHOOL_PREFIX + "_compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
+            snap = await getDocs(q);
+        }
+        if (snap.empty) return null;
+        const data = snap.docs[0].data();
+        const paiements = data.paiements || {};
+        const minerval = data.minerval || 45000;
+        const totalAnnuel = minerval * 10;
+        let totalPaye = 0, moisImpayes = [];
+        const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
+        for (let mois of moisListe) {
+            const montant = paiements[mois]?.montant || 0;
+            totalPaye += montant;
+            if (montant < minerval && !data.exonere) moisImpayes.push(mois);
+        }
+        const reste = totalAnnuel - totalPaye;
+        let statut = "En ordre";
+        if (data.exonere) statut = "Exonéré";
+        else if (moisImpayes.length >= 3) statut = "Liste noire";
+        else if (moisImpayes.length > 0) statut = "Paiement partiel";
+        return {
+            nom: data.nom,
+            prenom: data.prenom || "",
+            classe: data.classe,
+            option: data.option || "",
+            exonere: data.exonere || false,
+            minerval,
+            totalAnnuel,
+            totalPaye,
+            reste,
+            moisImpayes,
+            statut
+        };
+    } catch (e) { return null; }
+}
+
+async function chercherInfosFinancieresParNom(nom) {
+    try {
+        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("nom", "==", nom), where("_type", "==", "compta_eleve"));
+        const snap = await getDocs(q);
+        if (snap.empty) return null;
+        const data = snap.docs[0].data();
+        const paiements = data.paiements || {};
+        const minerval = data.minerval || 45000;
+        const totalAnnuel = minerval * 10;
+        let totalPaye = 0, moisImpayes = [];
+        const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
+        for (let mois of moisListe) {
+            const montant = paiements[mois]?.montant || 0;
+            totalPaye += montant;
+            if (montant < minerval && !data.exonere) moisImpayes.push(mois);
+        }
+        const reste = totalAnnuel - totalPaye;
+        return { nom: data.nom, prenom: data.prenom || "", classe: data.classe, minerval, totalPaye, reste, moisImpayes };
+    } catch (e) { return null; }
+}
+
+async function chercherPunitionsParNom(nom) {
+    try {
+        const q = query(
+            collection(db, SCHOOL_PREFIX + "_punitions"),
+            where("eleveNom", "==", nom),
+            where("statut", "==", "active")
+        );
+        const snap = await getDocs(q);
+        const punitions = [];
+        snap.forEach(ds => {
+            const data = ds.data();
+            punitions.push({
+                motif: data.motif,
+                justification: data.justification,
+                date: data.date,
+                gravite: data.gravite || 'moyenne'
+            });
+        });
+        return punitions;
+    } catch(e) { return []; }
+}
+
+async function chercherPresencesParNom(nom) {
+    try {
+        const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences"));
+        const presences = [];
+        snap.forEach(ds => {
+            const data = ds.data();
+            data.eleves.forEach(e => {
+                if (e.nom === nom) {
+                    presences.push({
+                        date: data.date,
+                        present: e.present,
+                        classe: data.classe,
+                        option: data.option
+                    });
+                }
+            });
+        });
+        presences.sort((a,b) => b.date.localeCompare(a.date));
+        return presences.slice(0, 3);
+    } catch(e) { return []; }
 }
 
 async function chercherNotesParNom(nom) {
-    // Simulé - à remplacer par votre API Firebase
-    return [{
-        eleveNom: "Jean KASONGO",
-        sexe: "M",
-        classe: "3ème Année",
-        option: "CG",
-        titulaire: "M. LUMUMBA",
-        epreuves: [
-            { matiere: "Mathématiques", epreuve: "Interrogation", note: 15, max: 20, periode: 1 },
-            { matiere: "Mathématiques", epreuve: "Devoir", note: 12, max: 20, periode: 1 }
-        ],
-        nombreElevesClasse: 35,
-        punitions: [],
-        presences: [{ date: new Date().toISOString(), present: true }]
-    }];
+    try {
+        const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+        const resultats = [];
+        const searchTerm = nom.toLowerCase().trim();
+        for (const ds of snap.docs) {
+            const fiche = ds.data();
+            if (fiche._type === "prof") continue;
+            if (!fiche.eleves) continue;
+            for (const eleve of fiche.eleves) {
+                const nomEleve = (eleve.nom || '').toLowerCase();
+                if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
+                    const epreuvesList = [];
+                    if (eleve.notes) {
+                        for (let periode = 1; periode <= 4; periode++) {
+                            const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
+                            const notesPeriode = eleve.notes[`p${periode}`] || [];
+                            for (let i = 0; i < epreuves.length; i++) {
+                                const nomEpreuve = epreuves[i].nom || "Epreuve";
+                                if (!nomEpreuve.toLowerCase().includes("examen")) {
+                                    let note = notesPeriode[i] || 0;
+                                    let max = epreuves[i].max || 1;
+                                    if (note > 0) {
+                                        epreuvesList.push({
+                                            matiere: fiche.cours,
+                                            epreuve: nomEpreuve,
+                                            note: note,
+                                            max: max,
+                                            periode: periode,
+                                            titulaire: fiche.titulaire || null,
+                                            classe: fiche.classe,
+                                            option: fiche.option || ''
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    const punitions = await chercherPunitionsParNom(eleve.nom);
+                    const presences = await chercherPresencesParNom(eleve.nom);
+                    const sexe = eleve.sexe || 'Non spécifié';
+                    const nombreElevesClasse = fiche.eleves ? fiche.eleves.length : 0;
+                    
+                    if (epreuvesList.length > 0 || punitions.length > 0 || presences.length > 0) {
+                        resultats.push({
+                            eleveNom: eleve.nom,
+                            sexe: sexe,
+                            classe: fiche.classe,
+                            option: fiche.option || '',
+                            titulaire: fiche.titulaire || null,
+                            epreuves: epreuvesList,
+                            nombreElevesClasse: nombreElevesClasse,
+                            punitions: punitions,
+                            presences: presences
+                        });
+                    }
+                }
+            }
+        }
+        return resultats;
+    } catch(e) { return []; }
 }
 
+// ===== IA =====
+const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
+let iaInstructions = null;
+
 async function chargerInstructionsIA() {
-    return `Tu es un assistant scolaire chaleureux et bienveillant.
-Règles :
-1. Ne JAMAIS utiliser de pourcentages
-2. Utilise TOUJOURS les points (15/20, 40/40)
-3. Maximum 3 phrases
-4. Sois encourageant et bienveillant`;
+    if (iaInstructions) return iaInstructions;
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    try {
+        const response = await fetch('https://www.netubex.com/ecole-config.txt');
+        if (response.ok) {
+            iaInstructions = await response.text();
+        } else {
+            iaInstructions = `Tu es un assistant scolaire chaleureux et bienveillant de l'école ${nomEcole}. 
+Règles IMPÉRATIVES :
+1. Utilise le nom de l'école ${nomEcole} dans tes réponses
+2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
+3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
+4. Maximum 3 phrases
+5. Sois encourageant et bienveillant
+6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
+7. Ne mentionne JAMAIS les notes en pourcentage`;
+        }
+    } catch (e) {
+        iaInstructions = `Tu es un assistant scolaire chaleureux et bienveillant de l'école ${nomEcole}. 
+Règles IMPÉRATIVES :
+1. Utilise le nom de l'école ${nomEcole} dans tes réponses
+2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
+3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
+4. Maximum 3 phrases
+5. Sois encourageant et bienveillant
+6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
+7. Ne mentionne JAMAIS les notes en pourcentage`;
+    }
+    return iaInstructions;
 }
 
 async function genererReponseNaturelle(question, eleveData) {
-    const nomEcole = "COMPLEXE SCOLAIRE";
-    let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom}. `;
-    const sexe = eleveData.sexe || 'M';
-    let pronom = sexe === 'F' ? 'elle' : 'il';
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    let contexte = `École: ${nomEcole}. `;
+    contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
+    
+    const sexe = eleveData.sexe || 'Non spécifié';
+    let pronom = "il";
+    let possessif = "son";
+    if (sexe === 'F' || sexe === 'Féminin') {
+        pronom = "elle";
+        possessif = "sa";
+    }
+    
+    contexte += `Son sexe est ${sexe === 'M' ? 'Masculin' : sexe === 'F' ? 'Féminin' : 'Non spécifié'}. `;
     contexte += `${pronom === 'il' ? 'Il' : 'Elle'} est en classe de ${eleveData.classe}. `;
+    contexte += `Sa classe compte ${eleveData.nombreElevesClasse || 0} élèves. `;
+    
+    if (eleveData.option && eleveData.option !== "TOUTES") {
+        contexte += `Option ${eleveData.option}. `;
+    }
+    if (eleveData.titulaire) {
+        contexte += `Son professeur est ${eleveData.titulaire}. `;
+    }
     
     if (eleveData.notes && eleveData.notes.length > 0) {
-        contexte += "Ses notes: ";
-        contexte += eleveData.notes.map(ep => `${ep.epreuve}: ${ep.note}/${ep.max}`).join(", ");
+        contexte += "Ses notes (en points) : ";
+        const notesEnPoints = eleveData.notes
+            .filter(ep => ep.note > 0)
+            .map(ep => `${ep.epreuve}: ${ep.note}/${ep.max}`)
+            .join(", ");
+        
+        if (notesEnPoints) {
+            contexte += notesEnPoints;
+        } else {
+            contexte += "Aucune note enregistrée pour le moment. ";
+        }
+    } else {
+        contexte += "Il n'a aucune note enregistrée pour le moment. ";
+    }
+    
+    if (eleveData.frais) {
+        contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval.toLocaleString()} FC/mois, `;
+        contexte += `total payé ${eleveData.frais.totalPaye.toLocaleString()} FC, `;
+        contexte += `reste à payer ${eleveData.frais.reste.toLocaleString()} FC. `;
+        
+        if (eleveData.frais.moisImpayes && eleveData.frais.moisImpayes.length > 0) {
+            contexte += `Mois impayés : ${eleveData.frais.moisImpayes.join(", ")}. `;
+        } else {
+            contexte += "Compte financier à jour. ";
+        }
     }
     
     const instructions = await chargerInstructionsIA();
+    const prompt = `${instructions}
+
+CONTEXTE DE L'ÉLÈVE : ${contexte}
+
+QUESTION : ${question}
+
+RAPPEL IMPORTANT : 
+- Utilise le nom de l'école ${nomEcole} dans ta réponse
+- Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages
+- Sois chaleureux et encourageant
+- Maximum 3 phrases
+- Si on te demande le sexe, réponds clairement "C'est un garçon" ou "C'est une fille"
+- Si on te demande le nombre d'élèves, donne le nombre exact
+- Utilise "${pronom}" pour parler de l'élève`;
+    
     try {
         const response = await fetch(WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: `${instructions}\n\nCONTEXTE: ${contexte}\nQUESTION: ${question}` })
+            body: JSON.stringify({ question: prompt })
         });
         const data = await response.json();
-        return data.answer || "Je n'ai pas pu traiter votre demande.";
+        
+        let reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
+        
+        reponse = reponse.replace(/\d+%/g, '');
+        reponse = reponse.replace(/\d+,\d+%/g, '');
+        reponse = reponse.replace(/pourcent/g, 'points');
+        reponse = reponse.replace(/pour cent/g, 'points');
+        reponse = reponse.replace(/pourcentage/g, 'points');
+        
+        if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) {
+            reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
+        }
+        
+        return reponse;
     } catch (e) {
-        return "Je suis désolé, il y a un problème de connexion. Veuillez réessayer.";
+        return `Je suis désolé, il y a un problème de connexion. Veuillez réessayer.`;
     }
 }
 
+// ===== TRAITEMENT DES MESSAGES =====
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
-        if (!infos) return "❌ Code non reconnu. Veuillez vérifier ou donnez le nom de l'élève.";
-        
+        if (!infos) {
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
+        }
         dernierEleveConsulte = infos.nom;
-        const notes = await chercherNotesParNom(infos.nom);
-        const noteData = notes.length > 0 ? notes[0] : null;
+        const resultatsNotes = await chercherNotesParNom(infos.nom);
+        const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
         
         dernierEleveData = {
             nom: infos.nom,
             prenom: infos.prenom,
-            sexe: noteData?.sexe || 'M',
+            sexe: noteData ? noteData.sexe : 'Non spécifié',
             classe: infos.classe,
             option: infos.option,
-            notes: noteData?.epreuves || [],
-            titulaire: noteData?.titulaire,
-            nombreElevesClasse: noteData?.nombreElevesClasse || 0,
+            ecole: nomEcole,
+            notes: noteData ? noteData.epreuves : [],
+            titulaire: noteData ? noteData.titulaire : null,
+            nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
             frais: {
                 minerval: infos.minerval,
                 totalPaye: infos.totalPaye,
                 reste: infos.reste,
-                moisImpayes: infos.moisImpayes
+                moisImpayes: infos.moisImpayes,
+                statut: infos.statut
             },
-            punitions: noteData?.punitions || [],
-            presences: noteData?.presences || []
+            punitions: noteData ? noteData.punitions : [],
+            presences: noteData ? noteData.presences : []
         };
-        return await genererReponseNaturelle(`Présente un résumé des informations de l'élève.`, dernierEleveData);
+        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
     }
     
-    if (msg.length >= 2) {
-        const notes = await chercherNotesParNom(msg);
-        if (notes.length > 0) {
-            const premier = notes[0];
+    if (msg.length >= 2 && !dernierEleveConsulte) {
+        const resultats = await chercherNotesParNom(msg);
+        if (resultats.length > 0) {
+            const premier = resultats[0];
             dernierEleveConsulte = premier.eleveNom;
+            const infosFrais = await chercherInfosFinancieresParNom(dernierEleveConsulte);
+            
             dernierEleveData = {
                 nom: premier.eleveNom,
                 prenom: "",
-                sexe: premier.sexe || 'M',
+                sexe: premier.sexe || 'Non spécifié',
                 classe: premier.classe,
                 option: premier.option,
+                ecole: nomEcole,
                 notes: premier.epreuves,
                 titulaire: premier.titulaire,
-                nombreElevesClasse: premier.nombreElevesClasse,
+                nombreElevesClasse: premier.nombreElevesClasse || 0,
+                frais: infosFrais ? {
+                    minerval: infosFrais.minerval,
+                    totalPaye: infosFrais.totalPaye,
+                    reste: infosFrais.reste,
+                    moisImpayes: infosFrais.moisImpayes
+                } : null,
                 punitions: premier.punitions,
                 presences: premier.presences
             };
-            let reponse = `${premier.eleveNom} est en ${premier.classe}${premier.option ? ' option '+premier.option : ''}.`;
+            
+            let reponse = `À l'école ${nomEcole}, ${premier.eleveNom} est en ${premier.classe}${premier.option ? ' option '+premier.option : ''}.`;
+            if (premier.titulaire) reponse += ` Son professeur est ${premier.titulaire}.`;
             if (premier.epreuves && premier.epreuves.length > 0) {
-                reponse += ` Ses notes: ${premier.epreuves.map(ep => ep.epreuve+' : '+ep.note+'/'+ep.max).join(', ')}.`;
+                const notesFiltrees = premier.epreuves.filter(ep => ep.note > 0);
+                if (notesFiltrees.length > 0) {
+                    reponse += ` Ses notes : ${notesFiltrees.map(ep => ep.epreuve + ' : ' + ep.note + '/' + ep.max).join(', ')}.`;
+                }
             }
             return reponse;
         }
     }
     
     if (dernierEleveConsulte && dernierEleveData) {
+        
+        if (msg.includes('punition') || msg.includes('sanction') || msg.includes('puni') || msg.includes('pun') || msg.includes('sanctionné')) {
+            if (dernierEleveData.punitions && dernierEleveData.punitions.length > 0) {
+                let rep = `📋 Punitions de ${dernierEleveConsulte} :\n\n`;
+                dernierEleveData.punitions.forEach((p, index) => {
+                    const gravite = p.gravite === 'grave' ? '⚠️ Grave' : p.gravite === 'moyenne' ? '🔶 Moyenne' : '🔷 Légère';
+                    const date = new Date(p.date).toLocaleDateString('fr-FR');
+                    rep += `${index + 1}. ${p.motif} (${gravite}) - ${date}\n`;
+                });
+                return rep;
+            } else {
+                return `✅ ${dernierEleveConsulte} n'a aucune punition active.`;
+            }
+        }
+        
+        if (msg.includes('présent') || msg.includes('absent') || msg.includes('présence') || msg.includes('est-il') || msg.includes('il est')) {
+            if (dernierEleveData.presences && dernierEleveData.presences.length > 0) {
+                const aujourdhui = dernierEleveData.presences[0];
+                const date = new Date(aujourdhui.date).toLocaleDateString('fr-FR');
+                const statut = aujourdhui.present ? '✅ Présent' : '❌ Absent';
+                let rep = `📅 ${dernierEleveConsulte} : ${statut} aujourd'hui (${date}).`;
+                
+                let absencesConsecutives = 0;
+                for (const p of dernierEleveData.presences) {
+                    if (!p.present) absencesConsecutives++;
+                    else break;
+                }
+                if (absencesConsecutives > 1) {
+                    rep += ` Absent depuis ${absencesConsecutives} jours.`;
+                }
+                return rep;
+            } else {
+                return `❌ Aucune information de présence disponible pour ${dernierEleveConsulte}.`;
+            }
+        }
+        
+        if (msg.includes('tout') || msg.includes('complet') || msg.includes('détail') || msg.includes('informations')) {
+            let rep = `📋 Informations complètes sur ${dernierEleveConsulte} :\n\n`;
+            rep += `📚 Classe : ${dernierEleveData.classe}${dernierEleveData.option ? ' ('+dernierEleveData.option+')' : ''}\n`;
+            rep += `👨‍🏫 Titulaire : ${dernierEleveData.titulaire || 'Non spécifié'}\n`;
+            
+            if (dernierEleveData.notes && dernierEleveData.notes.length > 0) {
+                rep += `\n📝 Notes :\n`;
+                dernierEleveData.notes.forEach(ep => {
+                    rep += `• ${ep.epreuve} : ${ep.note}/${ep.max}\n`;
+                });
+            }
+            
+            if (dernierEleveData.punitions && dernierEleveData.punitions.length > 0) {
+                rep += `\n⚠️ Punitions :\n`;
+                dernierEleveData.punitions.forEach(p => {
+                    rep += `• ${p.motif} (${p.gravite})\n`;
+                });
+            } else {
+                rep += `\n✅ Aucune punition.\n`;
+            }
+            
+            if (dernierEleveData.presences && dernierEleveData.presences.length > 0) {
+                const aujourdhui = dernierEleveData.presences[0];
+                rep += `\n📅 Présence : ${aujourdhui.present ? '✅ Présent' : '❌ Absent'} aujourd'hui.\n`;
+            }
+            
+            return rep;
+        }
+        
         return await genererReponseNaturelle(msg, dernierEleveData);
     }
     
-    return "Bonjour ! Je suis un système intelligent. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.";
+    return `Bonjour ! Je suis un système intelligent de l'école ${nomEcole} qui vous permet de savoir quelques détails sur votre enfant. Veuillez me donner un code à 6 chiffres ou le nom complet d'un élève.`;
 }
 
 // ===== ENVOI =====
@@ -411,7 +753,7 @@ if (window.speechSynthesis) {
     };
 }
 
-// Accueil vocal avec délai
+// Accueil vocal
 setTimeout(() => {
     waitForVoices(() => {
         voixParentale("Bienvenue dans l'espace parental. Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper un code à 6 chiffres pour les frais ou le nom de votre enfant pour ses notes.");
