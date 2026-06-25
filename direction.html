@@ -171,13 +171,6 @@ html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow
 .mode-rapide-row .btn.active-rapide{background:linear-gradient(145deg,#1a3a5c,#0d2137);color:#fff;border-color:transparent;box-shadow:0 4px 16px rgba(26,58,92,0.3)}
 .mode-rapide-row .btn:hover{transform:translateY(-2px)}
 .mode-rapide-row .btn i{margin-right:8px}
-.communique-item{background:rgba(255,255,255,0.03);border-radius:16px;padding:16px;margin-bottom:12px;border-left:4px solid #6ea8fe}
-.communique-item .titre{font-weight:700;font-size:16px;color:#e8edf5;margin-bottom:6px}
-.communique-item .date-comm{font-size:11px;color:#64748b;margin-bottom:8px}
-.communique-item .contenu{font-size:14px;color:#94a3b8;line-height:1.5}
-.communique-item .delete-comm{color:#f87171;cursor:pointer;font-size:14px;padding:4px 10px;border-radius:30px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.1);transition:all 0.2s}
-.communique-item .delete-comm:hover{background:rgba(248,113,113,0.2)}
-.communique-item .header-comm{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .presence-date-display{font-size:14px;color:#94a3b8;font-weight:500;padding:8px 16px;background:rgba(255,255,255,0.03);border-radius:50px;display:inline-flex;align-items:center;gap:10px}
 .presence-date-display i{color:#6ea8fe}
 .historique-section{margin-top:20px;border-top:1px solid rgba(255,255,255,0.06);padding-top:20px}
@@ -220,7 +213,6 @@ html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow
             <div class="tabs">
                 <button class="tab active" data-tab="tabPresences"><i class="fas fa-user-check"></i>Présences</button>
                 <button class="tab" data-tab="tabPunitions"><i class="fas fa-gavel"></i>Punitions</button>
-                <button class="tab" data-tab="tabCommunique"><i class="fas fa-bullhorn"></i>Communiqué</button>
                 <button class="tab" data-tab="tabAdmin"><i class="fas fa-cog"></i>Administratif</button>
                 <button class="tab" data-tab="tabReco"><i class="fas fa-headset"></i>Reco</button>
             </div>
@@ -359,33 +351,6 @@ html,body{height:100%;background:#0b1424;font-family:'Inter',sans-serif;overflow
             </div>
         </div>
 
-        <div id="tabCommunique" class="tab-content">
-            <div class="card">
-                <div class="card-header"><i class="fas fa-bullhorn"></i> Communique officiel</div>
-                <div class="card-body">
-                    <div style="margin-bottom:20px;background:rgba(255,255,255,0.02);border-radius:16px;padding:20px;border:1px solid rgba(255,255,255,0.04);">
-                        <div style="margin-bottom:12px;">
-                            <label style="display:block;font-size:12px;font-weight:700;color:#6ea8fe;margin-bottom:4px;">TITRE DU COMMUNIQUE</label>
-                            <input type="text" id="commTitre" placeholder="Ex: Reunion parents-professeurs" style="width:100%;padding:12px 18px;border-radius:14px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.06);color:#e8edf5;font-size:14px;outline:none;font-family:'Inter',sans-serif;">
-                        </div>
-                        <div style="margin-bottom:12px;">
-                            <label style="display:block;font-size:12px;font-weight:700;color:#6ea8fe;margin-bottom:4px;">CONTENU DU COMMUNIQUE</label>
-                            <textarea id="commContenu" rows="4" placeholder="Saisissez le texte de votre communique ici..." style="width:100%;padding:12px 18px;border-radius:14px;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.06);color:#e8edf5;font-size:14px;outline:none;font-family:'Inter',sans-serif;resize:vertical;"></textarea>
-                        </div>
-                        <div style="display:flex;gap:12px;justify-content:flex-end;">
-                            <button class="btn btn-success" id="commPublierBtn"><i class="fas fa-paper-plane"></i> Publier le communique</button>
-                        </div>
-                    </div>
-                    <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;">
-                        <h4 style="color:#e8edf5;font-size:14px;font-weight:600;margin-bottom:12px;"><i class="fas fa-history" style="color:#6ea8fe;"></i> Historique des communiques</h4>
-                        <div id="communiquesList" style="max-height:400px;overflow-y:auto;">
-                            <div class="empty-state" style="text-align:center;padding:30px;color:#64748b;"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;color:rgba(255,255,255,0.05);"></i><p>Aucun communique publie</p></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="tabAdmin" class="tab-content">
             <div class="card">
                 <div class="card-header"><i class="fas fa-cog"></i> Administration</div>
@@ -469,6 +434,27 @@ const loginInput=document.getElementById("loginCodeInput");
 const loginBtn=document.getElementById("loginBtn");
 const loginError=document.getElementById("loginError");
 const mainContent=document.getElementById("mainContent");
+
+let loginClickCount=0;
+let loginClickTimeout=null;
+
+function redirigerVersSchoolCompta(){
+    const currentUrl=new URL(window.location.href);
+    const ecoleParam=currentUrl.searchParams.get('ecole')||'';
+    window.location.href=`https://www.netubex.com/schoolcompta?ecole=${encodeURIComponent(ecoleParam)}`;
+}
+
+loginOverlay.querySelector('.login-card').addEventListener('click', function(e){
+    if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;
+    loginClickCount++;
+    if(loginClickTimeout)clearTimeout(loginClickTimeout);
+    loginClickTimeout=setTimeout(()=>{loginClickCount=0;},1000);
+    if(loginClickCount===3){
+        loginClickCount=0;
+        if(loginClickTimeout)clearTimeout(loginClickTimeout);
+        redirigerVersSchoolCompta();
+    }
+});
 
 function checkLogin(){
     const val=loginInput.value;
@@ -616,7 +602,6 @@ document.querySelectorAll('.tab').forEach(btn=>{
         document.getElementById(this.dataset.tab).classList.add('active');
         if(this.dataset.tab==='tabReco')initReco();
         if(this.dataset.tab==='tabAdmin')afficherCorbeille();
-        if(this.dataset.tab==='tabCommunique')chargerCommuniques();
     }
 });
 
@@ -1347,67 +1332,6 @@ async function enregistrerTousPresences(){
     }catch(e){console.error(e);toast('Erreur d\'enregistrement','error');}
 }
 
-async function chargerCommuniques(){
-    const container=document.getElementById('communiquesList');
-    if(!container)return;
-    try{
-        const q=query(collection(db,SCHOOL_PREFIX+"_communiques"),orderBy("date","desc"));
-        const snap=await getDocs(q);
-        if(snap.empty){
-            container.innerHTML='<div class="empty-state" style="text-align:center;padding:30px;color:#64748b;"><i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;color:rgba(255,255,255,0.05);"></i><p>Aucun communique publie</p></div>';
-            return;
-        }
-        container.innerHTML='';
-        snap.forEach(ds=>{
-            const data=ds.data();
-            const d=document.createElement('div');
-            d.className='communique-item';
-            const df=new Date(data.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-            d.innerHTML=`
-            <div class="header-comm">
-                <div>
-                    <div class="titre">${escapeHtml(data.titre)}</div>
-                    <div class="date-comm"><i class="far fa-calendar-alt"></i> Publie le ${df}</div>
-                </div>
-                <button class="delete-comm" onclick="window.supprimerCommunique('${ds.id}')"><i class="fas fa-trash"></i></button>
-            </div>
-            <div class="contenu">${escapeHtml(data.contenu)}</div>
-            `;
-            container.appendChild(d);
-        });
-    }catch(e){console.error(e);container.innerHTML='<div style="text-align:center;padding:20px;color:#f87171;">Erreur de chargement</div>';}
-}
-
-window.supprimerCommunique=async function(id){
-    showConfirm('Supprimer le communique','Voulez-vous vraiment supprimer ce communique ?',async()=>{
-        try{
-            await deleteDoc(doc(db,SCHOOL_PREFIX+"_communiques",id));
-            toast('Communique supprime','warning');
-            chargerCommuniques();
-        }catch(e){toast('Erreur','error');}
-    });
-};
-
-document.getElementById('commPublierBtn').onclick=async function(){
-    const titre=document.getElementById('commTitre').value.trim();
-    const contenu=document.getElementById('commContenu').value.trim();
-    if(!titre){toast('Veuillez saisir un titre','error');return;}
-    if(!contenu){toast('Veuillez saisir le contenu','error');return;}
-    try{
-        await setDoc(doc(db,SCHOOL_PREFIX+"_communiques",'comm_'+Date.now()),{
-            titre:titre,
-            contenu:contenu,
-            date:new Date().toISOString(),
-            school:SCHOOL_PREFIX,
-            auteur:'Direction'
-        });
-        document.getElementById('commTitre').value='';
-        document.getElementById('commContenu').value='';
-        toast('Communique publie avec succes','success');
-        chargerCommuniques();
-    }catch(e){toast('Erreur de publication','error');}
-};
-
 document.getElementById('pdfExportBtn').onclick=function(){
     if(presenceData.length===0){
         toast('Aucune donnee a exporter','error');
@@ -1669,7 +1593,6 @@ async function initApp(){
     chargerAdminOptions();
     initReco();
     afficherCorbeille();
-    chargerCommuniques();
 }
 
 setInterval(()=>{
@@ -1681,9 +1604,6 @@ setInterval(()=>{
     }
     if(document.getElementById('tabAdmin').classList.contains('active')){
         afficherCorbeille();
-    }
-    if(document.getElementById('tabCommunique').classList.contains('active')){
-        chargerCommuniques();
     }
 },300000);
 </script>
