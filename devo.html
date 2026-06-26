@@ -569,6 +569,9 @@ const SEUIL_ALERTE = 3;
 let dernierCommunique = null;
 let communiqueAffiche = false;
 
+let enAttenteChoixEleve = false;
+let listeElevesEnAttente = [];
+
 async function getDernierCommunique() {
     try {
         const q = query(
@@ -3286,6 +3289,37 @@ Règles IMPÉRATIVES :
     return iaInstructions;
 }
 
+async function afficherInfosEleve(eleve) {
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    dernierEleveConsulte = eleve.nom;
+    
+    const resultatsNotes = await chercherNotesParNom(eleve.nom);
+    const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+    
+    dernierEleveData = {
+        nom: eleve.nom,
+        prenom: eleve.prenom,
+        sexe: noteData ? noteData.sexe : 'Non spécifié',
+        classe: eleve.classe,
+        option: eleve.option,
+        ecole: nomEcole,
+        notes: noteData ? noteData.epreuves : [],
+        titulaire: noteData ? noteData.titulaire : null,
+        nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
+        frais: {
+            minerval: eleve.minerval,
+            totalPaye: eleve.totalPaye,
+            reste: eleve.reste,
+            moisImpayes: eleve.moisImpayes,
+            statut: eleve.statut
+        },
+        punitions: noteData ? noteData.punitions : [],
+        presences: noteData ? noteData.presences : []
+    };
+    
+    return await genererReponseNaturelle(`L'utilisateur a choisi l'élève ${eleve.nom}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+}
+
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
@@ -3385,47 +3419,50 @@ async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = msg.trim();
+        let eleveChoisi = null;
+        
+        const numChoix = parseInt(choix);
+        if (!isNaN(numChoix) && numChoix >= 1 && numChoix <= listeElevesEnAttente.length) {
+            eleveChoisi = listeElevesEnAttente[numChoix - 1];
+        } else {
+            eleveChoisi = listeElevesEnAttente.find(e => 
+                e.nom.toLowerCase().includes(choix.toLowerCase()) ||
+                (e.prenom && e.prenom.toLowerCase().includes(choix.toLowerCase()))
+            );
+        }
+        
+        if (eleveChoisi) {
+            enAttenteChoixEleve = false;
+            const infos = listeElevesEnAttente;
+            listeElevesEnAttente = [];
+            return await afficherInfosEleve(eleveChoisi);
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom}`).join('\n');
+            return `Choix non reconnu. Veuillez choisir un numéro entre 1 et ${listeElevesEnAttente.length} ou le nom complet de l'élève.\n\n${listeNoms}`;
+        }
+    }
+    
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
         if (!infos || infos.length === 0) {
             dernierEleveConsulte = null;
             dernierEleveData = null;
-            return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
+            return `Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
         }
         
         if (infos.length === 1) {
-            const eleve = infos[0];
-            dernierEleveConsulte = eleve.nom;
-            const resultatsNotes = await chercherNotesParNom(eleve.nom);
-            const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
-            
-            dernierEleveData = {
-                nom: eleve.nom,
-                prenom: eleve.prenom,
-                sexe: noteData ? noteData.sexe : 'Non spécifié',
-                classe: eleve.classe,
-                option: eleve.option,
-                ecole: nomEcole,
-                notes: noteData ? noteData.epreuves : [],
-                titulaire: noteData ? noteData.titulaire : null,
-                nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
-                frais: {
-                    minerval: eleve.minerval,
-                    totalPaye: eleve.totalPaye,
-                    reste: eleve.reste,
-                    moisImpayes: eleve.moisImpayes,
-                    statut: eleve.statut
-                },
-                punitions: noteData ? noteData.punitions : [],
-                presences: noteData ? noteData.presences : []
-            };
-            return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+            return await afficherInfosEleve(infos[0]);
         } else {
-            let reponse = `📋 ${infos.length} élèves sont liés à ce code parent à l'école ${nomEcole} :\n\n`;
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            
+            let reponse = `Plusieurs élèves sont liés à ce code parent à l'école ${nomEcole}. Veuillez choisir lequel vous intéresse :\n\n`;
             infos.forEach((eleve, index) => {
-                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
-                reponse += `   💰 Statut : ${eleve.statut}\n`;
+                reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
             });
+            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...) ou son nom complet.`;
             return reponse;
         }
     }
