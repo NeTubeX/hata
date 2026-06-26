@@ -225,7 +225,55 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .tab-content .card .assistant-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;}
 @media(min-width:768px){.tab-content .card .assistant-grid{grid-template-columns:repeat(2,1fr);}}
 .tab-content .card .result-area-full{margin-top:20px;}
-.parent-floating-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);border:none;font-size:28px;cursor:pointer;z-index:10001;box-shadow:0 8px 20px rgba(16,185,129,0.4);transition:all 0.3s ease;display:flex;align-items:center;justify-content:center;color:#fff;}
+
+/* === BOUTON PARENTAL AGGRANDI ET RESPIRANT === */
+.parent-floating-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 80px;           /* Taille agrandie */
+    height: 80px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #fff;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+    animation: breathe 2.5s ease-in-out infinite;
+}
+
+.parent-floating-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 50%;
+    border: 3px solid #10b981;
+    box-sizing: border-box;
+}
+
+@keyframes breathe {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+    }
+    50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 35px 15px rgba(16, 185, 129, 0.25);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+    }
+}
+/* === FIN BOUTON PARENTAL === */
+
 .parent-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(16px);z-index:10002;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all 0.3s ease;}
 .parent-modal-overlay.active{visibility:visible;opacity:1;}
 .parent-modal{background:linear-gradient(135deg,#1e293b,#0f172a);width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;}
@@ -383,7 +431,10 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 
-<button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;">👪</button>
+<!-- BOUTON PARENTAL AGGRANDI ET RESPIRANT -->
+<button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;padding:0;border-radius:50%;overflow:hidden;background:transparent;border:3px solid #10b981;box-shadow:0 0 0 0 rgba(16,185,129,0.5);">
+    <img src="https://www.netubex.com/parent.jpg" alt="Espace Parental" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;">
+</button>
 
 <div class="parent-modal-overlay" id="parentModalOverlay">
 <div class="parent-modal">
@@ -568,6 +619,9 @@ const SEUIL_ALERTE = 3;
 
 let dernierCommunique = null;
 let communiqueAffiche = false;
+
+let enAttenteChoixEleve = false;
+let listeElevesEnAttente = [];
 
 async function getDernierCommunique() {
     try {
@@ -3286,6 +3340,37 @@ Règles IMPÉRATIVES :
     return iaInstructions;
 }
 
+async function afficherInfosEleve(eleve) {
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    dernierEleveConsulte = eleve.nom;
+    
+    const resultatsNotes = await chercherNotesParNom(eleve.nom);
+    const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+    
+    dernierEleveData = {
+        nom: eleve.nom,
+        prenom: eleve.prenom,
+        sexe: noteData ? noteData.sexe : 'Non spécifié',
+        classe: eleve.classe,
+        option: eleve.option,
+        ecole: nomEcole,
+        notes: noteData ? noteData.epreuves : [],
+        titulaire: noteData ? noteData.titulaire : null,
+        nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
+        frais: {
+            minerval: eleve.minerval,
+            totalPaye: eleve.totalPaye,
+            reste: eleve.reste,
+            moisImpayes: eleve.moisImpayes,
+            statut: eleve.statut
+        },
+        punitions: noteData ? noteData.punitions : [],
+        presences: noteData ? noteData.presences : []
+    };
+    
+    return await genererReponseNaturelle(`L'utilisateur a choisi l'élève ${eleve.nom}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+}
+
 async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
@@ -3385,47 +3470,50 @@ async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = msg.trim();
+        let eleveChoisi = null;
+        
+        const numChoix = parseInt(choix);
+        if (!isNaN(numChoix) && numChoix >= 1 && numChoix <= listeElevesEnAttente.length) {
+            eleveChoisi = listeElevesEnAttente[numChoix - 1];
+        } else {
+            eleveChoisi = listeElevesEnAttente.find(e => 
+                e.nom.toLowerCase().includes(choix.toLowerCase()) ||
+                (e.prenom && e.prenom.toLowerCase().includes(choix.toLowerCase()))
+            );
+        }
+        
+        if (eleveChoisi) {
+            enAttenteChoixEleve = false;
+            const infos = listeElevesEnAttente;
+            listeElevesEnAttente = [];
+            return await afficherInfosEleve(eleveChoisi);
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom}`).join('\n');
+            return `Choix non reconnu. Veuillez choisir un numéro entre 1 et ${listeElevesEnAttente.length} ou le nom complet de l'élève.\n\n${listeNoms}`;
+        }
+    }
+    
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
         if (!infos || infos.length === 0) {
             dernierEleveConsulte = null;
             dernierEleveData = null;
-            return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
+            return `Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
         }
         
         if (infos.length === 1) {
-            const eleve = infos[0];
-            dernierEleveConsulte = eleve.nom;
-            const resultatsNotes = await chercherNotesParNom(eleve.nom);
-            const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
-            
-            dernierEleveData = {
-                nom: eleve.nom,
-                prenom: eleve.prenom,
-                sexe: noteData ? noteData.sexe : 'Non spécifié',
-                classe: eleve.classe,
-                option: eleve.option,
-                ecole: nomEcole,
-                notes: noteData ? noteData.epreuves : [],
-                titulaire: noteData ? noteData.titulaire : null,
-                nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
-                frais: {
-                    minerval: eleve.minerval,
-                    totalPaye: eleve.totalPaye,
-                    reste: eleve.reste,
-                    moisImpayes: eleve.moisImpayes,
-                    statut: eleve.statut
-                },
-                punitions: noteData ? noteData.punitions : [],
-                presences: noteData ? noteData.presences : []
-            };
-            return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+            return await afficherInfosEleve(infos[0]);
         } else {
-            let reponse = `📋 ${infos.length} élèves sont liés à ce code parent à l'école ${nomEcole} :\n\n`;
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            
+            let reponse = `Plusieurs élèves sont liés à ce code parent à l'école ${nomEcole}. Veuillez choisir lequel vous intéresse :\n\n`;
             infos.forEach((eleve, index) => {
-                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
-                reponse += `   💰 Statut : ${eleve.statut}\n`;
+                reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
             });
+            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...) ou son nom complet.`;
             return reponse;
         }
     }
