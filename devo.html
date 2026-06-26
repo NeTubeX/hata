@@ -569,67 +569,6 @@ const SEUIL_ALERTE = 3;
 let dernierCommunique = null;
 let communiqueAffiche = false;
 
-function voixParentale(texte) {
-    if (!texte) return;
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    
-    let texteParle = texte;
-    
-    texteParle = texteParle.replace(/(\d{4})-(\d{2})-(\d{2})/g, function(match, an, mois, jour) {
-        const d = new Date(an, mois - 1, jour);
-        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    });
-    
-    texteParle = texteParle.replace(/(\d{2})\/(\d{2})\/(\d{4})/g, function(match, jour, mois, an) {
-        const d = new Date(an, mois - 1, jour);
-        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    });
-    
-    const utterance = new SpeechSynthesisUtterance(texteParle);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const voixFR = voices.find(v => v.lang.startsWith('fr'));
-    if (voixFR) utterance.voice = voixFR;
-    window.speechSynthesis.speak(utterance);
-}
-
-function speak(text, onEnd) {
-    if (!text) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    
-    let texteParle = text;
-    
-    texteParle = texteParle.replace(/(\d{4})-(\d{2})-(\d{2})/g, function(match, an, mois, jour) {
-        const d = new Date(an, mois - 1, jour);
-        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    });
-    
-    texteParle = texteParle.replace(/(\d{2})\/(\d{2})\/(\d{4})/g, function(match, jour, mois, an) {
-        const d = new Date(an, mois - 1, jour);
-        return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    });
-    
-    const utterance = new SpeechSynthesisUtterance(texteParle);
-    utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    const voices = window.speechSynthesis.getVoices();
-    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
-    if (frenchVoice) utterance.voice = frenchVoice;
-    utterance.onend = () => { if (onEnd) onEnd(); };
-    utterance.onerror = () => { if (onEnd) onEnd(); };
-    window.speechSynthesis.speak(utterance);
-}
-
-function stopSpeaking() {
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-}
-
 async function getDernierCommunique() {
     try {
         const q = query(
@@ -776,7 +715,6 @@ async function chercherPresencesParNom(nom) {
     try {
         const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences"));
         const presences = [];
-        let sexe = null;
         snap.forEach(ds => {
             const data = ds.data();
             data.eleves.forEach(e => {
@@ -787,13 +725,83 @@ async function chercherPresencesParNom(nom) {
                         classe: data.classe,
                         option: data.option
                     });
-                    if (e.sexe) sexe = e.sexe;
                 }
             });
         });
         presences.sort((a,b) => b.date.localeCompare(a.date));
-        return { presences: presences.slice(0, 3), sexe: sexe };
-    } catch(e) { return { presences: [], sexe: null }; }
+        return presences.slice(0, 3);
+    } catch(e) { return []; }
+}
+
+function voixParentale(texte) {
+    if (!texte) return;
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    let texteParle = texte;
+    
+    texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1);
+        if (num >= 1000) {
+            const milliers = Math.floor(num / 1000);
+            const reste = num % 1000;
+            let resultat = '';
+            if (milliers === 1) resultat += 'mille ';
+            else resultat += `${milliers} mille `;
+            if (reste > 0) resultat += `${reste}`;
+            return `${resultat} francs congolais`;
+        }
+        return `${num} francs congolais`;
+    });
+    
+    texteParle = texteParle.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const voixFR = voices.find(v => v.lang.startsWith('fr'));
+    if (voixFR) utterance.voice = voixFR;
+    window.speechSynthesis.speak(utterance);
+}
+
+function speak(text, onEnd) {
+    if (!text) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    
+    let texteParle = text;
+    texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1);
+        if (num >= 1000) {
+            const milliers = Math.floor(num / 1000);
+            const reste = num % 1000;
+            let resultat = '';
+            if (milliers === 1) resultat += 'mille ';
+            else resultat += `${milliers} mille `;
+            if (reste > 0) resultat += `${reste}`;
+            return `${resultat} francs congolais`;
+        }
+        return `${num} francs congolais`;
+    });
+    texteParle = texteParle.replace(/(\d+)\/(\d+)/g, '$1 sur $2');
+    
+    const utterance = new SpeechSynthesisUtterance(texteParle);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+    if (frenchVoice) utterance.voice = frenchVoice;
+    utterance.onend = () => { if (onEnd) onEnd(); };
+    utterance.onerror = () => { if (onEnd) onEnd(); };
+    window.speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
 }
 
 function toast(message, type) {
@@ -3128,36 +3136,40 @@ async function chercherInfosFinancieresParCode(code) {
             snap = await getDocs(q);
         }
         if (snap.empty) return null;
-        const data = snap.docs[0].data();
-        const paiements = data.paiements || {};
-        const minerval = data.minerval || 45000;
-        const totalAnnuel = minerval * 10;
-        let totalPaye = 0,
-            moisImpayes = [];
-        const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
-        for (let mois of moisListe) {
-            const montant = paiements[mois]?.montant || 0;
-            totalPaye += montant;
-            if (montant < minerval && !data.exonere) moisImpayes.push(mois);
-        }
-        const reste = totalAnnuel - totalPaye;
-        let statut = "En ordre";
-        if (data.exonere) statut = "Exonéré";
-        else if (moisImpayes.length >= 3) statut = "Liste noire";
-        else if (moisImpayes.length > 0) statut = "Paiement partiel";
-        return {
-            nom: data.nom,
-            prenom: data.prenom || "",
-            classe: data.classe,
-            option: data.option || "",
-            exonere: data.exonere || false,
-            minerval,
-            totalAnnuel,
-            totalPaye,
-            reste,
-            moisImpayes,
-            statut
-        };
+        const eleves = [];
+        snap.forEach(doc => {
+            const data = doc.data();
+            const paiements = data.paiements || {};
+            const minerval = data.minerval || 45000;
+            const totalAnnuel = minerval * 10;
+            let totalPaye = 0, moisImpayes = [];
+            const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
+            for (let mois of moisListe) {
+                const montant = paiements[mois]?.montant || 0;
+                totalPaye += montant;
+                if (montant < minerval && !data.exonere) moisImpayes.push(mois);
+            }
+            const reste = totalAnnuel - totalPaye;
+            let statut = "En ordre";
+            if (data.exonere) statut = "Exonéré";
+            else if (moisImpayes.length >= 3) statut = "Liste noire";
+            else if (moisImpayes.length > 0) statut = "Paiement partiel";
+            eleves.push({
+                id: data.eleveId,
+                nom: data.nom,
+                prenom: data.prenom || "",
+                classe: data.classe,
+                option: data.option || "",
+                exonere: data.exonere || false,
+                minerval,
+                totalAnnuel,
+                totalPaye,
+                reste,
+                moisImpayes,
+                statut
+            });
+        });
+        return eleves;
     } catch (e) { return null; }
 }
 
@@ -3192,7 +3204,7 @@ async function chercherNotesParNom(nom) {
             const nomEleve = (eleve.nom || '').toLowerCase();
             if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
                 const punitions = await chercherPunitionsParNom(eleve.nom);
-                const presenceData = await chercherPresencesParNom(eleve.nom);
+                const presences = await chercherPresencesParNom(eleve.nom);
                 
                 const epreuvesList = [];
                 if (eleve.notes) {
@@ -3232,8 +3244,7 @@ async function chercherNotesParNom(nom) {
                     epreuves: epreuvesList,
                     nombreElevesClasse: nombreElevesClasse,
                     punitions: punitions,
-                    presences: presenceData.presences,
-                    sexePresence: presenceData.sexe
+                    presences: presences
                 });
             }
         }
@@ -3313,9 +3324,7 @@ async function genererReponseNaturelle(question, eleveData) {
             contexte += "Aucune note enregistrée pour le moment. ";
         }
     } else {
-        const sexeEleve = eleveData.sexe || 'M';
-        const aAucune = (sexeEleve === 'F' || sexeEleve === 'Féminin') ? 'aucune' : 'aucune';
-        contexte += `${pronom === 'elle' ? 'Elle' : 'Il'} n'a ${aAucune} note enregistrée pour le moment. `;
+        contexte += "Il n'a aucune note enregistrée pour le moment. ";
     }
     
     if (eleveData.frais) {
@@ -3362,19 +3371,6 @@ RAPPEL IMPORTANT :
         reponse = reponse.replace(/pour cent/g, 'points');
         reponse = reponse.replace(/pourcentage/g, 'points');
         
-        const sexeEleve = eleveData.sexe || 'M';
-        if (sexeEleve === 'F' || sexeEleve === 'Féminin') {
-            reponse = reponse.replace(/\babsent\b/gi, 'absente');
-            reponse = reponse.replace(/\bprésent\b/gi, 'présente');
-            reponse = reponse.replace(/\bAbsent\b/g, 'Absente');
-            reponse = reponse.replace(/\bPrésent\b/g, 'Présente');
-        } else {
-            reponse = reponse.replace(/\babsente\b/gi, 'absent');
-            reponse = reponse.replace(/\bprésente\b/gi, 'présent');
-            reponse = reponse.replace(/\bAbsente\b/g, 'Absent');
-            reponse = reponse.replace(/\bPrésente\b/g, 'Présent');
-        }
-        
         if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) {
             reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
         }
@@ -3391,37 +3387,47 @@ async function traiterMessage(message) {
     
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
-        if (!infos) {
+        if (!infos || infos.length === 0) {
             dernierEleveConsulte = null;
             dernierEleveData = null;
             return `❌ Code non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou donnez le nom complet de l'élève.`;
         }
-        dernierEleveConsulte = infos.nom;
-        const resultatsNotes = await chercherNotesParNom(infos.nom);
-        const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
         
-        dernierEleveData = {
-            nom: infos.nom,
-            prenom: infos.prenom,
-            sexe: noteData ? noteData.sexe : 'Non spécifié',
-            classe: infos.classe,
-            option: infos.option,
-            ecole: nomEcole,
-            notes: noteData ? noteData.epreuves : [],
-            titulaire: noteData ? noteData.titulaire : null,
-            nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
-            frais: {
-                minerval: infos.minerval,
-                totalPaye: infos.totalPaye,
-                reste: infos.reste,
-                moisImpayes: infos.moisImpayes,
-                statut: infos.statut
-            },
-            punitions: noteData ? noteData.punitions : [],
-            presences: noteData ? noteData.presences : [],
-            sexePresence: noteData ? noteData.sexePresence : 'M'
-        };
-        return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+        if (infos.length === 1) {
+            const eleve = infos[0];
+            dernierEleveConsulte = eleve.nom;
+            const resultatsNotes = await chercherNotesParNom(eleve.nom);
+            const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+            
+            dernierEleveData = {
+                nom: eleve.nom,
+                prenom: eleve.prenom,
+                sexe: noteData ? noteData.sexe : 'Non spécifié',
+                classe: eleve.classe,
+                option: eleve.option,
+                ecole: nomEcole,
+                notes: noteData ? noteData.epreuves : [],
+                titulaire: noteData ? noteData.titulaire : null,
+                nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
+                frais: {
+                    minerval: eleve.minerval,
+                    totalPaye: eleve.totalPaye,
+                    reste: eleve.reste,
+                    moisImpayes: eleve.moisImpayes,
+                    statut: eleve.statut
+                },
+                punitions: noteData ? noteData.punitions : [],
+                presences: noteData ? noteData.presences : []
+            };
+            return await genererReponseNaturelle(`L'utilisateur a fourni le code ${msg}. Présente un résumé des informations de l'élève de manière chaleureuse.`, dernierEleveData);
+        } else {
+            let reponse = `📋 ${infos.length} élèves sont liés à ce code parent à l'école ${nomEcole} :\n\n`;
+            infos.forEach((eleve, index) => {
+                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
+                reponse += `   💰 Statut : ${eleve.statut}\n`;
+            });
+            return reponse;
+        }
     }
     
     if (msg.length >= 2 && !dernierEleveConsulte) {
@@ -3448,8 +3454,7 @@ async function traiterMessage(message) {
                     moisImpayes: infosFrais.moisImpayes
                 } : null,
                 punitions: premier.punitions,
-                presences: premier.presences,
-                sexePresence: premier.sexePresence || 'M'
+                presences: premier.presences
             };
             
             let reponse = `À l'école ${nomEcole}, ${premier.eleveNom} est en ${premier.classe}${premier.option ? ' option '+premier.option : ''}.`;
@@ -3480,25 +3485,12 @@ async function traiterMessage(message) {
             }
         }
         
-        if (msg.includes('présent') || msg.includes('absent') || msg.includes('présence') || msg.includes('est-il') || msg.includes('il est') || msg.includes('est-elle') || msg.includes('elle est')) {
+        if (msg.includes('présent') || msg.includes('absent') || msg.includes('présence') || msg.includes('est-il') || msg.includes('il est')) {
             if (dernierEleveData.presences && dernierEleveData.presences.length > 0) {
                 const aujourdhui = dernierEleveData.presences[0];
-                const date = new Date(aujourdhui.date).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                });
-                
-                const sexe = dernierEleveData.sexePresence || dernierEleveData.sexe || 'M';
-                const estPresent = aujourdhui.present;
-                let statut = '';
-                if (sexe === 'F' || sexe === 'Féminin') {
-                    statut = estPresent ? 'Présente' : 'Absente';
-                } else {
-                    statut = estPresent ? 'Présent' : 'Absent';
-                }
-                
-                let rep = `${dernierEleveConsulte} est ${statut.toLowerCase()} aujourd'hui (${date}).`;
+                const date = new Date(aujourdhui.date).toLocaleDateString('fr-FR');
+                const statut = aujourdhui.present ? ' Présent' : ' Absent';
+                let rep = ` ${dernierEleveConsulte} : ${statut} aujourd'hui (${date}).`;
                 
                 let absencesConsecutives = 0;
                 for (const p of dernierEleveData.presences) {
@@ -3554,15 +3546,7 @@ async function traiterMessage(message) {
             
             if (dernierEleveData.presences && dernierEleveData.presences.length > 0) {
                 const aujourdhui = dernierEleveData.presences[0];
-                const sexe = dernierEleveData.sexePresence || dernierEleveData.sexe || 'M';
-                const estPresent = aujourdhui.present;
-                let statut = '';
-                if (sexe === 'F' || sexe === 'Féminin') {
-                    statut = estPresent ? 'Présente' : 'Absente';
-                } else {
-                    statut = estPresent ? 'Présent' : 'Absent';
-                }
-                rep += `\nPrésence : ${statut} aujourd'hui.\n`;
+                rep += `\nPrésence : ${aujourdhui.present ? ' Présent' : 'Absent'} aujourd'hui.\n`;
             }
             
             return rep;
