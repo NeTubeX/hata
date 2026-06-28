@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🧪 Test IA Parentale</title>
+    <title>🧪 Test Worker Firebase</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -20,69 +20,119 @@
             background: #1e293b;
             border-radius: 16px;
             padding: 30px;
-            max-width: 500px;
+            max-width: 600px;
             width: 100%;
             border: 1px solid #334155;
         }
-        h1 { font-size: 22px; margin-bottom: 6px; }
+        h1 { font-size: 22px; margin-bottom: 6px; color: #60a5fa; }
         .sub { color: #94a3b8; font-size: 14px; margin-bottom: 20px; }
-        input, button {
+        .status {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #1e293b;
+            font-size: 13px;
+            min-height: 60px;
+            white-space: pre-wrap;
+        }
+        .status .ok { color: #10b981; }
+        .status .error { color: #ef4444; }
+        .status .info { color: #60a5fa; }
+        button {
             width: 100%;
+            padding: 14px;
+            border-radius: 40px;
+            border: none;
+            background: #3b82f6;
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 10px;
+        }
+        button:hover { opacity: 0.85; transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .input-group input {
+            flex: 1;
             padding: 12px 16px;
             border-radius: 40px;
             border: 1px solid #334155;
             background: #0f172a;
             color: #fff;
-            font-size: 15px;
-            margin-bottom: 10px;
-        }
-        button {
-            background: #3b82f6;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        button:hover { opacity: 0.85; transform: scale(0.98); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        #reponse {
-            background: #0f172a;
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 16px;
-            min-height: 60px;
-            border: 1px solid #1e293b;
             font-size: 14px;
-            line-height: 1.5;
-            display: none;
         }
-        #reponse.show { display: block; }
-        .err { color: #ef4444; }
-        .ok { color: #10b981; }
-        .info { color: #94a3b8; font-size: 12px; margin-top: 12px; }
+        .input-group input:focus { outline: none; border-color: #3b82f6; }
+        .log {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+            color: #94a3b8;
+            border: 1px solid #1e293b;
+        }
+        .log .sent { color: #60a5fa; }
+        .log .received { color: #10b981; }
+        .log .error-log { color: #ef4444; }
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .badge.ok { background: #10b981; color: #fff; }
+        .badge.error { background: #ef4444; color: #fff; }
+        .badge.waiting { background: #f59e0b; color: #fff; }
     </style>
 </head>
 <body>
 
 <div class="box">
-    <h1>🧪 Test IA</h1>
-    <div class="sub">Worker: <code>parent.netube-a97.workers.dev</code></div>
-
-    <input type="text" id="question" placeholder="Posez une question..." value="Qui est le meilleur élève ?">
-    <button id="btnEnvoyer">📤 Envoyer</button>
-
-    <div id="reponse">
-        <div id="contenu"></div>
+    <h1>🧪 Test Worker Firebase</h1>
+    <div class="sub">
+        Worker: <code>parent.netube-a97.workers.dev</code>
+        <span id="workerStatus" class="badge waiting">Test...</span>
     </div>
 
-    <div class="info" id="status">✅ Worker actif</div>
+    <div class="status" id="statusDisplay">
+        <span class="info">⏳ Prêt à tester...</span>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="questionInput" placeholder="Question (ex: Qui est le meilleur élève ?)" value="Donne-moi la liste des élèves">
+        <button id="testBtn" style="width:auto;padding:12px 24px;">📤 Tester</button>
+    </div>
+
+    <button id="fetchBtn">📥 Récupérer les données Firebase</button>
+    <button id="sendBtn" disabled>📤 Envoyer au Worker</button>
+
+    <div class="log" id="logDisplay">
+        <div class="info">📋 Log des actions...</div>
+    </div>
 </div>
 
 <script type="module">
-    // ===== Firebase =====
+    // =============================================
+    // 1. IMPORTER FIREBASE
+    // =============================================
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+    // =============================================
+    // 2. CONFIGURATION FIREBASE
+    // =============================================
     const firebaseConfig = {
         apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
         authDomain: "netubexmoney.firebaseapp.com",
@@ -95,105 +145,273 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // ===== Éléments DOM =====
-    const input = document.getElementById('question');
-    const btn = document.getElementById('btnEnvoyer');
-    const reponseDiv = document.getElementById('reponse');
-    const contenu = document.getElementById('contenu');
-    const status = document.getElementById('status');
-
-    // ===== Worker URL =====
+    // =============================================
+    // 3. CONFIGURATION
+    // =============================================
     const WORKER_URL = 'https://parent.netube-a97.workers.dev/';
+    const SCHOOL_ID = 'gloria_dei'; // ou votre école
 
-    // ===== Fonction pour récupérer les données Firebase =====
-    async function getFirebaseData() {
+    // =============================================
+    // 4. ÉLÉMENTS DOM
+    // =============================================
+    const statusDisplay = document.getElementById('statusDisplay');
+    const logDisplay = document.getElementById('logDisplay');
+    const questionInput = document.getElementById('questionInput');
+    const testBtn = document.getElementById('testBtn');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const workerStatus = document.getElementById('workerStatus');
+
+    let firebaseData = null;
+    let lastWorkerResponse = null;
+
+    // =============================================
+    // 5. FONCTIONS UTILITAIRES
+    // =============================================
+    function setStatus(message, type = 'info') {
+        const colors = {
+            info: '#60a5fa',
+            ok: '#10b981',
+            error: '#ef4444'
+        };
+        statusDisplay.innerHTML = `<span style="color:${colors[type] || '#94a3b8'}">${message}</span>`;
+    }
+
+    function addLog(message, type = 'info') {
+        const colors = {
+            info: '#94a3b8',
+            sent: '#60a5fa',
+            received: '#10b981',
+            error: '#ef4444'
+        };
+        const time = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.innerHTML = `<span style="color:${colors[type] || '#94a3b8'}">[${time}] ${message}</span>`;
+        logDisplay.appendChild(div);
+        logDisplay.scrollTop = logDisplay.scrollHeight;
+    }
+
+    // =============================================
+    // 6. TESTER LE WORKER
+    // =============================================
+    async function testWorker() {
         try {
-            const fichesSnap = await getDocs(collection(db, "gloria_dei_fiches"));
+            workerStatus.textContent = 'Test...';
+            workerStatus.className = 'badge waiting';
+            
+            const response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    question: "Test de connexion",
+                    ecole: SCHOOL_ID 
+                })
+            });
+            
+            const data = await response.json();
+            workerStatus.textContent = '✅ Connecté';
+            workerStatus.className = 'badge ok';
+            addLog('✅ Worker répond: ' + JSON.stringify(data).substring(0, 100), 'received');
+            setStatus('✅ Worker connecté avec succès !', 'ok');
+            return true;
+        } catch (error) {
+            workerStatus.textContent = '❌ Erreur';
+            workerStatus.className = 'badge error';
+            addLog('❌ Erreur worker: ' + error.message, 'error');
+            setStatus('❌ Erreur de connexion au worker', 'error');
+            return false;
+        }
+    }
+
+    // =============================================
+    // 7. RÉCUPÉRER LES DONNÉES FIREBASE
+    // =============================================
+    async function fetchFirebaseData() {
+        setStatus('⏳ Récupération des données Firebase...', 'info');
+        addLog('📥 Récupération des données...', 'info');
+        
+        try {
+            // Récupérer les fiches
+            const fichesSnap = await getDocs(collection(db, SCHOOL_ID + "_fiches"));
             const eleves = [];
+            const fiches = [];
+            
             fichesSnap.forEach(doc => {
                 const data = doc.data();
-                if (data.eleves) {
+                if (!data._type && data.eleves) {
+                    fiches.push({
+                        id: doc.id,
+                        cours: data.cours,
+                        classe: data.classe,
+                        option: data.option || '',
+                        titulaire: data.titulaire || '',
+                        eleves: data.eleves || []
+                    });
+                    
                     data.eleves.forEach(e => {
                         eleves.push({
                             nom: e.nom || 'Inconnu',
                             classe: data.classe || '?',
                             cours: data.cours || '?',
-                            notes: e.notes || {}
+                            option: data.option || '',
+                            notes: e.notes || {},
+                            sexe: e.sexe || 'Non spécifié'
                         });
                     });
                 }
             });
-            return eleves;
-        } catch (e) {
-            console.error('Firebase error:', e);
-            return [];
+            
+            firebaseData = {
+                fiches: fiches,
+                eleves: eleves,
+                totalEleves: eleves.length,
+                totalFiches: fiches.length
+            };
+            
+            addLog(`✅ ${eleves.length} élèves trouvés dans ${fiches.length} fiches`, 'received');
+            setStatus(`✅ ${eleves.length} élèves récupérés depuis Firebase`, 'ok');
+            
+            // Afficher un résumé
+            const noms = eleves.slice(0, 5).map(e => e.nom).join(', ');
+            addLog(`📋 Élèves: ${noms}${eleves.length > 5 ? '...' : ''}`, 'info');
+            
+            sendBtn.disabled = false;
+            return firebaseData;
+            
+        } catch (error) {
+            addLog('❌ Erreur Firebase: ' + error.message, 'error');
+            setStatus('❌ Erreur: ' + error.message, 'error');
+            return null;
         }
     }
 
-    // ===== Envoyer au Worker =====
-    async function askWorker(question, data) {
-        const payload = {
-            question: question,
-            ecole: 'gloria_dei',
-            data: data  // on envoie les données Firebase au Worker
-        };
+    // =============================================
+    // 8. ENVOYER AU WORKER
+    // =============================================
+    async function sendToWorker(question) {
+        if (!firebaseData) {
+            setStatus('⚠️ Récupérez d\'abord les données Firebase', 'error');
+            addLog('⚠️ Aucune donnée Firebase disponible', 'error');
+            return;
+        }
 
-        const response = await fetch(WORKER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        return await response.json();
-    }
-
-    // ===== Action principale =====
-    btn.addEventListener('click', async () => {
-        const question = input.value.trim();
-        if (!question) return;
-
-        btn.disabled = true;
-        btn.textContent = '⏳ Chargement...';
-        reponseDiv.classList.remove('show');
-        contenu.innerHTML = '';
-        status.textContent = '⏳ Récupération des données...';
+        setStatus('⏳ Envoi au worker...', 'info');
+        addLog(`📤 Envoi de la question: "${question}"`, 'sent');
+        addLog(`📦 ${firebaseData.totalEleves} élèves inclus`, 'sent');
 
         try {
-            // 1. Récupérer les données Firebase
-            const eleves = await getFirebaseData();
-            status.textContent = `📊 ${eleves.length} élèves trouvés`;
+            const payload = {
+                question: question,
+                ecole: SCHOOL_ID,
+                eleves: firebaseData.eleves.slice(0, 50), // Limite pour éviter trop gros
+                totalEleves: firebaseData.totalEleves
+            };
 
-            // 2. Envoyer au Worker
-            const result = await askWorker(question, eleves);
+            console.log('📦 Payload envoyé:', payload);
 
-            // 3. Afficher la réponse
-            contenu.innerHTML = result.answer || 'Aucune réponse';
-            reponseDiv.classList.add('show');
-            status.textContent = '✅ Réponse reçue du Worker';
+            const response = await fetch(WORKER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
+            const data = await response.json();
+            lastWorkerResponse = data;
+
+            addLog(`✅ Réponse reçue: ${(data.answer || 'Aucune réponse').substring(0, 200)}...`, 'received');
+            setStatus(`✅ Réponse: ${data.answer || 'Aucune réponse'}`, 'ok');
+
+            // Afficher la réponse complète dans le log
+            addLog(`📝 Réponse complète: ${JSON.stringify(data)}`, 'received');
+
+            return data;
         } catch (error) {
-            contenu.innerHTML = `<span class="err">❌ Erreur: ${error.message}</span>`;
-            reponseDiv.classList.add('show');
-            status.textContent = '❌ Erreur';
+            addLog('❌ Erreur envoi: ' + error.message, 'error');
+            setStatus('❌ Erreur: ' + error.message, 'error');
+            return null;
         }
+    }
 
-        btn.disabled = false;
-        btn.textContent = '📤 Envoyer';
+    // =============================================
+    // 9. TEST COMPLET
+    // =============================================
+    async function fullTest() {
+        const question = questionInput.value.trim() || "Donne-moi la liste des élèves";
+        
+        addLog('🚀 Début du test complet', 'info');
+        setStatus('🚀 Test en cours...', 'info');
+        
+        // 1. Tester le worker
+        const workerOk = await testWorker();
+        if (!workerOk) {
+            addLog('❌ Test arrêté: worker non accessible', 'error');
+            return;
+        }
+        
+        // 2. Récupérer les données Firebase
+        const data = await fetchFirebaseData();
+        if (!data) {
+            addLog('❌ Test arrêté: pas de données Firebase', 'error');
+            return;
+        }
+        
+        // 3. Envoyer au worker
+        const result = await sendToWorker(question);
+        if (result) {
+            addLog('✅ Test complet réussi !', 'ok');
+            setStatus('✅ Test complet réussi !', 'ok');
+        } else {
+            addLog('❌ Test échoué', 'error');
+        }
+    }
+
+    // =============================================
+    // 10. ÉVÉNEMENTS
+    // =============================================
+    
+    // Test complet
+    testBtn.addEventListener('click', fullTest);
+    
+    // Récupérer Firebase
+    fetchBtn.addEventListener('click', fetchFirebaseData);
+    
+    // Envoyer au worker
+    sendBtn.addEventListener('click', () => {
+        const question = questionInput.value.trim() || "Donne-moi la liste des élèves";
+        sendToWorker(question);
+    });
+    
+    // Entrée
+    questionInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') testBtn.click();
     });
 
-    // ===== Test rapide au chargement =====
-    (async function test() {
-        try {
-            const res = await fetch(WORKER_URL);
-            const data = await res.json();
-            status.textContent = `✅ Worker répond: ${data.status || 'ok'}`;
-        } catch {
-            status.textContent = '⚠️ Worker inaccessible';
+    // =============================================
+    // 11. TEST AUTOMATIQUE AU CHARGEMENT
+    // =============================================
+    (async function init() {
+        addLog('🚀 Application de test chargée', 'info');
+        setStatus('⏳ Test automatique du worker...', 'info');
+        
+        // Tester simplement le worker
+        const ok = await testWorker();
+        if (ok) {
+            addLog('💡 Cliquez sur "Récupérer les données Firebase" pour continuer', 'info');
         }
     })();
 
-    // ===== Entrée =====
-    input.addEventListener('keypress', e => { if (e.key === 'Enter') btn.click(); });
+    // Exposer pour debug
+    window.testWorker = testWorker;
+    window.fetchFirebaseData = fetchFirebaseData;
+    window.sendToWorker = sendToWorker;
+    window.fullTest = fullTest;
+
+    console.log('🧪 Application de test prête !');
+    console.log('📋 Fonctions disponibles:');
+    console.log('  - testWorker()');
+    console.log('  - fetchFirebaseData()');
+    console.log('  - sendToWorker(question)');
+    console.log('  - fullTest()');
 </script>
 </body>
 </html>
