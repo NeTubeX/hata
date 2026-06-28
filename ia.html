@@ -83,7 +83,8 @@
         .empty-state{text-align:center;padding:40px;color:#94a3b8;}
         .login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);backdrop-filter:blur(20px);z-index:10000;display:flex;align-items:center;justify-content:center;}
         .login-card{background:rgba(18,18,31,0.95);border-radius:32px;padding:32px;width:90%;max-width:380px;text-align:center;border:1px solid rgba(59,130,246,0.3);}
-        .login-card h2{font-size:22px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent;}
+        .login-card .ecole-label{font-size:12px;color:#94a3b8;margin-bottom:4px;}
+        .login-card .ecole-nom{font-size:22px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:16px;}
         .login-card p{color:#cbd5e1;font-size:13px;margin-bottom:20px;}
         .login-card input,.login-card select{width:100%;padding:12px;margin-bottom:14px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;}
         .login-card button{width:100%;padding:12px;border-radius:40px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;font-weight:600;border:none;cursor:pointer;}
@@ -1848,7 +1849,23 @@ async function showLogin() {
     let d = document.createElement('div');
     d.className = 'login-overlay';
     d.id = 'loginOverlay';
-    d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
+    
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    d.innerHTML = `
+        <div class="login-card">
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:4px;">ECOLE</div>
+            <h2 style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#60a5fa,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:16px;">${nomEcole}</h2>
+            <p style="color:#cbd5e1;font-size:13px;margin-bottom:20px;">Accès enseignant</p>
+            <select id="loginNom">
+                <option value="">-- Choisir --</option>
+            </select>
+            <input type="password" id="loginCode" placeholder="Code d'accès">
+            <button id="loginBtn">Se connecter</button>
+            <div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444;"></div>
+        </div>
+    `;
+    
     document.body.appendChild(d);
     await refreshTeachersList();
 
@@ -2979,6 +2996,10 @@ async function traiterMessageParent(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = SCHOOL_PREFIX ? SCHOOL_PREFIX.toUpperCase().replace(/_/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    if (msg.includes('merci') || msg.includes('thanks') || msg.includes('ok merci') || msg.includes('merci beaucoup')) {
+        return `Je vous en prie, cher parent. N'hesitez pas si vous avez d'autres questions.`;
+    }
+    
     if (msg.includes('code') && (msg.includes('quoi') || msg.includes('quel') || msg.includes('c\'est') || msg.includes('qu\'est-ce') || msg.includes('cest'))) {
         return `C'est le code parent à 6 chiffres que la comptabilité vous a donné à l'inscription. Il permet de voir les frais. Pour les notes, présences et punitions, donnez le nom de votre enfant.`;
     }
@@ -3182,20 +3203,12 @@ if (parentFloatingBtnNew) {
         document.body.style.overflow = 'hidden';
         
         parentChatMessagesNew.innerHTML = `
-            <div class="parent-msg bot">
-                <div class="bubble" style="max-width:85%;padding:12px 18px;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
-                        <img src="https://www.netubex.com/png.png" style="width:32px;height:32px;border-radius:50%;">
-                        <strong style="color:#ffd700;font-size:13px;">Espace Parent - ${nomEcole}</strong>
-                    </div>
-                    
-                    <div style="display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12px;color:#e2e8f0;padding:4px 0;">
-                        <span><strong>Code 6 chiffres</strong> → Frais</span>
-                        <span><strong>Nom complet</strong> → Notes, presence, punitions</span>
-                    </div>
-                    
-                    <div style="font-size:11px;color:#94a3b8;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;margin-top:6px;">
-                        Je suis la pour vous aider
+            <div class="parent-msg bot" style="margin:0;">
+                <div class="bubble" style="background:rgba(18,25,45,0.85);border:2px solid rgba(255,107,107,0.3);border-radius:12px;padding:4px 12px;max-width:80%;margin:0;">
+                    <div style="font-size:13px;color:#e2e8f0;line-height:1.3;">
+                        <strong style="color:#ffd700;font-size:14px;">ECOLE ${nomEcole}</strong><br>
+                        Je suis un <span style="color:#ffd700;">systeme intelligent</span> qui vous permet de savoir quelques <span style="color:#ffd700;">details sur votre enfant</span>.<br>
+                        <span style="color:#ffd700;"><strong>Code 6 chiffres</strong></span> → Frais &nbsp;|&nbsp; <span style="color:#ffd700;"><strong>Nom complet</strong></span> → Notes, presence et comportement
                     </div>
                 </div>
             </div>
