@@ -20,7 +20,7 @@
             background: #1e293b;
             border-radius: 16px;
             padding: 30px;
-            max-width: 600px;
+            max-width: 700px;
             width: 100%;
             border: 1px solid #334155;
         }
@@ -39,25 +39,29 @@
         .status .ok { color: #10b981; }
         .status .error { color: #ef4444; }
         .status .info { color: #60a5fa; }
+        .status .warning { color: #f59e0b; }
         button {
-            width: 100%;
-            padding: 14px;
+            padding: 12px 20px;
             border-radius: 40px;
             border: none;
             background: #3b82f6;
             color: #fff;
             font-weight: 600;
-            font-size: 15px;
+            font-size: 14px;
             cursor: pointer;
             transition: 0.2s;
-            margin-bottom: 10px;
+            margin: 4px;
         }
         button:hover { opacity: 0.85; transform: scale(0.98); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button.secondary { background: #334155; }
+        button.success { background: #10b981; }
+        button.danger { background: #ef4444; }
         .input-group {
             display: flex;
             gap: 10px;
             margin-bottom: 12px;
+            flex-wrap: wrap;
         }
         .input-group input {
             flex: 1;
@@ -67,6 +71,7 @@
             background: #0f172a;
             color: #fff;
             font-size: 14px;
+            min-width: 150px;
         }
         .input-group input:focus { outline: none; border-color: #3b82f6; }
         .log {
@@ -74,7 +79,7 @@
             border-radius: 8px;
             padding: 12px;
             margin-top: 12px;
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
             font-size: 12px;
             font-family: monospace;
@@ -84,6 +89,7 @@
         .log .sent { color: #60a5fa; }
         .log .received { color: #10b981; }
         .log .error-log { color: #ef4444; }
+        .log .warn { color: #f59e0b; }
         .badge {
             display: inline-block;
             padding: 2px 10px;
@@ -95,6 +101,25 @@
         .badge.ok { background: #10b981; color: #fff; }
         .badge.error { background: #ef4444; color: #fff; }
         .badge.waiting { background: #f59e0b; color: #fff; }
+        .badge.info { background: #3b82f6; color: #fff; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+        .school-info {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border-left: 3px solid #3b82f6;
+            font-size: 13px;
+        }
+        .school-info strong { color: #60a5fa; }
+        .collection-info {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin: 4px 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body>
@@ -102,8 +127,14 @@
 <div class="box">
     <h1>🧪 Test Worker Firebase</h1>
     <div class="sub">
-        Worker: <code>parent.netube-a97.workers.dev</code>
+        Worker: <code id="workerUrlDisplay">parent.netube-a97.workers.dev</code>
         <span id="workerStatus" class="badge waiting">Test...</span>
+    </div>
+
+    <div class="school-info" id="schoolInfo">
+        <strong>🏫 École:</strong> <span id="schoolNameDisplay">Chargement...</span>
+        <br>
+        <strong>📂 Collection:</strong> <code id="collectionDisplay">...</code>
     </div>
 
     <div class="status" id="statusDisplay">
@@ -112,11 +143,15 @@
 
     <div class="input-group">
         <input type="text" id="questionInput" placeholder="Question (ex: Qui est le meilleur élève ?)" value="Donne-moi la liste des élèves">
-        <button id="testBtn" style="width:auto;padding:12px 24px;">📤 Tester</button>
+        <button id="testBtn" style="flex:1;">🚀 Test complet</button>
     </div>
 
-    <button id="fetchBtn">📥 Récupérer les données Firebase</button>
-    <button id="sendBtn" disabled>📤 Envoyer au Worker</button>
+    <div class="btn-group">
+        <button id="fetchBtn" class="secondary">📥 Firebase</button>
+        <button id="sendBtn" class="success" disabled>📤 Envoyer au Worker</button>
+        <button id="debugBtn" class="secondary">🔍 Debug</button>
+        <button id="clearBtn" class="danger">🗑️ Effacer</button>
+    </div>
 
     <div class="log" id="logDisplay">
         <div class="info">📋 Log des actions...</div>
@@ -146,10 +181,15 @@
     const db = getFirestore(app);
 
     // =============================================
-    // 3. CONFIGURATION
+    // 3. DÉTECTION DE L'ÉCOLE
     // =============================================
+    const urlParams = new URLSearchParams(window.location.search);
+    let SCHOOL_ID = urlParams.get('ecole') || 'gloria_dei';
+    
+    // Si vous voulez forcer une école spécifique, décommentez la ligne ci-dessous
+    // SCHOOL_ID = 'gloria_dei';
+    
     const WORKER_URL = 'https://parent.netube-a97.workers.dev/';
-    const SCHOOL_ID = 'gloria_dei'; // ou votre école
 
     // =============================================
     // 4. ÉLÉMENTS DOM
@@ -160,10 +200,21 @@
     const testBtn = document.getElementById('testBtn');
     const fetchBtn = document.getElementById('fetchBtn');
     const sendBtn = document.getElementById('sendBtn');
+    const debugBtn = document.getElementById('debugBtn');
+    const clearBtn = document.getElementById('clearBtn');
     const workerStatus = document.getElementById('workerStatus');
+    const schoolNameDisplay = document.getElementById('schoolNameDisplay');
+    const collectionDisplay = document.getElementById('collectionDisplay');
+    const workerUrlDisplay = document.getElementById('workerUrlDisplay');
 
     let firebaseData = null;
     let lastWorkerResponse = null;
+    let allFiches = [];
+
+    // Afficher les infos de l'école
+    schoolNameDisplay.textContent = SCHOOL_ID.toUpperCase().replace(/_/g, ' ');
+    collectionDisplay.textContent = SCHOOL_ID + '_fiches';
+    workerUrlDisplay.textContent = WORKER_URL;
 
     // =============================================
     // 5. FONCTIONS UTILITAIRES
@@ -172,7 +223,8 @@
         const colors = {
             info: '#60a5fa',
             ok: '#10b981',
-            error: '#ef4444'
+            error: '#ef4444',
+            warning: '#f59e0b'
         };
         statusDisplay.innerHTML = `<span style="color:${colors[type] || '#94a3b8'}">${message}</span>`;
     }
@@ -182,7 +234,8 @@
             info: '#94a3b8',
             sent: '#60a5fa',
             received: '#10b981',
-            error: '#ef4444'
+            error: '#ef4444',
+            warning: '#f59e0b'
         };
         const time = new Date().toLocaleTimeString();
         const div = document.createElement('div');
@@ -228,59 +281,92 @@
     // =============================================
     async function fetchFirebaseData() {
         setStatus('⏳ Récupération des données Firebase...', 'info');
-        addLog('📥 Récupération des données...', 'info');
+        addLog(`📥 Récupération depuis: ${SCHOOL_ID}_fiches`, 'info');
         
         try {
             // Récupérer les fiches
-            const fichesSnap = await getDocs(collection(db, SCHOOL_ID + "_fiches"));
+            const collectionName = SCHOOL_ID + "_fiches";
+            addLog(`📂 Collection: ${collectionName}`, 'info');
+            
+            const fichesSnap = await getDocs(collection(db, collectionName));
+            
+            if (fichesSnap.empty) {
+                addLog(`⚠️ Aucune fiche trouvée dans ${collectionName}`, 'warning');
+                setStatus(`⚠️ Aucune fiche trouvée. Vérifiez le nom de l'école.`, 'warning');
+                
+                // Proposer des alternatives
+                addLog(`💡 Essayez de changer SCHOOL_ID dans le code`, 'warning');
+                return null;
+            }
+            
+            addLog(`✅ ${fichesSnap.size} fiches trouvées`, 'received');
+            
             const eleves = [];
             const fiches = [];
+            let totalEleves = 0;
             
             fichesSnap.forEach(doc => {
                 const data = doc.data();
-                if (!data._type && data.eleves) {
+                addLog(`📄 Fiche: ${doc.id} - ${data.cours || 'sans cours'} (${data.eleves?.length || 0} élèves)`, 'info');
+                
+                if (data.eleves && data.eleves.length > 0) {
                     fiches.push({
                         id: doc.id,
-                        cours: data.cours,
-                        classe: data.classe,
+                        cours: data.cours || 'Non défini',
+                        classe: data.classe || 'Non défini',
                         option: data.option || '',
                         titulaire: data.titulaire || '',
                         eleves: data.eleves || []
                     });
                     
                     data.eleves.forEach(e => {
-                        eleves.push({
-                            nom: e.nom || 'Inconnu',
-                            classe: data.classe || '?',
-                            cours: data.cours || '?',
-                            option: data.option || '',
-                            notes: e.notes || {},
-                            sexe: e.sexe || 'Non spécifié'
-                        });
+                        if (e.nom) {
+                            eleves.push({
+                                nom: e.nom,
+                                classe: data.classe || '?',
+                                cours: data.cours || '?',
+                                option: data.option || '',
+                                notes: e.notes || {},
+                                sexe: e.sexe || 'Non spécifié'
+                            });
+                            totalEleves++;
+                        }
                     });
                 }
             });
             
+            if (totalEleves === 0) {
+                addLog(`⚠️ Aucun élève trouvé dans les fiches`, 'warning');
+                setStatus(`⚠️ Les fiches existent mais n'ont pas d'élèves`, 'warning');
+                return null;
+            }
+            
             firebaseData = {
                 fiches: fiches,
                 eleves: eleves,
-                totalEleves: eleves.length,
+                totalEleves: totalEleves,
                 totalFiches: fiches.length
             };
             
-            addLog(`✅ ${eleves.length} élèves trouvés dans ${fiches.length} fiches`, 'received');
-            setStatus(`✅ ${eleves.length} élèves récupérés depuis Firebase`, 'ok');
+            allFiches = fiches;
+            
+            addLog(`✅ ${totalEleves} élèves trouvés dans ${fiches.length} fiches`, 'received');
+            setStatus(`✅ ${totalEleves} élèves récupérés depuis Firebase`, 'ok');
             
             // Afficher un résumé
-            const noms = eleves.slice(0, 5).map(e => e.nom).join(', ');
-            addLog(`📋 Élèves: ${noms}${eleves.length > 5 ? '...' : ''}`, 'info');
+            const noms = eleves.slice(0, 10).map(e => e.nom).join(', ');
+            addLog(`📋 Élèves: ${noms}${eleves.length > 10 ? '...' : ''}`, 'info');
+            
+            // Afficher les classes
+            const classes = [...new Set(eleves.map(e => e.classe))];
+            addLog(`📚 Classes: ${classes.join(', ')}`, 'info');
             
             sendBtn.disabled = false;
             return firebaseData;
             
         } catch (error) {
-            addLog('❌ Erreur Firebase: ' + error.message, 'error');
-            setStatus('❌ Erreur: ' + error.message, 'error');
+            addLog(`❌ Erreur Firebase: ${error.message}`, 'error');
+            setStatus(`❌ Erreur: ${error.message}`, 'error');
             return null;
         }
     }
@@ -303,8 +389,9 @@
             const payload = {
                 question: question,
                 ecole: SCHOOL_ID,
-                eleves: firebaseData.eleves.slice(0, 50), // Limite pour éviter trop gros
-                totalEleves: firebaseData.totalEleves
+                eleves: firebaseData.eleves.slice(0, 50),
+                totalEleves: firebaseData.totalEleves,
+                fiches: firebaseData.fiches.slice(0, 20)
             };
 
             console.log('📦 Payload envoyé:', payload);
@@ -319,21 +406,55 @@
             lastWorkerResponse = data;
 
             addLog(`✅ Réponse reçue: ${(data.answer || 'Aucune réponse').substring(0, 200)}...`, 'received');
-            setStatus(`✅ Réponse: ${data.answer || 'Aucune réponse'}`, 'ok');
+            setStatus(`✅ Réponse reçue`, 'ok');
 
-            // Afficher la réponse complète dans le log
-            addLog(`📝 Réponse complète: ${JSON.stringify(data)}`, 'received');
+            // Afficher la réponse complète
+            addLog(`📝 Réponse: ${JSON.stringify(data)}`, 'received');
 
             return data;
         } catch (error) {
-            addLog('❌ Erreur envoi: ' + error.message, 'error');
-            setStatus('❌ Erreur: ' + error.message, 'error');
+            addLog(`❌ Erreur envoi: ${error.message}`, 'error');
+            setStatus(`❌ Erreur: ${error.message}`, 'error');
             return null;
         }
     }
 
     // =============================================
-    // 9. TEST COMPLET
+    // 9. DEBUG - Explorer Firebase
+    // =============================================
+    async function debugFirebase() {
+        addLog('🔍 Exploration de Firebase...', 'info');
+        setStatus('🔍 Exploration...', 'info');
+        
+        try {
+            // Lister toutes les collections disponibles
+            const collections = [];
+            const snap = await getDocs(collection(db, SCHOOL_ID + "_fiches"));
+            
+            addLog(`📂 Collection ${SCHOOL_ID}_fiches: ${snap.size} documents`, 'info');
+            
+            if (snap.empty) {
+                addLog(`⚠️ La collection est vide. Vérifiez le nom de l'école.`, 'warning');
+                addLog(`💡 SCHOOL_ID actuel: ${SCHOOL_ID}`, 'warning');
+                
+                // Essayer de lister toutes les collections (limité)
+                addLog(`💡 Essayez de changer SCHOOL_ID dans le code ou dans l'URL`, 'info');
+                addLog(`💡 URL actuelle: ${window.location.href}`, 'info');
+            } else {
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const nbEleves = data.eleves?.length || 0;
+                    addLog(`📄 ${doc.id}: ${data.cours || 'sans cours'} - ${nbEleves} élèves`, 'info');
+                });
+            }
+            
+        } catch (error) {
+            addLog(`❌ Erreur debug: ${error.message}`, 'error');
+        }
+    }
+
+    // =============================================
+    // 10. TEST COMPLET
     // =============================================
     async function fullTest() {
         const question = questionInput.value.trim() || "Donne-moi la liste des élèves";
@@ -366,37 +487,40 @@
     }
 
     // =============================================
-    // 10. ÉVÉNEMENTS
+    // 11. ÉVÉNEMENTS
     // =============================================
     
-    // Test complet
     testBtn.addEventListener('click', fullTest);
-    
-    // Récupérer Firebase
     fetchBtn.addEventListener('click', fetchFirebaseData);
+    debugBtn.addEventListener('click', debugFirebase);
     
-    // Envoyer au worker
     sendBtn.addEventListener('click', () => {
         const question = questionInput.value.trim() || "Donne-moi la liste des élèves";
         sendToWorker(question);
     });
     
-    // Entrée
+    clearBtn.addEventListener('click', () => {
+        logDisplay.innerHTML = '<div class="info">📋 Log effacé...</div>';
+        setStatus('🧹 Log effacé', 'info');
+    });
+    
     questionInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') testBtn.click();
     });
 
     // =============================================
-    // 11. TEST AUTOMATIQUE AU CHARGEMENT
+    // 12. INITIALISATION
     // =============================================
     (async function init() {
         addLog('🚀 Application de test chargée', 'info');
+        addLog(`🏫 École: ${SCHOOL_ID}`, 'info');
+        addLog(`🔗 Worker: ${WORKER_URL}`, 'info');
         setStatus('⏳ Test automatique du worker...', 'info');
         
-        // Tester simplement le worker
         const ok = await testWorker();
         if (ok) {
-            addLog('💡 Cliquez sur "Récupérer les données Firebase" pour continuer', 'info');
+            addLog('💡 Cliquez sur "Firebase" pour charger les données', 'info');
+            addLog('💡 Ou sur "Test complet" pour tout faire d\'un coup', 'info');
         }
     })();
 
@@ -405,13 +529,16 @@
     window.fetchFirebaseData = fetchFirebaseData;
     window.sendToWorker = sendToWorker;
     window.fullTest = fullTest;
+    window.debugFirebase = debugFirebase;
 
     console.log('🧪 Application de test prête !');
+    console.log(`🏫 École: ${SCHOOL_ID}`);
     console.log('📋 Fonctions disponibles:');
     console.log('  - testWorker()');
     console.log('  - fetchFirebaseData()');
     console.log('  - sendToWorker(question)');
     console.log('  - fullTest()');
+    console.log('  - debugFirebase()');
 </script>
 </body>
 </html>
