@@ -2998,6 +2998,79 @@ let conversationStateNew = {
 let isProcessing = false;
 let messageCount = 0;
 
+const motsNotes = [
+    'note', 'notes', 'résultat', 'résultats', 'évaluation', 'épreuve',
+    'interrogation', 'interro', 'devoir', 'examen', 'bulletin', 'relevé',
+    'a eu', 'obtenu', 'combien', 'point', 'points', 'note de', 'cours de',
+    'matière', 'matières', 'français', 'math', 'mathématiques', 'anglais',
+    'physique', 'chimie', 'svt', 'histoire', 'géo', 'philosophie', 'espagnol',
+    'allemand', 'latin', 'musique', 'arts', 'sport', 'eps', 'informatique',
+    'technologie', 'sciences', 'economie', 'comptabilité', 'gestion'
+];
+
+const motsProf = [
+    'professeur', 'enseignant', 'titulaire', 'maître', 'maîtresse',
+    'instituteur', 'institutrice', 'éducateur'
+];
+
+const reponsesMerci = [
+    'Je vous en prie, cher parent. C\'était un plaisir de vous aider.',
+    'Avec plaisir ! N\'hésitez pas si vous avez d\'autres questions.',
+    'De rien, cher parent. Je suis là pour vous accompagner.',
+    'Je vous en prie. Bonne continuation avec votre enfant.',
+    'Tout le plaisir est pour moi. À bientôt !'
+];
+
+const reponsesFrais = [
+    'Pour consulter les frais, je vais avoir besoin du code parent.',
+    'Les frais sont accessibles avec le code parent à 6 chiffres.',
+    'Si vous voulez voir les frais, veuillez me donner le code parent.',
+    'Avez-vous le code parent ? C\'est lui qui me permet d\'afficher les frais.',
+    'Je peux vous montrer les frais, mais il me faut le code parent.'
+];
+
+const reponsesProf = [
+    'C\'est confidentiel, posez les questions basées sur les frais, notes ou punitions de votre enfant.'
+];
+
+const reponsesLitige = [
+    'Je comprends. Veuillez vous rapprocher de la comptabilité avec vos reçus.',
+    'Pour régler cela, il est préférable de voir la comptabilité directement.',
+    'Je vous conseille de contacter la comptabilité avec vos justificatifs.',
+    'La comptabilité pourra vous aider à résoudre ce problème.',
+    'Les litiges sont traités par la comptabilité. Munissez-vous de vos reçus.'
+];
+
+const reponsesCode = [
+    'C\'est le code parent à 6 chiffres donné par la comptabilité lors de l\'inscription.',
+    'Le code parent est un identifiant à 6 chiffres fourni par la comptabilité.',
+    'C\'est un code à 6 chiffres que la comptabilité vous a remis à l\'inscription.',
+    'Le code parent est délivré par la comptabilité. C\'est un numéro à 6 chiffres.',
+    'C\'est le code que vous avez reçu de la comptabilité pour suivre votre enfant.'
+];
+
+const reponsesSalutation = [
+    'Bonjour cher parent ! Je suis là pour vous aider. Donnez-moi le nom de votre enfant ou le code parent.',
+    'Bonjour ! En quoi puis-je vous être utile aujourd\'hui ?',
+    'Bonjour cher parent. Je suis à votre disposition pour suivre votre enfant.',
+    'Bonjour ! Que puis-je faire pour vous ?'
+];
+
+const reponsesAuRevoir = [
+    'Au revoir cher parent ! Revenez quand vous voulez.',
+    'Bonne journée ! N\'hésitez pas si vous avez d\'autres questions.',
+    'À bientôt ! Je reste à votre disposition.',
+    'Au revoir ! Prenez soin de vous et de votre enfant.'
+];
+
+const reponsesCodeInvalide = [
+    'Code non reconnu. Vérifiez que vous avez bien saisi 6 chiffres.',
+    'Désolé, ce code n\'est pas dans notre système. Vérifiez-le.',
+    'Je ne trouve pas ce code. Assurez-vous d\'avoir les bons chiffres.',
+    'Code invalide. Vérifiez auprès de la comptabilité.',
+    'Ce code n\'existe pas. Contactez la comptabilité pour obtenir le bon.'
+];
+
 function normaliserTexte(texte) {
     const corrections = {
         'mercie': 'merci',
@@ -3084,82 +3157,34 @@ async function traiterMessageParent(message) {
     const msg = normaliserTexte(msgOriginal);
     const nomEcole = SCHOOL_PREFIX ? SCHOOL_PREFIX.toUpperCase().replace(/_/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    const reponsesMerci = [
-        'Je vous en prie, cher parent. C\'était un plaisir de vous aider.',
-        'Avec plaisir ! N\'hésitez pas si vous avez d\'autres questions.',
-        'De rien, cher parent. Je suis là pour vous accompagner.',
-        'Je vous en prie. Bonne continuation avec votre enfant.',
-        'Tout le plaisir est pour moi. À bientôt !'
-    ];
+    const aDonneNom = conversationStateNew.eleveData && conversationStateNew.eleveData.nom;
+    const aDonneCode = /^\d{6}$/.test(msg) || (conversationStateNew.step === 'asked_frais' && conversationStateNew.eleveData);
     
-    const reponsesFrais = [
-        'Pour consulter les frais, je vais avoir besoin du code parent.',
-        'Les frais sont accessibles avec le code parent à 6 chiffres.',
-        'Si vous voulez voir les frais, veuillez me donner le code parent.',
-        'Avez-vous le code parent ? C\'est lui qui me permet d\'afficher les frais.',
-        'Je peux vous montrer les frais, mais il me faut le code parent.'
-    ];
+    const estQuestionNotes = motsNotes.some(m => msg.includes(m)) && 
+                            !msg.includes('merci') && !msg.includes('bonjour') && 
+                            !msg.includes('au revoir') && !msg.includes('code') &&
+                            !msg.includes('frais') && !msg.includes('professeur') &&
+                            !msg.includes('litige') && !msg.includes('problème') &&
+                            !msg.includes('erreur') && !msg.includes('conteste');
     
-    const reponsesProf = [
-        'Le nom du professeur reste confidentiel.',
-        'Je ne peux pas divulguer le nom de l\'enseignant.',
-        'Le professeur garde son anonymat.',
-        'Désolé, le nom du professeur est privé.',
-        'Je ne donne pas le nom du professeur par mesure de confidentialité.'
-    ];
+    if (estQuestionNotes && !aDonneNom && !aDonneCode) {
+        return 'Pour voir les notes, donnez le nom complet de votre enfant.';
+    }
     
-    const reponsesLitige = [
-        'Je comprends. Veuillez vous rapprocher de la comptabilité avec vos reçus.',
-        'Pour régler cela, il est préférable de voir la comptabilité directement.',
-        'Je vous conseille de contacter la comptabilité avec vos justificatifs.',
-        'La comptabilité pourra vous aider à résoudre ce problème.',
-        'Les litiges sont traités par la comptabilité. Munissez-vous de vos reçus.'
-    ];
+    if (motsProf.some(m => msg.includes(m))) {
+        return 'C\'est confidentiel, posez les questions basées sur les frais, notes ou punitions de votre enfant.';
+    }
     
-    const reponsesCode = [
-        'C\'est le code parent à 6 chiffres donné par la comptabilité lors de l\'inscription.',
-        'Le code parent est un identifiant à 6 chiffres fourni par la comptabilité.',
-        'C\'est un code à 6 chiffres que la comptabilité vous a remis à l\'inscription.',
-        'Le code parent est délivré par la comptabilité. C\'est un numéro à 6 chiffres.',
-        'C\'est le code que vous avez reçu de la comptabilité pour suivre votre enfant.'
-    ];
+    const estQuestionFrais = (msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
+                             msg.includes('scolarité') || msg.includes('reste') || msg.includes('combien') ||
+                             msg.includes('argent') || msg.includes('prix') || msg.includes('coût') || 
+                             msg.includes('montant') || msg.includes('écolage') || msg.includes('inscription') ||
+                             msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) &&
+                            !motsNotes.some(m => msg.includes(m));
     
-    const reponsesSalutation = [
-        'Bonjour cher parent ! Je suis là pour vous aider. Donnez-moi le nom de votre enfant ou le code parent.',
-        'Bonjour ! En quoi puis-je vous être utile aujourd\'hui ?',
-        'Bonjour cher parent. Je suis à votre disposition pour suivre votre enfant.',
-        'Bonjour ! Que puis-je faire pour vous ?'
-    ];
-    
-    const reponsesAuRevoir = [
-        'Au revoir cher parent ! Revenez quand vous voulez.',
-        'Bonne journée ! N\'hésitez pas si vous avez d\'autres questions.',
-        'À bientôt ! Je reste à votre disposition.',
-        'Au revoir ! Prenez soin de vous et de votre enfant.'
-    ];
-    
-    const reponsesCodeInvalide = [
-        'Code non reconnu. Vérifiez que vous avez bien saisi 6 chiffres.',
-        'Désolé, ce code n\'est pas dans notre système. Vérifiez-le.',
-        'Je ne trouve pas ce code. Assurez-vous d\'avoir les bons chiffres.',
-        'Code invalide. Vérifiez auprès de la comptabilité.',
-        'Ce code n\'existe pas. Contactez la comptabilité pour obtenir le bon.'
-    ];
-    
-    const motsNotes = [
-        'note', 'notes', 'résultat', 'résultats', 'évaluation', 'épreuve',
-        'interrogation', 'interro', 'devoir', 'examen', 'bulletin', 'relevé',
-        'a eu', 'obtenu', 'combien', 'point', 'points', 'note de', 'cours de',
-        'matière', 'matières', 'français', 'math', 'mathématiques', 'anglais',
-        'physique', 'chimie', 'svt', 'histoire', 'géo', 'philosophie', 'espagnol',
-        'allemand', 'latin', 'musique', 'arts', 'sport', 'eps', 'informatique',
-        'technologie', 'sciences', 'economie', 'comptabilité', 'gestion'
-    ];
-    
-    const motsProf = [
-        'professeur', 'enseignant', 'titulaire', 'maître', 'maîtresse',
-        'instituteur', 'institutrice', 'éducateur'
-    ];
+    if (estQuestionFrais && !aDonneCode && !aDonneNom) {
+        return 'Pour voir les frais, veuillez me donner le code parent à 6 chiffres.';
+    }
     
     if (enAttenteAutreChoix && derniereListeEleves && derniereListeEleves.length > 0) {
         const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || 
@@ -3170,16 +3195,16 @@ async function traiterMessageParent(message) {
             enAttenteAutreChoix = false;
             listeElevesEnAttente = derniereListeEleves;
             
-            let reponse = `Voici la liste des élèves liés à ce code. Veuillez choisir :\n\n`;
+            let reponse = 'Voici la liste des élèves liés à ce code. Veuillez choisir :\n\n';
             listeElevesEnAttente.forEach((e, i) => {
                 reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
             });
-            reponse += `\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l'élève.`;
+            reponse += '\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l\'élève.';
             return reponse;
         } else {
             enAttenteAutreChoix = false;
             derniereListeEleves = [];
-            return `D'accord. Si vous avez besoin d'autres informations, n'hésitez pas.`;
+            return 'D\'accord. Si vous avez besoin d\'autres informations, n\'hésitez pas.';
         }
     }
     
@@ -3219,14 +3244,14 @@ async function traiterMessageParent(message) {
             let reponse = `Frais de ${eleveChoisi.nom} : ${eleveChoisi.minerval.toLocaleString()} FC par mois.`;
             
             const questions = [
-                `Voulez-vous savoir le montant total payé ?`,
-                `Souhaitez-vous connaître le reste à payer ?`,
-                `Voulez-vous voir les mois impayés ?`,
-                `Je peux vous donner le statut de paiement, si vous voulez.`
+                'Voulez-vous savoir le montant total payé ?',
+                'Souhaitez-vous connaître le reste à payer ?',
+                'Voulez-vous voir les mois impayés ?',
+                'Je peux vous donner le statut de paiement, si vous voulez.'
             ];
             reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
             
-            reponse += `\n\nVoulez-vous voir les frais d'un autre enfant lié à ce code ? (oui/non)`;
+            reponse += '\n\nVoulez-vous voir les frais d\'un autre enfant lié à ce code ? (oui/non)';
             enAttenteChoixEleve = false;
             enAttenteAutreChoix = true;
             
@@ -3257,27 +3282,6 @@ async function traiterMessageParent(message) {
         msg.includes('c\'est') || msg.includes('qu\'est-ce') || msg.includes('cest') ||
         msg.includes('à quoi') || msg.includes('comment'))) {
         return reponsesCode[Math.floor(Math.random() * reponsesCode.length)];
-    }
-    
-    if ((msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
-        msg.includes('scolarité') || msg.includes('reste') || msg.includes('combien') ||
-        msg.includes('argent') || msg.includes('prix') || msg.includes('coût') || 
-        msg.includes('montant') || msg.includes('écolage') || msg.includes('inscription') ||
-        msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) &&
-        !motsNotes.some(m => msg.includes(m))) {
-        return reponsesFrais[Math.floor(Math.random() * reponsesFrais.length)];
-    }
-    
-    const estQuestionProf = 
-        motsProf.some(m => msg.includes(m)) &&
-        !motsNotes.some(m => msg.includes(m)) &&
-        !msg.includes('meilleur') && !msg.includes('intelligent') && 
-        !msg.includes('fort') && !msg.includes('premier') && !msg.includes('dernier') &&
-        !msg.includes('mauvais') && !msg.includes('faible') &&
-        !msg.includes('élève') && !msg.includes('enfant');
-    
-    if (estQuestionProf) {
-        return reponsesProf[Math.floor(Math.random() * reponsesProf.length)];
     }
     
     if (msg.includes('litige') || msg.includes('problème') || msg.includes('erreur') || 
@@ -3332,10 +3336,10 @@ async function traiterMessageParent(message) {
         if (msg.includes('frais') || msg.includes('minerval') || msg.includes('scolarité') || 
             msg.includes('argent') || msg.includes('payer')) {
             const questions = [
-                `Voulez-vous savoir le montant total payé ?`,
-                `Souhaitez-vous connaître le reste à payer ?`,
-                `Voulez-vous voir les mois impayés ?`,
-                `Je peux vous donner le statut de ${eleveNom}, si vous voulez.`
+                'Voulez-vous savoir le montant total payé ?',
+                'Souhaitez-vous connaître le reste à payer ?',
+                'Voulez-vous voir les mois impayés ?',
+                'Je peux vous donner le statut de paiement, si vous voulez.'
             ];
             return questions[Math.floor(Math.random() * questions.length)];
         }
@@ -3447,10 +3451,10 @@ async function traiterMessageParent(message) {
             let reponse = `Frais de ${eleve.nom} : ${eleve.minerval.toLocaleString()} FC par mois.`;
             
             const questions = [
-                `Voulez-vous savoir le montant total payé ?`,
-                `Souhaitez-vous connaître le reste à payer ?`,
-                `Voulez-vous voir les mois impayés ?`,
-                `Je peux vous donner le statut de paiement, si vous voulez.`
+                'Voulez-vous savoir le montant total payé ?',
+                'Souhaitez-vous connaître le reste à payer ?',
+                'Voulez-vous voir les mois impayés ?',
+                'Je peux vous donner le statut de paiement, si vous voulez.'
             ];
             reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
             
@@ -3461,11 +3465,11 @@ async function traiterMessageParent(message) {
             listeElevesEnAttente = infos;
             enAttenteChoixEleve = true;
             
-            let reponse = `Plusieurs élèves sont liés à ce code. Veuillez choisir :\n\n`;
+            let reponse = 'Plusieurs élèves sont liés à ce code. Veuillez choisir :\n\n';
             infos.forEach((e, i) => {
                 reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
             });
-            reponse += `\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l'élève.`;
+            reponse += '\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l\'élève.';
             return reponse;
         }
     }
@@ -3585,11 +3589,9 @@ async function traiterMessageParent(message) {
     
     try {
         const instructions = await chargerInstructionsIA();
-        const prompt = `${instructions}
+        const prompt = `Question du parent : ${message}
 
-Question du parent : ${message}
-
-Réponds de manière naturelle, chaleureuse et bienveillante. Si tu ne connais pas la réponse, propose au parent de donner le nom de son enfant ou le code parent.`;
+Réponds de manière naturelle, chaleureuse et bienveillante. Propose au parent de donner le nom de son enfant ou le code parent.`;
 
         const response = await fetch(WORKER_URL, {
             method: 'POST',
@@ -3601,7 +3603,22 @@ Réponds de manière naturelle, chaleureuse et bienveillante. Si tu ne connais p
         });
         
         const data = await response.json();
-        return data.answer || `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+        let reponse = data.answer || `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+        
+        const motsInterdits = [
+            'instructions', 'IMPÉRATIVES', 'Règles', 'Maximum', 'autorisee', 'interdite',
+            'Tu es un assistant', 'Tu es un systeme', 'Tu dois', 'Ne JAMAIS',
+            'Utilise TOUJOURS', 'Tu es un systeme intelligent', 'Tu reponds aux parents'
+        ];
+        
+        for (const mot of motsInterdits) {
+            if (reponse.toLowerCase().includes(mot.toLowerCase())) {
+                reponse = `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+                break;
+            }
+        }
+        
+        return reponse;
         
     } catch (error) {
         console.error('Erreur Worker:', error);
@@ -3640,11 +3657,13 @@ if (parentFloatingBtnNew) {
         }, 800);
     };
 }
+
 if (closeParentModalNew) closeParentModalNew.onclick = () => {
     parentModalOverlayNew.classList.remove('active');
     document.body.style.overflow = '';
     stopSpeaking();
 };
+
 parentModalOverlayNew.onclick = (e) => {
     if (e.target === parentModalOverlayNew) {
         parentModalOverlayNew.classList.remove('active');
@@ -3761,6 +3780,7 @@ if (parentQuestionInputNew) {
         this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
 }
+
 updateCounterDisplay();
 
 async function getAllComptaEleves() {
