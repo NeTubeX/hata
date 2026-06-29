@@ -561,24 +561,11 @@ let dernierEleveChoisi = null;
 
 const WORKER_URL_FINAL = 'https://parent.netube-a97.workers.dev/';
 
-// ===== VARIABLES D'ÉTAT DE CONVERSATION =====
-let conversationStateNew = {
+let conversationState = {
     step: 'initial',
     eleveNom: null,
     eleveData: null
 };
-
-// Fonction pour réinitialiser la conversation
-function reinitialiserConversation() {
-    conversationStateNew = {
-        step: 'initial',
-        eleveNom: null,
-        eleveData: null
-    };
-    enAttenteChoixEleve = false;
-    enAttenteAutreChoix = false;
-    listeElevesEnAttente = [];
-}
 
 function getDernierCommunique() {
     return new Promise(async (resolve) => {
@@ -3000,6 +2987,15 @@ const parentQuestionInputNew = document.getElementById('parentQuestionInput');
 const parentSendBtnNew = document.getElementById('parentSendBtn');
 const parentInfoEleveNew = document.getElementById('parentInfoEleve');
 
+const WORKER_URL_FINAL2 = 'https://parent.netube-a97.workers.dev/';
+
+let conversationStateNew = {
+    step: 'initial',
+    eleveNom: null,
+    eleveData: null,
+    fraisStep: 0
+};
+
 let isProcessing = false;
 let messageCount = 0;
 
@@ -3157,180 +3153,62 @@ function normaliserTexte(texte) {
     return normalise;
 }
 
-// ===== FONCTION POUR POSER UNE QUESTION UNIQUE =====
-function poserQuestionUnique(question, options) {
-    let reponse = question;
-    if (options && options.length > 0) {
-        reponse += '\n\n';
-        options.forEach((opt, index) => {
-            reponse += `${index+1}. ${opt}\n`;
-        });
-        reponse += '\nRépondez par le numéro ou le texte correspondant.';
-    }
-    return reponse;
-}
-
-// ===== FONCTION DE GESTION DES CHOIX =====
-function gererReponseChoix(message) {
-    const msg = message.trim().toLowerCase();
-    
-    // Gestion des punitions
-    if (conversationStateNew.step === 'asked_punition') {
-        if (msg.includes('oui') || msg.includes('o') || msg.includes('veux')) {
-            const eleve = conversationStateNew.eleveData;
-            const estFille = eleve?.sexe === 'F' || eleve?.sexe === 'Féminin';
-            const pronom = estFille ? 'elle' : 'il';
-            
-            if (eleve?.punitions && eleve.punitions.length > 0) {
-                let reponse = `Punitions de ${eleve.nom} :\n\n`;
-                eleve.punitions.forEach((p, index) => {
-                    const dateP = new Date(p.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-                    reponse += `${index+1}. ${dateP} : ${p.motif}\n`;
-                });
-                reponse += `\nVoulez-vous voir les frais de ${eleve.nom} ? Donnez le code parent.`;
-                conversationStateNew.step = 'initial';
-                return reponse;
-            } else {
-                conversationStateNew.step = 'initial';
-                return `${eleve?.nom || 'Votre enfant'} n'a aucune punition enregistrée.\n\nPour les frais, veuillez donner le code parent à 6 chiffres.`;
-            }
-        } else {
-            conversationStateNew.step = 'initial';
-            return `D'accord. Pour les frais, veuillez donner le code parent à 6 chiffres.\n\nPour les notes ou la présence, donnez le nom de votre enfant.`;
-        }
-    }
-    
-    // Gestion des frais - attente de choix
-    if (conversationStateNew.step === 'waiting_for_choice') {
-        const eleve = conversationStateNew.eleveData;
-        const eleveNom = eleve?.nom || 'votre enfant';
-        
-        // Mois impayés
-        if (msg.includes('impayé') || msg.includes('mois') || msg.includes('1')) {
-            if (eleve?.moisImpayes && eleve.moisImpayes.length > 0) {
-                conversationStateNew.step = 'asked_frais';
-                return `Mois impayés pour ${eleveNom} : ${eleve.moisImpayes.join(', ')}.\n\nVoulez-vous voir les frais d'un autre enfant ? (oui/non)`;
-            } else {
-                conversationStateNew.step = 'asked_frais';
-                return `${eleveNom} n'a aucun mois impayé. Tous les mois sont payés.\n\nVoulez-vous voir les frais d'un autre enfant ? (oui/non)`;
-            }
-        }
-        
-        // Autre enfant
-        if (msg.includes('autre') || msg.includes('autre enfant') || msg.includes('2')) {
-            conversationStateNew.step = 'initial';
-            return `D'accord. Veuillez me donner le code parent à 6 chiffres pour voir les frais d'un autre enfant.`;
-        }
-        
-        // Non / Stop
-        if (msg.includes('non') || msg.includes('stop') || msg.includes('fin') || msg.includes('3')) {
-            conversationStateNew.step = 'initial';
-            return `D'accord. Si vous avez besoin d'autres informations, n'hésitez pas.\n\nPour les notes ou la présence, donnez le nom de votre enfant.`;
-        }
-        
-        // Réponse non claire
-        return `Je n'ai pas compris votre choix.\n\nVoulez-vous :\n1. Voir les mois impayés\n2. Voir les frais d'un autre enfant\n3. Arrêter\n\nRépondez par le numéro (1, 2 ou 3).`;
-    }
-    
-    // Gestion des frais - après avoir montré les frais
-    if (conversationStateNew.step === 'asked_frais') {
-        const eleve = conversationStateNew.eleveData;
-        const eleveNom = eleve?.nom || 'votre enfant';
-        
-        if (msg.includes('impayé') || msg.includes('mois') || msg.includes('1')) {
-            if (eleve?.moisImpayes && eleve.moisImpayes.length > 0) {
-                return `Mois impayés pour ${eleveNom} : ${eleve.moisImpayes.join(', ')}.\n\nVoulez-vous voir les frais d'un autre enfant ? (oui/non)`;
-            } else {
-                return `${eleveNom} n'a aucun mois impayé. Tous les mois sont payés.\n\nVoulez-vous voir les frais d'un autre enfant ? (oui/non)`;
-            }
-        }
-        
-        if (msg.includes('autre') || msg.includes('autre enfant') || msg.includes('2')) {
-            conversationStateNew.step = 'initial';
-            return `D'accord. Veuillez me donner le code parent à 6 chiffres pour voir les frais d'un autre enfant.`;
-        }
-        
-        if (msg.includes('non') || msg.includes('stop') || msg.includes('fin') || msg.includes('3')) {
-            conversationStateNew.step = 'initial';
-            return `D'accord. Si vous avez d'autres questions, je suis là.\n\nPour les notes ou la présence, donnez le nom de votre enfant.`;
-        }
-        
-        // Rediriger vers les options disponibles
-        return poserQuestionUnique(
-            `Que souhaitez-vous savoir sur les frais de ${eleveNom} ?`,
-            ['Mois impayés', 'Voir un autre enfant', 'Arrêter']
-        );
-    }
-    
-    return null;
-}
-
-// ===== FONCTION PRINCIPALE DE TRAITEMENT DES MESSAGES =====
 async function traiterMessageParent(message) {
     const msgOriginal = message.trim().toLowerCase();
     const msg = normaliserTexte(msgOriginal);
     const nomEcole = SCHOOL_PREFIX ? SCHOOL_PREFIX.toUpperCase().replace(/_/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    // 1. Gestion des réponses de choix (état waiting_for_choice)
-    if (conversationStateNew.step === 'waiting_for_choice') {
-        return gererReponseChoix(message);
+    const aDonneNom = conversationStateNew.eleveData && conversationStateNew.eleveData.nom;
+    const aDonneCode = /^\d{6}$/.test(msg) || (conversationStateNew.step === 'asked_frais' && conversationStateNew.eleveData);
+    
+    const estQuestionNotes = motsNotes.some(m => msg.includes(m)) && 
+                            !msg.includes('merci') && !msg.includes('bonjour') && 
+                            !msg.includes('au revoir') && !msg.includes('code') &&
+                            !msg.includes('frais') && !msg.includes('professeur') &&
+                            !msg.includes('litige') && !msg.includes('problème') &&
+                            !msg.includes('erreur') && !msg.includes('conteste');
+    
+    if (estQuestionNotes && !aDonneNom && !aDonneCode) {
+        return 'Pour voir les notes, donnez le nom complet de votre enfant.';
     }
     
-    // 2. Gestion des réponses de punition (état asked_punition)
-    if (conversationStateNew.step === 'asked_punition') {
-        return gererReponseChoix(message);
+    if (motsProf.some(m => msg.includes(m))) {
+        return 'C\'est confidentiel, posez les questions basées sur les frais, notes ou punitions de votre enfant.';
     }
     
-    // 3. Gestion des frais (état asked_frais)
-    if (conversationStateNew.step === 'asked_frais') {
-        return gererReponseChoix(message);
+    const estQuestionFrais = (msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
+                             msg.includes('scolarité') || msg.includes('reste') || msg.includes('combien') ||
+                             msg.includes('argent') || msg.includes('prix') || msg.includes('coût') || 
+                             msg.includes('montant') || msg.includes('écolage') || msg.includes('inscription') ||
+                             msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) &&
+                            !motsNotes.some(m => msg.includes(m));
+    
+    if (estQuestionFrais && !aDonneCode && !aDonneNom) {
+        return 'Pour voir les frais, veuillez me donner le code parent à 6 chiffres.';
     }
     
-    // 4. Gestion du code parent (6 chiffres)
-    if (/^\d{6}$/.test(msg)) {
-        const infos = await chercherInfosFinancieresParCode(msg);
+    if (enAttenteAutreChoix && derniereListeEleves && derniereListeEleves.length > 0) {
+        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || 
+                          msg.includes('d\'accord') || msg.includes('veux') || msg.includes('autre');
         
-        if (!infos || infos.length === 0) {
-            return reponsesCodeInvalide[Math.floor(Math.random() * reponsesCodeInvalide.length)];
-        }
-        
-        if (infos.length === 1) {
-            const eleve = infos[0];
-            conversationStateNew.eleveNom = eleve.nom;
-            conversationStateNew.eleveData = {
-                nom: eleve.nom,
-                prenom: eleve.prenom || '',
-                classe: eleve.classe,
-                option: eleve.option || '',
-                minerval: eleve.minerval,
-                totalPaye: eleve.totalPaye,
-                reste: eleve.reste,
-                moisImpayes: eleve.moisImpayes || [],
-                statut: eleve.statut,
-                sexe: 'M'
-            };
-            conversationStateNew.step = 'waiting_for_choice';
-            
-            return poserQuestionUnique(
-                `Frais de ${eleve.nom} : ${eleve.minerval.toLocaleString()} FC par mois.`,
-                ['Mois impayés', 'Voir un autre enfant', 'Arrêter']
-            );
-        }
-        
-        if (infos.length > 1) {
-            listeElevesEnAttente = infos;
+        if (estPositif) {
             enAttenteChoixEleve = true;
+            enAttenteAutreChoix = false;
+            listeElevesEnAttente = derniereListeEleves;
             
-            let reponse = 'Plusieurs élèves sont liés à ce code. Veuillez choisir :\n\n';
-            infos.forEach((e, i) => {
+            let reponse = 'Voici la liste des élèves liés à ce code. Veuillez choisir :\n\n';
+            listeElevesEnAttente.forEach((e, i) => {
                 reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
             });
             reponse += '\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l\'élève.';
             return reponse;
+        } else {
+            enAttenteAutreChoix = false;
+            derniereListeEleves = [];
+            return 'D\'accord. Si vous avez besoin d\'autres informations, n\'hésitez pas.';
         }
     }
     
-    // 5. Gestion du choix d'élève (liste)
     if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
         const choix = msg.trim();
         let eleveChoisi = null;
@@ -3347,6 +3225,8 @@ async function traiterMessageParent(message) {
         
         if (eleveChoisi) {
             dernierEleveChoisi = eleveChoisi;
+            derniereListeEleves = listeElevesEnAttente;
+            
             conversationStateNew.eleveNom = eleveChoisi.nom;
             conversationStateNew.eleveData = {
                 nom: eleveChoisi.nom,
@@ -3360,51 +3240,193 @@ async function traiterMessageParent(message) {
                 statut: eleveChoisi.statut,
                 sexe: 'M'
             };
-            conversationStateNew.step = 'waiting_for_choice';
+            conversationStateNew.step = 'asked_frais';
+            conversationStateNew.fraisStep = 0;
+            
+            let reponse = `Frais de ${eleveChoisi.nom} : ${eleveChoisi.minerval.toLocaleString()} FC par mois.`;
+            
+            const questions = [
+                'Voulez-vous savoir le montant total payé ? (oui/non)',
+                'Souhaitez-vous connaître le reste à payer ? (oui/non)',
+                'Voulez-vous voir les mois impayés ? (oui/non)',
+                'Je peux vous donner le statut de paiement, si vous voulez. (oui/non)'
+            ];
+            reponse += ` ${questions[0]}`;
+            conversationStateNew.fraisStep = 1;
             enAttenteChoixEleve = false;
             
-            return poserQuestionUnique(
-                `Frais de ${eleveChoisi.nom} : ${eleveChoisi.minerval.toLocaleString()} FC par mois.`,
-                ['Mois impayés', 'Voir un autre enfant', 'Arrêter']
-            );
+            return reponse;
         } else {
             let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom || ''}`).join('\n');
             return `Choix non reconnu. Veuillez choisir un numéro entre 1 et ${listeElevesEnAttente.length} ou le nom complet de l'élève.\n\n${listeNoms}`;
         }
     }
     
-    // 6. Gestion des réponses simples (merci, bonjour, etc.)
-    if (msg.includes('merci') || msg.includes('thanks')) {
+    if (msg.includes('merci') || msg.includes('thanks') || msg.includes('remercie') || 
+        msg.includes('ok merci') || msg.includes('merci beaucoup') || msg.includes('cimer') ||
+        msg.includes('je vous remercie') || msg.includes('merci bien')) {
         return reponsesMerci[Math.floor(Math.random() * reponsesMerci.length)];
     }
     
-    if (msg.includes('bonjour') || msg.includes('salut') || msg.includes('hello')) {
+    if (msg.includes('bonjour') || msg.includes('salut') || msg.includes('hello') || 
+        msg.includes('coucou') || msg.includes('bonsoir') || msg.includes('bjr')) {
         return reponsesSalutation[Math.floor(Math.random() * reponsesSalutation.length)];
     }
     
-    if (msg.includes('au revoir') || msg.includes('bye')) {
+    if (msg.includes('au revoir') || msg.includes('bye') || msg.includes('à plus') || 
+        msg.includes('ciao') || msg.includes('à bientôt')) {
         return reponsesAuRevoir[Math.floor(Math.random() * reponsesAuRevoir.length)];
     }
     
-    if (motsProf.some(m => msg.includes(m))) {
-        return reponsesProf[0];
+    if (msg.includes('code') && (msg.includes('quoi') || msg.includes('quel') || 
+        msg.includes('c\'est') || msg.includes('qu\'est-ce') || msg.includes('cest') ||
+        msg.includes('à quoi') || msg.includes('comment'))) {
+        return reponsesCode[Math.floor(Math.random() * reponsesCode.length)];
     }
     
-    if (msg.includes('litige') || msg.includes('problème') || msg.includes('erreur')) {
+    if (msg.includes('litige') || msg.includes('problème') || msg.includes('erreur') || 
+        msg.includes('conteste') || msg.includes('réclamation') || msg.includes('correct') ||
+        msg.includes('faux') || msg.includes('pas bon') || msg.includes('injuste') ||
+        msg.includes('réclame') || msg.includes('plainte') || msg.includes('désaccord') ||
+        msg.includes('contestation')) {
         return reponsesLitige[Math.floor(Math.random() * reponsesLitige.length)];
     }
     
-    // 7. Recherche d'un élève par nom (notes, présence, punitions)
-    if (msg.length >= 2 && !msg.includes('frais') && !msg.includes('code')) {
+    if (conversationStateNew.step === 'asked_frais' && conversationStateNew.fraisStep > 0) {
+        const eleve = conversationStateNew.eleveData;
+        if (!eleve) {
+            conversationStateNew.step = 'initial';
+            conversationStateNew.fraisStep = 0;
+            return "Je suis désolé, j'ai perdu le fil. Donnez-moi le nom de votre enfant ou le code parent.";
+        }
+        
+        const userResponse = msg.toLowerCase();
+        const isAffirmative = userResponse.includes('oui') || userResponse.includes('yes') || userResponse.includes('ok') || userResponse.includes('d\'accord') || userResponse.includes('veux') || userResponse.includes('savoir');
+        const isNegative = userResponse.includes('non') || userResponse.includes('no') || userResponse.includes('pas') || userResponse.includes('ne') || userResponse.includes('rien');
+        
+        const minerval = eleve.minerval || 0;
+        const totalPaye = eleve.totalPaye || 0;
+        const moisImpayes = eleve.moisImpayes || [];
+        const statut = eleve.statut || "En ordre";
+        const reste = eleve.reste || 0;
+        
+        const etapesQuestions = [
+            { step: 1, question: 'total payé', reponseOui: `${eleve.nom} a payé ${totalPaye.toLocaleString()} FC sur ${(minerval * 10).toLocaleString()} FC annuels.`, reponseNon: 'D\'accord, passons à la suite.' },
+            { step: 2, question: 'reste à payer', reponseOui: reste === 0 ? `${eleve.nom} est à jour de ses frais. Aucun reste à payer.` : `${eleve.nom} doit encore ${reste.toLocaleString()} FC.`, reponseNon: 'D\'accord, passons à la suite.' },
+            { step: 3, question: 'mois impayés', reponseOui: moisImpayes.length > 0 ? `Mois impayés : ${moisImpayes.join(', ')}.` : `${eleve.nom} n'a aucun mois impayé. Tous les mois sont payés.`, reponseNon: 'D\'accord, passons à la suite.' },
+            { step: 4, question: 'statut de paiement', reponseOui: (() => {
+                if (statut === 'Exonéré') return `${eleve.nom} est exonéré des frais scolaires.`;
+                if (statut === 'Liste noire') return `${eleve.nom} est en liste noire. Veuillez régulariser la situation.`;
+                if (statut === 'Paiement partiel') return `${eleve.nom} a des paiements partiels.`;
+                return `${eleve.nom} est en ordre de paiement.`;
+            })(), reponseNon: 'D\'accord.' }
+        ];
+        
+        const currentStep = conversationStateNew.fraisStep;
+        const etape = etapesQuestions[currentStep - 1];
+        
+        if (isAffirmative) {
+            let reponse = etape.reponseOui;
+            if (currentStep < 4) {
+                const nextEtape = etapesQuestions[currentStep];
+                reponse += ` Voulez-vous savoir ${nextEtape.question} ? (oui/non)`;
+                conversationStateNew.fraisStep = currentStep + 1;
+            } else {
+                reponse += ` Voulez-vous voir les frais d'un autre enfant lié à ce code ? (oui/non)`;
+                conversationStateNew.step = 'initial';
+                conversationStateNew.fraisStep = 0;
+                enAttenteAutreChoix = true;
+                derniereListeEleves = listeElevesEnAttente.length > 0 ? listeElevesEnAttente : [eleve];
+            }
+            return reponse;
+        } else if (isNegative) {
+            let reponse = etape.reponseNon;
+            if (currentStep < 4) {
+                const nextEtape = etapesQuestions[currentStep];
+                reponse += ` Voulez-vous savoir ${nextEtape.question} ? (oui/non)`;
+                conversationStateNew.fraisStep = currentStep + 1;
+            } else {
+                reponse += ` Voulez-vous voir les frais d'un autre enfant lié à ce code ? (oui/non)`;
+                conversationStateNew.step = 'initial';
+                conversationStateNew.fraisStep = 0;
+                enAttenteAutreChoix = true;
+                derniereListeEleves = listeElevesEnAttente.length > 0 ? listeElevesEnAttente : [eleve];
+            }
+            return reponse;
+        } else {
+            const nextEtape = etapesQuestions[currentStep];
+            if (currentStep < 4) {
+                return `Je n'ai pas compris. Voulez-vous savoir ${nextEtape.question} ? (oui/non)`;
+            } else {
+                return `Voulez-vous voir les frais d'un autre enfant lié à ce code ? (oui/non)`;
+            }
+        }
+    }
+    
+    if (/^\d{6}$/.test(msg)) {
+        const infos = await chercherInfosFinancieresParCode(msg);
+        
+        if (!infos || infos.length === 0) {
+            return reponsesCodeInvalide[Math.floor(Math.random() * reponsesCodeInvalide.length)];
+        }
+        
+        if (infos.length === 1) {
+            const eleve = infos[0];
+            
+            conversationStateNew.eleveNom = eleve.nom;
+            conversationStateNew.eleveData = {
+                nom: eleve.nom,
+                prenom: eleve.prenom || '',
+                classe: eleve.classe,
+                option: eleve.option || '',
+                minerval: eleve.minerval,
+                totalPaye: eleve.totalPaye,
+                reste: eleve.reste,
+                moisImpayes: eleve.moisImpayes || [],
+                statut: eleve.statut,
+                sexe: 'M'
+            };
+            conversationStateNew.step = 'asked_frais';
+            conversationStateNew.fraisStep = 1;
+            
+            let reponse = `Frais de ${eleve.nom} : ${eleve.minerval.toLocaleString()} FC par mois.`;
+            reponse += ` Voulez-vous savoir le montant total payé ? (oui/non)`;
+            return reponse;
+        }
+        
+        if (infos.length > 1) {
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            
+            let reponse = 'Plusieurs élèves sont liés à ce code. Veuillez choisir :\n\n';
+            infos.forEach((e, i) => {
+                reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
+            });
+            reponse += '\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l\'élève.';
+            return reponse;
+        }
+    }
+    
+    if (msg.length >= 2) {
         const toutesFiches = await getAllFiches();
         const tousEleves = [];
+        const fichesData = [];
         
         for (const fiche of toutesFiches) {
             if (fiche.eleves && fiche.eleves.length > 0) {
+                fichesData.push({
+                    cours: fiche.cours,
+                    classe: fiche.classe,
+                    option: fiche.option || '',
+                    titulaire: fiche.titulaire || '',
+                    nbEleves: fiche.eleves.length
+                });
+                
                 for (const e of fiche.eleves) {
                     if (e.nom) {
                         const punitions = await chercherPunitionsParNom(e.nom);
                         const presences = await chercherPresencesParNom(e.nom);
+                        
                         tousEleves.push({
                             nom: e.nom,
                             prenom: e.prenom || '',
@@ -3425,12 +3447,14 @@ async function traiterMessageParent(message) {
         
         if (resultats.length > 0) {
             const premier = resultats[0];
+            
             conversationStateNew.eleveNom = premier.nom;
             conversationStateNew.eleveData = premier;
             
             const estFille = premier.sexe === 'F' || premier.sexe === 'Féminin';
             const pronom = estFille ? 'elle' : 'il';
-            const pos = estFille ? 'sa' : 'son';
+            const eleve = estFille ? 'Elle' : 'Il';
+            const poss = estFille ? 'sa' : 'son';
             
             let reponse = `${premier.nom} est en ${premier.classe}`;
             if (premier.option && premier.option !== 'TOUTES') {
@@ -3438,37 +3462,107 @@ async function traiterMessageParent(message) {
             }
             reponse += `.`;
             
-            // Vérifier la présence
-            if (premier.presences && premier.presences.length > 0) {
-                const aujourdhui = premier.presences[0];
-                const statut = aujourdhui.present ? 'présent' : 'absent';
-                reponse += ` ${pronom} était ${statut} aujourd'hui.`;
+            if (premier.notes && Object.keys(premier.notes).length > 0) {
+                let notesStr = '';
+                let hasNotes = false;
+                const phrasesIntro = [
+                    `Voici ses notes : `,
+                    `${eleve} a obtenu : `,
+                    `Au niveau des notes : `,
+                    `Côté résultats : `,
+                    `${eleve} a comme notes : `,
+                    `Pour les évaluations : `
+                ];
+                let intro = phrasesIntro[Math.floor(Math.random() * phrasesIntro.length)];
+                
+                for (let p = 1; p <= 4; p++) {
+                    const notes = premier.notes[`p${p}`] || [];
+                    const eps = toutesFiches.find(f => f.classe === premier.classe && f.option === premier.option)?.epreuvesParPeriode?.[p] || [];
+                    for (let i = 0; i < notes.length && i < eps.length; i++) {
+                        if (notes[i] > 0) {
+                            hasNotes = true;
+                            const nomEpreuve = eps[i]?.nom || 'Epreuve';
+                            const note = notes[i];
+                            const max = eps[i]?.max || 20;
+                            if (notesStr) notesStr += ', ';
+                            const expressions = [
+                                `a eu ${note}/${max}`,
+                                `a obtenu ${note}/${max}`,
+                                `est à ${note}/${max}`,
+                                `a fait ${note}/${max}`,
+                                `a réussi avec ${note}/${max}`
+                            ];
+                            const expr = expressions[Math.floor(Math.random() * expressions.length)];
+                            if (nomEpreuve.toLowerCase().includes('interrogation')) {
+                                notesStr += `une interrogation ${expr}`;
+                            } else if (nomEpreuve.toLowerCase().includes('devoir')) {
+                                notesStr += `un devoir ${expr}`;
+                            } else {
+                                notesStr += `${nomEpreuve} ${expr}`;
+                            }
+                        }
+                    }
+                }
+                if (hasNotes) {
+                    reponse += ` ${intro}${notesStr}.`;
+                } else {
+                    reponse += ` ${eleve} n'a pas encore de notes.`;
+                }
             } else {
-                reponse += ` Aucune présence enregistrée pour ${pronom}.`;
+                reponse += ` ${eleve} n'a pas encore de notes enregistrées.`;
             }
             
-            // Vérifier les punitions
-            if (premier.punitions && premier.punitions.length > 0) {
-                reponse += ` ${pronom} a ${premier.punitions.length} punition(s).`;
-            }
-            
-            // Proposer une seule question à la fois
-            if (premier.punitions && premier.punitions.length > 0) {
-                reponse += `\n\nVoulez-vous voir les punitions de ${pronom} ? (oui/non)`;
-                conversationStateNew.step = 'asked_punition';
-            } else {
-                reponse += `\n\n${pos} note : Pour les frais, donnez le code parent à 6 chiffres.`;
-                conversationStateNew.step = 'initial';
-            }
+            const questions = [
+                `Voulez-vous savoir si ${pronom} était présent aujourd'hui ? (oui/non)`,
+                `Souhaitez-vous connaître ${poss} présence aujourd'hui ? (oui/non)`,
+                `Voulez-vous vérifier si ${pronom} était en classe aujourd'hui ? (oui/non)`,
+                `Je peux vous dire si ${pronom} était présent aujourd'hui, si vous voulez. (oui/non)`
+            ];
+            reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
+            conversationStateNew.step = 'asked_presence';
             return reponse;
         }
     }
     
-    // 8. Fallback : réponse générique
-    return `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant.\n\nPour les frais, donnez-moi le code parent à 6 chiffres.\nPour les notes, la présence ou les punitions, donnez-moi le nom complet de votre enfant.`;
+    try {
+        const instructions = await chargerInstructionsIA();
+        const prompt = `Question du parent : ${message}
+
+Réponds de manière naturelle, chaleureuse et bienveillante. Propose au parent de donner le nom de son enfant ou le code parent.`;
+
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                question: prompt,
+                ecole: SCHOOL_PREFIX
+            })
+        });
+        
+        const data = await response.json();
+        let reponse = data.answer || `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+        
+        const motsInterdits = [
+            'instructions', 'IMPÉRATIVES', 'Règles', 'Maximum', 'autorisee', 'interdite',
+            'Tu es un assistant', 'Tu es un systeme', 'Tu dois', 'Ne JAMAIS',
+            'Utilise TOUJOURS', 'Tu es un systeme intelligent', 'Tu reponds aux parents'
+        ];
+        
+        for (const mot of motsInterdits) {
+            if (reponse.toLowerCase().includes(mot.toLowerCase())) {
+                reponse = `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+                break;
+            }
+        }
+        
+        return reponse;
+        
+    } catch (error) {
+        console.error('Erreur Worker:', error);
+        return `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+    }
 }
 
-// ===== GESTION DU BOUTON PARENTAL =====
 if (parentFloatingBtnNew) {
     parentFloatingBtnNew.onclick = async () => {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
@@ -3492,7 +3586,6 @@ if (parentFloatingBtnNew) {
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
         updateCounterDisplay();
-        reinitialiserConversation();
         
         await verifierEtAfficherBoutonCommunique();
         
@@ -3506,7 +3599,6 @@ if (closeParentModalNew) closeParentModalNew.onclick = () => {
     parentModalOverlayNew.classList.remove('active');
     document.body.style.overflow = '';
     stopSpeaking();
-    reinitialiserConversation();
 };
 
 parentModalOverlayNew.onclick = (e) => {
@@ -3514,11 +3606,9 @@ parentModalOverlayNew.onclick = (e) => {
         parentModalOverlayNew.classList.remove('active');
         document.body.style.overflow = '';
         stopSpeaking();
-        reinitialiserConversation();
     }
 };
 
-// ===== GESTION DE L'ENVOI DE MESSAGE =====
 if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
         const message = parentQuestionInputNew.value.trim();
