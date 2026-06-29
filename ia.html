@@ -3343,6 +3343,7 @@ async function traiterMessageParent(message) {
             const estFille = premier.sexe === 'F' || premier.sexe === 'Féminin';
             const pronom = estFille ? 'elle' : 'il';
             const eleve = estFille ? 'Elle' : 'Il';
+            const poss = estFille ? 'sa' : 'son';
             
             let reponse = `${premier.nom} est en ${premier.classe}`;
             if (premier.option && premier.option !== 'TOUTES') {
@@ -3461,22 +3462,26 @@ if (parentSendBtnNew) {
         if (!message) return;
         
         if (isProcessing) {
+            const msg = 'Un instant, je traite votre demande precedente...';
             parentChatMessagesNew.innerHTML += `
                 <div class="parent-msg bot">
-                    <div class="bubble">Un instant, je traite votre demande precedente...</div>
+                    <div class="bubble">${msg}</div>
                 </div>
             `;
+            voixParentale(msg);
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             parentQuestionInputNew.value = '';
             return;
         }
         
         if (!canAskQuestion()) {
+            const msg = 'Vous avez atteint la limite de 20 questions pour aujourd\'hui. Revenez demain, je serai ravi de vous aider !';
             parentChatMessagesNew.innerHTML += `
                 <div class="parent-msg bot">
-                    <div class="bubble">Vous avez atteint la limite de 20 questions pour aujourd'hui. Revenez demain, je serai ravi de vous aider !</div>
+                    <div class="bubble">${msg}</div>
                 </div>
             `;
+            voixParentale(msg);
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             parentQuestionInputNew.value = '';
             return;
@@ -3503,7 +3508,9 @@ if (parentSendBtnNew) {
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             
             let timeoutId = setTimeout(() => {
-                bubbleBot.innerHTML = 'Je verifie dans le dossier... un instant';
+                const msgAttente = 'Je verifie dans le dossier... un instant';
+                bubbleBot.innerHTML = msgAttente;
+                voixParentale(msgAttente);
             }, 3000);
             
             const reponse = await traiterMessageParent(message);
@@ -3538,13 +3545,7 @@ if (parentSendBtnNew) {
             }
             
         } catch (error) {
-            console.error('Erreur:', error);
-            parentChatMessagesNew.innerHTML += `
-                <div class="parent-msg bot">
-                    <div class="bubble">Désolé, une erreur est survenue. Veuillez réessayer.</div>
-                </div>
-            `;
-            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            console.error('Erreur silencieuse:', error);
         } finally {
             isProcessing = false;
         }
