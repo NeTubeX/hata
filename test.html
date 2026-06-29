@@ -525,6 +525,48 @@ let communiqueAffiche = false;
 let enAttenteChoixEleve = false;
 let listeElevesEnAttente = [];
 
+function ajouterSectionVisitee(section) {
+    if (dernierEleveData && !dernierEleveData.sectionsVisitees.includes(section)) {
+        dernierEleveData.sectionsVisitees.push(section);
+    }
+}
+
+function sectionDejaVisitee(section) {
+    return dernierEleveData && dernierEleveData.sectionsVisitees.includes(section);
+}
+
+async function genererPropositions(eleveData) {
+    const sections = {
+        frais: { emoji: '💰', nom: 'les frais' },
+        notes: { emoji: '📝', nom: 'les notes' },
+        presence: { emoji: '📅', nom: 'la présence' },
+        punitions: { emoji: '⚠️', nom: 'les punitions' }
+    };
+    
+    const nonVisitees = Object.keys(sections).filter(
+        section => !sectionDejaVisitee(section)
+    );
+    
+    if (nonVisitees.length === 0) {
+        return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.\n\nSouhaitez-vous terminer la consultation ? (répondez "fin" ou "terminer")`;
+    }
+    
+    let propositions = '\n\nVoulez-vous voir ';
+    const noms = nonVisitees.map(s => sections[s].nom);
+    
+    if (noms.length === 1) {
+        propositions += noms[0] + ' maintenant ?';
+    } else if (noms.length === 2) {
+        propositions += noms[0] + ' ou ' + noms[1] + ' ?';
+    } else {
+        propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
+    }
+    
+    propositions += '\n\nOu voulez-vous terminer ? (répondez "fin" ou "terminer")';
+    
+    return propositions;
+}
+
 async function getDernierCommunique() {
     try {
         const q = query(
@@ -683,9 +725,7 @@ async function chercherPresencesParNom(nom) {
                     const dateStr = data.date.slice(0, 10);
                     const present = e.present;
                     
-                    // Si c'est aujourd'hui
                     if (dateStr === aujourdhui) {
-                        // Entre 12h et 17h30 = heure de cours
                         if (heureActuelle >= 12 && heureActuelle < 17.5) {
                             presences.push({
                                 date: data.date,
@@ -3382,7 +3422,8 @@ async function afficherInfosEleve(eleve) {
             statut: eleve.statut
         },
         punitions: noteData ? noteData.punitions : [],
-        presences: noteData ? noteData.presences : []
+        presences: noteData ? noteData.presences : [],
+        sectionsVisitees: []
     };
     
     return await genererReponseAccueil(dernierEleveData);
@@ -3401,6 +3442,8 @@ async function genererReponseAccueil(eleveData) {
 }
 
 async function genererReponseFrais(eleveData) {
+    ajouterSectionVisitee('frais');
+    
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const minerval = eleveData.frais.minerval;
     const totalPaye = eleveData.frais.totalPaye;
@@ -3421,13 +3464,13 @@ async function genererReponseFrais(eleveData) {
         reponse += `\n\nTout est à jour, c'est parfait !`;
     }
     
-    reponse += `\n\nVoulez-vous voir ses notes maintenant ?`;
-    reponse += `\n\nOu préférez-vous savoir s'il est présent aujourd'hui ?`;
-    reponse += `\n\nJe peux aussi vous parler des punitions si vous voulez.`;
+    reponse += await genererPropositions(eleveData);
     return reponse;
 }
 
 async function genererReponseNotes(eleveData) {
+    ajouterSectionVisitee('notes');
+    
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const notes = eleveData.notes || [];
     const notesParMatiere = {};
@@ -3456,13 +3499,13 @@ async function genererReponseNotes(eleveData) {
         reponse += `\n\nSon professeur titulaire est ${eleveData.titulaire}.`;
     }
     
-    reponse += `\n\nVoulez-vous voir les frais maintenant ?`;
-    reponse += `\n\nOu savoir s'il est présent aujourd'hui ?`;
-    reponse += `\n\nJe peux aussi vous parler des punitions.`;
+    reponse += await genererPropositions(eleveData);
     return reponse;
 }
 
 async function genererReponsePresence(eleveData) {
+    ajouterSectionVisitee('presence');
+    
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const presences = eleveData.presences || [];
     const maintenant = new Date();
@@ -3473,7 +3516,7 @@ async function genererReponsePresence(eleveData) {
     
     if (jourSemaine === 0 || jourSemaine === 6) {
         reponse += `\n\nAujourd'hui c'est le week-end, il n'y a pas cours.`;
-        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        reponse += await genererPropositions(eleveData);
         return reponse;
     }
     
@@ -3488,7 +3531,7 @@ async function genererReponsePresence(eleveData) {
                 reponse += `\n${derniere.present ? '✅ Présent' : '❌ Absent'}`;
             }
         }
-        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        reponse += await genererPropositions(eleveData);
         return reponse;
     }
     
@@ -3503,7 +3546,7 @@ async function genererReponsePresence(eleveData) {
             reponse += `\n\nLa dernière présence enregistrée date du ${dateDerniere}.`;
             reponse += `\n${derniere.present ? '✅ Présent' : '❌ Absent'}`;
         }
-        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        reponse += await genererPropositions(eleveData);
         return reponse;
     }
     
@@ -3530,13 +3573,13 @@ async function genererReponsePresence(eleveData) {
         }
     }
     
-    reponse += `\n\nVoulez-vous voir les notes maintenant ?`;
-    reponse += `\n\nOu les frais ?`;
-    reponse += `\n\nJe peux aussi vous parler des punitions.`;
+    reponse += await genererPropositions(eleveData);
     return reponse;
 }
 
 async function genererReponsePunitions(eleveData) {
+    ajouterSectionVisitee('punitions');
+    
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const punitions = eleveData.punitions || [];
     
@@ -3560,9 +3603,7 @@ async function genererReponsePunitions(eleveData) {
         });
     }
     
-    reponse += `\n\nVoulez-vous voir les frais ?`;
-    reponse += `\n\nOu les notes ?`;
-    reponse += `\n\nJe peux aussi vous parler de sa présence.`;
+    reponse += await genererPropositions(eleveData);
     return reponse;
 }
 
@@ -3600,6 +3641,69 @@ async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
+    // ✅ 1️⃣ PRIORITAIRE : Si on a un élève en mémoire
+    if (dernierEleveData) {
+        const eleveData = dernierEleveData;
+        const texteComplet = msg;
+        
+        // Mots-clés FRAIS
+        const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
+        if (motsFrais.some(m => texteComplet.includes(m))) {
+            return await genererReponseFrais(eleveData);
+        }
+        
+        // Mots-clés NOTES
+        const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
+        if (motsNotes.some(m => texteComplet.includes(m))) {
+            return await genererReponseNotes(eleveData);
+        }
+        
+        // Mots-clés PRÉSENCE
+        const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
+        if (motsPresence.some(m => texteComplet.includes(m))) {
+            return await genererReponsePresence(eleveData);
+        }
+        
+        // Mots-clés PUNITIONS
+        const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
+        if (motsPunitions.some(m => texteComplet.includes(m))) {
+            return await genererReponsePunitions(eleveData);
+        }
+        
+        // Mots-clés TOUT
+        const motsTout = ['tout', 'toute', 'complet', 'complète', 'résumé', 'global', 'général', 'info', 'informations', 'détail', 'détails', 'ensemble', 'total'];
+        if (motsTout.some(m => texteComplet.includes(m))) {
+            return await genererReponseComplet(eleveData);
+        }
+        
+        // Mots-clés FIN
+        const motsFin = ['fin', 'terminer', 'terminé', 'stop', 'arreter', 'arrêter', 'quit', 'bye', 'au revoir', 'merci', 'c\'est tout', 'assez', 'suffit', 'plus rien'];
+        if (motsFin.some(m => texteComplet.includes(m))) {
+            const reponse = await genererReponseFin(eleveData);
+            dernierEleveData = null;
+            dernierEleveConsulte = null;
+            return reponse;
+        }
+        
+        // Mots-clés MENU
+        const motsMenu = ['menu', 'accueil', 'retour', 'bonjour', 'salut', 'revenir', 'commencer', 'début', 'aide', 'help', 'que faire', 'options'];
+        if (motsMenu.some(m => texteComplet.includes(m))) {
+            return await genererReponseMenu(eleveData);
+        }
+        
+        // ❌ Message non reconnu
+        return `Je n'ai pas bien compris ce que vous voulez savoir sur ${eleveData.nom} ${eleveData.prenom || ''}.
+
+Je peux vous parler :
+• des frais scolaires (minerval, paiements, dettes)
+• des notes et résultats
+• de la présence et assiduité
+• des punitions et sanctions
+
+Dites-moi ce qui vous intéresse.`;
+    }
+    
+    // 2️⃣ Code parent (6 chiffres)
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
         
@@ -3622,6 +3726,7 @@ async function traiterMessage(message) {
         return reponse;
     }
     
+    // 3️⃣ Choix d'élève (si plusieurs)
     if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
         const choix = parseInt(msg.trim());
         
@@ -3636,44 +3741,7 @@ async function traiterMessage(message) {
         }
     }
     
-    if (dernierEleveData) {
-        const eleveData = dernierEleveData;
-        const mots = msg.split(' ');
-        
-        if (mots.some(m => ['frais', 'finances', 'argent', 'dettes', 'payer', 'minerval', 'paiement', 'cout', 'prix'].includes(m))) {
-            return await genererReponseFrais(eleveData);
-        }
-        
-        if (mots.some(m => ['notes', 'résultats', 'bulletin', 'points', 'epreuves', 'devoirs', 'interro'].includes(m))) {
-            return await genererReponseNotes(eleveData);
-        }
-        
-        if (mots.some(m => ['présence', 'present', 'absent', 'assiduité', 'venir', 'école', 'jour'].includes(m))) {
-            return await genererReponsePresence(eleveData);
-        }
-        
-        if (mots.some(m => ['punitions', 'sanctions', 'puni', 'comportement', 'discipline', 'punition'].includes(m))) {
-            return await genererReponsePunitions(eleveData);
-        }
-        
-        if (mots.some(m => ['tout', 'complet', 'résumé', 'global', 'général', 'info', 'informations'].includes(m))) {
-            return await genererReponseComplet(eleveData);
-        }
-        
-        if (mots.some(m => ['fin', 'terminer', 'stop', 'arreter', 'quit', 'bye', 'au revoir'].includes(m))) {
-            const reponse = await genererReponseFin(eleveData);
-            dernierEleveData = null;
-            dernierEleveConsulte = null;
-            return reponse;
-        }
-        
-        if (mots.some(m => ['menu', 'accueil', 'retour', 'bonjour', 'salut'].includes(m))) {
-            return await genererReponseMenu(eleveData);
-        }
-        
-        return `Je n'ai pas bien compris ce que vous voulez savoir.\n\nJe peux vous parler des frais, des notes, de la présence ou des punitions.\n\nDites-moi ce qui vous intéresse.`;
-    }
-    
+    // 4️⃣ Message d'accueil par défaut
     return `Bonjour ! Je suis le système intelligent de l'école ${nomEcole}.\n\nPour accéder aux informations de votre enfant, entrez votre code parent à 6 chiffres.\n\nSi vous n'avez pas de code, la comptabilité peut vous en donner un.`;
 }
 
