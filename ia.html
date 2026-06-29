@@ -399,7 +399,7 @@
 <button id="closeParentModal" style="background:rgba(239,68,68,0.1);border:none;color:#f87171;font-size:22px;font-weight:700;cursor:pointer;padding:0 8px;line-height:1;">✕</button>
 <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.3);padding:4px 14px 4px 10px;border-radius:40px;border:1px solid rgba(255,255,255,0.06);">
 <span style="font-size:11px;color:#94a3b8;">💬</span>
-<span id="parentQuestionCounter" style="background:#10b981;color:white;padding:1px 12px;border-radius:40px;font-weight:bold;font-size:14px;">0/10</span>
+<span id="parentQuestionCounter" style="background:#10b981;color:white;padding:1px 12px;border-radius:40px;font-weight:bold;font-size:14px;">0/20</span>
 </div>
 </div>
 </div>
@@ -2032,14 +2032,14 @@ function incrementQuestionCount() {
     return newCount;
 }
 
-function canAskQuestion() { return getQuestionCount() < 10; }
+function canAskQuestion() { return getQuestionCount() < 20; }
 
 function updateCounterDisplay() {
     const counterSpan = document.getElementById('parentQuestionCounter');
     if (counterSpan) {
         const current = getQuestionCount();
-        counterSpan.textContent = current + '/10';
-        if (current >= 10) {
+        counterSpan.textContent = current + '/20';
+        if (current >= 20) {
             counterSpan.style.background = '#ef4444';
         } else {
             counterSpan.style.background = '#10b981';
@@ -2047,7 +2047,7 @@ function updateCounterDisplay() {
     }
 }
 
-async function typeWriterEffect(element, text, speed = 15) {
+async function typeWriterEffect(element, text, speed = 6) {
     element.innerHTML = '';
     for (let i = 0; i < text.length; i++) {
         element.innerHTML += text.charAt(i);
@@ -2992,79 +2992,263 @@ let conversationStateNew = {
     eleveData: null
 };
 
+let isProcessing = false;
+let messageCount = 0;
+
+function normaliserTexte(texte) {
+    const corrections = {
+        'mercie': 'merci',
+        'mersi': 'merci',
+        'merçi': 'merci',
+        'merc': 'merci',
+        'thx': 'merci',
+        'frait': 'frais',
+        'fré': 'frais',
+        'frè': 'frais',
+        'fé': 'frais',
+        'profeseur': 'professeur',
+        'profese': 'professeur',
+        'profeseure': 'professeur',
+        'prf': 'professeur',
+        'pfr': 'professeur',
+        'en': 'enseignant',
+        'ens': 'enseignant',
+        'titu': 'titulaire',
+        'titul': 'titulaire',
+        'probleme': 'problème',
+        'problème': 'problème',
+        'problème': 'problème',
+        'pb': 'problème',
+        'cod': 'code',
+        'codé': 'code',
+        'punission': 'punition',
+        'punicion': 'punition',
+        'puni': 'punition',
+        'presance': 'présence',
+        'present': 'présent',
+        'présant': 'présent',
+        'prs': 'présence',
+        'payé': 'payer',
+        'paye': 'payer',
+        'scolarite': 'scolarité',
+        'scolaritée': 'scolarité',
+        'ecole': 'école',
+        'eco': 'école',
+        'note': 'notes',
+        'res': 'résultats',
+        'result': 'résultats',
+        'eval': 'évaluation',
+        'ev': 'évaluation',
+        'interro': 'interrogation',
+        'inter': 'interrogation',
+        'exam': 'examen',
+        'ex': 'examen',
+        'devo': 'devoir',
+        'dev': 'devoir',
+        'bul': 'bulletin',
+        'bullet': 'bulletin',
+        'releve': 'relevé',
+        'rel': 'relevé',
+        'comport': 'comportement',
+        'comp': 'comportement',
+        'sage': 'sage',
+        'disci': 'discipline',
+        'discipl': 'discipline',
+        'sanction': 'sanction',
+        'sanct': 'sanction',
+        'abs': 'absence',
+        'absent': 'absent',
+        'absen': 'absent',
+        'enfant': 'enfant',
+        'enf': 'enfant',
+        'eleve': 'élève',
+        'elv': 'élève',
+        'classe': 'classe',
+        'cls': 'classe',
+        'option': 'option',
+        'opt': 'option'
+    };
+    
+    let normalise = texte.toLowerCase().trim();
+    for (const [mauvais, bon] of Object.entries(corrections)) {
+        normalise = normalise.replace(new RegExp(mauvais, 'g'), bon);
+    }
+    return normalise;
+}
+
 async function traiterMessageParent(message) {
-    const msg = message.trim().toLowerCase();
+    const msgOriginal = message.trim().toLowerCase();
+    const msg = normaliserTexte(msgOriginal);
     const nomEcole = SCHOOL_PREFIX ? SCHOOL_PREFIX.toUpperCase().replace(/_/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    if (msg.includes('merci') || msg.includes('thanks') || msg.includes('ok merci') || msg.includes('merci beaucoup')) {
-        return `Je vous en prie, cher parent. N'hesitez pas si vous avez d'autres questions.`;
+    const reponsesMerci = [
+        'Je vous en prie, cher parent. C\'était un plaisir de vous aider.',
+        'Avec plaisir ! N\'hésitez pas si vous avez d\'autres questions.',
+        'De rien, cher parent. Je suis là pour vous accompagner.',
+        'Je vous en prie. Bonne continuation avec votre enfant.',
+        'Tout le plaisir est pour moi. À bientôt !'
+    ];
+    
+    const reponsesFrais = [
+        'Pour consulter les frais, je vais avoir besoin du code parent.',
+        'Les frais sont accessibles avec le code parent à 6 chiffres.',
+        'Si vous voulez voir les frais, veuillez me donner le code parent.',
+        'Avez-vous le code parent ? C\'est lui qui me permet d\'afficher les frais.',
+        'Je peux vous montrer les frais, mais il me faut le code parent.'
+    ];
+    
+    const reponsesProf = [
+        'Le nom du professeur reste confidentiel.',
+        'Je ne peux pas divulguer le nom de l\'enseignant.',
+        'Le professeur garde son anonymat.',
+        'Désolé, le nom du professeur est privé.',
+        'Je ne donne pas le nom du professeur par mesure de confidentialité.'
+    ];
+    
+    const reponsesLitige = [
+        'Je comprends. Veuillez vous rapprocher de la comptabilité avec vos reçus.',
+        'Pour régler cela, il est préférable de voir la comptabilité directement.',
+        'Je vous conseille de contacter la comptabilité avec vos justificatifs.',
+        'La comptabilité pourra vous aider à résoudre ce problème.',
+        'Les litiges sont traités par la comptabilité. Munissez-vous de vos reçus.'
+    ];
+    
+    const reponsesCode = [
+        'C\'est le code parent à 6 chiffres donné par la comptabilité lors de l\'inscription.',
+        'Le code parent est un identifiant à 6 chiffres fourni par la comptabilité.',
+        'C\'est un code à 6 chiffres que la comptabilité vous a remis à l\'inscription.',
+        'Le code parent est délivré par la comptabilité. C\'est un numéro à 6 chiffres.',
+        'C\'est le code que vous avez reçu de la comptabilité pour suivre votre enfant.'
+    ];
+    
+    const reponsesSalutation = [
+        'Bonjour cher parent ! Je suis là pour vous aider. Donnez-moi le nom de votre enfant ou le code parent.',
+        'Bonjour ! En quoi puis-je vous être utile aujourd\'hui ?',
+        'Bonjour cher parent. Je suis à votre disposition pour suivre votre enfant.',
+        'Bonjour ! Que puis-je faire pour vous ?'
+    ];
+    
+    const reponsesAuRevoir = [
+        'Au revoir cher parent ! Revenez quand vous voulez.',
+        'Bonne journée ! N\'hésitez pas si vous avez d\'autres questions.',
+        'À bientôt ! Je reste à votre disposition.',
+        'Au revoir ! Prenez soin de vous et de votre enfant.'
+    ];
+    
+    const reponsesCodeInvalide = [
+        'Code non reconnu. Vérifiez que vous avez bien saisi 6 chiffres.',
+        'Désolé, ce code n\'est pas dans notre système. Vérifiez-le.',
+        'Je ne trouve pas ce code. Assurez-vous d\'avoir les bons chiffres.',
+        'Code invalide. Vérifiez auprès de la comptabilité.',
+        'Ce code n\'existe pas. Contactez la comptabilité pour obtenir le bon.'
+    ];
+    
+    if (msg.includes('merci') || msg.includes('thanks') || msg.includes('remercie') || 
+        msg.includes('ok merci') || msg.includes('merci beaucoup') || msg.includes('cimer') ||
+        msg.includes('je vous remercie') || msg.includes('merci bien')) {
+        return reponsesMerci[Math.floor(Math.random() * reponsesMerci.length)];
     }
     
-    if (msg.includes('code') && (msg.includes('quoi') || msg.includes('quel') || msg.includes('c\'est') || msg.includes('qu\'est-ce') || msg.includes('cest'))) {
-        return `C'est le code parent à 6 chiffres que la comptabilité vous a donné à l'inscription. Il permet de voir les frais. Pour les notes, présences et punitions, donnez le nom de votre enfant.`;
+    if (msg.includes('bonjour') || msg.includes('salut') || msg.includes('hello') || 
+        msg.includes('coucou') || msg.includes('bonsoir') || msg.includes('bjr')) {
+        return reponsesSalutation[Math.floor(Math.random() * reponsesSalutation.length)];
     }
     
-    if (msg.includes('frais') || msg.includes('argent') || msg.includes('payer') || msg.includes('minerval') || msg.includes('scolarité')) {
-        return `Pour voir les frais, veuillez me donner le code parent.`;
+    if (msg.includes('au revoir') || msg.includes('bye') || msg.includes('à plus') || 
+        msg.includes('ciao') || msg.includes('à bientôt')) {
+        return reponsesAuRevoir[Math.floor(Math.random() * reponsesAuRevoir.length)];
     }
     
-    if (msg.includes('litige') || msg.includes('probleme') || msg.includes('erreur') || msg.includes('conteste') || msg.includes('reclamation')) {
-        return `Je comprends. Veuillez voir la comptabilité avec vos reçus pour régulariser. Sinon votre enfant risque d'être refoulé ou de rater les épreuves.`;
+    if (msg.includes('code') && (msg.includes('quoi') || msg.includes('quel') || 
+        msg.includes('c\'est') || msg.includes('qu\'est-ce') || msg.includes('cest') ||
+        msg.includes('à quoi') || msg.includes('comment'))) {
+        return reponsesCode[Math.floor(Math.random() * reponsesCode.length)];
+    }
+    
+    if (msg.includes('professeur') || msg.includes('prof') || msg.includes('enseignant') || 
+        msg.includes('titulaire') || msg.includes('enseigne') || msg.includes('maître') ||
+        msg.includes('maîtresse') || msg.includes('instituteur') || msg.includes('institutrice') ||
+        msg.includes('éducateur') || msg.includes('qui est')) {
+        return reponsesProf[Math.floor(Math.random() * reponsesProf.length)];
+    }
+    
+    if (msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
+        msg.includes('scolarité') || msg.includes('reste') || msg.includes('combien') ||
+        msg.includes('argent') || msg.includes('prix') || msg.includes('coût') || 
+        msg.includes('montant') || msg.includes('écolage') || msg.includes('inscription') ||
+        msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) {
+        return reponsesFrais[Math.floor(Math.random() * reponsesFrais.length)];
+    }
+    
+    if (msg.includes('litige') || msg.includes('problème') || msg.includes('erreur') || 
+        msg.includes('conteste') || msg.includes('réclamation') || msg.includes('correct') ||
+        msg.includes('faux') || msg.includes('pas bon') || msg.includes('injuste') ||
+        msg.includes('réclame') || msg.includes('plainte') || msg.includes('désaccord') ||
+        msg.includes('contestation')) {
+        return reponsesLitige[Math.floor(Math.random() * reponsesLitige.length)];
     }
     
     if (conversationStateNew.step === 'asked_presence') {
-        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || msg.includes('d\'accord') || msg.includes('veux') || msg.includes('savoir') || msg.includes('present') || msg.includes('presence') || msg.includes('donne');
+        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || 
+                          msg.includes('d\'accord') || msg.includes('veux') || msg.includes('savoir') ||
+                          msg.includes('present') || msg.includes('presence') || msg.includes('donne');
         
         if (estPositif) {
             const eleve = conversationStateNew.eleveData;
             const estFille = eleve.sexe === 'F' || eleve.sexe === 'Féminin';
             const pronom = estFille ? 'elle' : 'il';
+            const present = estFille ? 'présente' : 'présent';
             
             if (eleve.presences && eleve.presences.length > 0) {
                 const aujourdhui = eleve.presences[0];
                 const date = new Date(aujourdhui.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-                const statut = aujourdhui.present ? 'présent' : 'absent';
-                let reponse = `${eleve.nom} était ${statut} aujourd'hui (${date}).`;
-                
+                const statut = aujourdhui.present ? present : 'absent';
+                let reponse = `${eleve.nom} était ${statut} le ${date}.`;
                 let absences = 0;
                 for (const p of eleve.presences) {
                     if (!p.present) absences++;
                     else break;
                 }
                 if (absences > 1) {
-                    reponse += ` ${pronom} est absent depuis ${absences} jours.`;
+                    const absent = estFille ? 'absente' : 'absent';
+                    reponse += ` ${pronom} est ${absent} depuis ${absences} jours.`;
                 }
-                reponse += ` Voulez-vous savoir si ${pronom} a été puni ?`;
+                reponse += ` Voulez-vous savoir si ${pronom} a été punie ?`;
                 conversationStateNew.step = 'asked_punition';
                 return reponse;
             } else {
                 conversationStateNew.step = 'asked_punition';
                 const estFille = eleve.sexe === 'F' || eleve.sexe === 'Féminin';
                 const pronom = estFille ? 'elle' : 'il';
-                return `La direction n'a pas enregistré la présence de votre enfant. Veuillez contacter la direction. Voulez-vous savoir si ${pronom} a été puni ?`;
+                return `La direction n'a pas enregistré la présence de votre enfant. Veuillez contacter la direction. Voulez-vous savoir si ${pronom} a été punie ?`;
             }
         } else {
             conversationStateNew.step = 'asked_punition';
             const eleve = conversationStateNew.eleveData;
             const estFille = eleve.sexe === 'F' || eleve.sexe === 'Féminin';
             const pronom = estFille ? 'elle' : 'il';
-            return `Voulez-vous savoir si ${pronom} a été puni ?`;
+            return `Voulez-vous savoir si ${pronom} a été punie ?`;
         }
     }
     
     if (conversationStateNew.step === 'asked_punition') {
-        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || msg.includes('d\'accord') || msg.includes('veux') || msg.includes('savoir') || msg.includes('punition') || msg.includes('puni') || msg.includes('donne');
+        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || 
+                          msg.includes('d\'accord') || msg.includes('veux') || msg.includes('savoir') ||
+                          msg.includes('punition') || msg.includes('puni') || msg.includes('donne');
         
         if (estPositif) {
             const eleve = conversationStateNew.eleveData;
             const estFille = eleve.sexe === 'F' || eleve.sexe === 'Féminin';
             const enfant = estFille ? 'votre fille' : 'votre enfant';
+            const puni = estFille ? 'punie' : 'puni';
             
             if (eleve.punitions && eleve.punitions.length > 0) {
-                let reponse = `${eleve.nom} était présent aujourd'hui. Punitions : `;
+                let reponse = `${eleve.nom} était présent le `;
+                const date = new Date(eleve.punitions[0].date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                reponse += `${date}. Punitions : `;
                 eleve.punitions.forEach((p, index) => {
-                    const date = new Date(p.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-                    reponse += `${date} : ${p.motif}`;
+                    const dateP = new Date(p.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                    reponse += `${dateP} : ${p.motif}`;
                     if (index < eleve.punitions.length - 1) reponse += ', ';
                 });
                 reponse += `. Pour les frais, veuillez donner le code parent.`;
@@ -3072,7 +3256,7 @@ async function traiterMessageParent(message) {
                 return reponse;
             } else {
                 conversationStateNew.step = 'initial';
-                return `${enfant} ${eleve.nom} n'a pas été puni. Pour les frais, veuillez donner le code parent.`;
+                return `${enfant} ${eleve.nom} n'a pas été ${puni}. Pour les frais, veuillez donner le code parent.`;
             }
         } else {
             conversationStateNew.step = 'initial';
@@ -3084,7 +3268,7 @@ async function traiterMessageParent(message) {
         const infos = await chercherInfosFinancieresParCode(msg);
         
         if (!infos || infos.length === 0) {
-            return `Code non reconnu. Vérifiez le code ou contactez la comptabilité.`;
+            return reponsesCodeInvalide[Math.floor(Math.random() * reponsesCodeInvalide.length)];
         }
         
         if (infos.length === 1) {
@@ -3158,7 +3342,7 @@ async function traiterMessageParent(message) {
             
             const estFille = premier.sexe === 'F' || premier.sexe === 'Féminin';
             const pronom = estFille ? 'elle' : 'il';
-            const possessif = estFille ? 'sa' : 'son';
+            const eleve = estFille ? 'Elle' : 'Il';
             
             let reponse = `${premier.nom} est en ${premier.classe}`;
             if (premier.option && premier.option !== 'TOUTES') {
@@ -3166,28 +3350,59 @@ async function traiterMessageParent(message) {
             }
             reponse += `.`;
             
-            if (premier.titulaire) {
-                reponse += ` ${possessif} professeur est ${premier.titulaire}.`;
-            }
-            
             if (premier.notes && Object.keys(premier.notes).length > 0) {
                 let notesStr = '';
+                let hasNotes = false;
+                const phrasesIntro = [
+                    `Voici ${poss} bulletin : `,
+                    `${eleve} a obtenu : `,
+                    `Au niveau des notes : `,
+                    `Côté résultats : `,
+                    `${eleve} a comme notes : `,
+                    `Pour les évaluations : `
+                ];
+                let intro = phrasesIntro[Math.floor(Math.random() * phrasesIntro.length)];
+                
                 for (let p = 1; p <= 4; p++) {
                     const notes = premier.notes[`p${p}`] || [];
                     const eps = toutesFiches.find(f => f.classe === premier.classe && f.option === premier.option)?.epreuvesParPeriode?.[p] || [];
                     for (let i = 0; i < notes.length && i < eps.length; i++) {
                         if (notes[i] > 0) {
+                            hasNotes = true;
+                            const nomEpreuve = eps[i]?.nom || 'Epreuve';
+                            const note = notes[i];
+                            const max = eps[i]?.max || 20;
                             if (notesStr) notesStr += ', ';
-                            notesStr += `${eps[i]?.nom || 'Epreuve'} : ${notes[i]}/${eps[i]?.max || 20}`;
+                            const expressions = [
+                                `a eu ${note}/${max}`,
+                                `a obtenu ${note}/${max}`,
+                                `est à ${note}/${max}`,
+                                `a fait ${note}/${max}`,
+                                `a réussi avec ${note}/${max}`
+                            ];
+                            const expr = expressions[Math.floor(Math.random() * expressions.length)];
+                            if (nomEpreuve.toLowerCase().includes('interrogation')) {
+                                notesStr += `une interrogation ${expr}`;
+                            } else if (nomEpreuve.toLowerCase().includes('devoir')) {
+                                notesStr += `un devoir ${expr}`;
+                            } else {
+                                notesStr += `${nomEpreuve} ${expr}`;
+                            }
                         }
                     }
                 }
-                if (notesStr) {
-                    reponse += ` ${possessif} notes : ${notesStr}.`;
+                if (hasNotes) {
+                    reponse += ` ${intro}${notesStr}.`;
                 }
             }
             
-            reponse += ` Voulez-vous savoir si ${pronom} était présent aujourd'hui ?`;
+            const questions = [
+                `Voulez-vous savoir si ${pronom} était présent aujourd'hui ?`,
+                `Souhaitez-vous connaître ${poss} présence aujourd'hui ?`,
+                `Voulez-vous vérifier si ${pronom} était en classe aujourd'hui ?`,
+                `Je peux vous dire si ${pronom} était présent aujourd'hui, si vous voulez.`
+            ];
+            reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
             conversationStateNew.step = 'asked_presence';
             return reponse;
         }
@@ -3203,12 +3418,13 @@ if (parentFloatingBtnNew) {
         document.body.style.overflow = 'hidden';
         
         parentChatMessagesNew.innerHTML = `
-            <div class="parent-msg bot" style="margin:0;">
-                <div class="bubble" style="background:rgba(18,25,45,0.85);border:2px solid rgba(255,107,107,0.3);border-radius:12px;padding:4px 12px;max-width:80%;margin:0;">
-                    <div style="font-size:13px;color:#e2e8f0;line-height:1.3;">
-                        <strong style="color:#ffd700;font-size:14px;">ECOLE ${nomEcole}</strong><br>
-                        Je suis un <span style="color:#ffd700;">systeme intelligent</span> qui vous permet de savoir quelques <span style="color:#ffd700;">details sur votre enfant</span>.<br>
-                        <span style="color:#ffd700;"><strong>Code 6 chiffres</strong></span> → Frais &nbsp;|&nbsp; <span style="color:#ffd700;"><strong>Nom complet</strong></span> → Notes, presence et comportement
+            <div class="parent-msg bot" style="margin:0;padding:0;display:block;width:100%;">
+                <div class="bubble" style="background:rgba(18,25,45,0.85);border:2px solid rgba(255,107,107,0.3);border-radius:6px;padding:2px 8px;margin:0;display:inline-block;width:auto;max-width:100%;">
+                    <div style="font-size:12px;color:#e2e8f0;line-height:1.3;margin:0;padding:0;">
+                        <div style="color:#ffd700;font-weight:bold;font-size:13px;">ECOLE ${nomEcole}</div>
+                        <div style="color:#e2e8f0;">Je suis un <span style="color:#ffd700;">systeme intelligent</span> qui vous permet de savoir quelques <span style="color:#ffd700;">details sur votre enfant</span>.</div>
+                        <div style="color:#e2e8f0;"><span style="color:#ffd700;font-weight:bold;">Code 6 chiffres</span> → Frais</div>
+                        <div style="color:#e2e8f0;"><span style="color:#ffd700;font-weight:bold;">Nom complet</span> → Notes, presence et comportement</div>
                     </div>
                 </div>
             </div>
@@ -3243,43 +3459,95 @@ if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
         const message = parentQuestionInputNew.value.trim();
         if (!message) return;
-        if (!canAskQuestion()) {
-            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">🌟 Vous avez atteint la limite de questions pour aujourd'hui. Revenez demain, je serai ravi de vous aider !</div></div>`;
+        
+        if (isProcessing) {
+            parentChatMessagesNew.innerHTML += `
+                <div class="parent-msg bot">
+                    <div class="bubble">Un instant, je traite votre demande precedente...</div>
+                </div>
+            `;
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            parentQuestionInputNew.value = '';
             return;
         }
-        parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-        parentQuestionInputNew.value = '';
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-        const msgBotDiv = document.createElement('div');
-        msgBotDiv.className = 'parent-msg bot';
-        const bubbleBot = document.createElement('div');
-        bubbleBot.className = 'bubble';
-        bubbleBot.innerHTML = '<span class="loader"></span>';
-        msgBotDiv.appendChild(bubbleBot);
-        parentChatMessagesNew.appendChild(msgBotDiv);
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         
-        const reponse = await traiterMessageParent(message);
-        bubbleBot.innerHTML = '';
-        await typeWriterEffect(bubbleBot, reponse, 12);
-        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-        voixParentale(reponse);
-        const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
-        await enregistrerMessageParental(message, reponse, codeOuNom);
-        const newCount = incrementQuestionCount();
-        updateCounterDisplay();
-        if (10 - newCount <= 2 && 10 - newCount > 0) {
-            const warningDiv = document.createElement('div');
-            warningDiv.style.marginTop = '12px';
-            warningDiv.style.padding = '8px';
-            warningDiv.style.background = 'rgba(245,158,11,0.2)';
-            warningDiv.style.borderRadius = '12px';
-            warningDiv.style.fontSize = '12px';
-            warningDiv.innerHTML = `💫 Il vous reste ${10 - newCount} question(s) aujourd'hui`;
-            bubbleBot.appendChild(warningDiv);
+        if (!canAskQuestion()) {
+            parentChatMessagesNew.innerHTML += `
+                <div class="parent-msg bot">
+                    <div class="bubble">Vous avez atteint la limite de 20 questions pour aujourd'hui. Revenez demain, je serai ravi de vous aider !</div>
+                </div>
+            `;
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            parentQuestionInputNew.value = '';
+            return;
         }
-        await synchroniserMessagesParentaux();
+        
+        isProcessing = true;
+        
+        try {
+            parentChatMessagesNew.innerHTML += `
+                <div class="parent-msg user">
+                    <div class="bubble">${escapeHtml(message)}</div>
+                </div>
+            `;
+            parentQuestionInputNew.value = '';
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            
+            const msgBotDiv = document.createElement('div');
+            msgBotDiv.className = 'parent-msg bot';
+            const bubbleBot = document.createElement('div');
+            bubbleBot.className = 'bubble';
+            bubbleBot.innerHTML = '<span class="loader"></span>';
+            msgBotDiv.appendChild(bubbleBot);
+            parentChatMessagesNew.appendChild(msgBotDiv);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            
+            let timeoutId = setTimeout(() => {
+                bubbleBot.innerHTML = 'Je verifie dans le dossier... un instant';
+            }, 3000);
+            
+            const reponse = await traiterMessageParent(message);
+            clearTimeout(timeoutId);
+            
+            bubbleBot.innerHTML = '';
+            await typeWriterEffect(bubbleBot, reponse, 6);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            voixParentale(reponse);
+            
+            const codeOuNom = message.length === 6 && /^\d{6}$/.test(message) ? message : message;
+            await enregistrerMessageParental(message, reponse, codeOuNom);
+            
+            const newCount = incrementQuestionCount();
+            updateCounterDisplay();
+            
+            const remaining = 20 - newCount;
+            if (remaining <= 2 && remaining > 0) {
+                const warningDiv = document.createElement('div');
+                warningDiv.style.marginTop = '12px';
+                warningDiv.style.padding = '8px';
+                warningDiv.style.background = 'rgba(245,158,11,0.2)';
+                warningDiv.style.borderRadius = '12px';
+                warningDiv.style.fontSize = '12px';
+                warningDiv.innerHTML = `Il vous reste ${remaining} question(s) aujourd'hui sur 20.`;
+                bubbleBot.appendChild(warningDiv);
+            }
+            
+            messageCount++;
+            if (messageCount % 5 === 0) {
+                await synchroniserMessagesParentaux();
+            }
+            
+        } catch (error) {
+            console.error('Erreur:', error);
+            parentChatMessagesNew.innerHTML += `
+                <div class="parent-msg bot">
+                    <div class="bubble">Désolé, une erreur est survenue. Veuillez réessayer.</div>
+                </div>
+            `;
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        } finally {
+            isProcessing = false;
+        }
     };
 }
 
@@ -3485,7 +3753,7 @@ Règles IMPÉRATIVES :
 1. Utilise le nom de l'école ${nomEcole} dans tes réponses
 2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
 3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
+4. Maximum 2 phrases
 5. Sois encourageant et bienveillant
 6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
 7. Ne mentionne JAMAIS les notes en pourcentage`;
@@ -3496,7 +3764,7 @@ Règles IMPÉRATIVES :
 1. Utilise le nom de l'école ${nomEcole} dans tes réponses
 2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
 3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
+4. Maximum 2 phrases
 5. Sois encourageant et bienveillant
 6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
 7. Ne mentionne JAMAIS les notes en pourcentage`;
