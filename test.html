@@ -671,22 +671,71 @@ async function chercherPresencesParNom(nom) {
     try {
         const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences"));
         const presences = [];
+        const maintenant = new Date();
+        const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60;
+        const jourSemaine = maintenant.getDay();
+        const aujourdhui = maintenant.toISOString().slice(0, 10);
+        
         snap.forEach(ds => {
             const data = ds.data();
             data.eleves.forEach(e => {
                 if (e.nom === nom) {
-                    presences.push({
-                        date: data.date,
-                        present: e.present,
-                        classe: data.classe,
-                        option: data.option
-                    });
+                    const dateStr = data.date.slice(0, 10);
+                    const present = e.present;
+                    
+                    // Si c'est aujourd'hui
+                    if (dateStr === aujourdhui) {
+                        // Entre 12h et 17h30 = heure de cours
+                        if (heureActuelle >= 12 && heureActuelle < 17.5) {
+                            presences.push({
+                                date: data.date,
+                                present: present,
+                                classe: data.classe,
+                                option: data.option,
+                                estAujourdhui: true,
+                                enCours: true,
+                                heureActuelle: heureActuelle
+                            });
+                        } else if (heureActuelle < 12) {
+                            presences.push({
+                                date: data.date,
+                                present: null,
+                                classe: data.classe,
+                                option: data.option,
+                                estAujourdhui: true,
+                                avantCours: true,
+                                heureActuelle: heureActuelle
+                            });
+                        } else {
+                            presences.push({
+                                date: data.date,
+                                present: present,
+                                classe: data.classe,
+                                option: data.option,
+                                estAujourdhui: true,
+                                apresCours: true,
+                                heureActuelle: heureActuelle
+                            });
+                        }
+                    } else {
+                        presences.push({
+                            date: data.date,
+                            present: present,
+                            classe: data.classe,
+                            option: data.option,
+                            estAujourdhui: false
+                        });
+                    }
                 }
             });
         });
-        presences.sort((a,b) => b.date.localeCompare(a.date));
-        return presences.slice(0, 3);
-    } catch(e) { return []; }
+        
+        presences.sort((a, b) => b.date.localeCompare(a.date));
+        return presences.slice(0, 5);
+    } catch(e) { 
+        console.error("Erreur présence:", e);
+        return []; 
+    }
 }
 
 function voixParentale(texte) {
@@ -1129,7 +1178,26 @@ function afficherEleves() {
     for (let i = 0; i < ev.length; i++) {
         let d = document.createElement('div');
         d.className = 'eleve-row';
-        d.innerHTML = '<input type="text" value="' + (ev[i].nom || '') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe == 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (ev[i].sexe == 'F' ? 'selected' : '') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px">X</span>';
+        
+        const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh';
+        
+        if (estImporte) {
+            d.innerHTML = `
+                <span style="flex:2;color:#e2e8f0;padding:8px;">${ev[i].nom || ''}</span>
+                <span style="color:#94a3b8;padding:8px;">${ev[i].sexe || 'M'}</span>
+                <span style="color:#10b981;font-size:11px;padding:8px;">🔒 Importé</span>
+                <span onclick="window.delEleve(${i})" style="cursor:not-allowed;color:#64748b;padding:8px;opacity:0.5;" title="Impossible de supprimer un élève importé">X</span>
+            `;
+        } else {
+            d.innerHTML = `
+                <input type="text" value="${ev[i].nom || ''}" placeholder="Nom complet" onchange="window.updEleve(${i},'nom',this.value)" style="flex:2">
+                <select onchange="window.updEleve(${i},'sexe',this.value)">
+                    <option value="M" ${ev[i].sexe == 'M' ? 'selected' : ''}>M</option>
+                    <option value="F" ${ev[i].sexe == 'F' ? 'selected' : ''}>F</option>
+                </select>
+                <span onclick="window.delEleve(${i})" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>
+            `;
+        }
         c.appendChild(d);
     }
     if (ev.length === 0) c.innerHTML = '<div class="empty-state">Aucun élève inscrit</div>';
@@ -1139,6 +1207,16 @@ function afficherEleves() {
 }
 
 window.updEleve = function(i, f, v) {
+    let eleve = currentFiche.eleves[i];
+    if (!eleve) return;
+    
+    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh';
+    
+    if (estImporte) {
+        toast("❌ Impossible de modifier un élève importé de la comptabilité", 'error');
+        return;
+    }
+    
     if (f === 'nom' && (!v || v.trim() === '')) {
         toast("Le nom de l'élève ne peut pas être vide", 'error');
         return;
@@ -1156,7 +1234,17 @@ window.updEleve = function(i, f, v) {
 };
 
 window.delEleve = function(i) {
-    let n = currentFiche.eleves[i]?.nom || 'Élève';
+    let eleve = currentFiche.eleves[i];
+    if (!eleve) return;
+    
+    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh';
+    
+    if (estImporte) {
+        toast("❌ Impossible de supprimer un élève importé de la comptabilité", 'error');
+        return;
+    }
+    
+    let n = eleve.nom || 'Élève';
     showConfirm("Supprimer " + n + " de la liste ?", function() {
         currentFiche.eleves.splice(i, 1);
         afficherEleves();
@@ -3237,25 +3325,29 @@ async function chargerInstructionsIA() {
             iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. 
 Règles IMPÉRATIVES :
 1. Utilise le nom de l'école ${nomEcole} dans tes réponses
-2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
-3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
-5. Sois chaleureux et bienveillant
-6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
-7. Ne mentionne JAMAIS les notes en pourcentage
-8. Ne demande JAMAIS le nom de l'élève`;
+2. Ne JAMAIS utiliser de pourcentages
+3. Ne JAMAIS parler de moyenne générale
+4. Ne JAMAIS parler de proclamation
+5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20)
+6. Maximum 3 phrases par réponse
+7. Sois chaleureux et bienveillant
+8. Ne demande JAMAIS le nom de l'élève
+9. N'affiche PAS les notes à 0
+10. Reste factuel : donne seulement les notes telles quelles`;
         }
     } catch (e) {
         iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. 
 Règles IMPÉRATIVES :
 1. Utilise le nom de l'école ${nomEcole} dans tes réponses
-2. Ne JAMAIS utiliser de pourcentages (ex: 100%)
-3. Utilise TOUJOURS les points (ex: 40/40, 18/20, 15/20)
-4. Maximum 3 phrases
-5. Sois chaleureux et bienveillant
-6. Ne donne JAMAIS la moyenne de la période, de l'examen ou du semestre
-7. Ne mentionne JAMAIS les notes en pourcentage
-8. Ne demande JAMAIS le nom de l'élève`;
+2. Ne JAMAIS utiliser de pourcentages
+3. Ne JAMAIS parler de moyenne générale
+4. Ne JAMAIS parler de proclamation
+5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20)
+6. Maximum 3 phrases par réponse
+7. Sois chaleureux et bienveillant
+8. Ne demande JAMAIS le nom de l'élève
+9. N'affiche PAS les notes à 0
+10. Reste factuel : donne seulement les notes telles quelles`;
     }
     return iaInstructions;
 }
@@ -3267,6 +3359,11 @@ async function afficherInfosEleve(eleve) {
     const resultatsNotes = await chercherNotesParNom(eleve.nom);
     const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
     
+    let notesFiltrees = [];
+    if (noteData && noteData.epreuves) {
+        notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
+    }
+    
     dernierEleveData = {
         nom: eleve.nom,
         prenom: eleve.prenom,
@@ -3274,7 +3371,7 @@ async function afficherInfosEleve(eleve) {
         classe: eleve.classe,
         option: eleve.option,
         ecole: nomEcole,
-        notes: noteData ? noteData.epreuves : [],
+        notes: notesFiltrees,
         titulaire: noteData ? noteData.titulaire : null,
         nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
         frais: {
@@ -3353,23 +3450,6 @@ async function genererReponseNotes(eleveData) {
                 reponse += `\n- ${ep.epreuve} : ${ep.note} sur ${ep.max}`;
             });
         }
-        
-        const totalNotes = notes.reduce((sum, n) => sum + n.note, 0);
-        const totalMax = notes.reduce((sum, n) => sum + n.max, 0);
-        const moyenne = totalMax > 0 ? Math.round((totalNotes / totalMax) * 20) : 0;
-        reponse += `\n\nSa moyenne générale est de ${moyenne} sur 20.`;
-        
-        if (moyenne >= 16) {
-            reponse += ` C'est excellent !`;
-        } else if (moyenne >= 14) {
-            reponse += ` C'est très bien.`;
-        } else if (moyenne >= 12) {
-            reponse += ` C'est bien.`;
-        } else if (moyenne >= 10) {
-            reponse += ` C'est moyen.`;
-        } else {
-            reponse += ` Il faudrait améliorer ça.`;
-        }
     }
     
     if (eleveData.titulaire) {
@@ -3385,36 +3465,68 @@ async function genererReponseNotes(eleveData) {
 async function genererReponsePresence(eleveData) {
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const presences = eleveData.presences || [];
+    const maintenant = new Date();
+    const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60;
+    const jourSemaine = maintenant.getDay();
     
     let reponse = `Je regarde la présence de ${nomComplet}.`;
+    
+    if (jourSemaine === 0 || jourSemaine === 6) {
+        reponse += `\n\nAujourd'hui c'est le week-end, il n'y a pas cours.`;
+        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        return reponse;
+    }
+    
+    if (heureActuelle < 12) {
+        const minutesRestantes = Math.round((12 - heureActuelle) * 60);
+        reponse += `\n\nLes cours commencent à 12h00. Il reste ${minutesRestantes} minutes.`;
+        if (presences.length > 0) {
+            const derniere = presences[0];
+            const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
+            if (!derniere.estAujourdhui) {
+                reponse += `\n\nLa dernière présence enregistrée date du ${dateDerniere}.`;
+                reponse += `\n${derniere.present ? '✅ Présent' : '❌ Absent'}`;
+            }
+        }
+        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        return reponse;
+    }
+    
+    if (heureActuelle >= 17.5) {
+        reponse += `\n\nLes cours sont terminés pour aujourd'hui (fin à 17h30).`;
+        if (presences.length > 0 && presences[0].estAujourdhui) {
+            const aujourdhui = presences[0];
+            reponse += `\n\nAujourd'hui, ${nomComplet} était ${aujourdhui.present ? '✅ présent' : '❌ absent'}.`;
+        } else if (presences.length > 0) {
+            const derniere = presences[0];
+            const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
+            reponse += `\n\nLa dernière présence enregistrée date du ${dateDerniere}.`;
+            reponse += `\n${derniere.present ? '✅ Présent' : '❌ Absent'}`;
+        }
+        reponse += `\n\nJe peux vous parler des frais ou des notes si vous voulez.`;
+        return reponse;
+    }
     
     if (presences.length === 0) {
         reponse += `\n\nJe n'ai pas d'informations sur sa présence pour le moment.`;
     } else {
-        const total = presences.length;
-        const presents = presences.filter(p => p.present).length;
-        const absents = total - presents;
-        const tauxPresence = Math.round((presents / total) * 100);
+        const total = presences.filter(p => !p.estAujourdhui || p.present !== null).length;
+        const presents = presences.filter(p => p.present === true).length;
         
-        const derniere = presences[0];
-        const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
-        const statutDernier = derniere.present ? 'présent' : 'absent';
-        
-        reponse += `\n\nIl a été présent ${presents} fois sur ${total} jours.`;
-        reponse += `\n\nSon taux de présence est de ${tauxPresence}%.`;
-        reponse += `\n\nLa dernière fois, le ${dateDerniere}, il était ${statutDernier}.`;
-        
-        if (presences.length > 5) {
-            reponse += `\n\nVoici les derniers jours :`;
-            presences.slice(0, 5).forEach(p => {
-                const date = new Date(p.date).toLocaleDateString('fr-FR');
-                const statut = p.present ? 'présent' : 'absent';
-                reponse += `\n- ${date} : ${statut}`;
-            });
+        const aujourdhui = presences.find(p => p.estAujourdhui);
+        if (aujourdhui && aujourdhui.present !== null) {
+            reponse += `\n\nAujourd'hui, ${nomComplet} est ${aujourdhui.present ? '✅ présent' : '❌ absent'}.`;
+        } else if (aujourdhui && aujourdhui.avantCours) {
+            reponse += `\n\nLes cours n'ont pas encore commencé.`;
+        } else if (presences.length > 1) {
+            const derniere = presences[0];
+            const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
+            reponse += `\n\nLa dernière présence date du ${dateDerniere}.`;
         }
         
-        if (absents >= 3) {
-            reponse += `\n\nJe vous signale qu'il y a ${absents} absences.`;
+        if (presents > 0 && total > 0) {
+            const taux = Math.round((presents / total) * 100);
+            reponse += `\n\nTaux de présence : ${taux}%`;
         }
     }
     
@@ -3475,7 +3587,7 @@ async function genererReponseComplet(eleveData) {
     const presenceClean = presence.split('Voulez-vous voir')[0];
     const punitionsClean = punitions.split('Voulez-vous voir')[0];
     
-    return `📊 **RÉSUMÉ COMPLET**\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà tout ce que je sais sur ${nomComplet}.`;
+    return `📊 **RÉSUMÉ**\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${nomComplet}.`;
 }
 
 async function genererReponseFin(eleveData) {
@@ -3532,7 +3644,7 @@ async function traiterMessage(message) {
             return await genererReponseFrais(eleveData);
         }
         
-        if (mots.some(m => ['notes', 'résultats', 'moyenne', 'bulletin', 'points', 'epreuves', 'devoirs', 'interro'].includes(m))) {
+        if (mots.some(m => ['notes', 'résultats', 'bulletin', 'points', 'epreuves', 'devoirs', 'interro'].includes(m))) {
             return await genererReponseNotes(eleveData);
         }
         
