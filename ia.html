@@ -399,7 +399,7 @@
 <button id="closeParentModal" style="background:rgba(239,68,68,0.1);border:none;color:#f87171;font-size:22px;font-weight:700;cursor:pointer;padding:0 8px;line-height:1;">✕</button>
 <div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.3);padding:4px 14px 4px 10px;border-radius:40px;border:1px solid rgba(255,255,255,0.06);">
 <span style="font-size:11px;color:#94a3b8;">💬</span>
-<span id="parentQuestionCounter" style="background:#10b981;color:white;padding:1px 12px;border-radius:40px;font-weight:bold;font-size:14px;">0/20</span>
+<span id="parentQuestionCounter" style="background:#10b981;color:white;padding:1px 12px;border-radius:40px;font-weight:bold;font-size:14px;">0/50</span>
 </div>
 </div>
 </div>
@@ -554,7 +554,10 @@ let dernierCommunique = null;
 let communiqueAffiche = false;
 
 let enAttenteChoixEleve = false;
+let enAttenteAutreChoix = false;
 let listeElevesEnAttente = [];
+let derniereListeEleves = [];
+let dernierEleveChoisi = null;
 
 const WORKER_URL_FINAL = 'https://parent.netube-a97.workers.dev/';
 
@@ -2032,14 +2035,14 @@ function incrementQuestionCount() {
     return newCount;
 }
 
-function canAskQuestion() { return getQuestionCount() < 20; }
+function canAskQuestion() { return getQuestionCount() < 50; }
 
 function updateCounterDisplay() {
     const counterSpan = document.getElementById('parentQuestionCounter');
     if (counterSpan) {
         const current = getQuestionCount();
-        counterSpan.textContent = current + '/20';
-        if (current >= 20) {
+        counterSpan.textContent = current + '/50';
+        if (current >= 50) {
             counterSpan.style.background = '#ef4444';
         } else {
             counterSpan.style.background = '#10b981';
@@ -3143,6 +3146,97 @@ async function traiterMessageParent(message) {
         'Ce code n\'existe pas. Contactez la comptabilité pour obtenir le bon.'
     ];
     
+    const motsNotes = [
+        'note', 'notes', 'résultat', 'résultats', 'évaluation', 'épreuve',
+        'interrogation', 'interro', 'devoir', 'examen', 'bulletin', 'relevé',
+        'a eu', 'obtenu', 'combien', 'point', 'points', 'note de', 'cours de',
+        'matière', 'matières', 'français', 'math', 'mathématiques', 'anglais',
+        'physique', 'chimie', 'svt', 'histoire', 'géo', 'philosophie', 'espagnol',
+        'allemand', 'latin', 'musique', 'arts', 'sport', 'eps', 'informatique',
+        'technologie', 'sciences', 'economie', 'comptabilité', 'gestion'
+    ];
+    
+    const motsProf = [
+        'professeur', 'enseignant', 'titulaire', 'maître', 'maîtresse',
+        'instituteur', 'institutrice', 'éducateur'
+    ];
+    
+    if (enAttenteAutreChoix && derniereListeEleves && derniereListeEleves.length > 0) {
+        const estPositif = msg.includes('oui') || msg.includes('yes') || msg.includes('ok') || 
+                          msg.includes('d\'accord') || msg.includes('veux') || msg.includes('autre');
+        
+        if (estPositif) {
+            enAttenteChoixEleve = true;
+            enAttenteAutreChoix = false;
+            listeElevesEnAttente = derniereListeEleves;
+            
+            let reponse = `Voici la liste des élèves liés à ce code. Veuillez choisir :\n\n`;
+            listeElevesEnAttente.forEach((e, i) => {
+                reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
+            });
+            reponse += `\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l'élève.`;
+            return reponse;
+        } else {
+            enAttenteAutreChoix = false;
+            derniereListeEleves = [];
+            return `D'accord. Si vous avez besoin d'autres informations, n'hésitez pas.`;
+        }
+    }
+    
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = msg.trim();
+        let eleveChoisi = null;
+        
+        const numChoix = parseInt(choix);
+        if (!isNaN(numChoix) && numChoix >= 1 && numChoix <= listeElevesEnAttente.length) {
+            eleveChoisi = listeElevesEnAttente[numChoix - 1];
+        } else {
+            eleveChoisi = listeElevesEnAttente.find(e => 
+                e.nom.toLowerCase().includes(choix.toLowerCase()) ||
+                (e.prenom && e.prenom.toLowerCase().includes(choix.toLowerCase()))
+            );
+        }
+        
+        if (eleveChoisi) {
+            dernierEleveChoisi = eleveChoisi;
+            derniereListeEleves = listeElevesEnAttente;
+            
+            conversationStateNew.eleveNom = eleveChoisi.nom;
+            conversationStateNew.eleveData = {
+                nom: eleveChoisi.nom,
+                prenom: eleveChoisi.prenom || '',
+                classe: eleveChoisi.classe,
+                option: eleveChoisi.option || '',
+                minerval: eleveChoisi.minerval,
+                totalPaye: eleveChoisi.totalPaye,
+                reste: eleveChoisi.reste,
+                moisImpayes: eleveChoisi.moisImpayes || [],
+                statut: eleveChoisi.statut,
+                sexe: 'M'
+            };
+            conversationStateNew.step = 'asked_frais';
+            
+            let reponse = `Frais de ${eleveChoisi.nom} : ${eleveChoisi.minerval.toLocaleString()} FC par mois.`;
+            
+            const questions = [
+                `Voulez-vous savoir le montant total payé ?`,
+                `Souhaitez-vous connaître le reste à payer ?`,
+                `Voulez-vous voir les mois impayés ?`,
+                `Je peux vous donner le statut de paiement, si vous voulez.`
+            ];
+            reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
+            
+            reponse += `\n\nVoulez-vous voir les frais d'un autre enfant lié à ce code ? (oui/non)`;
+            enAttenteChoixEleve = false;
+            enAttenteAutreChoix = true;
+            
+            return reponse;
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom || ''}`).join('\n');
+            return `Choix non reconnu. Veuillez choisir un numéro entre 1 et ${listeElevesEnAttente.length} ou le nom complet de l'élève.\n\n${listeNoms}`;
+        }
+    }
+    
     if (msg.includes('merci') || msg.includes('thanks') || msg.includes('remercie') || 
         msg.includes('ok merci') || msg.includes('merci beaucoup') || msg.includes('cimer') ||
         msg.includes('je vous remercie') || msg.includes('merci bien')) {
@@ -3165,19 +3259,25 @@ async function traiterMessageParent(message) {
         return reponsesCode[Math.floor(Math.random() * reponsesCode.length)];
     }
     
-    if (msg.includes('professeur') || msg.includes('prof') || msg.includes('enseignant') || 
-        msg.includes('titulaire') || msg.includes('enseigne') || msg.includes('maître') ||
-        msg.includes('maîtresse') || msg.includes('instituteur') || msg.includes('institutrice') ||
-        msg.includes('éducateur') || msg.includes('qui est')) {
-        return reponsesProf[Math.floor(Math.random() * reponsesProf.length)];
-    }
-    
-    if (msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
+    if ((msg.includes('frais') || msg.includes('payer') || msg.includes('minerval') || 
         msg.includes('scolarité') || msg.includes('reste') || msg.includes('combien') ||
         msg.includes('argent') || msg.includes('prix') || msg.includes('coût') || 
         msg.includes('montant') || msg.includes('écolage') || msg.includes('inscription') ||
-        msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) {
+        msg.includes('facture') || msg.includes('dette') || msg.includes('solde')) &&
+        !motsNotes.some(m => msg.includes(m))) {
         return reponsesFrais[Math.floor(Math.random() * reponsesFrais.length)];
+    }
+    
+    const estQuestionProf = 
+        motsProf.some(m => msg.includes(m)) &&
+        !motsNotes.some(m => msg.includes(m)) &&
+        !msg.includes('meilleur') && !msg.includes('intelligent') && 
+        !msg.includes('fort') && !msg.includes('premier') && !msg.includes('dernier') &&
+        !msg.includes('mauvais') && !msg.includes('faible') &&
+        !msg.includes('élève') && !msg.includes('enfant');
+    
+    if (estQuestionProf) {
+        return reponsesProf[Math.floor(Math.random() * reponsesProf.length)];
     }
     
     if (msg.includes('litige') || msg.includes('problème') || msg.includes('erreur') || 
@@ -3186,6 +3286,61 @@ async function traiterMessageParent(message) {
         msg.includes('réclame') || msg.includes('plainte') || msg.includes('désaccord') ||
         msg.includes('contestation')) {
         return reponsesLitige[Math.floor(Math.random() * reponsesLitige.length)];
+    }
+    
+    if (conversationStateNew.step === 'asked_frais') {
+        const eleve = conversationStateNew.eleveData;
+        const eleveNom = eleve.nom || 'votre enfant';
+        
+        if (msg.includes('total payé') || msg.includes('payé') || msg.includes('versé') || 
+            msg.includes('combien payé') || msg.includes('montant payé')) {
+            return `${eleveNom} a payé ${eleve.totalPaye.toLocaleString()} FC sur ${(eleve.minerval * 10).toLocaleString()} FC annuels. Voulez-vous savoir le reste à payer ?`;
+        }
+        
+        if (msg.includes('reste') || msg.includes('reste à payer') || msg.includes('solde') || 
+            msg.includes('combien reste') || msg.includes('encore')) {
+            const reste = eleve.reste || 0;
+            if (reste === 0) {
+                return `${eleveNom} est à jour de ses frais. Aucun reste à payer.`;
+            } else {
+                return `${eleveNom} doit encore ${reste.toLocaleString()} FC. Voulez-vous voir les mois impayés ?`;
+            }
+        }
+        
+        if (msg.includes('mois') || msg.includes('impayé') || msg.includes('impayés') || 
+            msg.includes('mois non payés') || msg.includes('mois manquants')) {
+            if (eleve.moisImpayes && eleve.moisImpayes.length > 0) {
+                return `Mois impayés pour ${eleveNom} : ${eleve.moisImpayes.join(', ')}. Voulez-vous savoir le total restant ?`;
+            } else {
+                return `${eleveNom} n'a aucun mois impayé. Tous les mois sont payés.`;
+            }
+        }
+        
+        if (msg.includes('statut') || msg.includes('situation') || msg.includes('compte') || 
+            msg.includes('où en est') || msg.includes('comment')) {
+            if (eleve.statut === 'Exonéré') {
+                return `${eleveNom} est exonéré des frais scolaires.`;
+            } else if (eleve.statut === 'Liste noire') {
+                return `${eleveNom} est en liste noire. Veuillez régulariser la situation. Voulez-vous voir les mois impayés ?`;
+            } else if (eleve.statut === 'Paiement partiel') {
+                return `${eleveNom} a des paiements partiels. Voulez-vous voir les mois impayés ?`;
+            } else {
+                return `${eleveNom} est en ordre de paiement. Voulez-vous voir le détail ?`;
+            }
+        }
+        
+        if (msg.includes('frais') || msg.includes('minerval') || msg.includes('scolarité') || 
+            msg.includes('argent') || msg.includes('payer')) {
+            const questions = [
+                `Voulez-vous savoir le montant total payé ?`,
+                `Souhaitez-vous connaître le reste à payer ?`,
+                `Voulez-vous voir les mois impayés ?`,
+                `Je peux vous donner le statut de ${eleveNom}, si vous voulez.`
+            ];
+            return questions[Math.floor(Math.random() * questions.length)];
+        }
+        
+        return `Je peux vous donner des informations sur les frais de ${eleveNom}. Voulez-vous savoir le total payé, le reste à payer, ou les mois impayés ?`;
     }
     
     if (conversationStateNew.step === 'asked_presence') {
@@ -3273,25 +3428,44 @@ async function traiterMessageParent(message) {
         
         if (infos.length === 1) {
             const eleve = infos[0];
-            let reponse = `Frais de ${eleve.nom} : ${eleve.minerval.toLocaleString()} FC par mois. Total payé : ${eleve.totalPaye.toLocaleString()} FC. Reste : ${eleve.reste.toLocaleString()} FC.`;
             
-            if (eleve.moisImpayes && eleve.moisImpayes.length > 0) {
-                reponse += ` Mois impayés : ${eleve.moisImpayes.join(', ')}.`;
-            } else {
-                reponse += ` Compte à jour.`;
-            }
+            conversationStateNew.eleveNom = eleve.nom;
+            conversationStateNew.eleveData = {
+                nom: eleve.nom,
+                prenom: eleve.prenom || '',
+                classe: eleve.classe,
+                option: eleve.option || '',
+                minerval: eleve.minerval,
+                totalPaye: eleve.totalPaye,
+                reste: eleve.reste,
+                moisImpayes: eleve.moisImpayes || [],
+                statut: eleve.statut,
+                sexe: 'M'
+            };
+            conversationStateNew.step = 'asked_frais';
             
-            if (eleve.reste > 0) {
-                reponse += ` Pensez à régulariser.`;
-            }
+            let reponse = `Frais de ${eleve.nom} : ${eleve.minerval.toLocaleString()} FC par mois.`;
+            
+            const questions = [
+                `Voulez-vous savoir le montant total payé ?`,
+                `Souhaitez-vous connaître le reste à payer ?`,
+                `Voulez-vous voir les mois impayés ?`,
+                `Je peux vous donner le statut de paiement, si vous voulez.`
+            ];
+            reponse += ` ${questions[Math.floor(Math.random() * questions.length)]}`;
+            
             return reponse;
         }
         
         if (infos.length > 1) {
-            let reponse = `Plusieurs élèves sont liés à ce code : `;
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            
+            let reponse = `Plusieurs élèves sont liés à ce code. Veuillez choisir :\n\n`;
             infos.forEach((e, i) => {
-                reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe} `;
+                reponse += `${i+1}. ${e.nom} ${e.prenom || ''} - ${e.classe}${e.option ? ' ('+e.option+')' : ''}\n`;
             });
+            reponse += `\nRépondez avec le numéro (1, 2, 3...) ou le nom complet de l'élève.`;
             return reponse;
         }
     }
@@ -3409,7 +3583,30 @@ async function traiterMessageParent(message) {
         }
     }
     
-    return `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+    try {
+        const instructions = await chargerInstructionsIA();
+        const prompt = `${instructions}
+
+Question du parent : ${message}
+
+Réponds de manière naturelle, chaleureuse et bienveillante. Si tu ne connais pas la réponse, propose au parent de donner le nom de son enfant ou le code parent.`;
+
+        const response = await fetch(WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                question: prompt,
+                ecole: SCHOOL_PREFIX
+            })
+        });
+        
+        const data = await response.json();
+        return data.answer || `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+        
+    } catch (error) {
+        console.error('Erreur Worker:', error);
+        return `Bonjour ! Je suis un système intelligent qui vous permet de savoir quelques informations sur votre enfant. Donnez-moi son nom pour les notes, présences et punitions. Ou donnez le code parent pour les frais.`;
+    }
 }
 
 if (parentFloatingBtnNew) {
@@ -3475,7 +3672,7 @@ if (parentSendBtnNew) {
         }
         
         if (!canAskQuestion()) {
-            const msg = 'Vous avez atteint la limite de 20 questions pour aujourd\'hui. Revenez demain, je serai ravi de vous aider !';
+            const msg = 'Vous avez atteint la limite de 50 questions pour aujourd\'hui. Revenez demain, je serai ravi de vous aider !';
             parentChatMessagesNew.innerHTML += `
                 <div class="parent-msg bot">
                     <div class="bubble">${msg}</div>
@@ -3508,10 +3705,10 @@ if (parentSendBtnNew) {
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             
             let timeoutId = setTimeout(() => {
-                const msgAttente = 'Je verifie dans le dossier... un instant';
+                const msgAttente = 'Je verifie dans le dossier de l\'ecole, un instant';
                 bubbleBot.innerHTML = msgAttente;
                 voixParentale(msgAttente);
-            }, 3000);
+            }, 500);
             
             const reponse = await traiterMessageParent(message);
             clearTimeout(timeoutId);
@@ -3527,7 +3724,7 @@ if (parentSendBtnNew) {
             const newCount = incrementQuestionCount();
             updateCounterDisplay();
             
-            const remaining = 20 - newCount;
+            const remaining = 50 - newCount;
             if (remaining <= 2 && remaining > 0) {
                 const warningDiv = document.createElement('div');
                 warningDiv.style.marginTop = '12px';
@@ -3535,7 +3732,7 @@ if (parentSendBtnNew) {
                 warningDiv.style.background = 'rgba(245,158,11,0.2)';
                 warningDiv.style.borderRadius = '12px';
                 warningDiv.style.fontSize = '12px';
-                warningDiv.innerHTML = `Il vous reste ${remaining} question(s) aujourd'hui sur 20.`;
+                warningDiv.innerHTML = `Il vous reste ${remaining} question(s) aujourd'hui sur 50.`;
                 bubbleBot.appendChild(warningDiv);
             }
             
