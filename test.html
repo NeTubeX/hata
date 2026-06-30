@@ -640,6 +640,8 @@ function voixParentale(texte) {
     texteParle = texteParle.replace(/\!/g, '! ');
     texteParle = texteParle.replace(/:/g, ': ');
     texteParle = texteParle.replace(/-\s/g, '. ');
+    
+    // Ajouter des pauses après les numéros dans les listes (ex: "1. ", "2. ", "3. ")
     texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
         return match.replace(/\./, '. ');
     });
@@ -649,7 +651,7 @@ function voixParentale(texte) {
     texteParle = texteParle.replace(/\?\s+\?/g, '? ');
     texteParle = texteParle.replace(/\!\s+\!/g, '! ');
     
-    // Correction: prononcer correctement les montants FC comme "45.000FC" -> "quarante-cinq mille francs congolais"
+    // Prononcer correctement les montants FC
     texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => {
         const num = parseInt(p1.replace(/[\s.,]/g, ''));
         if (num >= 1000) {
@@ -658,7 +660,6 @@ function voixParentale(texte) {
         return convertirNombreEnFrancais(num) + ' francs congolais';
     });
     
-    // Correction: prononcer les nombres seuls comme 45000 correctement
     texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
         const num = parseInt(p1);
         if (num >= 1000) {
@@ -667,7 +668,7 @@ function voixParentale(texte) {
         return convertirNombreEnFrancais(num) + ' francs congolais';
     });
     
-    // Correction: ne pas prononcer "000" comme un numéro de téléphone
+    // Prononcer les nombres seuls correctement
     texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => {
         if (match.includes('FC') || match.includes('/')) return match;
         const num = parseInt(p1.replace(/[\s.,]/g, ''));
@@ -677,6 +678,7 @@ function voixParentale(texte) {
         return convertirNombreEnFrancais(num);
     });
     
+    // Prononcer les fractions (ex: 15/20)
     texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => {
         return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2));
     });
@@ -685,8 +687,9 @@ function voixParentale(texte) {
     
     const utterance = new SpeechSynthesisUtterance(texteParle);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.75;
+    utterance.rate = 0.65; // Plus lent pour une meilleure compréhension des numéros
     utterance.pitch = 1;
+    
     const voices = window.speechSynthesis.getVoices();
     const voixFR = voices.find(v => v.lang.startsWith('fr'));
     if (voixFR) utterance.voice = voixFR;
@@ -711,6 +714,8 @@ function speak(text, onEnd) {
     texteParle = texteParle.replace(/\!/g, '! ');
     texteParle = texteParle.replace(/:/g, ': ');
     texteParle = texteParle.replace(/-\s/g, '. ');
+    
+    // Ajouter des pauses après les numéros dans les listes
     texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
         return match.replace(/\./, '. ');
     });
@@ -753,8 +758,9 @@ function speak(text, onEnd) {
     
     const utterance = new SpeechSynthesisUtterance(texteParle);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.75;
+    utterance.rate = 0.65; // Plus lent pour une meilleure compréhension des numéros
     utterance.pitch = 1;
+    
     const voices = window.speechSynthesis.getVoices();
     const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
     if (frenchVoice) utterance.voice = frenchVoice;
@@ -1884,7 +1890,7 @@ function genererPropositions(eleveData) {
     );
     
     if (nonVisitees.length === 0) {
-        return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.\n\nSouhaitez-vous terminer la consultation ? (répondez "fin" ou "terminer")`;
+        return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.`;
     }
     
     let propositions = '\n\nVoulez-vous voir ';
@@ -1896,7 +1902,6 @@ function genererPropositions(eleveData) {
     } else {
         propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
     }
-    propositions += '\n\nOu voulez-vous terminer ? (répondez "fin" ou "terminer")';
     return propositions;
 }
 
@@ -2659,10 +2664,21 @@ function afficherCotation() {
         const moyGen = getMoyenneGenerale(e);
         const appr = getAppreciation(moyGen.moyenne, pMax);
 
+        // Vérifier si l'élève est importé
+        const estImporte = e.source === 'auto' || e.source === 'reload' || e.source === 'auto_refresh' || e.source === 'comptabilite';
+
         let r = '<tr>';
         r += '<td style="text-align:center">' + String(i + 1).padStart(2, '0') + '</td>';
-        r += '<td style="text-align:left"><input type="text" value="' + (e.nom || '') + '" onchange="window.updNoteField(' + i + ',\'nom\',this.value)" style="width:180px"></td>';
-        r += '<td style="text-align:center"><select onchange="window.updNoteField(' + i + ',\'sexe\',this.value)"><option value="M" ' + (e.sexe == 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (e.sexe == 'F' ? 'selected' : '') + '>F</option></select></td>';
+        
+        // Si importé, afficher le nom en texte (non modifiable)
+        if (estImporte) {
+            r += '<td style="text-align:left;color:#10b981;font-weight:600;">' + (e.nom || '') + ' 🔒</td>';
+            // Sexe non modifiable également
+            r += '<td style="text-align:center;color:#94a3b8;">' + (e.sexe || 'M') + ' 🔒</td>';
+        } else {
+            r += '<td style="text-align:left"><input type="text" value="' + (e.nom || '') + '" onchange="window.updNoteField(' + i + ',\'nom\',this.value)" style="width:180px"></td>';
+            r += '<td style="text-align:center"><select onchange="window.updNoteField(' + i + ',\'sexe\',this.value)"><option value="M" ' + (e.sexe == 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (e.sexe == 'F' ? 'selected' : '') + '>F</option></select></td>';
+        }
 
         if (periodeFiltre === 'all' || periodeFiltre === '1') {
             for (let ei = 0; ei < e1.length; ei++) {
