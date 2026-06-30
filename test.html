@@ -413,16 +413,46 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 <div id="parentChatMessages" class="parent-messages">
-<div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" alt="Système Intelligent" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 14px auto;border:3px solid rgba(255,215,0,0.5);box-shadow:0 0 30px rgba(255,215,0,0.2);"><strong>🏫 Complexe Scolaire</strong><br><br>Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.<br><br>Veuillez me donner :<br>• Un code à 6 chiffres (pour les frais)<br>• Ou le nom complet d'un élève (pour les notes)</div></div>
 </div>
 <div class="parent-input-area">
-<textarea id="parentQuestionInput" class="parent-input" placeholder="Code 6 chiffres..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea>
+<textarea id="parentQuestionInput" class="parent-input" placeholder="Code parent (6 chiffres)..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea>
 <button id="parentSendBtn" class="parent-send">📤</button>
 </div>
 </div>
 </div>
 </div>
 </div>
+
+<script>
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12' || e.keyCode === 123) {
+        e.preventDefault();
+        return false;
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.keyCode === 73)) {
+        e.preventDefault();
+        return false;
+    }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.keyCode === 74)) {
+        e.preventDefault();
+        return false;
+    }
+    if (e.ctrlKey && (e.key === 'U' || e.keyCode === 85)) {
+        e.preventDefault();
+        return false;
+    }
+    if (e.ctrlKey && (e.key === 'S' || e.keyCode === 83)) {
+        e.preventDefault();
+        return false;
+    }
+    return true;
+});
+</script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -525,14 +555,39 @@ let communiqueAffiche = false;
 let enAttenteChoixEleve = false;
 let listeElevesEnAttente = [];
 
+// ============================================================
+// FONCTIONS D'HISTORIQUE DES SECTIONS VISITÉES
+// ============================================================
+
+let historiqueSections = {};
+
 function ajouterSectionVisitee(section) {
-    if (dernierEleveData && !dernierEleveData.sectionsVisitees.includes(section)) {
+    if (!dernierEleveData) return;
+    if (!dernierEleveData.sectionsVisitees) {
+        dernierEleveData.sectionsVisitees = [];
+    }
+    if (!dernierEleveData.sectionsVisitees.includes(section)) {
         dernierEleveData.sectionsVisitees.push(section);
+    }
+    if (dernierEleveData.id) {
+        if (!historiqueSections[dernierEleveData.id]) {
+            historiqueSections[dernierEleveData.id] = [];
+        }
+        if (!historiqueSections[dernierEleveData.id].includes(section)) {
+            historiqueSections[dernierEleveData.id].push(section);
+        }
     }
 }
 
 function sectionDejaVisitee(section) {
-    return dernierEleveData && dernierEleveData.sectionsVisitees.includes(section);
+    if (!dernierEleveData) return false;
+    if (dernierEleveData.sectionsVisitees && dernierEleveData.sectionsVisitees.includes(section)) {
+        return true;
+    }
+    if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) {
+        return historiqueSections[dernierEleveData.id].includes(section);
+    }
+    return false;
 }
 
 async function genererPropositions(eleveData) {
@@ -553,7 +608,6 @@ async function genererPropositions(eleveData) {
     
     let propositions = '\n\nVoulez-vous voir ';
     const noms = nonVisitees.map(s => sections[s].nom);
-    
     if (noms.length === 1) {
         propositions += noms[0] + ' maintenant ?';
     } else if (noms.length === 2) {
@@ -561,11 +615,13 @@ async function genererPropositions(eleveData) {
     } else {
         propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
     }
-    
     propositions += '\n\nOu voulez-vous terminer ? (répondez "fin" ou "terminer")';
-    
     return propositions;
 }
+
+// ============================================================
+// FIN FONCTIONS D'HISTORIQUE
+// ============================================================
 
 async function getDernierCommunique() {
     try {
@@ -687,6 +743,7 @@ window.fermerCommunique = function() {
     communiqueAffiche = false;
 };
 
+// 🔥 Récupération des punitions depuis la direction
 async function chercherPunitionsParNom(nom) {
     try {
         const q = query(
@@ -702,13 +759,18 @@ async function chercherPunitionsParNom(nom) {
                 motif: data.motif,
                 justification: data.justification,
                 date: data.date,
-                gravite: data.gravite || 'moyenne'
+                gravite: data.gravite || 'moyenne',
+                classe: data.classe
             });
         });
         return punitions;
-    } catch(e) { return []; }
+    } catch(e) { 
+        console.error("Erreur punitions:", e);
+        return []; 
+    }
 }
 
+// 🔥 Récupération des présences depuis la direction
 async function chercherPresencesParNom(nom) {
     try {
         const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences"));
@@ -720,18 +782,19 @@ async function chercherPresencesParNom(nom) {
         
         snap.forEach(ds => {
             const data = ds.data();
+            if (!data.eleves) return;
+            
             data.eleves.forEach(e => {
                 if (e.nom === nom) {
-                    const dateStr = data.date.slice(0, 10);
-                    const present = e.present;
+                    const dateStr = data.date ? data.date.slice(0, 10) : '';
                     
                     if (dateStr === aujourdhui) {
                         if (heureActuelle >= 12 && heureActuelle < 17.5) {
                             presences.push({
                                 date: data.date,
-                                present: present,
+                                present: e.present,
                                 classe: data.classe,
-                                option: data.option,
+                                option: data.option || '',
                                 estAujourdhui: true,
                                 enCours: true,
                                 heureActuelle: heureActuelle
@@ -741,7 +804,7 @@ async function chercherPresencesParNom(nom) {
                                 date: data.date,
                                 present: null,
                                 classe: data.classe,
-                                option: data.option,
+                                option: data.option || '',
                                 estAujourdhui: true,
                                 avantCours: true,
                                 heureActuelle: heureActuelle
@@ -749,9 +812,9 @@ async function chercherPresencesParNom(nom) {
                         } else {
                             presences.push({
                                 date: data.date,
-                                present: present,
+                                present: e.present,
                                 classe: data.classe,
-                                option: data.option,
+                                option: data.option || '',
                                 estAujourdhui: true,
                                 apresCours: true,
                                 heureActuelle: heureActuelle
@@ -760,9 +823,9 @@ async function chercherPresencesParNom(nom) {
                     } else {
                         presences.push({
                             date: data.date,
-                            present: present,
+                            present: e.present,
                             classe: data.classe,
-                            option: data.option,
+                            option: data.option || '',
                             estAujourdhui: false
                         });
                     }
@@ -1214,12 +1277,21 @@ function afficherEleves() {
         return;
     }
     c.innerHTML = '';
+    
+    let importBtn = document.createElement('div');
+    importBtn.style.cssText = 'margin-bottom:12px;';
+    importBtn.innerHTML = `
+        <button class="btn btn-success" id="importerElevesBtn" style="width:100%;">
+            📥 IMPORTER LES ÉLÈVES DE LA COMPTABILITÉ
+        </button>
+    `;
+    c.appendChild(importBtn);
+    
     let ev = currentFiche.eleves || [];
     for (let i = 0; i < ev.length; i++) {
         let d = document.createElement('div');
         d.className = 'eleve-row';
-        
-        const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh';
+        const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite';
         
         if (estImporte) {
             d.innerHTML = `
@@ -1240,17 +1312,96 @@ function afficherEleves() {
         }
         c.appendChild(d);
     }
-    if (ev.length === 0) c.innerHTML = '<div class="empty-state">Aucun élève inscrit</div>';
+    if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>';
     updateExportSelect();
     mettreAJourCompteurEleves();
-    mettreAJourStatsFiche();
+    
+    document.getElementById('importerElevesBtn')?.addEventListener('click', importerElevesDepuisCompta);
+}
+
+async function importerElevesDepuisCompta() {
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    
+    const classe = currentFiche.classe;
+    const option = currentFiche.option || '';
+    
+    if (!classe) {
+        toast("Veuillez d'abord sélectionner une classe dans la fiche", 'error');
+        return;
+    }
+    
+    try {
+        await getAllComptaEleves();
+        const elevesCompta = localEleves;
+        
+        let elevesFiltres = elevesCompta.filter(e => {
+            if (e.abandon) return false;
+            if (e.classe !== classe) return false;
+            if (option === 'TOUTES') return true;
+            if (!option && !e.option) return true;
+            if (option && e.option === option) return true;
+            return false;
+        });
+        
+        if (elevesFiltres.length === 0) {
+            toast(`Aucun élève trouvé en ${classe}${option ? ' ('+option+')' : ''}`, 'warning');
+            return;
+        }
+        
+        const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
+        const nouveauxEleves = elevesFiltres.filter(e => {
+            const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : '');
+            return !nomsExistants.has(nomComplet);
+        });
+        
+        if (nouveauxEleves.length === 0) {
+            toast("Tous les élèves sont déjà dans la fiche", 'info');
+            return;
+        }
+        
+        if (!currentFiche.eleves) currentFiche.eleves = [];
+        
+        nouveauxEleves.forEach(e => {
+            currentFiche.eleves.push({
+                id: e.id || Date.now() + Math.random(),
+                nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                sexe: 'M',
+                notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+                parentCode: e.parentCode || '',
+                eleveId: e.id,
+                importeLe: new Date().toISOString(),
+                source: "comptabilite"
+            });
+        });
+        
+        await saveCurrentFiche();
+        afficherEleves();
+        afficherCotation();
+        refreshGroupes();
+        mettreAJourCompteurEleves();
+        
+        const elevesAvecCode = nouveauxEleves.filter(e => e.parentCode);
+        if (elevesAvecCode.length > 0) {
+            toast(`✅ ${nouveauxEleves.length} élève(s) importé(s) avec leurs codes parents`, 'success');
+        } else {
+            toast(`✅ ${nouveauxEleves.length} élève(s) importé(s)`, 'success');
+        }
+        
+    } catch (error) {
+        console.error("Erreur importation:", error);
+        toast("Erreur lors de l'importation", 'error');
+    }
 }
 
 window.updEleve = function(i, f, v) {
     let eleve = currentFiche.eleves[i];
     if (!eleve) return;
     
-    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh';
+    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite';
     
     if (estImporte) {
         toast("❌ Impossible de modifier un élève importé de la comptabilité", 'error');
@@ -1277,7 +1428,7 @@ window.delEleve = function(i) {
     let eleve = currentFiche.eleves[i];
     if (!eleve) return;
     
-    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh';
+    const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite';
     
     if (estImporte) {
         toast("❌ Impossible de supprimer un élève importé de la comptabilité", 'error');
@@ -3085,7 +3236,19 @@ if (parentFloatingBtnNew) {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
-        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble"><img src="https://www.netubex.com/png.png" alt="Système Intelligent" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto 14px auto;border:3px solid rgba(255,215,0,0.5);box-shadow:0 0 30px rgba(255,215,0,0.2);"><strong>🏫 École ${nomEcole}</strong><br><br>Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant.<br><br>Veuillez me donner :<br>• Un code à 6 chiffres (pour les frais et les notes)</div></div>`;
+        
+        parentChatMessagesNew.innerHTML = `
+            <div class="parent-msg bot">
+                <div class="bubble" style="padding:10px 14px;max-width:90%;">
+                    <div style="font-weight:600;color:#ffd700;font-size:14px;">🏫 ${nomEcole}</div>
+                    <div style="color:#94a3b8;font-size:12px;margin:2px 0 6px 0;">🔑 Code parent (6 chiffres)</div>
+                    <div style="color:#64748b;font-size:11px;background:rgba(255,255,255,0.03);border-radius:6px;padding:4px 8px;border:1px solid rgba(255,255,255,0.04);">
+                        Si vous n'avez pas de code, contactez la comptabilité
+                    </div>
+                </div>
+            </div>
+        `;
+        
         parentInfoEleveNew.innerHTML = `🏫 ${nomEcole}`;
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
@@ -3094,7 +3257,7 @@ if (parentFloatingBtnNew) {
         await verifierEtAfficherBoutonCommunique();
         
         setTimeout(() => {
-            voixParentale(`Bienvenue à l'école ${nomEcole}. Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez taper votre code parent à 6 chiffres.`);
+            voixParentale(`Bienvenue à l'école ${nomEcole}. Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez entrer votre code parent à 6 chiffres.`);
         }, 800);
     };
 }
@@ -3169,6 +3332,7 @@ if (parentQuestionInputNew) {
 }
 updateCounterDisplay();
 
+// 🔥 Récupération des élèves de la comptabilité
 async function getAllComptaEleves() {
     try {
         const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve"));
@@ -3177,7 +3341,7 @@ async function getAllComptaEleves() {
         for (const ds of snap.docs) {
             const d = ds.data();
             localEleves.push({
-                id: d.eleveId || ds.id,
+                id: d.eleveId,
                 nom: d.nom,
                 postnom: d.postnom || "",
                 prenom: d.prenom || "",
@@ -3187,20 +3351,11 @@ async function getAllComptaEleves() {
                 exonere: d.exonere || false,
                 paiements: d.paiements || {},
                 parentCode: d.parentCode || "",
-                abandon: d.abandon || false,
-                phone: d.phone || "",
-                adresse: d.adresse || "",
-                dateNaiss: d.dateNaiss || "",
-                lieuNaiss: d.lieuNaiss || "",
-                nomPere: d.nomPere || "",
-                nomMere: d.nomMere || ""
+                abandon: d.abandon || false
             });
         }
         return localEleves;
-    } catch (error) {
-        console.error("Erreur chargement élèves:", error);
-        return localEleves;
-    }
+    } catch (error) { return localEleves; }
 }
 
 async function getAllFiches() {
@@ -3226,6 +3381,7 @@ async function getAllFiches() {
     } catch (e) { return []; }
 }
 
+// 🔥 Recherche des informations financières par code parent
 async function chercherInfosFinancieresParCode(code) {
     try {
         let q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
@@ -3254,7 +3410,7 @@ async function chercherInfosFinancieresParCode(code) {
             else if (moisImpayes.length >= 3) statut = "Liste noire";
             else if (moisImpayes.length > 0) statut = "Paiement partiel";
             eleves.push({
-                id: data.eleveId || doc.id,
+                id: data.eleveId,
                 nom: data.nom,
                 prenom: data.prenom || "",
                 classe: data.classe,
@@ -3273,28 +3429,7 @@ async function chercherInfosFinancieresParCode(code) {
     } catch (e) { return null; }
 }
 
-async function chercherInfosFinancieresParNom(nom) {
-    try {
-        const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("nom", "==", nom), where("_type", "==", "compta_eleve"));
-        const snap = await getDocs(q);
-        if (snap.empty) return null;
-        const data = snap.docs[0].data();
-        const paiements = data.paiements || {};
-        const minerval = data.minerval || 45000;
-        const totalAnnuel = minerval * 10;
-        let totalPaye = 0,
-            moisImpayes = [];
-        const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
-        for (let mois of moisListe) {
-            const montant = paiements[mois]?.montant || 0;
-            totalPaye += montant;
-            if (montant < minerval && !data.exonere) moisImpayes.push(mois);
-        }
-        const reste = totalAnnuel - totalPaye;
-        return { nom: data.nom, prenom: data.prenom || "", classe: data.classe, minerval, totalPaye, reste, moisImpayes };
-    } catch (e) { return null; }
-}
-
+// 🔥 Recherche des notes par nom
 async function chercherNotesParNom(nom) {
     const fiches = await getAllFiches();
     const resultats = [];
@@ -3303,7 +3438,9 @@ async function chercherNotesParNom(nom) {
         for (const eleve of (fiche.eleves || [])) {
             const nomEleve = (eleve.nom || '').toLowerCase();
             if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
+                // 🔥 Récupérer les punitions depuis la direction
                 const punitions = await chercherPunitionsParNom(eleve.nom);
+                // 🔥 Récupérer les présences depuis la direction
                 const presences = await chercherPresencesParNom(eleve.nom);
                 
                 const epreuvesList = [];
@@ -3343,8 +3480,8 @@ async function chercherNotesParNom(nom) {
                     titulaire: fiche.titulaire || null,
                     epreuves: epreuvesList,
                     nombreElevesClasse: nombreElevesClasse,
-                    punitions: punitions,
-                    presences: presences
+                    punitions: punitions, // 🔥 De la direction
+                    presences: presences // 🔥 De la direction
                 });
             }
         }
@@ -3392,19 +3529,30 @@ Règles IMPÉRATIVES :
     return iaInstructions;
 }
 
+// 🔥 Affichage des informations de l'élève (avec présences et punitions)
 async function afficherInfosEleve(eleve) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     dernierEleveConsulte = eleve.nom;
     
+    // Récupérer les notes (depuis les fiches)
     const resultatsNotes = await chercherNotesParNom(eleve.nom);
     const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+    
+    // 🔥 Les présences et punitions sont déjà dans noteData
+    // (récupérées via chercherNotesParNom qui appelle chercherPresencesParNom et chercherPunitionsParNom)
     
     let notesFiltrees = [];
     if (noteData && noteData.epreuves) {
         notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
     }
     
+    const eleveId = eleve.id || eleve.nom;
+    if (!historiqueSections[eleveId]) {
+        historiqueSections[eleveId] = [];
+    }
+    
     dernierEleveData = {
+        id: eleveId,
         nom: eleve.nom,
         prenom: eleve.prenom,
         sexe: noteData ? noteData.sexe : 'Non spécifié',
@@ -3421,15 +3569,22 @@ async function afficherInfosEleve(eleve) {
             moisImpayes: eleve.moisImpayes,
             statut: eleve.statut
         },
-        punitions: noteData ? noteData.punitions : [],
-        presences: noteData ? noteData.presences : [],
-        sectionsVisitees: []
+        punitions: noteData ? noteData.punitions : [], // 🔥 De la direction
+        presences: noteData ? noteData.presences : [], // 🔥 De la direction
+        sectionsVisitees: historiqueSections[eleveId] || []
     };
     
     return await genererReponseAccueil(dernierEleveData);
 }
 
+// 🔥 Réponse d'accueil
 async function genererReponseAccueil(eleveData) {
+    if (eleveData.id) {
+        historiqueSections[eleveData.id] = [];
+        eleveData.sectionsVisitees = [];
+    }
+    dernierEleveData = eleveData;
+    
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const sexe = eleveData.sexe === 'M' ? 'il' : 'elle';
     const possessif = eleveData.sexe === 'M' ? 'son' : 'sa';
@@ -3441,6 +3596,7 @@ async function genererReponseAccueil(eleveData) {
     return reponse;
 }
 
+// 🔥 Réponse pour les frais
 async function genererReponseFrais(eleveData) {
     ajouterSectionVisitee('frais');
     
@@ -3468,6 +3624,7 @@ async function genererReponseFrais(eleveData) {
     return reponse;
 }
 
+// 🔥 Réponse pour les notes (sans moyenne, sans pourcentage)
 async function genererReponseNotes(eleveData) {
     ajouterSectionVisitee('notes');
     
@@ -3503,6 +3660,7 @@ async function genererReponseNotes(eleveData) {
     return reponse;
 }
 
+// 🔥 Réponse pour la présence (avec horaires)
 async function genererReponsePresence(eleveData) {
     ajouterSectionVisitee('presence');
     
@@ -3525,8 +3683,8 @@ async function genererReponsePresence(eleveData) {
         reponse += `\n\nLes cours commencent à 12h00. Il reste ${minutesRestantes} minutes.`;
         if (presences.length > 0) {
             const derniere = presences[0];
-            const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
             if (!derniere.estAujourdhui) {
+                const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
                 reponse += `\n\nLa dernière présence enregistrée date du ${dateDerniere}.`;
                 reponse += `\n${derniere.present ? '✅ Présent' : '❌ Absent'}`;
             }
@@ -3555,21 +3713,27 @@ async function genererReponsePresence(eleveData) {
     } else {
         const total = presences.filter(p => !p.estAujourdhui || p.present !== null).length;
         const presents = presences.filter(p => p.present === true).length;
+        const absents = total - presents;
         
         const aujourdhui = presences.find(p => p.estAujourdhui);
         if (aujourdhui && aujourdhui.present !== null) {
             reponse += `\n\nAujourd'hui, ${nomComplet} est ${aujourdhui.present ? '✅ présent' : '❌ absent'}.`;
         } else if (aujourdhui && aujourdhui.avantCours) {
             reponse += `\n\nLes cours n'ont pas encore commencé.`;
-        } else if (presences.length > 1) {
-            const derniere = presences[0];
-            const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
-            reponse += `\n\nLa dernière présence date du ${dateDerniere}.`;
         }
         
         if (presents > 0 && total > 0) {
             const taux = Math.round((presents / total) * 100);
-            reponse += `\n\nTaux de présence : ${taux}%`;
+            reponse += `\n\nTaux de présence : ${taux}% (${presents} présents sur ${total} jours)`;
+        }
+        
+        if (presences.length > 1) {
+            reponse += `\n\nDétail des derniers jours :`;
+            presences.slice(0, 3).forEach(p => {
+                const date = new Date(p.date).toLocaleDateString('fr-FR');
+                const statut = p.present ? 'présent' : 'absent';
+                reponse += `\n- ${date} : ${statut}`;
+            });
         }
     }
     
@@ -3577,6 +3741,7 @@ async function genererReponsePresence(eleveData) {
     return reponse;
 }
 
+// 🔥 Réponse pour les punitions
 async function genererReponsePunitions(eleveData) {
     ajouterSectionVisitee('punitions');
     
@@ -3590,15 +3755,18 @@ async function genererReponsePunitions(eleveData) {
         reponse += `\n\n${eleveData.sexe === 'M' ? 'Il' : 'Elle'} a un bon comportement, c'est bien !`;
     } else {
         reponse += `\n\nVoici les punitions enregistrées :`;
-        punitions.forEach((p) => {
+        punitions.forEach((p, index) => {
             const date = new Date(p.date).toLocaleDateString('fr-FR');
             const gravite = p.gravite === 'grave' ? 'grave' : 
                            p.gravite === 'moyenne' ? 'moyenne' : 'légère';
-            reponse += `\n\n- ${p.motif}`;
-            reponse += `\n  Date : ${date}`;
-            reponse += `\n  Gravité : ${gravite}`;
+            reponse += `\n\n${index + 1}. ${p.motif}`;
+            reponse += `\n  📅 Date : ${date}`;
+            reponse += `\n  ⚠️ Gravité : ${gravite}`;
             if (p.justification) {
-                reponse += `\n  Justification : ${p.justification}`;
+                reponse += `\n  📝 Justification : ${p.justification}`;
+            }
+            if (p.classe) {
+                reponse += `\n  📚 Classe : ${p.classe}`;
             }
         });
     }
@@ -3637,12 +3805,13 @@ async function genererReponseFin(eleveData) {
     return `Je vous ai donné toutes les informations sur ${nomComplet}.\n\nSi vous avez d'autres questions, je suis là.\n\nSinon, vous pouvez entrer un autre code parent.\n\nBonne journée !`;
 }
 
+// 🔥 Fonction principale de traitement des messages (CODE PARENT UNIQUEMENT)
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    // ✅ 1️⃣ PRIORITAIRE : Si on a un élève en mémoire
-    if (dernierEleveData) {
+    // 1️⃣ Si on a un élève en mémoire → traiter les questions
+    if (dernierEleveConsulte && dernierEleveData) {
         const eleveData = dernierEleveData;
         const texteComplet = msg;
         
@@ -3691,7 +3860,7 @@ async function traiterMessage(message) {
             return await genererReponseMenu(eleveData);
         }
         
-        // ❌ Message non reconnu
+        // Message non reconnu
         return `Je n'ai pas bien compris ce que vous voulez savoir sur ${eleveData.nom} ${eleveData.prenom || ''}.
 
 Je peux vous parler :
@@ -3703,27 +3872,31 @@ Je peux vous parler :
 Dites-moi ce qui vous intéresse.`;
     }
     
-    // 2️⃣ Code parent (6 chiffres)
+    // 2️⃣ Code parent (6 chiffres) - UNIQUEMENT CECI
     if (/^\d{6}$/.test(msg)) {
         const infos = await chercherInfosFinancieresParCode(msg);
         
         if (!infos || infos.length === 0) {
-            return `Je n'ai pas trouvé de code parent "${msg}" dans notre système.\n\nVoulez-vous vérifier votre code ? Ou contacter la comptabilité de l'école ${nomEcole} ?`;
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `❌ Code parent "${msg}" non reconnu à l'école ${nomEcole}.
+
+📌 Veuillez vérifier votre code ou contacter la comptabilité.`;
         }
         
         if (infos.length === 1) {
-            return await genererReponseAccueil(infos[0]);
+            return await afficherInfosEleve(infos[0]);
+        } else {
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            
+            let reponse = `👨‍👩‍👧‍👦 Plusieurs élèves sont liés à ce code parent :\n\n`;
+            infos.forEach((eleve, index) => {
+                reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom || ''} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
+            });
+            reponse += `\n📌 Répondez avec le numéro de l'élève (1, 2, 3...).`;
+            return reponse;
         }
-        
-        listeElevesEnAttente = infos;
-        enAttenteChoixEleve = true;
-        
-        let reponse = `Je vois que plusieurs enfants sont liés à ce code :\n\n`;
-        infos.forEach((eleve, index) => {
-            reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom || ''} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
-        });
-        reponse += `\nDites-moi le numéro de l'enfant dont vous voulez parler.`;
-        return reponse;
     }
     
     // 3️⃣ Choix d'élève (si plusieurs)
@@ -3734,15 +3907,19 @@ Dites-moi ce qui vous intéresse.`;
             const eleveChoisi = listeElevesEnAttente[choix - 1];
             enAttenteChoixEleve = false;
             listeElevesEnAttente = [];
-            return await genererReponseAccueil(eleveChoisi);
+            return await afficherInfosEleve(eleveChoisi);
         } else {
-            let liste = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom}`).join('\n');
-            return `Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${liste}`;
+            let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom}`).join('\n');
+            return `❌ Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
         }
     }
     
     // 4️⃣ Message d'accueil par défaut
-    return `Bonjour ! Je suis le système intelligent de l'école ${nomEcole}.\n\nPour accéder aux informations de votre enfant, entrez votre code parent à 6 chiffres.\n\nSi vous n'avez pas de code, la comptabilité peut vous en donner un.`;
+    return `🔑 Veuillez entrer votre code parent à 6 chiffres.
+
+📌 Exemple : 123456
+
+💡 Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
 }
 
 async function enregistrerLog(action, details, statut = "info") {
@@ -4269,51 +4446,11 @@ document.querySelectorAll('.tab').forEach(function(btn) {
     };
 });
 
-async function importerElevesDepuisCompta(classe, option) {
-    try {
-        await getAllComptaEleves();
-        const elevesCompta = localEleves;
-        
-        let elevesFiltres = elevesCompta.filter(e => {
-            if (e.abandon) return false;
-            if (e.classe !== classe) return false;
-            if (option === 'TOUTES') return true;
-            if (!option && !e.option) return true;
-            if (option && e.option === option) return true;
-            return false;
-        });
-        
-        return elevesFiltres.map(e => ({
-            id: e.id || Date.now() + Math.random(),
-            nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-            nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-            sexe: 'M',
-            notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
-            parentCode: e.parentCode || '',
-            eleveId: e.id,
-            importeLe: new Date().toISOString(),
-            source: "auto",
-            phone: e.phone || '',
-            adresse: e.adresse || '',
-            dateNaiss: e.dateNaiss || '',
-            lieuNaiss: e.lieuNaiss || '',
-            nomPere: e.nomPere || '',
-            nomMere: e.nomMere || '',
-            minerval: e.minerval,
-            exonere: e.exonere || false
-        }));
-        
-    } catch (error) {
-        console.error("Erreur importation:", error);
-        return [];
-    }
-}
-
+// 🔥 Création de fiche avec importation automatique
 document.getElementById('newFicheBtn').onclick = async function() {
     let c = document.getElementById('coursInput').value.trim();
     let cl = document.getElementById('classeSelect').value;
     let op = document.getElementById('optionSelect').value;
-    
     if (!c) {
         toast("Veuillez renseigner le cours", 'error');
         return;
@@ -4326,7 +4463,6 @@ document.getElementById('newFicheBtn').onclick = async function() {
         toast("Veuillez sélectionner une option", 'error');
         return;
     }
-    
     showConfirm("Créer une nouvelle fiche ?", async function() {
         isCreatingFiche = true;
         try {
@@ -4335,7 +4471,29 @@ document.getElementById('newFicheBtn').onclick = async function() {
             let fop = (cl === '7eme EB' || cl === '8eme EB') ? '' : op;
             let now = new Date();
             
-            const eleves = await importerElevesDepuisCompta(cl, fop);
+            // 🔥 Récupérer les élèves de la comptabilité
+            await getAllComptaEleves();
+            const elevesCompta = localEleves;
+            
+            let elevesFiltres = elevesCompta.filter(e => {
+                if (e.abandon) return false;
+                if (e.classe !== cl) return false;
+                if (fop === 'TOUTES') return true;
+                if (fop && e.option !== fop) return false;
+                return true;
+            });
+            
+            let eleves = elevesFiltres.map(e => ({
+                id: e.id || Date.now() + Math.random(),
+                nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                sexe: 'M',
+                notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+                parentCode: e.parentCode || '',
+                eleveId: e.id,
+                importeLe: new Date().toISOString(),
+                source: "auto"
+            }));
             
             let nf = {
                 profId: currentProf.id,
@@ -4372,10 +4530,8 @@ document.getElementById('newFicheBtn').onclick = async function() {
             }, "success");
             
             await saveToIndexedDB('fiches', { ...nf, id: nid });
-            
             if (navigator.onLine) {
-                try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } 
-                catch (e) { await addPendingSync('saveFiche', nf); }
+                try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } catch (e) { await addPendingSync('saveFiche', nf); }
             } else { await addPendingSync('saveFiche', nf); }
             
             currentFiche = nf;
@@ -4406,9 +4562,7 @@ document.getElementById('newFicheBtn').onclick = async function() {
         } catch (error) {
             toast("❌ Erreur lors de la création", 'error');
             console.error(error);
-        } finally { 
-            isCreatingFiche = false; 
-        }
+        } finally { isCreatingFiche = false; }
     });
 };
 
@@ -4426,15 +4580,21 @@ document.getElementById('rechargerElevesBtn').onclick = async function() {
         return;
     }
     
-    const nouveauxEleves = await importerElevesDepuisCompta(classe, option);
+    await getAllComptaEleves();
+    const elevesCompta = localEleves;
     
-    if (nouveauxEleves.length === 0) {
-        toast("Aucun élève trouvé dans la comptabilité", 'warning');
-        return;
-    }
+    let elevesFiltres = elevesCompta.filter(e => {
+        if (e.abandon) return false;
+        if (e.classe !== classe) return false;
+        if (option === 'TOUTES') return true;
+        if (option && e.option !== option) return false;
+        return true;
+    });
     
     const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
-    const elevesAAjouter = nouveauxEleves.filter(e => !nomsExistants.has(e.nom));
+    const elevesAAjouter = elevesFiltres.filter(e => 
+        !nomsExistants.has(e.nom + (e.prenom ? ' ' + e.prenom : ''))
+    );
     
     if (elevesAAjouter.length === 0) {
         toast("✅ Aucun nouvel élève à ajouter", 'info');
@@ -4443,17 +4603,18 @@ document.getElementById('rechargerElevesBtn').onclick = async function() {
     
     if (!currentFiche.eleves) currentFiche.eleves = [];
     elevesAAjouter.forEach(e => {
-        currentFiche.eleves.push(e);
+        currentFiche.eleves.push({
+            id: e.id || Date.now() + Math.random(),
+            nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            sexe: 'M',
+            notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+            parentCode: e.parentCode || '',
+            eleveId: e.id,
+            importeLe: new Date().toISOString(),
+            source: "reload"
+        });
     });
-    
-    currentFiche.importAuto = {
-        date: new Date().toISOString(),
-        nbEleves: currentFiche.eleves.length,
-        classe: classe,
-        option: option,
-        auto: true,
-        rechargement: true
-    };
     
     await saveCurrentFiche();
     afficherEleves();
@@ -4474,8 +4635,30 @@ selectFiche = async function(id) {
         const option = currentFiche.option;
         
         if (classe) {
-            const eleves = await importerElevesDepuisCompta(classe, option);
-            if (eleves.length > 0) {
+            await getAllComptaEleves();
+            const elevesCompta = localEleves;
+            
+            let elevesFiltres = elevesCompta.filter(e => {
+                if (e.abandon) return false;
+                if (e.classe !== classe) return false;
+                if (option === 'TOUTES') return true;
+                if (option && e.option !== option) return false;
+                return true;
+            });
+            
+            if (elevesFiltres.length > 0) {
+                let eleves = elevesFiltres.map(e => ({
+                    id: e.id || Date.now() + Math.random(),
+                    nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                    nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+                    sexe: 'M',
+                    notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+                    parentCode: e.parentCode || '',
+                    eleveId: e.id,
+                    importeLe: new Date().toISOString(),
+                    source: "auto"
+                }));
+                
                 currentFiche.eleves = eleves;
                 currentFiche.importAuto = {
                     date: new Date().toISOString(),
