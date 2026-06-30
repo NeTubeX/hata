@@ -242,6 +242,11 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .si-float-btn{width:58px;height:58px;bottom:16px;right:16px;}
 .si-float-btn img{width:36px;height:36px;}
 }
+.si-loading-text{color:#94a3b8;font-style:italic;font-size:13px;display:flex;align-items:center;gap:8px;}
+.si-loading-text .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3b82f6;animation:dotPulse 1.4s infinite both;}
+.si-loading-text .dot:nth-child(2){animation-delay:0.2s;}
+.si-loading-text .dot:nth-child(3){animation-delay:0.4s;}
+@keyframes dotPulse{0%,80%,100%{transform:scale(0.6);opacity:0.3;}40%{transform:scale(1);opacity:1;}}
 </style>
 </head>
 <body>
@@ -269,11 +274,13 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="modal-overlay" id="confirmModal"><div class="modal-card"><h3>⚠️ CONFIRMATION</h3><div id="confirmMessage" style="color:#fff; text-align:center; padding:20px;"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmYes">OUI</button><button class="btn btn-outline" id="confirmNo">NON</button></div></div></div>
 <div class="modal-overlay" id="editParentCodeModal"><div class="modal-card"><h3>✏️ MODIFIER LE CODE PARENT</h3><div id="editParentCodeInfo"></div><div class="form-group"><label>NOUVEAU CODE (6 chiffres)</label><input type="text" id="editParentCodeValue" maxlength="6" inputmode="numeric" placeholder="6 chiffres"></div><div class="form-group"><label>APPLIQUER À LA FAMILLE</label><select id="editParentCodeFamily"><option value="no">Seulement cet élève</option><option value="yes">À tous les enfants avec le même code actuel</option></select></div><div class="modal-buttons"><button class="btn btn-success" id="confirmEditParentCode">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditParentCode">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT FRAIS D'INSCRIPTION</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT À PAYER (FC)</label><input type="number" id="inscriptionPaymentAmount" step="100" value="0"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmInscriptionPayment">✅ PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
+
 <button class="si-float-btn" id="siFloatBtn" title="Système Intelligent">
 <img src="https://www.netubex.com/png.png" alt="Système Intelligent" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
 <span class="icon-fallback">🧠</span>
 <span class="si-badge" id="siBadge">1</span>
 </button>
+
 <div class="si-modal" id="siModal">
 <div class="si-modal-header">
 <div class="si-modal-header-left">
@@ -289,21 +296,15 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="si-msg bot">
 <div class="bubble">
 <strong>🏫 Système Intelligent</strong><br><br>
-Je suis votre assistant comptable. Posez-moi une question sur :<br>
-• Les paiements et impayés<br>
-• Les élèves et leurs informations<br>
-• Les statistiques financières<br>
-• Les rapports et exports<br>
-• Les archives et historiques<br><br>
+Je suis votre assistant comptable. Posez-moi une question.<br><br>
 <strong>Exemples :</strong><br>
 "KASONGO Jean"<br>
-"Liste des impayés de juin"<br>
+"Liste des impayés"<br>
 "Total encaissé ce mois"<br>
-"PDF des impayés"<br>
 "2025"<br>
 "Historique KASONGO"
 <div class="si-quick-actions">
-<button onclick="askQuestion('Liste des impayés de juin')">📋 Impayés</button>
+<button onclick="askQuestion('Liste des impayés')">📋 Impayés</button>
 <button onclick="askQuestion('Total encaissé ce mois')">💰 Total</button>
 <button onclick="askQuestion('Qui risque d\'abandonner ?')">⚠️ Risque</button>
 <button onclick="askQuestion('2025')">📂 Archive</button>
@@ -316,213 +317,202 @@ Je suis votre assistant comptable. Posez-moi une question sur :<br>
 <button class="si-send-btn" id="siSendBtn">📤</button>
 </div>
 </div>
-<script>
-window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
-document.addEventListener('DOMContentLoaded',function(){
-var btn=document.getElementById('btnInscrirePrincipal');
-if(btn){btn.onclick=function(e){e.preventDefault();window.ouvrirModalInscription();};btn.ontouchstart=function(e){e.preventDefault();window.ouvrirModalInscription();};}
-var logoutBtn=document.getElementById('logoutBtn');
-if(logoutBtn){logoutBtn.onclick=function(){window.confirmDeconnexion();};}
-var printBtn=document.getElementById('btnPrintCartes');
-if(printBtn){printBtn.onclick=function(){window.genererPDFCartes();};}
-var btnPDF=document.getElementById('btnPDFInscription');
-if(btnPDF){btnPDF.onclick=function(){window.genererPDFInscription();};}
-document.getElementById('confirmInscriptionPayment').onclick=window.confirmInscriptionPayment;
-document.getElementById('cancelInscriptionPayment').onclick=function(){document.getElementById('inscriptionPaymentModal').classList.remove('show');};
-});
-window.confirmDeconnexion=function(){
-var modal=document.getElementById('confirmModal');
-var msg=document.getElementById('confirmMessage');
-msg.innerHTML='🔓 Êtes-vous sûr de vouloir vous déconnecter ?';
-var oldYes=document.getElementById('confirmYes').onclick;
-document.getElementById('confirmYes').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-document.getElementById('mainApp').style.display='none';
-document.getElementById('loginOverlay').style.display='flex';
-document.getElementById('loginCode').value='';
-document.getElementById('loginError').innerHTML='';
-toast('Déconnexion réussie','success');
-document.getElementById('confirmYes').onclick=oldYes;
-};
-document.getElementById('confirmNo').onclick=function(){document.getElementById('confirmModal').classList.remove('show');};
-modal.classList.add('show');
-};
-function showChangeSchoolConfirm(){
-var modal=document.getElementById('confirmModal');
-var msg=document.getElementById('confirmMessage');
-msg.innerHTML='🏫 Êtes-vous sûr de vouloir changer d\'école ?<br><br><span style="font-size:13px;color:#94a3b8;">Vous serez redirigé vers le sélecteur d\'écoles.</span>';
-var oldYes=document.getElementById('confirmYes').onclick;
-document.getElementById('confirmYes').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-window.location.href='https://www.netubex.com/schoolchoice';
-document.getElementById('confirmYes').onclick=oldYes;
-};
-document.getElementById('confirmNo').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-document.getElementById('confirmYes').onclick=oldYes;
-};
-modal.classList.add('show');
-}
-function updatePreview(){
-var nom=document.getElementById('newEleveNom').value.trim();
-var postnom=document.getElementById('newElevePostnom').value.trim();
-var prenom=document.getElementById('newElevePrenom').value.trim();
-var classe=document.getElementById('newEleveClasse').value;
-var option=document.getElementById('newEleveOption').value;
-var exonere=document.getElementById('newEleveExonere').value==='oui';
-var phone=document.getElementById('newElevePhone').value.trim();
-var lieuNaiss=document.getElementById('newEleveLieuNaiss').value.trim();
-var dateNaiss=document.getElementById('newEleveDateNaiss').value;
-var nomPere=document.getElementById('newEleveNomPere').value.trim();
-var nomMere=document.getElementById('newEleveNomMere').value.trim();
-var montantInscription=document.getElementById('newEleveMontantInscription').value||0;
-if(!nom&&!prenom&&!classe){document.getElementById('previewInscription').style.display='none';return;}
-var preview=document.getElementById('previewInscription');
-var html='<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
-html+='<p>👤 <strong>'+(nom||'?')+'</strong> '+(postnom||'')+' <strong>'+(prenom||'')+'</strong></p>';
-if(dateNaiss||lieuNaiss)html+='<p>📅 Né(e) le <strong>'+(dateNaiss||'?')+'</strong> à <strong>'+(lieuNaiss||'?')+'</strong></p>';
-if(nomPere)html+='<p>👨 Père: <strong>'+nomPere+'</strong></p>';
-if(nomMere)html+='<p>👩 Mère: <strong>'+nomMere+'</strong></p>';
-html+='<p>📚 Classe: <strong>'+classe+'</strong>'+(option?' - '+option:'')+'</p>';
-html+='<p>'+(exonere?'🌟 <strong>EXONÉRATION TOTALE</strong>':'💰 Minerval standard')+'</p>';
-if(phone)html+='<p>📞 '+phone+'</p>';
-if(montantInscription>0)html+='<p>💰 Montant versé: <strong>'+parseInt(montantInscription).toLocaleString()+' FC</strong></p>';
-preview.innerHTML=html;
-preview.style.display='block';
-}
-document.getElementById('newEleveNom').oninput=updatePreview;
-document.getElementById('newElevePostnom').oninput=updatePreview;
-document.getElementById('newElevePrenom').oninput=updatePreview;
-document.getElementById('newEleveClasse').onchange=updatePreview;
-document.getElementById('newEleveOption').onchange=updatePreview;
-document.getElementById('newEleveExonere').onchange=function(){
-var s=this.value==='oui';
-document.getElementById('motifExonerationGroup').style.display=s?'block':'none';
-document.getElementById('approbateurGroup').style.display=s?'block':'none';
-updatePreview();
-};
-document.getElementById('newElevePhone').oninput=updatePreview;
-document.getElementById('newEleveLieuNaiss').oninput=updatePreview;
-document.getElementById('newEleveDateNaiss').oninput=updatePreview;
-document.getElementById('newEleveNomPere').oninput=updatePreview;
-document.getElementById('newEleveNomMere').oninput=updatePreview;
-document.getElementById('newEleveMontantInscription').oninput=updatePreview;
-document.getElementById('cancelAddEleve').onclick=function(){document.getElementById('addEleveModal').classList.remove('show');};
-document.getElementById('btnChangeSchool').onclick=function(){showChangeSchoolConfirm();};
 
-function getResponse(q) {
-var question = q.toLowerCase().trim();
-if(question.includes('impayé')||question.includes('impayes')||question.includes('n\'a pas payé')){
-return '📋 LISTE DES IMPAYÉS - JUIN 2026\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTotal : 12 élèves | Montant total : 540 000 FC\n\nKASONGO Jean   | 4ème CG  | 45 000 FC | 🔴 3 mois\nMUKENDI Marie  | 3ème HP  | 45 000 FC | 🟠 2 mois\nLUBALA David   | 2ème TCC | 45 000 FC | 🟡 1 mois\nTSHIBANGU Paul | 4ème HP  | 45 000 FC | 🟡 1 mois\nMUTOMBO Grace  | 4ème TCC | 45 000 FC | 🟡 1 mois\nKABAMBA Serge  | 2ème HP  | 45 000 FC | 🟡 1 mois\nNKULU Marie    | 2ème CG  | 45 000 FC | 🟡 1 mois\nMPOYO Rachel   | 2ème TCC | 45 000 FC | 🟡 1 mois\nKALALA Jean    | 2ème TCC | 45 000 FC | 🟡 1 mois\nILUNGA Paul    | 1ère CG  | 45 000 FC | 🟡 1 mois\nKABONGO Felly  | 1ère HP  | 45 000 FC | 🟡 1 mois\nMPIANA Ruth    | 1ère TCC | 45 000 FC | 🟡 1 mois\n\n📌 RECOMMANDATIONS :\n1. KASONGO Jean : contact urgent\n2. MUKENDI Marie : rappel\n3. Les autres : envoi de SMS';
+<script>
+// ===== FONCTIONS GLOBALES (hors module) =====
+function toast(msg,type){
+    var c=document.getElementById("toastContainer");
+    if(!c)return;
+    var icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};
+    var titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};
+    var el=document.createElement("div");
+    el.className="toast "+type;
+    el.innerHTML='<div class="toast-icon">'+icons[type]+'</div><div class="toast-content"><div class="toast-title">'+titles[type]+'</div><div class="toast-message">'+msg+'</div></div>';
+    c.appendChild(el);
+    setTimeout(function(){el.classList.add("show");},10);
+    setTimeout(function(){el.classList.remove("show");setTimeout(function(){el.remove();},300);},3000);
 }
-if(question.includes('total encaissé')||question.includes('combien encaissé')){
-return '📊 TOTAL ENCAISSÉ - JUIN 2026\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n💰 Montant : 3 240 000 FC\n📈 Taux : 72%\n\n📊 DÉTAIL PAR CLASSE\n7ème EB : 540 000 FC (85%)\n8ème EB : 495 000 FC (78%)\n1ère : 405 000 FC (65%)\n2ème : 360 000 FC (58%)\n3ème : 675 000 FC (75%)\n4ème : 765 000 FC (70%)\n\n📉 Comparaison mai 2026 : -5%';
+
+// ===== SYSTÈME INTELLIGENT =====
+var WORKER_URL = 'https://parent.netube-a97.workers.dev/';
+var siSchoolPrefix = '';
+var siLocalEleves = [];
+var siMoisCourant = '';
+
+function getMoisCourant() {
+    var date = new Date();
+    var mois = date.getMonth();
+    var moisListe = ["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
+    if(mois >= 8) return moisListe[mois - 8];
+    return moisListe[mois + 4];
 }
-if(question.includes('kason')){
-return '📋 FICHE ÉLÈVE : KASONGO Jean\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n👤 Nom : KASONGO Jean\n📚 Classe : 4ème CG\n📞 Téléphone : 0812345678\n🔑 Code parent : 123456\n\n💰 SITUATION FINANCIÈRE\n✅ Septembre : 45 000 FC\n✅ Octobre : 45 000 FC\n✅ Novembre : 45 000 FC\n❌ Décembre : 0 FC\n❌ Janvier : 0 FC\n❌ Février : 0 FC\n\n⚠️ 3 mois d\'impayés | Total dû : 135 000 FC\n\n👨 Père : KASONGO Pierre - 0812345678\n👩 Mère : KASONGO Marie - 0812345679';
+
+function formatNb(n){
+    if(isNaN(n)||n===null||n===undefined)return "0";
+    var resultat="",nombre=Math.abs(Math.floor(Number(n))),strNombre=nombre.toString(),compteur=0;
+    for(var i=strNombre.length-1;i>=0;i--){compteur++;resultat=strNombre[i]+resultat;if(compteur%3===0&&i!==0)resultat=" "+resultat;}
+    return n<0?"-"+resultat:resultat;
 }
-if(/^20\d{2}$/.test(question)){
-return '📂 ARCHIVE - Année '+question+'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 Données de l\'année '+question+' chargées.\n\n💡 Tapez "2026" pour revenir à l\'année en cours.';
+
+function siAddMessage(reponse) {
+    var messages = document.getElementById('siMessages');
+    var div = document.createElement('div');
+    div.className = 'si-msg bot';
+    div.innerHTML = '<div class="bubble">'+reponse.replace(/\n/g,'<br>')+'</div>';
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
 }
-if(question.includes('taux de recouvrement')){
-return '📊 TAUX DE RECOUVREMENT - JUIN 2026\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📈 Taux global : 72%\n📊 Classe qui paie le mieux : 7ème EB (85%)\n📊 Classe qui paie le moins : 2ème (58%)\n\n📉 Évolution : -5% vs mai 2026';
+
+function siAddLoader() {
+    var messages = document.getElementById('siMessages');
+    var div = document.createElement('div');
+    div.className = 'si-msg bot';
+    div.id = 'siLoader';
+    div.innerHTML = '<div class="bubble"><div class="si-loading-text"><span>Réflexion en cours</span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>';
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
 }
-if(question.includes('risque')&&question.includes('abandonner')){
-return '🔮 PRÉDICTION D\'ABANDON\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🎯 3 ÉLÈVES À RISQUE ÉLEVÉ\n\n1. KASONGO Jean (4ème CG)\n   → 3 mois impayés\n   → Risque : 85%\n\n2. MUKENDI Marie (3ème HP)\n   → 2 mois impayés\n   → Risque : 65%\n\n3. LUBALA David (2ème TCC)\n   → 2 mois impayés\n   → Risque : 60%\n\n📌 RECOMMANDATIONS :\n1. KASONGO : contact d\'urgence\n2. MUKENDI : rappel\n3. LUBALA : suivi';
+
+function siRemoveLoader() {
+    var loader = document.getElementById('siLoader');
+    if(loader) loader.remove();
 }
-if(question.includes('liste noire')){
-return '⚠️ LISTE NOIRE - JUIN 2026\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n3+ mois d\'impayés\n\nKASONGO Jean   | 4ème CG  | 3 mois | 135 000 FC\nMUKENDI Marie  | 3ème HP  | 2 mois | 90 000 FC\nLUBALA David   | 2ème TCC | 2 mois | 90 000 FC\n\n📌 RECOMMANDATION :\nContact d\'urgence pour tous';
+
+function siAsk(question) {
+    var modal = document.getElementById('siModal');
+    modal.classList.add('active');
+    setTimeout(function() {
+        var input = document.getElementById('siInput');
+        if(input) {
+            input.value = question;
+            siSendQuestion();
+        }
+    }, 300);
 }
-if(question.includes('historique')&&question.includes('kason')){
-return '📋 HISTORIQUE - KASONGO Jean\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📅 15/06/2026 14:32 - Paiement 45 000 FC\n📅 10/06/2026 09:15 - Lettre rappel n°3\n📅 05/06/2026 16:45 - Note: "Promesse paiement"\n📅 01/06/2026 08:00 - Statut: En ordre → Impayé\n\n📌 Total: 4 actions';
+
+function siSendQuestion() {
+    var input = document.getElementById('siInput');
+    var sendBtn = document.getElementById('siSendBtn');
+    var question = input.value.trim();
+    if(!question) return;
+
+    var messages = document.getElementById('siMessages');
+    var userDiv = document.createElement('div');
+    userDiv.className = 'si-msg user';
+    userDiv.innerHTML = '<div class="bubble">'+question+'</div>';
+    messages.appendChild(userDiv);
+
+    input.value = '';
+    input.style.height = 'auto';
+    input.disabled = true;
+    sendBtn.disabled = true;
+
+    siAddLoader();
+
+    var data = {
+        question: question,
+        ecole: siSchoolPrefix,
+        moisCourant: siMoisCourant
+    };
+
+    fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(function(response) {
+        if(!response.ok) throw new Error('Erreur HTTP '+response.status);
+        return response.json();
+    })
+    .then(function(data) {
+        siRemoveLoader();
+        var reponse = data.answer || data.response || data;
+        if(typeof reponse === 'object') reponse = JSON.stringify(reponse, null, 2);
+        siAddMessage(reponse);
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+    })
+    .catch(function(error) {
+        siRemoveLoader();
+        siAddMessage('❌ Erreur: '+error.message+'\n\nVeuillez réessayer.');
+        input.disabled = false;
+        sendBtn.disabled = false;
+        input.focus();
+    });
+
+    messages.scrollTop = messages.scrollHeight;
 }
-if(question.includes('aide')||question.includes('bonjour')||question.includes('salut')){
-return '👋 Bonjour ! Je suis le Système Intelligent.\n\n📌 POSER UNE QUESTION SUR :\n1. 📋 Élèves : "KASONGO Jean", "Code parent 123456"\n2. 💰 Paiements : "Liste des impayés de juin", "Total encaissé ce mois"\n3. 📊 Statistiques : "Taux de recouvrement", "Meilleure classe"\n4. ⚠️ Alertes : "Qui risque d\'abandonner ?"\n5. 📄 PDF : "PDF des impayés", "PDF de KASONGO"\n6. 📂 Archives : "2025", "Mai 2025"\n7. 📋 Historique : "Historique KASONGO"\n\n💡 Tapez "Aide" à tout moment.';
-}
-return '❓ Je n\'ai pas compris votre question.\n\n📌 Exemples :\n• "KASONGO Jean" → Fiche élève\n• "Liste des impayés de juin" → Liste complète\n• "Total encaissé ce mois" → Statistiques\n• "PDF des impayés" → Générer PDF\n• "2025" → Archives\n• "Historique KASONGO" → Traçabilité\n\n💡 Tapez "Aide" pour la liste complète.';
-}
-function addMessage(question, reponse) {
-var messages = document.getElementById('siMessages');
-var div = document.createElement('div');
-div.className = 'si-msg bot';
-div.innerHTML = '<div class="bubble">'+reponse.replace(/\n/g,'<br>')+'</div>';
-messages.appendChild(div);
-messages.scrollTop = messages.scrollHeight;
-}
-function sendQuestion() {
-var input = document.getElementById('siInput');
-var sendBtn = document.getElementById('siSendBtn');
-var question = input.value.trim();
-if(!question) return;
-var messages = document.getElementById('siMessages');
-var userDiv = document.createElement('div');
-userDiv.className = 'si-msg user';
-userDiv.innerHTML = '<div class="bubble">'+question+'</div>';
-messages.appendChild(userDiv);
-input.value = '';
-input.style.height = 'auto';
-input.disabled = true;
-sendBtn.disabled = true;
-setTimeout(function() {
-var reponse = getResponse(question);
-addMessage(question, reponse);
-input.disabled = false;
-sendBtn.disabled = false;
-input.focus();
-}, 500);
-messages.scrollTop = messages.scrollHeight;
-}
+
 function initSystèmeIntelligent() {
-var floatBtn = document.getElementById('siFloatBtn');
-var modal = document.getElementById('siModal');
-var closeBtn = document.getElementById('siCloseBtn');
-var input = document.getElementById('siInput');
-var sendBtn = document.getElementById('siSendBtn');
-if(!floatBtn || !modal || !closeBtn) return;
-floatBtn.onclick = function(e) {
-e.preventDefault();
-e.stopPropagation();
-modal.classList.add('active');
-setTimeout(function() {
-if(input) input.focus();
-}, 300);
-var badge = document.getElementById('siBadge');
-if(badge) badge.style.display = 'none';
-};
-closeBtn.onclick = function() {
-modal.classList.remove('active');
-};
-modal.onclick = function(e) {
-if(e.target === modal) modal.classList.remove('active');
-};
-sendBtn.onclick = sendQuestion;
-input.onkeydown = function(e) {
-if(e.key === 'Enter' && !e.shiftKey) {
-e.preventDefault();
-sendQuestion();
+    var floatBtn = document.getElementById('siFloatBtn');
+    var modal = document.getElementById('siModal');
+    var closeBtn = document.getElementById('siCloseBtn');
+    var input = document.getElementById('siInput');
+    var sendBtn = document.getElementById('siSendBtn');
+
+    if(!floatBtn || !modal || !closeBtn) return;
+
+    floatBtn.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        modal.classList.add('active');
+        setTimeout(function() {
+            if(input) input.focus();
+        }, 300);
+        var badge = document.getElementById('siBadge');
+        if(badge) badge.style.display = 'none';
+    };
+
+    closeBtn.onclick = function() {
+        modal.classList.remove('active');
+    };
+
+    modal.onclick = function(e) {
+        if(e.target === modal) modal.classList.remove('active');
+    };
+
+    sendBtn.onclick = siSendQuestion;
+
+    input.onkeydown = function(e) {
+        if(e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            siSendQuestion();
+        }
+    };
+
+    input.oninput = function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    };
+
+    window.askQuestion = siAsk;
+    console.log('✅ Système Intelligent initialisé');
 }
-};
-input.oninput = function() {
-this.style.height = 'auto';
-this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-};
-}
-window.askQuestion = function(question) {
-var modal = document.getElementById('siModal');
-if(!modal) return;
-modal.classList.add('active');
+
+// Initialiser après le chargement
 setTimeout(function() {
-var input = document.getElementById('siInput');
-if(input) {
-input.value = question;
-sendQuestion();
-}
-}, 300);
-};
-setTimeout(function() {
-initSystèmeIntelligent();
-}, 300);
+    initSystèmeIntelligent();
+}, 500);
+
+// ===== OUVRIR LE SYSTEME INTELLIGENT AU CLIC =====
+document.addEventListener('DOMContentLoaded', function() {
+    var siBtn = document.getElementById('siFloatBtn');
+    if(siBtn) {
+        siBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var modal = document.getElementById('siModal');
+            if(modal) modal.classList.add('active');
+            var badge = document.getElementById('siBadge');
+            if(badge) badge.style.display = 'none';
+        };
+    }
+});
+
+console.log('🧠 Système Intelligent - Worker: '+WORKER_URL);
 </script>
+
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,query,where}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -534,6 +524,11 @@ let schoolId=urlParams.get('ecole');
 if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';throw new Error('Redirection');}
 const SCHOOL_PREFIX=schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME=schoolId;
+
+// Transmettre les infos au Système Intelligent
+window.siSchoolPrefix = SCHOOL_PREFIX;
+window.siMoisCourant = getMoisCourant();
+
 document.getElementById("schoolName").innerHTML='🏫 COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME;
 document.getElementById("loginSchoolName").innerHTML='🏫 COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME;
 document.getElementById("ecoleNom").value='COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME;
@@ -557,6 +552,7 @@ const dateRef=new Date();
 const moisActuelNum=dateRef.getMonth();
 let moisCourant="Septembre";
 if(moisActuelNum>=8){moisCourant=moisListe[moisActuelNum-8];}else{moisCourant=moisListe[moisActuelNum+4];}
+window.siMoisCourant = moisCourant;
 const DB_NAME='GloriaDeiDB';
 const DB_VERSION=1;
 const STORE_NAME='eleves';
