@@ -259,7 +259,6 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .parent-input:focus{border-color:#3b82f6;}
 .parent-send{background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:40px;padding:0 24px;color:#fff;font-weight:600;cursor:pointer;transition:all 0.2s;font-size:18px;}
 .parent-send:active{transform:scale(0.97);}
-.loader{display:inline-block;width:18px;height:18px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:8px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .saisie-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;visibility:hidden;z-index:20001;}
@@ -299,6 +298,13 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 #loadingScreen img{width:72px;height:72px;border-radius:16px;box-shadow:0 8px 32px rgba(59,130,246,0.3);}
 #loadingScreen .brand{color:#fff;font-size:22px;font-weight:700;letter-spacing:1px;}
 #loadingScreen .spinner{width:40px;height:40px;border:4px solid rgba(59,130,246,0.2);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;}
+.typing-indicator{display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(18,25,45,0.85);border-radius:20px;border:2px solid rgba(255,107,107,0.3);backdrop-filter:blur(16px);color:#94a3b8;font-size:14px;font-style:italic;animation:rainbowSoft 4s linear infinite, rainbowGlowSoft 4s linear infinite;}
+.typing-dots{display:flex;gap:4px;align-items:center;}
+.typing-dots span{width:8px;height:8px;background:#94a3b8;border-radius:50%;display:inline-block;animation:typingBounce 1.4s infinite ease-in-out;}
+.typing-dots span:nth-child(1){animation-delay:0s;}
+.typing-dots span:nth-child(2){animation-delay:0.2s;}
+.typing-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-8px);}}
 </style>
 </head>
 <body>
@@ -555,29 +561,9 @@ let communiqueAffiche = false;
 let enAttenteChoixEleve = false;
 let listeElevesEnAttente = [];
 
-// Cache des réponses
 let reponseCache = new Map();
 let lastDataHash = null;
-
-// Messages d'attente variés
-const messagesAttente = [
-    "Un instant, je vérifie tout de suite...",
-    "Je recherche les informations, patientez quelques secondes...",
-    "Je traite votre demande, cela ne devrait pas être long...",
-    "Consultation en cours, veuillez patienter...",
-    "Je prépare la réponse, soyez indulgent...",
-    "Analyse en cours, je reviens vers vous dans un instant...",
-    "Veuillez patienter pendant que je consulte le système...",
-    "Je cherche les données demandées, un moment s'il vous plaît..."
-];
-
-function getMessageAttenteAleatoire() {
-    return messagesAttente[Math.floor(Math.random() * messagesAttente.length)];
-}
-
-// ============================================================
-// CONVERSION DES NOMBRES EN FRANÇAIS POUR LA SYNTHÈSE VOCALE
-// ============================================================
+let currentParentCode = null;
 
 function convertirNombreEnFrancais(n) {
     if (n === 0) return 'zéro';
@@ -622,76 +608,18 @@ function convertirNombreEnFrancais(n) {
         if (r === 0) return convertirNombreEnFrancais(m) + ' mille';
         return convertirNombreEnFrancais(m) + ' mille ' + convertirNombreEnFrancais(r);
     }
+    if (n < 1000000000) {
+        const m = Math.floor(n / 1000000);
+        const r = n % 1000000;
+        if (m === 1) {
+            if (r === 0) return 'un million';
+            return 'un million ' + convertirNombreEnFrancais(r);
+        }
+        if (r === 0) return convertirNombreEnFrancais(m) + ' millions';
+        return convertirNombreEnFrancais(m) + ' millions ' + convertirNombreEnFrancais(r);
+    }
     return n.toString();
 }
-
-// ============================================================
-// FONCTIONS D'HISTORIQUE DES SECTIONS VISITÉES
-// ============================================================
-
-let historiqueSections = {};
-
-function ajouterSectionVisitee(section) {
-    if (!dernierEleveData) return;
-    if (!dernierEleveData.sectionsVisitees) {
-        dernierEleveData.sectionsVisitees = [];
-    }
-    if (!dernierEleveData.sectionsVisitees.includes(section)) {
-        dernierEleveData.sectionsVisitees.push(section);
-    }
-    if (dernierEleveData.id) {
-        if (!historiqueSections[dernierEleveData.id]) {
-            historiqueSections[dernierEleveData.id] = [];
-        }
-        if (!historiqueSections[dernierEleveData.id].includes(section)) {
-            historiqueSections[dernierEleveData.id].push(section);
-        }
-    }
-}
-
-function sectionDejaVisitee(section) {
-    if (!dernierEleveData) return false;
-    if (dernierEleveData.sectionsVisitees && dernierEleveData.sectionsVisitees.includes(section)) {
-        return true;
-    }
-    if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) {
-        return historiqueSections[dernierEleveData.id].includes(section);
-    }
-    return false;
-}
-
-async function genererPropositions(eleveData) {
-    const sections = {
-        frais: { emoji: '', nom: 'les frais' },
-        notes: { emoji: '', nom: 'les notes' },
-        presence: { emoji: '', nom: 'la présence' },
-        punitions: { emoji: '', nom: 'les punitions' }
-    };
-    
-    const nonVisitees = Object.keys(sections).filter(
-        section => !sectionDejaVisitee(section)
-    );
-    
-    if (nonVisitees.length === 0) {
-        return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.\n\nSouhaitez-vous terminer la consultation ? (répondez "fin" ou "terminer")`;
-    }
-    
-    let propositions = '\n\nVoulez-vous voir ';
-    const noms = nonVisitees.map(s => sections[s].nom);
-    if (noms.length === 1) {
-        propositions += noms[0] + ' maintenant ?';
-    } else if (noms.length === 2) {
-        propositions += noms[0] + ' ou ' + noms[1] + ' ?';
-    } else {
-        propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
-    }
-    propositions += '\n\nOu voulez-vous terminer ? (répondez "fin" ou "terminer")';
-    return propositions;
-}
-
-// ============================================================
-// SYNTHÈSE VOCALE CORRIGÉE AVEC PONCTUATION
-// ============================================================
 
 function voixParentale(texte) {
     if (!texte) return;
@@ -700,35 +628,64 @@ function voixParentale(texte) {
     
     let texteParle = texte;
     
-    // Nettoyer les emojis et caractères spéciaux
     texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, '');
     texteParle = texteParle.replace(/\*\*/g, '');
     texteParle = texteParle.replace(/[\(\)]/g, '');
     texteParle = texteParle.replace(/[|]/g, '');
     
-    // Convertir les nombres en français
-    texteParle = texteParle.replace(/(\d{1,3}(?:\s?\d{3})*)\s*FC/g, (match, p1) => {
-        const num = parseInt(p1.replace(/\s/g, ''));
+    texteParle = texteParle.replace(/\n/g, '. ');
+    texteParle = texteParle.replace(/\.\./g, '.');
+    texteParle = texteParle.replace(/\./g, '. ');
+    texteParle = texteParle.replace(/\?/g, '? ');
+    texteParle = texteParle.replace(/\!/g, '! ');
+    texteParle = texteParle.replace(/:/g, ': ');
+    texteParle = texteParle.replace(/-\s/g, '. ');
+    texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
+        return match.replace(/\./, '. ');
+    });
+    texteParle = texteParle.replace(/,/g, ', ');
+    texteParle = texteParle.replace(/\s+/g, ' ');
+    texteParle = texteParle.replace(/\.\s+\./g, '. ');
+    texteParle = texteParle.replace(/\?\s+\?/g, '? ');
+    texteParle = texteParle.replace(/\!\s+\!/g, '! ');
+    
+    // Correction: prononcer correctement les montants FC comme "45.000FC" -> "quarante-cinq mille francs congolais"
+    texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1.replace(/[\s.,]/g, ''));
         if (num >= 1000) {
             return convertirNombreEnFrancais(num) + ' francs congolais';
         }
         return convertirNombreEnFrancais(num) + ' francs congolais';
     });
     
+    // Correction: prononcer les nombres seuls comme 45000 correctement
+    texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1);
+        if (num >= 1000) {
+            return convertirNombreEnFrancais(num) + ' francs congolais';
+        }
+        return convertirNombreEnFrancais(num) + ' francs congolais';
+    });
+    
+    // Correction: ne pas prononcer "000" comme un numéro de téléphone
+    texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => {
+        if (match.includes('FC') || match.includes('/')) return match;
+        const num = parseInt(p1.replace(/[\s.,]/g, ''));
+        if (num >= 1000) {
+            return convertirNombreEnFrancais(num);
+        }
+        return convertirNombreEnFrancais(num);
+    });
+    
     texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => {
         return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2));
     });
     
-    texteParle = texteParle.replace(/\b(\d{1,3})\b/g, (match, p1) => {
-        if (match.includes('FC') || match.includes('/')) return match;
-        const num = parseInt(p1);
-        if (num >= 1000) return convertirNombreEnFrancais(num);
-        return convertirNombreEnFrancais(num);
-    });
+    texteParle = texteParle.replace(/\s+/g, ' ');
     
     const utterance = new SpeechSynthesisUtterance(texteParle);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
+    utterance.rate = 0.75;
     utterance.pitch = 1;
     const voices = window.speechSynthesis.getVoices();
     const voixFR = voices.find(v => v.lang.startsWith('fr'));
@@ -747,28 +704,56 @@ function speak(text, onEnd) {
     texteParle = texteParle.replace(/[\(\)]/g, '');
     texteParle = texteParle.replace(/[|]/g, '');
     
-    texteParle = texteParle.replace(/(\d{1,3}(?:\s?\d{3})*)\s*FC/g, (match, p1) => {
-        const num = parseInt(p1.replace(/\s/g, ''));
+    texteParle = texteParle.replace(/\n/g, '. ');
+    texteParle = texteParle.replace(/\.\./g, '.');
+    texteParle = texteParle.replace(/\./g, '. ');
+    texteParle = texteParle.replace(/\?/g, '? ');
+    texteParle = texteParle.replace(/\!/g, '! ');
+    texteParle = texteParle.replace(/:/g, ': ');
+    texteParle = texteParle.replace(/-\s/g, '. ');
+    texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
+        return match.replace(/\./, '. ');
+    });
+    texteParle = texteParle.replace(/,/g, ', ');
+    texteParle = texteParle.replace(/\s+/g, ' ');
+    texteParle = texteParle.replace(/\.\s+\./g, '. ');
+    texteParle = texteParle.replace(/\?\s+\?/g, '? ');
+    texteParle = texteParle.replace(/\!\s+\!/g, '! ');
+    
+    texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1.replace(/[\s.,]/g, ''));
         if (num >= 1000) {
             return convertirNombreEnFrancais(num) + ' francs congolais';
         }
         return convertirNombreEnFrancais(num) + ' francs congolais';
     });
     
+    texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+        const num = parseInt(p1);
+        if (num >= 1000) {
+            return convertirNombreEnFrancais(num) + ' francs congolais';
+        }
+        return convertirNombreEnFrancais(num) + ' francs congolais';
+    });
+    
+    texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => {
+        if (match.includes('FC') || match.includes('/')) return match;
+        const num = parseInt(p1.replace(/[\s.,]/g, ''));
+        if (num >= 1000) {
+            return convertirNombreEnFrancais(num);
+        }
+        return convertirNombreEnFrancais(num);
+    });
+    
     texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => {
         return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2));
     });
     
-    texteParle = texteParle.replace(/\b(\d{1,3})\b/g, (match, p1) => {
-        if (match.includes('FC') || match.includes('/')) return match;
-        const num = parseInt(p1);
-        if (num >= 1000) return convertirNombreEnFrancais(num);
-        return convertirNombreEnFrancais(num);
-    });
+    texteParle = texteParle.replace(/\s+/g, ' ');
     
     const utterance = new SpeechSynthesisUtterance(texteParle);
     utterance.lang = 'fr-FR';
-    utterance.rate = 0.8;
+    utterance.rate = 0.75;
     utterance.pitch = 1;
     const voices = window.speechSynthesis.getVoices();
     const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
@@ -783,10 +768,6 @@ function stopSpeaking() {
         window.speechSynthesis.cancel();
     }
 }
-
-// ============================================================
-// FONCTIONS UTILITAIRES
-// ============================================================
 
 function toast(message, type) {
     const c = document.getElementById('toastContainer');
@@ -963,10 +944,6 @@ window.fermerCommunique = function() {
     if (btn) btn.style.display = 'none';
     communiqueAffiche = false;
 };
-
-// ============================================================
-// RÉCUPÉRATION DES DONNÉES
-// ============================================================
 
 async function chercherPunitionsParNom(nom) {
     try {
@@ -1256,10 +1233,6 @@ Règles IMPÉRATIVES :
     return iaInstructions;
 }
 
-// ============================================================
-// RÉPONSES DE L'IA AVEC CACHE
-// ============================================================
-
 function getDataHash(eleveData) {
     if (!eleveData) return null;
     const dataStr = JSON.stringify({
@@ -1298,27 +1271,23 @@ async function genererReponseNaturelle(question, eleveData) {
     const msg = question.toLowerCase();
     const questionKey = getCacheKey(question, eleveData);
     
-    // Vérifier si la réponse est dans le cache et que les données n'ont pas changé
     if (questionKey && reponseCache.has(questionKey) && isCacheValid(eleveData)) {
         return reponseCache.get(questionKey);
     }
     
-    // Vérifier si les données ont changé depuis le dernier cache
     const currentHash = getDataHash(eleveData);
     if (currentHash !== lastDataHash) {
-        // Les données ont changé, on vide le cache
         reponseCache.clear();
         lastDataHash = currentHash;
     }
     
     let reponse = null;
     
-    // AIDE / CONSEILS
     if (msg.includes('aide') || msg.includes('conseil') || msg.includes('que faire') || msg.includes('comment') || msg.includes('quoi') || msg.includes('que puis-je')) {
         reponse = `Je suis là pour vous aider avec ${eleveData.nom} ${eleveData.prenom || ''}.
 
 Voici ce que je peux vous dire :
-- Ses frais scolaires (minerval, paiements, dettes)
+- Sa situation financière (minerval, paiements, dettes)
 - Ses notes et résultats
 - Sa présence et assiduité
 - Ses punitions et sanctions
@@ -1332,7 +1301,6 @@ Dites-moi simplement ce que vous voulez savoir. Par exemple :
 Je suis là pour vous guider !`;
     }
     
-    // SEXE
     else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille') || msg.includes('est-ce') || msg.includes('est il') || msg.includes('est elle')) {
         const sexe = eleveData.sexe || 'Non spécifié';
         if (sexe === 'M' || sexe === 'Masculin') {
@@ -1344,7 +1312,6 @@ Je suis là pour vous guider !`;
         }
     }
     
-    // TITULAIRE
     else if (msg.includes('titulaire') || msg.includes('professeur') || msg.includes('enseignant')) {
         if (eleveData.titulaire) {
             reponse = `Le professeur titulaire de ${eleveData.nom} ${eleveData.prenom || ''} est ${eleveData.titulaire}.`;
@@ -1353,12 +1320,10 @@ Je suis là pour vous guider !`;
         }
     }
     
-    // CLASSE
     else if (msg.includes('classe') || msg.includes('quelle classe') || msg.includes('en quelle')) {
         reponse = `${eleveData.nom} ${eleveData.prenom || ''} est en ${eleveData.classe}${eleveData.option ? ' option '+eleveData.option : ''}.`;
     }
     
-    // EFFECTIF
     else if (msg.includes('effectif') || msg.includes('combien d\'élève') || msg.includes('nombre d\'élève') || msg.includes('combien de personne')) {
         const nb = eleveData.nombreElevesClasse || 0;
         if (nb > 0) {
@@ -1368,17 +1333,14 @@ Je suis là pour vous guider !`;
         }
     }
     
-    // RÉSUMÉ
     else if (msg.includes('résumé') || msg.includes('tout') || msg.includes('complet') || msg.includes('global') || msg.includes('info') || msg.includes('informations')) {
         reponse = await genererReponseComplet(eleveData);
     }
     
-    // MENU
     else if (msg.includes('menu') || msg.includes('accueil') || msg.includes('retour')) {
         reponse = await genererReponseMenu(eleveData);
     }
     
-    // QUESTION NON RECONNUE
     else if (msg.includes('?') || msg.includes('pourquoi') || msg.includes('comment') || msg.includes('est-ce que')) {
         reponse = `Je vais essayer de vous aider.
 
@@ -1395,17 +1357,14 @@ Posez-moi des questions comme :
 Je vous répondrai avec plaisir !`;
     }
     
-    // Si la réponse n'a pas encore été générée, on utilise l'IA
     if (!reponse) {
         let contexte = `École: ${nomEcole}. `;
         contexte += `L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
         
         const sexe = eleveData.sexe || 'Non spécifié';
         let pronom = "il";
-        let possessif = "son";
         if (sexe === 'F' || sexe === 'Féminin') {
             pronom = "elle";
-            possessif = "sa";
         }
         
         contexte += `Son sexe est ${sexe === 'M' ? 'Masculin' : sexe === 'F' ? 'Féminin' : 'Non spécifié'}. `;
@@ -1471,6 +1430,7 @@ RAPPEL IMPORTANT :
 - Si on te demande le sexe, réponds clairement "C'est un garçon" ou "C'est une fille"
 - Si on te demande le nombre d'élèves, donne le nombre exact
 - Utilise "${pronom}" pour parler de l'élève
+- Utilise TOUJOURS "sa" pour parler de sa situation (le mot situation est féminin)
 - Si on demande des conseils, donne des encouragements
 - N'affiche PAS les notes à 0 (zéro)`;
         
@@ -1503,17 +1463,12 @@ En attendant, je peux vous parler des frais, des notes, de la présence ou des p
         }
     }
     
-    // Mettre en cache la réponse
     if (questionKey && reponse) {
         reponseCache.set(questionKey, reponse);
     }
     
     return reponse;
 }
-
-// ============================================================
-// FONCTIONS DE RÉPONSE SPÉCIFIQUES
-// ============================================================
 
 async function afficherInfosEleve(eleve) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
@@ -1555,7 +1510,6 @@ async function afficherInfosEleve(eleve) {
         sectionsVisitees: historiqueSections[eleveId] || []
     };
     
-    // Vider le cache pour ce nouvel élève
     reponseCache.clear();
     lastDataHash = getDataHash(dernierEleveData);
     
@@ -1571,11 +1525,10 @@ async function genererReponseAccueil(eleveData) {
     
     const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
     const sexe = eleveData.sexe === 'M' ? 'il' : 'elle';
-    const possessif = eleveData.sexe === 'M' ? 'son' : 'sa';
     
     let reponse = `Bonjour cher parent, j'ai trouvé ${nomComplet} dans notre système.`;
     reponse += `\n\n${eleveData.sexe === 'M' ? 'Il' : 'Elle'} est en ${eleveData.classe}${eleveData.option ? ' option '+eleveData.option : ''}.`;
-    reponse += `\n\nJe peux vous parler de ${possessif} situation financière, de ses notes, de sa présence ou de ses punitions.`;
+    reponse += `\n\nJe peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions.`;
     reponse += `\n\nPar quoi voulez-vous commencer ?`;
     return reponse;
 }
@@ -1785,34 +1738,48 @@ async function genererReponseFin(eleveData) {
     return `Je vous ai donné toutes les informations sur ${nomComplet}.\n\nSi vous avez d'autres questions, je suis là.\n\nSinon, vous pouvez entrer un autre code parent.\n\nBonne journée !`;
 }
 
-// ============================================================
-// COMPTEUR D'UTILISATION PAR CODE PARENT (FIREBASE)
-// ============================================================
-
-async function getQuestionCountForCode(code) {
-    if (!code || code.length !== 6) return 0;
-    
-    const today = new Date().toISOString().slice(0, 10);
-    
-    try {
-        const docRef = doc(db, SCHOOL_PREFIX + "_parent_usage", code);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            // Vérifier si c'est le même jour
-            if (data.date === today) {
-                return data.count || 0;
-            } else {
-                // Réinitialiser pour un nouveau jour
-                return 0;
-            }
+function getQuestionCountForCode(code) {
+    return new Promise((resolve) => {
+        if (!code || code.length !== 6) {
+            resolve(0);
+            return;
         }
-        return 0;
-    } catch (e) {
-        console.error("Erreur récupération compteur:", e);
-        return 0;
-    }
+        
+        const today = new Date().toISOString().slice(0, 10);
+        
+        // Vérifier d'abord dans le cache localStorage pour une réponse rapide
+        const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
+        try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                const data = JSON.parse(cached);
+                if (data.date === today) {
+                    resolve(data.count || 0);
+                    return;
+                }
+            }
+        } catch(e) {}
+        
+        // Si pas dans le cache, interroger Firebase
+        getDoc(doc(db, SCHOOL_PREFIX + "_parent_usage", code))
+            .then(docSnap => {
+                let count = 0;
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.date === today) {
+                        count = data.count || 0;
+                    }
+                }
+                // Mettre en cache
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: count }));
+                } catch(e) {}
+                resolve(count);
+            })
+            .catch(() => {
+                resolve(0);
+            });
+    });
 }
 
 async function incrementQuestionCountForCode(code) {
@@ -1830,6 +1797,10 @@ async function incrementQuestionCountForCode(code) {
             ecole: SCHOOL_PREFIX,
             lastUpdated: new Date().toISOString()
         });
+        // Mettre à jour le cache
+        try {
+            localStorage.setItem('parent_counter_' + SCHOOL_PREFIX + '_' + code, JSON.stringify({ date: today, count: newCount }));
+        } catch(e) {}
         return newCount;
     } catch (e) {
         console.error("Erreur enregistrement compteur:", e);
@@ -1837,17 +1808,51 @@ async function incrementQuestionCountForCode(code) {
     }
 }
 
-async function resetUsageCounters() {
-    // Cette fonction est appelée périodiquement pour nettoyer les anciens compteurs
-    // Les compteurs sont automatiquement réinitialisés quand la date change
-    // dans getQuestionCountForCode
+async function canAskQuestion() {
+    if (!currentParentCode) return true;
+    const count = await getQuestionCountForCode(currentParentCode);
+    return count < 10;
+}
+
+function updateCounterDisplay() {
+    const counterSpan = document.getElementById('parentQuestionCounter');
+    if (!counterSpan) return;
+    
+    if (currentParentCode) {
+        getQuestionCountForCode(currentParentCode).then(count => {
+            counterSpan.textContent = count + '/10';
+            counterSpan.style.background = count >= 10 ? '#ef4444' : '#10b981';
+        });
+    } else {
+        counterSpan.textContent = '0/10';
+        counterSpan.style.background = '#10b981';
+    }
+}
+
+function scheduleCounterReset() {
+    const now = new Date();
+    const resetTime = new Date(now);
+    resetTime.setHours(8, 0, 0, 0);
+    
+    if (now >= resetTime) {
+        resetTime.setDate(resetTime.getDate() + 1);
+    }
+    
+    const delay = resetTime.getTime() - now.getTime();
+    setTimeout(() => {
+        resetAllCounters();
+        scheduleCounterReset();
+    }, delay);
+}
+
+async function resetAllCounters() {
     try {
         const querySnapshot = await getDocs(collection(db, SCHOOL_PREFIX + "_parent_usage"));
         const today = new Date().toISOString().slice(0, 10);
+        
         for (const doc of querySnapshot.docs) {
             const data = doc.data();
             if (data.date !== today) {
-                // Réinitialiser le compteur pour les anciens jours
                 await setDoc(doc.ref, {
                     ...data,
                     count: 0,
@@ -1855,27 +1860,87 @@ async function resetUsageCounters() {
                 });
             }
         }
+        console.log("✅ Compteurs réinitialisés pour le", today);
+        // Vider le cache des compteurs
+        const keys = Object.keys(localStorage);
+        keys.filter(k => k.startsWith('parent_counter_' + SCHOOL_PREFIX)).forEach(k => localStorage.removeItem(k));
     } catch (e) {
         console.error("Erreur réinitialisation compteurs:", e);
     }
 }
 
-// ============================================================
-// TRAITEMENT DES MESSAGES
-// ============================================================
+scheduleCounterReset();
+
+function genererPropositions(eleveData) {
+    const sections = {
+        frais: { emoji: '', nom: 'les frais' },
+        notes: { emoji: '', nom: 'les notes' },
+        presence: { emoji: '', nom: 'la présence' },
+        punitions: { emoji: '', nom: 'les punitions' }
+    };
+    
+    const nonVisitees = Object.keys(sections).filter(
+        section => !sectionDejaVisitee(section)
+    );
+    
+    if (nonVisitees.length === 0) {
+        return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.\n\nSouhaitez-vous terminer la consultation ? (répondez "fin" ou "terminer")`;
+    }
+    
+    let propositions = '\n\nVoulez-vous voir ';
+    const noms = nonVisitees.map(s => sections[s].nom);
+    if (noms.length === 1) {
+        propositions += noms[0] + ' maintenant ?';
+    } else if (noms.length === 2) {
+        propositions += noms[0] + ' ou ' + noms[1] + ' ?';
+    } else {
+        propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
+    }
+    propositions += '\n\nOu voulez-vous terminer ? (répondez "fin" ou "terminer")';
+    return propositions;
+}
+
+let historiqueSections = {};
+
+function ajouterSectionVisitee(section) {
+    if (!dernierEleveData) return;
+    if (!dernierEleveData.sectionsVisitees) {
+        dernierEleveData.sectionsVisitees = [];
+    }
+    if (!dernierEleveData.sectionsVisitees.includes(section)) {
+        dernierEleveData.sectionsVisitees.push(section);
+    }
+    if (dernierEleveData.id) {
+        if (!historiqueSections[dernierEleveData.id]) {
+            historiqueSections[dernierEleveData.id] = [];
+        }
+        if (!historiqueSections[dernierEleveData.id].includes(section)) {
+            historiqueSections[dernierEleveData.id].push(section);
+        }
+    }
+}
+
+function sectionDejaVisitee(section) {
+    if (!dernierEleveData) return false;
+    if (dernierEleveData.sectionsVisitees && dernierEleveData.sectionsVisitees.includes(section)) {
+        return true;
+    }
+    if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) {
+        return historiqueSections[dernierEleveData.id].includes(section);
+    }
+    return false;
+}
 
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     
-    // Vérifier si c'est dimanche
     const aujourdhui = new Date();
     const jourSemaine = aujourdhui.getDay();
     if (jourSemaine === 0) {
         return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
     }
     
-    // 1️⃣ Si on a un élève en mémoire
     if (dernierEleveConsulte && dernierEleveData) {
         const eleveData = dernierEleveData;
         const texteComplet = msg;
@@ -1903,18 +1968,13 @@ async function traiterMessage(message) {
         return await genererReponseNaturelle(message, eleveData);
     }
     
-    // 2️⃣ Code parent
     if (/^\d{6}$/.test(msg)) {
-        // Vérifier la limite quotidienne pour ce code
         const code = msg;
         const count = await getQuestionCountForCode(code);
         
         if (count >= 10) {
             return `⚠️ Limite quotidienne atteinte pour ce code parent (10 requêtes).\n\nVeuillez réessayer demain à partir de 08h00.\n\nSi vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
         }
-        
-        // Incrémenter le compteur
-        await incrementQuestionCountForCode(code);
         
         const infos = await chercherInfosFinancieresParCode(msg);
         
@@ -1927,6 +1987,8 @@ Veuillez vérifier votre code ou contacter la comptabilité.`;
         }
         
         if (infos.length === 1) {
+            currentParentCode = code;
+            updateCounterDisplay();
             return await afficherInfosEleve(infos[0]);
         } else {
             listeElevesEnAttente = infos;
@@ -1941,7 +2003,6 @@ Veuillez vérifier votre code ou contacter la comptabilité.`;
         }
     }
     
-    // 3️⃣ Choix d'élève
     if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
         const choix = parseInt(msg.trim());
         
@@ -1956,15 +2017,10 @@ Veuillez vérifier votre code ou contacter la comptabilité.`;
         }
     }
     
-    // 4️⃣ Message d'accueil
-    return `Veuillez entrer votre code parent à 6 chiffres.
+    return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres.
 
 Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
 }
-
-// ============================================================
-// INITIALISATION DE L'INDEXEDDB
-// ============================================================
 
 async function initIndexedDB() {
     return new Promise(function(res, rej) {
@@ -2065,32 +2121,6 @@ async function syncToFirebase() {
 window.addEventListener('online', function() {
     syncToFirebase();
 });
-
-// Réinitialiser les compteurs d'utilisation chaque jour à 08h00
-function scheduleCounterReset() {
-    const now = new Date();
-    const resetTime = new Date(now);
-    resetTime.setHours(8, 0, 0, 0);
-    
-    // Si 8h est déjà passé, programmer pour demain
-    if (now >= resetTime) {
-        resetTime.setDate(resetTime.getDate() + 1);
-    }
-    
-    const delay = resetTime.getTime() - now.getTime();
-    setTimeout(() => {
-        resetUsageCounters();
-        // Reprogrammer pour le lendemain
-        scheduleCounterReset();
-    }, delay);
-}
-
-// Démarrer la planification
-scheduleCounterReset();
-
-// ============================================================
-// SESSION ET CONNEXION
-// ============================================================
 
 function sauvegarderSession(prof) {
     if (prof) {
@@ -3276,7 +3306,7 @@ function getTodayKey() {
     return 'parent_questions_' + schoolPrefixForStorage + '_' + today;
 }
 
-function getQuestionCount() {
+function getQuestionCountLocal() {
     const key = getTodayKey();
     const data = localStorage.getItem(key);
     if (!data) return 0;
@@ -3287,27 +3317,12 @@ function getQuestionCount() {
     } catch (e) { return 0; }
 }
 
-function incrementQuestionCount() {
+function incrementQuestionCountLocal() {
     const key = getTodayKey();
-    const currentCount = getQuestionCount();
+    const currentCount = getQuestionCountLocal();
     const newCount = currentCount + 1;
     localStorage.setItem(key, JSON.stringify({ date: new Date().toISOString().slice(0, 10), count: newCount }));
     return newCount;
-}
-
-function canAskQuestion() { return getQuestionCount() < 10; }
-
-function updateCounterDisplay() {
-    const counterSpan = document.getElementById('parentQuestionCounter');
-    if (counterSpan) {
-        const current = getQuestionCount();
-        counterSpan.textContent = current + '/10';
-        if (current >= 10) {
-            counterSpan.style.background = '#ef4444';
-        } else {
-            counterSpan.style.background = '#10b981';
-        }
-    }
 }
 
 async function typeWriterEffect(element, text, speed = 15) {
@@ -4239,10 +4254,6 @@ function initRecoSupport() {
     });
 }
 
-// ============================================================
-// ESPACE PARENTAL - BOUTON FLOTTANT
-// ============================================================
-
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -4259,16 +4270,18 @@ if (parentFloatingBtnNew) {
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
         
-        // Vider le cache à l'ouverture
         reponseCache.clear();
         
         parentChatMessagesNew.innerHTML = `
             <div class="parent-msg bot">
-                <div class="bubble" style="padding:10px 14px;max-width:90%;">
-                    <div style="font-weight:600;color:#ffd700;font-size:14px;">🏫 ${nomEcole}</div>
-                    <div style="color:#94a3b8;font-size:12px;margin:2px 0 6px 0;">🔑 Code parent (6 chiffres)</div>
-                    <div style="color:#64748b;font-size:11px;background:rgba(255,255,255,0.03);border-radius:6px;padding:4px 8px;border:1px solid rgba(255,255,255,0.04);">
-                        Si vous n'avez pas de code, contactez la comptabilité
+                <div class="bubble" style="padding:14px 18px;max-width:90%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;">
+                    <div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;">🏫 ${nomEcole}</div>
+                    <div style="color:#e2e8f0;font-size:17px;margin:6px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div>
+                    <div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">
+                        ⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong>
+                    </div>
+                    <div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">
+                        💡 Service du lundi au samedi
                     </div>
                 </div>
             </div>
@@ -4282,7 +4295,7 @@ if (parentFloatingBtnNew) {
         await verifierEtAfficherBoutonCommunique();
         
         setTimeout(() => {
-            voixParentale(`Bienvenue à l'école ${nomEcole}. Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez entrer votre code parent à 6 chiffres.`);
+            voixParentale(`Bienvenue à l'école ${nomEcole}. Je suis un système intelligent qui vous permet de savoir quelques détails sur votre enfant. Veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité.`);
         }, 800);
     };
 }
@@ -4303,17 +4316,33 @@ parentModalOverlayNew.onclick = (e) => {
     }
 };
 
+function createTypingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'parent-msg bot';
+    div.id = 'typingIndicator';
+    div.innerHTML = `
+        <div class="typing-indicator">
+            <span>en train d'écrire</span>
+            <div class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    `;
+    return div;
+}
+
 if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
         if (estEnAttenteReponse) {
-            toast("Veuillez patienter, une réponse est en cours...", 'warning');
+            toast("Veuillez patienter, je vérifie...", 'warning');
             return;
         }
         
         const message = parentQuestionInputNew.value.trim();
         if (!message) return;
         
-        // Vérifier si c'est dimanche
         const aujourdhui = new Date();
         const jourSemaine = aujourdhui.getDay();
         if (jourSemaine === 0) {
@@ -4321,13 +4350,15 @@ if (parentSendBtnNew) {
             parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.</div></div>`;
             parentQuestionInputNew.value = '';
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
             return;
         }
         
-        if (!canAskQuestion()) {
-            toast("⚠️ Limite quotidienne atteinte : Revenez demain !", "warning");
-            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite atteinte. Revenez demain.</div></div>`;
+        if (!await canAskQuestion()) {
+            toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            voixParentale("Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.");
             return;
         }
         
@@ -4335,34 +4366,44 @@ if (parentSendBtnNew) {
         parentQuestionInputNew.value = '';
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         
-        const msgBotDiv = document.createElement('div');
-        msgBotDiv.className = 'parent-msg bot';
-        const bubbleBot = document.createElement('div');
-        bubbleBot.className = 'bubble';
-        const msgAttente = getMessageAttenteAleatoire();
-        bubbleBot.innerHTML = `<span class="loader"></span> ${msgAttente}`;
-        msgBotDiv.appendChild(bubbleBot);
-        parentChatMessagesNew.appendChild(msgBotDiv);
+        const typingIndicator = createTypingIndicator();
+        parentChatMessagesNew.appendChild(typingIndicator);
         parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
         
         estEnAttenteReponse = true;
         
         try {
             const reponse = await traiterMessage(message);
-            bubbleBot.innerHTML = '';
+            
+            // Supprimer l'indicateur de frappe
+            const typingElement = document.getElementById('typingIndicator');
+            if (typingElement) typingElement.remove();
+            
+            const msgBotDiv = document.createElement('div');
+            msgBotDiv.className = 'parent-msg bot';
+            const bubbleBot = document.createElement('div');
+            bubbleBot.className = 'bubble';
+            msgBotDiv.appendChild(bubbleBot);
+            parentChatMessagesNew.appendChild(msgBotDiv);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            
             await typeWriterEffect(bubbleBot, reponse, 12);
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             
-            // Vérifier si c'est un code parent valide pour mettre à jour le compteur
             if (/^\d{6}$/.test(message.trim())) {
                 const code = message.trim();
-                // Le compteur a déjà été incrémenté dans traiterMessage
+                currentParentCode = code;
+                const newCount = await incrementQuestionCountForCode(code);
+                const counterSpan = document.getElementById('parentQuestionCounter');
+                if (counterSpan) {
+                    counterSpan.textContent = newCount + '/10';
+                    counterSpan.style.background = newCount >= 10 ? '#ef4444' : '#10b981';
+                }
                 updateCounterDisplay();
             }
             
             voixParentale(reponse);
             
-            // Mettre à jour le cache si c'est une réponse d'élève
             if (dernierEleveData) {
                 const questionKey = getCacheKey(message, dernierEleveData);
                 if (questionKey) {
@@ -4370,22 +4411,19 @@ if (parentSendBtnNew) {
                 }
             }
             
-            const newCount = getQuestionCount();
-            if (10 - newCount <= 2 && 10 - newCount > 0) {
-                const warningDiv = document.createElement('div');
-                warningDiv.style.marginTop = '12px';
-                warningDiv.style.padding = '8px';
-                warningDiv.style.background = 'rgba(245,158,11,0.2)';
-                warningDiv.style.borderRadius = '12px';
-                warningDiv.style.fontSize = '12px';
-                warningDiv.innerHTML = `⚠️ Il vous reste ${10 - newCount} question(s) aujourd'hui`;
-                bubbleBot.appendChild(warningDiv);
-            }
-            
             await synchroniserMessagesParentaux();
         } catch (error) {
-            bubbleBot.innerHTML = '';
+            const typingElement = document.getElementById('typingIndicator');
+            if (typingElement) typingElement.remove();
+            
+            const msgBotDiv = document.createElement('div');
+            msgBotDiv.className = 'parent-msg bot';
+            const bubbleBot = document.createElement('div');
+            bubbleBot.className = 'bubble';
             bubbleBot.textContent = "Désolé, une erreur s'est produite. Veuillez réessayer.";
+            msgBotDiv.appendChild(bubbleBot);
+            parentChatMessagesNew.appendChild(msgBotDiv);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             console.error("Erreur traitement message:", error);
         } finally {
             estEnAttenteReponse = false;
@@ -4408,10 +4446,6 @@ if (parentQuestionInputNew) {
     });
 }
 updateCounterDisplay();
-
-// ============================================================
-// ESPACE PROFESSEUR - CRÉATION DE FICHE
-// ============================================================
 
 document.getElementById('newFicheBtn').onclick = async function() {
     let c = document.getElementById('coursInput').value.trim();
@@ -5249,10 +5283,6 @@ document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     });
 });
 
-// ============================================================
-// ENREGISTREMENT DES LOGS
-// ============================================================
-
 async function enregistrerLog(action, details, statut = "info") {
     try {
         const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -5421,10 +5451,6 @@ async function synchroniserMessagesParentaux() {
         console.error("Erreur synchronisation messages:", error);
     }
 }
-
-// ============================================================
-// INITIALISATION
-// ============================================================
 
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
