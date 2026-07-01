@@ -229,58 +229,10 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="modal-overlay" id="editParentCodeModal"><div class="modal-card"><h3>✏️ MODIFIER LE CODE PARENT</h3><div id="editParentCodeInfo"></div><div class="form-group"><label>NOUVEAU CODE (6 chiffres)</label><input type="text" id="editParentCodeValue" maxlength="6" inputmode="numeric" placeholder="6 chiffres"></div><div class="form-group"><label>APPLIQUER À LA FAMILLE</label><select id="editParentCodeFamily"><option value="no">Seulement cet élève</option><option value="yes">À tous les enfants avec le même code actuel</option></select></div><div class="modal-buttons"><button class="btn btn-success" id="confirmEditParentCode">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditParentCode">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT FRAIS D'INSCRIPTION</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT À PAYER (FC)</label><input type="number" id="inscriptionPaymentAmount" step="100" value="0"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmInscriptionPayment">✅ PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
 <script>
-// ============================================================
-// BLOQUAGE DU CLIC DROIT ET DE F12
-// ============================================================
-document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-    return false;
-});
-
-document.addEventListener('keydown', function(e) {
-    // Bloquer F12
-    if (e.key === 'F12') {
-        e.preventDefault();
-        return false;
-    }
-    // Bloquer Ctrl+Shift+I (DevTools)
-    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) {
-        e.preventDefault();
-        return false;
-    }
-    // Bloquer Ctrl+Shift+J (Console)
-    if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) {
-        e.preventDefault();
-        return false;
-    }
-    // Bloquer Ctrl+U (View Source)
-    if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
-        e.preventDefault();
-        return false;
-    }
-    // Bloquer Ctrl+S (Save)
-    if (e.ctrlKey && (e.key === 'S' || e.key === 's')) {
-        e.preventDefault();
-        return false;
-    }
-});
-
-// Bloquer également les clics droits sur les images
-document.addEventListener('dragstart', function(e) {
-    e.preventDefault();
-    return false;
-});
-
-// Bloquer la sélection de texte sur l'ensemble de la page
-document.addEventListener('selectstart', function(e) {
-    e.preventDefault();
-    return false;
-});
-
-// ============================================================
-// FIN DU BLOQUAGE
-// ============================================================
-
+document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
+document.addEventListener('keydown',function(e){if(e.key==='F12'){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i')){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='J'||e.key==='j')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='U'||e.key==='u')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='S'||e.key==='s')){e.preventDefault();return false;}});
+document.addEventListener('dragstart',function(e){e.preventDefault();return false;});
+document.addEventListener('selectstart',function(e){e.preventDefault();return false;});
 window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
 document.addEventListener('DOMContentLoaded',function(){
 var btn=document.getElementById('btnInscrirePrincipal');
@@ -462,6 +414,49 @@ function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return"0";return
 function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${type}`;el.innerHTML=`<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),300);},3000);}
 function formatDateYMD(date=new Date()){return date.toISOString().split('T')[0];}
 function formatDateFr(date){const d=new Date(date);return`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;}
+function mettreAJourSelectsOptions(){
+const filterOption=document.getElementById("filterOption");
+if(filterOption){
+let optionsHtml='<option value="">Toutes</option>';
+let optsUniques=new Set();
+for(let classe of classesListe){
+let opts=optionsConfig[classe]||[];
+opts.forEach(o=>optsUniques.add(o));
+}
+optsUniques.forEach(opt=>{optionsHtml+=`<option value="${opt}">${opt}</option>`;});
+filterOption.innerHTML=optionsHtml;
+}
+const newEleveOption=document.getElementById("newEleveOption");
+if(newEleveOption){
+const updateSelect=()=>{
+let classe=document.getElementById("newEleveClasse").value;
+let opts=optionsConfig[classe]||[];
+let optHtml='<option value="">Sans option</option>';
+opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
+newEleveOption.innerHTML=optHtml;
+if(window.updatePreview)window.updatePreview();
+};
+let classeSelect=document.getElementById("newEleveClasse");
+if(classeSelect){
+classeSelect.removeEventListener('change',updateSelect);
+classeSelect.addEventListener('change',updateSelect);
+}
+updateSelect();
+}
+}
+function forcerMiseAJourOptionsPopup(){
+const classeSelect=document.getElementById("newEleveClasse");
+const optionSelect=document.getElementById("newEleveOption");
+if(classeSelect&&optionSelect){
+const classe=classeSelect.value;
+let opts=optionsConfig[classe]||[];
+let optHtml='<option value="">Sans option</option>';
+opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
+optionSelect.innerHTML=optHtml;
+if(window.updatePreview)window.updatePreview();
+}
+}
+window.forcerMiseAJourOptionsPopup=forcerMiseAJourOptionsPopup;
 async function chargerOptions(){
 try{
 const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
@@ -470,11 +465,13 @@ if(snap.exists()){optionsConfig=snap.data();}
 else{optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));await setDoc(ref,optionsConfig);}
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
+forcerMiseAJourOptionsPopup();
 }catch(error){
 console.error("Erreur chargement options:",error);
 optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
+forcerMiseAJourOptionsPopup();
 }
 }
 function afficherOptionsConfig(){
@@ -500,6 +497,7 @@ const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
 await setDoc(ref,optionsConfig);
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
+forcerMiseAJourOptionsPopup();
 toast(`Option "${option}" supprimée`,"success");
 }catch(e){toast("Erreur lors de la suppression","error");}
 }
@@ -518,81 +516,11 @@ await setDoc(ref,optionsConfig);
 document.getElementById('newOptionName').value='';
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
+forcerMiseAJourOptionsPopup();
 toast(`Option "${option}" ajoutée à ${classe}`,"success");
 }catch(e){toast("Erreur lors de l'ajout","error");}
 };
 document.getElementById('configClasseOptions').onchange=function(){afficherOptionsConfig();};
-
-// ============================================================
-// FONCTION CORRIGÉE : mise à jour des options dans le popup
-// ============================================================
-function mettreAJourSelectsOptions(){
-    // Mise à jour du filtre d'options (onglet Élèves)
-    const filterOption = document.getElementById("filterOption");
-    if(filterOption){
-        let optionsHtml = '<option value="">Toutes</option>';
-        let optsUniques = new Set();
-        for(let classe of classesListe){
-            let opts = optionsConfig[classe] || [];
-            opts.forEach(o => optsUniques.add(o));
-        }
-        optsUniques.forEach(opt => {
-            optionsHtml += `<option value="${opt}">${opt}</option>`;
-        });
-        filterOption.innerHTML = optionsHtml;
-    }
-    
-    // ✅ CORRECTION : Mise à jour du sélecteur d'options dans le formulaire d'inscription
-    const newEleveOption = document.getElementById("newEleveOption");
-    if(newEleveOption){
-        const updateSelect = () => {
-            let classe = document.getElementById("newEleveClasse").value;
-            let opts = optionsConfig[classe] || [];
-            let optHtml = '<option value="">Sans option</option>';
-            opts.forEach(opt => {
-                optHtml += `<option value="${opt}">${opt}</option>`;
-            });
-            newEleveOption.innerHTML = optHtml;
-            // Appeler updatePreview pour rafraîchir l'aperçu
-            if(window.updatePreview) window.updatePreview();
-        };
-        
-        // S'assurer que l'événement onchange est bien attaché
-        let classeSelect = document.getElementById("newEleveClasse");
-        if(classeSelect){
-            // Supprimer l'ancien événement pour éviter les doublons
-            classeSelect.removeEventListener('change', updateSelect);
-            classeSelect.addEventListener('change', updateSelect);
-        }
-        
-        // Mettre à jour immédiatement
-        updateSelect();
-    }
-}
-
-// ✅ Fonction pour forcer la mise à jour des options dans le popup
-function forcerMiseAJourOptionsPopup() {
-    const classeSelect = document.getElementById("newEleveClasse");
-    const optionSelect = document.getElementById("newEleveOption");
-    
-    if(classeSelect && optionSelect) {
-        const classe = classeSelect.value;
-        let opts = optionsConfig[classe] || [];
-        let optHtml = '<option value="">Sans option</option>';
-        opts.forEach(opt => {
-            optHtml += `<option value="${opt}">${opt}</option>`;
-        });
-        optionSelect.innerHTML = optHtml;
-        
-        // Rafraîchir l'aperçu
-        if(window.updatePreview) window.updatePreview();
-    }
-}
-
-// Exposer la fonction globalement
-window.forcerMiseAJourOptionsPopup = forcerMiseAJourOptionsPopup;
-// ============================================================
-
 async function chargerConfigEcole(){
 try{
 const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");
@@ -902,138 +830,42 @@ html+='</div>';
 cont.innerHTML=html;
 await mettreAJourStats();
 }
-
-// ============================================================
-// FONCTION CORRIGÉE : afficherReleve
-// Le bouton PAYER apparaît TOUJOURS quand le montant payé < minerval
-// MÊME pour les mois déjà passés !
-// ============================================================
 async function afficherReleve(eleve){
-    if(!eleve || eleve.abandon){
-        document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`;
-        return;
-    }
-    
-    const elevesFraiches = await getAllComptaEleves(true);
-    const eleveMaj = elevesFraiches.find(e => e.id === eleve.id);
-    if(!eleveMaj) return;
-    
-    let html = `
-    <div style="margin-bottom:20px;">
-        <div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom || ""}</div>
-        <div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option ? `-${eleveMaj.option}` : ""} ${eleveMaj.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div>
-        <div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode || 'Non attribué'}</div>
-        <div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleveMaj.minerval) + " FC / MOIS"}</div>
-    </div>
-    <div class="paiement-cards">`;
-    
-    let totalMin = 0, totalPaye = 0;
-    const paiements = eleveMaj.paiements || {};
-    
-    for(let mois of moisListe){
-        const minervalMensuel = eleveMaj.exonere ? 0 : eleveMaj.minerval;
-        const p = paiements[mois] || {montant: 0, date: null, historique: []};
-        const montantPaye = p.montant || 0;
-        const resteMois = minervalMensuel - montantPaye;
-        
-        // ✅ CORRECTION : On vérifie UNIQUEMENT le montant payé
-        // Peu importe si le mois est passé ou non !
-        const estPayeTotal = (montantPaye >= minervalMensuel);
-        
-        let cardClass = "";
-        if(mois === moisCourant) cardClass = "mois-courant";
-        else if(!estPayeTotal && !eleveMaj.exonere) cardClass = "mois-impaye";
-        
-        let statut = "", txt = "", resteText = "";
-        
-        if(eleveMaj.exonere){
-            statut = "paye";
-            txt = "EXONÉRÉ";
-            resteText = "0 FC";
-        }
-        else if(estPayeTotal){
-            statut = "paye";
-            txt = `${formatNbSimple(minervalMensuel)} FC`;
-            resteText = "0 FC";
-        }
-        else if(montantPaye > 0){
-            statut = "partial";
-            txt = `${formatNbSimple(montantPaye)} FC`;
-            resteText = `<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(resteMois)} FC</span>`;
-        }
-        else{
-            statut = "impaye";
-            txt = "0 FC";
-            resteText = `<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(minervalMensuel)} FC</span>`;
-        }
-        
-        // Historique des paiements
-        let historiqueHtml = '';
-        if(p.historique && p.historique.length > 0){
-            historiqueHtml = `<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h => `${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
-        }
-        
-        // ✅ CORRECTION : Le bouton PAYER apparaît SI le mois n'est pas complètement payé
-        // Peu importe que le mois soit passé ou non !
-        const showPayButton = (!eleveMaj.exonere && !estPayeTotal);
-        
-        html += `
-        <div class="paiement-card ${cardClass}">
-            <div class="paiement-card-header">
-                <span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span>
-            </div>
-            <div class="paiement-card-details">
-                <div class="paiement-card-infos">
-                    <span class="paiement-card-label">MINERVAL</span>
-                    <span class="paiement-card-value">${eleveMaj.exonere ? "0" : formatNbSimple(minervalMensuel)} FC</span>
-                </div>
-                <div class="paiement-card-infos">
-                    <span class="paiement-card-label">PAYÉ</span>
-                    <span class="paiement-card-value ${statut}">${txt}</span>
-                </div>
-                <div class="paiement-card-infos">
-                    <span class="paiement-card-label">RESTE</span>
-                    <span class="paiement-card-value">${resteText}</span>
-                </div>
-                <div class="paiement-card-actions">
-                    ${showPayButton ? 
-                        `<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>` : 
-                        `<span style="color:#10b981;font-weight:bold;">✓ COMPLET</span>`
-                    }
-                </div>
-            </div>
-            ${historiqueHtml}
-        </div>`;
-        
-        if(!eleveMaj.exonere){
-            totalMin += minervalMensuel;
-            totalPaye += montantPaye;
-        }
-    }
-    
-    html += `
-    </div>
-    <div class="recap-stats">
-        <div class="recap-item">
-            <span class="recap-label">💰 TOTAL MINERVAL</span>
-            <span class="recap-value">${formatNbSimple(totalMin)} FC</span>
-        </div>
-        <div class="recap-item">
-            <span class="recap-label">✅ TOTAL PAYÉ</span>
-            <span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span>
-        </div>
-        <div class="recap-item">
-            <span class="recap-label">⚠️ RESTE À PAYER</span>
-            <span class="recap-value reste">${formatNbSimple(totalMin - totalPaye)} FC</span>
-        </div>
-    </div>`;
-    
-    document.getElementById("releveContainer").innerHTML = html;
+if(!eleve||eleve.abandon){
+document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;
+return;
 }
-// ============================================================
-// FIN DE LA CORRECTION
-// ============================================================
-
+const elevesFraiches=await getAllComptaEleves(true);
+const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
+if(!eleveMaj)return;
+let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
+let totalMin=0,totalPaye=0;
+const paiements=eleveMaj.paiements||{};
+for(let mois of moisListe){
+const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;
+const p=paiements[mois]||{montant:0,date:null,historique:[]};
+const montantPaye=p.montant||0;
+const resteMois=minervalMensuel-montantPaye;
+const estPayeTotal=(montantPaye>=minervalMensuel);
+let cardClass="";
+if(mois===moisCourant)cardClass="mois-courant";
+else if(!estPayeTotal&&!eleveMaj.exonere)cardClass="mois-impaye";
+let statut="",txt="",resteText="";
+if(eleveMaj.exonere){statut="paye";txt="EXONÉRÉ";resteText="0 FC";}
+else if(estPayeTotal){statut="paye";txt=`${formatNbSimple(minervalMensuel)} FC`;resteText="0 FC";}
+else if(montantPaye>0){statut="partial";txt=`${formatNbSimple(montantPaye)} FC`;resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(resteMois)} FC</span>`;}
+else{statut="impaye";txt="0 FC";resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(minervalMensuel)} FC</span>`;}
+let historiqueHtml='';
+if(p.historique&&p.historique.length>0){
+historiqueHtml=`<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h=>`${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
+}
+const showPayButton=(!eleveMaj.exonere&&!estPayeTotal);
+html+=`<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleveMaj.exonere?"0":formatNbSimple(minervalMensuel)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${showPayButton?`<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>`:`<span style="color:#10b981;font-weight:bold;">✓ COMPLET</span>`}</div></div>${historiqueHtml}</div>`;
+if(!eleveMaj.exonere){totalMin+=minervalMensuel;totalPaye+=montantPaye;}
+}
+html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin-totalPaye)} FC</span></div></div>`;
+document.getElementById("releveContainer").innerHTML=html;
+}
 window.ouvrirEditParentCode=function(eleveId,eleveNom,codeActuel){
 const modal=document.getElementById('editParentCodeModal');
 document.getElementById('editParentCodeInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${eleveNom}</span></div><div class="modal-info-line"><span>CODE ACTUEL</span><span class="parent-code-card">${codeActuel||'Aucun'}</span></div>`;
@@ -1363,6 +1195,7 @@ async function initApp(){
 if(isAppInitialized)return;
 await chargerOptions();
 await chargerTarifs();
+forcerMiseAJourOptionsPopup();
 await afficherListeEleves();
 await mettreAJourStats();
 await setupStatCards();
