@@ -202,6 +202,21 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .status-badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;}
 .status-badge.complet{background:#10b981;color:white;}
 .status-badge.partiel{background:#f59e0b;color:white;}
+.photo-upload-area{display:flex;align-items:center;gap:15px;flex-wrap:wrap;padding:12px;background:rgba(0,0,0,0.2);border-radius:12px;border:1px dashed rgba(255,215,0,0.2);}
+.photo-preview{width:70px;height:70px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px solid rgba(255,215,0,0.3);}
+.photo-preview img{width:100%;height:100%;object-fit:cover;}
+.photo-preview .default-avatar{font-size:30px;color:#94a3b8;}
+.photo-upload-btn{background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);padding:8px 16px;border-radius:30px;color:#60a5fa;font-size:12px;cursor:pointer;transition:all 0.2s;}
+.photo-upload-btn:hover{background:#3b82f6;color:white;}
+.photo-remove-btn{background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.3);padding:8px 16px;border-radius:30px;color:#ef4444;font-size:12px;cursor:pointer;transition:all 0.2s;}
+.photo-remove-btn:hover{background:#ef4444;color:white;}
+.photo-hidden-input{display:none;}
+.filter-panel{background:rgba(15,23,42,0.6);border-radius:16px;padding:16px;margin-bottom:16px;border:1px solid rgba(255,215,0,0.1);}
+.filter-panel .filter-row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+.filter-panel .filter-group{flex:1;min-width:150px;}
+.filter-panel .filter-group label{font-size:11px;font-weight:600;color:#94a3b8;display:block;margin-bottom:4px;}
+.filter-panel .filter-group select,.filter-panel .filter-group input{width:100%;padding:8px 12px;border-radius:30px;background:#2d3748;border:1px solid #334155;color:#fff;font-size:13px;}
+.filter-panel .filter-actions{display:flex;gap:10px;flex-wrap:wrap;}
 </style>
 </head>
 <body>
@@ -215,17 +230,84 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div id="tab1" class="tab-panel active"><div class="card"><div class="card-header">📋 LISTE DES ÉLÈVES</div><div class="p-16"><div class="form-group"><label>🔍 NOM</label><input type="text" id="searchNom" placeholder="Nom de l'élève"></div><div class="form-group"><label>📚 CLASSE</label><select id="filterClasse"><option value="">Toutes</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div class="form-group"><label>🎯 OPTION</label><select id="filterOption"><option value="">Toutes</option></select></div><div class="filter-scroll"><button class="filter-btn active" data-filter="all">📅 TOUS</button><button class="filter-btn" data-filter="normal">💰 RÉGULIERS</button><button class="filter-btn" data-filter="exonere">🌟 EXONÉRÉS</button><button class="filter-btn" data-filter="listenoir">⚠️ LISTE NOIRE</button><button class="filter-btn" data-filter="enordre">✅ EN ORDRE</button></div><div id="elevesContainer"></div><button id="btnInscrirePrincipal" style="background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:18px 30px;border-radius:50px;font-size:18px;font-weight:bold;width:100%;margin-top:20px;cursor:pointer;box-shadow:0 4px 15px rgba(16,185,129,0.3);">➕ INSCRIRE UN ÉLÈVE</button></div></div></div>
 <div id="tab2" class="tab-panel"><div class="card"><div class="card-header">📊 RELEVÉ DE PAIEMENTS</div><div class="p-16" id="releveContainer"><div class="empty-state">Sélectionnez un élève</div></div></div></div>
 <div id="tab3" class="tab-panel"><div class="card"><div class="card-header">❌ ÉLÈVES ABANDONNÉS</div><div class="p-16"><div class="form-group"><label>🔍 RECHERCHER</label><input type="text" id="searchAbandon" placeholder="Nom"></div><div id="abandonsContainer"></div></div></div></div>
-<div id="tab4" class="tab-panel"><div class="card"><div class="card-header">🆔 CARTES D'IDENTITÉ SCOLAIRE</div><div class="p-16"><input type="text" id="searchCarte" class="search-carte" placeholder="🔍 Rechercher un élève (nom, classe, matricule)..."><div id="cartesContainer"></div><button id="btnPrintCartes" style="background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;border:none;padding:14px 20px;border-radius:50px;font-size:14px;font-weight:bold;width:100%;margin-top:15px;cursor:pointer;">🖨️ IMPRIMER TOUTES LES CARTES</button></div></div></div>
+<div id="tab4" class="tab-panel"><div class="card"><div class="card-header">🆔 CARTES D'IDENTITÉ SCOLAIRE</div><div class="p-16">
+<div class="filter-panel">
+<div class="filter-row">
+<div class="filter-group"><label>📚 Classe</label><select id="carteFilterClasse"><option value="">Toutes</option></select></div>
+<div class="filter-group"><label>🎯 Option</label><select id="carteFilterOption"><option value="">Toutes</option></select></div>
+<div class="filter-actions"><button class="btn btn-primary btn-sm" id="btnApplyCarteFilter">🔍 Appliquer</button><button class="btn btn-outline btn-sm" id="btnResetCarteFilter">✖ Réinitialiser</button></div>
+</div>
+</div>
+<input type="text" id="searchCarte" class="search-carte" placeholder="🔍 Rechercher un élève (nom, classe, matricule)...">
+<div id="cartesContainer"></div>
+<button id="btnPrintCartes" style="background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;border:none;padding:14px 20px;border-radius:50px;font-size:14px;font-weight:bold;width:100%;margin-top:15px;cursor:pointer;">🖨️ IMPRIMER TOUTES LES CARTES</button>
+</div></div></div>
 <div id="tab5" class="tab-panel"><div class="card"><div class="card-header">👨‍👩‍👧‍👦 GESTION DES CODES PARENTS</div><div class="p-16"><div class="form-group"><label>🔍 RECHERCHER PAR CODE PARENT</label><input type="text" id="searchParentCode" placeholder="Entrez un code à 6 chiffres" maxlength="6" inputmode="numeric"></div><div id="parentCodesContainer"></div><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><div class="form-group"><label>📋 LISTE COMPLÈTE DES CODES</label></div><div id="allParentCodesList"></div></div></div></div>
-<div id="tab6" class="tab-panel"><div class="card"><div class="card-header">📄 RAPPORTS PDF</div><div class="p-16"><div class="pdf-buttons-grid"><div class="pdf-btn-card" onclick="genererPDFRecouvrement()"><div class="pdf-icon">📊</div><div class="pdf-title">RECOUVREMENT</div></div><div class="pdf-btn-card" onclick="genererPDFListeNoire()"><div class="pdf-icon">⚠️</div><div class="pdf-title">LISTE NOIRE</div></div><div class="pdf-btn-card" onclick="genererPDFTousEleves()"><div class="pdf-icon">📋</div><div class="pdf-title">LISTE COMPLÈTE</div></div><div class="pdf-btn-card" onclick="genererPDFExoneres()"><div class="pdf-icon">🌟</div><div class="pdf-title">EXONÉRÉS</div></div><div class="pdf-btn-card" onclick="genererPDFCartes()"><div class="pdf-icon">🆔</div><div class="pdf-title">CARTES</div></div><div class="pdf-btn-card" onclick="genererPDFInscription()"><div class="pdf-icon">💰</div><div class="pdf-title">FRAIS INSCRIPTION</div></div></div></div></div></div>
+<div id="tab6" class="tab-panel"><div class="card"><div class="card-header">📄 RAPPORTS PDF</div><div class="p-16">
+<div class="filter-panel">
+<div class="filter-row">
+<div class="filter-group"><label>📚 Classe</label><select id="pdfFilterClasse"><option value="">Toutes</option></select></div>
+<div class="filter-group"><label>🎯 Option</label><select id="pdfFilterOption"><option value="">Toutes</option></select></div>
+<div class="filter-group"><label>📅 Statut</label><select id="pdfFilterStatut"><option value="all">Tous</option><option value="actif">Actifs</option><option value="abandon">Abandons</option></select></div>
+</div>
+</div>
+<div class="pdf-buttons-grid">
+<div class="pdf-btn-card" onclick="genererPDFRecouvrement()"><div class="pdf-icon">📊</div><div class="pdf-title">RECOUVREMENT</div></div>
+<div class="pdf-btn-card" onclick="genererPDFListeNoire()"><div class="pdf-icon">⚠️</div><div class="pdf-title">LISTE NOIRE</div></div>
+<div class="pdf-btn-card" onclick="genererPDFTousEleves()"><div class="pdf-icon">📋</div><div class="pdf-title">LISTE COMPLÈTE</div></div>
+<div class="pdf-btn-card" onclick="genererPDFExoneres()"><div class="pdf-icon">🌟</div><div class="pdf-title">EXONÉRÉS</div></div>
+<div class="pdf-btn-card" onclick="genererPDFCartes()"><div class="pdf-icon">🆔</div><div class="pdf-title">CARTES</div></div>
+<div class="pdf-btn-card" onclick="genererPDFInscription()"><div class="pdf-icon">💰</div><div class="pdf-title">FRAIS INSCRIPTION</div></div>
+</div>
+</div></div></div>
 <div id="tab7" class="tab-panel"><div class="card"><div class="card-header">⚙️ CONFIGURATION</div><div class="p-16"><h4 style="color:#ffd700;margin-bottom:12px;">🏫 INFORMATIONS DE L'ÉCOLE</h4><div class="form-group"><label>NOM DE L'ÉCOLE</label><input type="text" id="ecoleNom" placeholder="Ex: Complexe Scolaire Kinshasa" disabled></div><div class="form-group"><label>ADRESSE</label><input type="text" id="ecoleAdresse" placeholder="Ex: Kinshasa, RDC"></div><div class="form-group"><label>💰 FRAIS D'INSCRIPTION (FC)</label><input type="number" id="fraisInscription" placeholder="Ex: 50000" step="1000"></div><button class="btn btn-primary w-100 mb-12" id="btnSaveEcoleInfo">💾 ENREGISTRER</button><button class="btn btn-change-school w-100 mb-12" id="btnChangeSchool">🏫 CHANGER D'ÉCOLE</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">📌 GESTION DES OPTIONS PAR CLASSE</h4><div class="form-group"><label>CLASSE</label><select id="configClasseOptions"><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div id="optionsListContainer" style="margin-bottom:16px;"></div><div style="display:flex;gap:10px;"><input type="text" id="newOptionName" placeholder="Nom de la nouvelle option" style="flex:1;background:#2d3748;border:1px solid #334155;border-radius:12px;padding:10px 14px;color:#fff;"><button class="btn btn-success" id="btnAddOption">➕ AJOUTER</button></div><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">🔐 CODE D'ACCÈS</h4><div class="form-group"><label>ANCIEN CODE</label><input type="password" id="oldCode" maxlength="6" inputmode="numeric" placeholder="Ancien code"></div><div class="form-group"><label>NOUVEAU CODE</label><input type="password" id="newCode1" maxlength="6" inputmode="numeric" placeholder="4 à 6 chiffres"></div><div class="form-group"><label>CONFIRMER NOUVEAU CODE</label><input type="password" id="newCode2" maxlength="6" inputmode="numeric" placeholder="Confirmer le code"></div><button class="btn btn-primary w-100" id="btnChangeCode">🔄 CHANGER LE CODE</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#ffd700;margin-bottom:12px;">💰 MINERVAUX PAR CLASSE & OPTION</h4><div style="overflow-x:auto;" id="tarifsOptionsContainer"></div><button class="btn btn-success w-100 mt-12" id="btnSaveTarifs">💾 ENREGISTRER MINERVAUX</button><hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;"><h4 style="color:#f59e0b;margin-bottom:12px;">🔄 METTRE À JOUR LES ÉLÈVES</h4><button class="btn btn-warning w-100 mt-12" id="btnApplyTarifsToEleves" style="background:#f59e0b;color:#0f172a;">🔄 APPLIQUER LES TARIFS AUX ÉLÈVES</button><p style="font-size:11px;color:#94a3b8;margin-top:8px;">⚠️ Met à jour le minerval de tous les élèves selon leur classe et option</p></div></div></div>
 <div id="tab8" class="tab-panel"><div class="card"><div class="card-header">💰 FRAIS D'INSCRIPTION</div><div class="p-16"><div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;"><button class="btn btn-danger" id="btnPDFInscription">📄 PDF</button></div><div id="inscriptionsContainer"><div class="empty-state">Chargement...</div></div></div></div></div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="codeModal"><div class="modal-card"><h3>🔐 CODE REQUIS</h3><div class="form-group"><label>ENTREZ LE CODE</label><input type="password" id="codeInput" placeholder="****" inputmode="numeric"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmCode">VALIDER</button><button class="btn btn-outline" id="cancelCode">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="paymentModal"><div class="modal-card"><h3>💰 CONFIRMATION PAIEMENT</h3><div id="modalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="paymentAmount"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmPayment">VALIDER</button><button class="btn btn-outline" id="cancelPayment">ANNULER</button></div></div></div>
-<div class="modal-overlay" id="addEleveModal"><div class="modal-card"><h3>➕ NOUVELLE INSCRIPTION</h3><div class="confirm-preview" id="previewInscription" style="display:none;"></div><div class="form-row"><div class="form-group"><label>NOM *</label><input type="text" id="newEleveNom" placeholder="Nom"></div><div class="form-group"><label>POST-NOM</label><input type="text" id="newElevePostnom" placeholder="Post-nom"></div></div><div class="form-row"><div class="form-group"><label>PRÉNOM *</label><input type="text" id="newElevePrenom" placeholder="Prénom"></div><div class="form-group"><label>SEXE *</label><select id="newEleveSexe"><option value="">Sélectionner</option><option value="M">Masculin</option><option value="F">Féminin</option></select></div></div><div class="form-row"><div class="form-group"><label>DATE NAISSANCE *</label><input type="date" id="newEleveDateNaiss"></div><div class="form-group"><label>LIEU NAISSANCE *</label><input type="text" id="newEleveLieuNaiss" placeholder="Ex: Kinshasa"></div></div><div class="form-row"><div class="form-group"><label>NOM DU PÈRE</label><input type="text" id="newEleveNomPere" placeholder="Nom complet du père"></div><div class="form-group"><label>NOM DE LA MÈRE</label><input type="text" id="newEleveNomMere" placeholder="Nom complet de la mère"></div></div><div class="form-row"><div class="form-group"><label>TÉLÉPHONE *</label><input type="tel" id="newElevePhone" placeholder="0812345678"></div><div class="form-group"><label>ADRESSE *</label><input type="text" id="newEleveAdresse" placeholder="Adresse"></div></div><div class="form-row"><div class="form-group"><label>CLASSE *</label><select id="newEleveClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div class="form-group"><label>OPTION</label><select id="newEleveOption"><option value="">Sans option</option></select></div></div><div class="form-row"><div class="form-group"><label>EXONÉRATION</label><select id="newEleveExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div><div class="form-group" id="motifExonerationGroup" style="display:none;"><label>MOTIF EXONÉRATION</label><select id="newEleveMotifExon"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option><option value="Gratuité">Gratuité</option></select></div></div><div class="form-group" id="approbateurGroup" style="display:none;"><label>APPROBATEUR</label><select id="newEleveApprobateur"><option value="">Sélectionner</option><option value="Directrice">Directrice</option><option value="Proviseur">Proviseur</option><option value="Comité">Comité</option></select></div>
+<div class="modal-overlay" id="addEleveModal"><div class="modal-card"><h3>➕ NOUVELLE INSCRIPTION</h3><div class="confirm-preview" id="previewInscription" style="display:none;"></div>
+<div class="form-row">
+<div class="form-group"><label>NOM *</label><input type="text" id="newEleveNom" placeholder="Nom"></div>
+<div class="form-group"><label>POST-NOM</label><input type="text" id="newElevePostnom" placeholder="Post-nom"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>PRÉNOM *</label><input type="text" id="newElevePrenom" placeholder="Prénom"></div>
+<div class="form-group"><label>SEXE *</label><select id="newEleveSexe"><option value="">Sélectionner</option><option value="M">Masculin</option><option value="F">Féminin</option></select></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>DATE NAISSANCE *</label><input type="date" id="newEleveDateNaiss"></div>
+<div class="form-group"><label>LIEU NAISSANCE *</label><input type="text" id="newEleveLieuNaiss" placeholder="Ex: Kinshasa"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>NOM DU PÈRE</label><input type="text" id="newEleveNomPere" placeholder="Nom complet du père"></div>
+<div class="form-group"><label>NOM DE LA MÈRE</label><input type="text" id="newEleveNomMere" placeholder="Nom complet de la mère"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>TÉLÉPHONE *</label><input type="tel" id="newElevePhone" placeholder="0812345678"></div>
+<div class="form-group"><label>ADRESSE *</label><input type="text" id="newEleveAdresse" placeholder="Adresse"></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>CLASSE *</label><select id="newEleveClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div>
+<div class="form-group"><label>OPTION</label><select id="newEleveOption"><option value="">Sans option</option></select></div>
+</div>
+<div class="form-row">
+<div class="form-group"><label>EXONÉRATION</label><select id="newEleveExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div>
+<div class="form-group" id="motifExonerationGroup" style="display:none;"><label>MOTIF EXONÉRATION</label><select id="newEleveMotifExon"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option><option value="Gratuité">Gratuité</option></select></div>
+</div>
+<div class="form-group" id="approbateurGroup" style="display:none;"><label>APPROBATEUR</label><select id="newEleveApprobateur"><option value="">Sélectionner</option><option value="Directrice">Directrice</option><option value="Proviseur">Proviseur</option><option value="Comité">Comité</option></select></div>
 <div class="form-row"><div class="form-group"><label>🔑 CODE PARENT</label><div style="display:flex;gap:10px;align-items:center;"><input type="text" id="newEleveParentCode" maxlength="6" inputmode="numeric" placeholder="Généré automatiquement" style="flex:1;background:#1a2332;border:1px solid #334155;border-radius:12px;padding:10px 14px;color:#10b981;font-family:monospace;font-size:16px;letter-spacing:2px;cursor:default;" readonly><button class="btn btn-sm btn-success" id="btnGenerateParentCode" style="white-space:nowrap;padding:8px 14px;font-size:12px;">🔄 Générer</button></div><div style="font-size:11px;color:#94a3b8;margin-top:5px;">🔒 Le code est généré automatiquement pour garantir l'unicité</div></div></div>
+<div class="form-row">
+<div class="form-group"><label>📸 PHOTO DE PROFIL (facultatif)</label>
+<div class="photo-upload-area">
+<div class="photo-preview" id="newElevePhotoPreview"><span class="default-avatar">👤</span></div>
+<input type="file" id="newElevePhotoInput" class="photo-hidden-input" accept="image/*">
+<button class="photo-upload-btn" id="btnUploadPhoto">📤 Choisir une photo</button>
+<button class="photo-remove-btn" id="btnRemovePhoto" style="display:none;">✕ Supprimer</button>
+<span style="font-size:10px;color:#94a3b8;">JPG, PNG, GIF - Max 2MB</span>
+</div>
+</div>
+</div>
 <div style="background:rgba(59,130,246,0.08);border-radius:16px;padding:16px;margin:12px 0;border:1px solid rgba(59,130,246,0.2);">
 <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><span style="font-size:18px;">👨‍👩‍👧‍👦</span><span style="font-weight:bold;color:#60a5fa;">GESTION FAMILIALE</span></div>
 <div class="form-group"><label><input type="checkbox" id="newEleveLienFamille" style="width:auto;margin-right:8px;transform:scale(1.2);"> Cet élève a des frères/sœurs dans l'école</label></div>
@@ -244,8 +326,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="form-group" id="familyApplyGroup"><label>👨‍👩‍👧‍👦 APPLIQUER À LA FAMILLE</label><select id="editParentCodeFamily" style="width:100%;background:#2d3748;border:1px solid #334155;border-radius:12px;padding:10px 14px;color:#fff;"><option value="no">❌ Seulement cet élève</option><option value="yes" selected>✅ À tous les enfants de la famille</option></select>
 <div style="font-size:11px;color:#94a3b8;margin-top:5px;">Tous les enfants avec le même code actuel seront mis à jour</div></div>
 <div class="modal-buttons"><button class="btn btn-success" id="confirmEditParentCode">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditParentCode">ANNULER</button></div></div></div>
-
-<!-- Modal Rattacher à une famille -->
 <div class="modal-overlay" id="rattacherFamilleModal">
 <div class="modal-card"><h3>👨‍👩‍👧‍👦 RATTACHER À UNE FAMILLE</h3>
 <div id="rattacherInfo" style="margin-bottom:16px;"><div class="modal-info-line"><span>ÉLÈVE ACTUEL</span><span id="rattacherEleveNom" style="color:#ffd700;font-weight:bold;">-</span></div><div class="modal-info-line"><span>CODE ACTUEL</span><span id="rattacherCodeActuel" class="parent-code-card">-</span></div></div>
@@ -253,102 +333,460 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="form-group"><label>📋 UTILISER LE CODE D'UN FRÈRE/SŒUR</label><select id="rattacherFamilyCodeSelect" style="width:100%;background:#2d3748;border:1px solid #334155;border-radius:12px;padding:10px 14px;color:#fff;"><option value="">-- Sélectionnez un frère/sœur --</option></select></div>
 <div id="rattacherPreview" style="background:rgba(16,185,129,0.1);border-radius:12px;padding:12px;margin:12px 0;border-left:3px solid #10b981;display:none;"><div style="font-weight:bold;color:#10b981;">📋 APERÇU DU RATTACHEMENT</div><div id="rattacherPreviewContent" style="font-size:13px;color:#e2e8f0;margin-top:8px;"></div></div>
 <div class="modal-buttons"><button class="btn btn-success" id="confirmRattacherFamille" disabled>🔗 RATTACHER À LA FAMILLE</button><button class="btn btn-outline" id="cancelRattacherFamille">ANNULER</button></div></div></div>
-
 <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT FRAIS D'INSCRIPTION</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT À PAYER (FC)</label><input type="number" id="inscriptionPaymentAmount" step="100" value="0"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmInscriptionPayment">✅ PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
 
 <script>
-window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
-document.addEventListener('DOMContentLoaded',function(){
-var btn=document.getElementById('btnInscrirePrincipal');
-if(btn){btn.onclick=function(e){e.preventDefault();window.ouvrirModalInscription();};btn.ontouchstart=function(e){e.preventDefault();window.ouvrirModalInscription();};}
-var logoutBtn=document.getElementById('logoutBtn');
-if(logoutBtn){logoutBtn.onclick=function(){window.confirmDeconnexion();};}
-var printBtn=document.getElementById('btnPrintCartes');
-if(printBtn){printBtn.onclick=function(){window.genererPDFCartes();};}
-var btnPDF=document.getElementById('btnPDFInscription');
-if(btnPDF){btnPDF.onclick=function(){window.genererPDFInscription();};}
-document.getElementById('confirmInscriptionPayment').onclick=window.confirmInscriptionPayment;
-document.getElementById('cancelInscriptionPayment').onclick=function(){document.getElementById('inscriptionPaymentModal').classList.remove('show');};
+// ===== VARIABLES PHOTO =====
+let photoDataURL = null;
+
+// ===== GESTION PHOTO =====
+document.getElementById('btnUploadPhoto').addEventListener('click', function() {
+    document.getElementById('newElevePhotoInput').click();
 });
-window.confirmDeconnexion=function(){
-var modal=document.getElementById('confirmModal');
-var msg=document.getElementById('confirmMessage');
-msg.innerHTML='🔓 Êtes-vous sûr de vouloir vous déconnecter ?';
-var oldYes=document.getElementById('confirmYes').onclick;
-document.getElementById('confirmYes').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-document.getElementById('mainApp').style.display='none';
-document.getElementById('loginOverlay').style.display='flex';
-document.getElementById('loginCode').value='';
-document.getElementById('loginError').innerHTML='';
-toast('Déconnexion réussie','success');
-document.getElementById('confirmYes').onclick=oldYes;
-};
-document.getElementById('confirmNo').onclick=function(){document.getElementById('confirmModal').classList.remove('show');};
-modal.classList.add('show');
-};
-function showChangeSchoolConfirm(){
-var modal=document.getElementById('confirmModal');
-var msg=document.getElementById('confirmMessage');
-msg.innerHTML='🏫 Êtes-vous sûr de vouloir changer d\'école ?<br><br><span style="font-size:13px;color:#94a3b8;">Vous serez redirigé vers le sélecteur d\'écoles.</span>';
-var oldYes=document.getElementById('confirmYes').onclick;
-document.getElementById('confirmYes').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-window.location.href='https://www.netubex.com/schoolchoice';
-document.getElementById('confirmYes').onclick=oldYes;
-};
-document.getElementById('confirmNo').onclick=function(){
-document.getElementById('confirmModal').classList.remove('show');
-document.getElementById('confirmYes').onclick=oldYes;
-};
-modal.classList.add('show');
+
+document.getElementById('newElevePhotoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        toast('La photo ne doit pas dépasser 2MB', 'error');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        photoDataURL = event.target.result;
+        const preview = document.getElementById('newElevePhotoPreview');
+        preview.innerHTML = `<img src="${photoDataURL}" alt="Photo">`;
+        document.getElementById('btnRemovePhoto').style.display = 'inline-block';
+        toast('Photo ajoutée avec succès', 'success');
+        updatePreview();
+    };
+    reader.readAsDataURL(file);
+});
+
+document.getElementById('btnRemovePhoto').addEventListener('click', function() {
+    photoDataURL = null;
+    document.getElementById('newElevePhotoPreview').innerHTML = `<span class="default-avatar">👤</span>`;
+    document.getElementById('newElevePhotoInput').value = '';
+    this.style.display = 'none';
+    updatePreview();
+});
+
+// ===== FONCTIONS DE FILTRE POUR PDF =====
+function getPDFFilters() {
+    const classe = document.getElementById('pdfFilterClasse').value;
+    const option = document.getElementById('pdfFilterOption').value;
+    const statut = document.getElementById('pdfFilterStatut').value;
+    return { classe, option, statut };
 }
-function updatePreview(){
-var nom=document.getElementById('newEleveNom').value.trim();
-var postnom=document.getElementById('newElevePostnom').value.trim();
-var prenom=document.getElementById('newElevePrenom').value.trim();
-var classe=document.getElementById('newEleveClasse').value;
-var option=document.getElementById('newEleveOption').value;
-var exonere=document.getElementById('newEleveExonere').value==='oui';
-var phone=document.getElementById('newElevePhone').value.trim();
-var lieuNaiss=document.getElementById('newEleveLieuNaiss').value.trim();
-var dateNaiss=document.getElementById('newEleveDateNaiss').value;
-var nomPere=document.getElementById('newEleveNomPere').value.trim();
-var nomMere=document.getElementById('newEleveNomMere').value.trim();
-var montantInscription=document.getElementById('newEleveMontantInscription').value||0;
-if(!nom&&!prenom&&!classe){document.getElementById('previewInscription').style.display='none';return;}
-var preview=document.getElementById('previewInscription');
-var html='<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
-html+='<p>👤 <strong>'+(nom||'?')+'</strong> '+(postnom||'')+' <strong>'+(prenom||'')+'</strong></p>';
-if(dateNaiss||lieuNaiss)html+='<p>📅 Né(e) le <strong>'+(dateNaiss||'?')+'</strong> à <strong>'+(lieuNaiss||'?')+'</strong></p>';
-if(nomPere)html+='<p>👨 Père: <strong>'+nomPere+'</strong></p>';
-if(nomMere)html+='<p>👩 Mère: <strong>'+nomMere+'</strong></p>';
-html+='<p>📚 Classe: <strong>'+classe+'</strong>'+(option?' - '+option:'')+'</p>';
-html+='<p>'+(exonere?'🌟 <strong>EXONÉRATION TOTALE</strong>':'💰 Minerval standard')+'</p>';
-if(phone)html+='<p>📞 '+phone+'</p>';
-if(montantInscription>0)html+='<p>💰 Montant versé: <strong>'+parseInt(montantInscription).toLocaleString()+' FC</strong></p>';
-preview.innerHTML=html;
-preview.style.display='block';
+
+function filtrerElevesPourPDF(eleves, filters) {
+    let result = [...eleves];
+    if (filters.classe) result = result.filter(e => e.classe === filters.classe);
+    if (filters.option) result = result.filter(e => e.option === filters.option);
+    if (filters.statut === 'actif') result = result.filter(e => !e.abandon);
+    else if (filters.statut === 'abandon') result = result.filter(e => e.abandon);
+    return result;
 }
-document.getElementById('newEleveNom').oninput=updatePreview;
-document.getElementById('newElevePostnom').oninput=updatePreview;
-document.getElementById('newElevePrenom').oninput=updatePreview;
-document.getElementById('newEleveClasse').onchange=updatePreview;
-document.getElementById('newEleveOption').onchange=updatePreview;
-document.getElementById('newEleveExonere').onchange=function(){
-var s=this.value==='oui';
-document.getElementById('motifExonerationGroup').style.display=s?'block':'none';
-document.getElementById('approbateurGroup').style.display=s?'block':'none';
-updatePreview();
+
+// ===== FONCTIONS PDF AVEC FILTRES =====
+window.genererPDFRecouvrement = async function() {
+    try {
+        const filters = getPDFFilters();
+        toast("Génération du PDF...", "warning");
+        const { jsPDF } = window.jspdf;
+        const tous = await getTousElevesAvecInfos();
+        let eleves = filtrerElevesPourPDF(tous, filters);
+        const recouv = eleves.filter(e => !e.exonere && e.moisImpayes > 0);
+        const doc = new jsPDF("p", "mm", "a4");
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 45, "F");
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 215, 0);
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setTextColor(200, 200, 200);
+        doc.text("LISTE DE RECOUVREMENT", 105, 32, { align: "center" });
+        doc.text(`Date: ${formatDateFr(new Date())}`, 20, 55);
+        doc.text(`Année: ${anneeScolaire}`, 20, 62);
+        if (filters.classe) doc.text(`Classe: ${filters.classe}`, 20, 69);
+        if (filters.option) doc.text(`Option: ${filters.option}`, 100, 69);
+        if (recouv.length === 0) {
+            doc.text("Aucun élève à recouvrer", 105, 100, { align: "center" });
+        } else {
+            const body = recouv.map(e => [e.nom, e.postnom || '', e.prenom || '', e.sexe || 'M', `${e.classe} ${e.option||""}`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", `${e.moisImpayes} mois`, e.parentCode || '-']);
+            doc.autoTable({
+                startY: 76,
+                head: [["NOM", "POST-NOM", "PRÉNOM", "SEXE", "CLASSE", "MONTANT DÛ", "MOIS IMPAYÉS", "CODE PARENT"]],
+                body: body,
+                theme: "grid",
+                styles: { fontSize: 7, cellPadding: 2, textColor: [0, 0, 0] },
+                headStyles: { fillColor: [255, 215, 0], textColor: [0, 0, 0], fontStyle: "bold" }
+            });
+        }
+        doc.save(`Recouvrement_${formatDateYMD()}.pdf`);
+        toast("PDF généré", "success");
+    } catch (e) { toast("Erreur", "error"); }
 };
-document.getElementById('newElevePhone').oninput=updatePreview;
-document.getElementById('newEleveLieuNaiss').oninput=updatePreview;
-document.getElementById('newEleveDateNaiss').oninput=updatePreview;
-document.getElementById('newEleveNomPere').oninput=updatePreview;
-document.getElementById('newEleveNomMere').oninput=updatePreview;
-document.getElementById('newEleveMontantInscription').oninput=updatePreview;
-document.getElementById('cancelAddEleve').onclick=function(){document.getElementById('addEleveModal').classList.remove('show');};
-document.getElementById('btnChangeSchool').onclick=function(){showChangeSchoolConfirm();};
+
+window.genererPDFListeNoire = async function() {
+    try {
+        const filters = getPDFFilters();
+        toast("Génération du PDF...", "warning");
+        const { jsPDF } = window.jspdf;
+        const tous = await getTousElevesAvecInfos();
+        let eleves = filtrerElevesPourPDF(tous, filters);
+        const ln = eleves.filter(e => !e.exonere && e.moisImpayes >= 3);
+        const doc = new jsPDF("p", "mm", "a4");
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 45, "F");
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 215, 0);
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setTextColor(200, 200, 200);
+        doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS", 105, 32, { align: "center" });
+        if (filters.classe) doc.text(`Classe: ${filters.classe}`, 20, 55);
+        if (filters.option) doc.text(`Option: ${filters.option}`, 100, 55);
+        if (ln.length === 0) {
+            doc.text("Aucun élève en liste noire", 105, 100, { align: "center" });
+        } else {
+            const body = ln.map(e => [e.nom, e.postnom || '', e.prenom || '', e.sexe || 'M', `${e.classe} ${e.option||""}`, `${e.moisImpayes} mois`, formatNbSimple(e.totalMin - e.totalPaye) + " FC", e.parentCode || '-']);
+            doc.autoTable({
+                startY: 62,
+                head: [["NOM", "POST-NOM", "PRÉNOM", "SEXE", "CLASSE", "MOIS IMPAYÉS", "MONTANT DÛ", "CODE PARENT"]],
+                body: body,
+                theme: "grid",
+                styles: { fontSize: 7, cellPadding: 2 },
+                headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontStyle: "bold" }
+            });
+        }
+        doc.save(`ListeNoire_${formatDateYMD()}.pdf`);
+        toast("PDF généré", "success");
+    } catch (e) { toast("Erreur", "error"); }
+};
+
+window.genererPDFTousEleves = async function() {
+    try {
+        const filters = getPDFFilters();
+        toast("Génération du PDF...", "warning");
+        const tous = await getAllComptaEleves();
+        let eleves = filtrerElevesPourPDF(tous, filters);
+        const actifs = eleves.filter(e => !e.abandon);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 45, "F");
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 215, 0);
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setTextColor(200, 200, 200);
+        doc.text("LISTE COMPLÈTE DES ÉLÈVES", 105, 32, { align: "center" });
+        doc.text(`Total: ${actifs.length} élèves`, 20, 55);
+        if (filters.classe) doc.text(`Classe: ${filters.classe}`, 100, 55);
+        const body = actifs.map(e => [e.nom, e.postnom || '', e.prenom || '', e.sexe || 'M', `${e.classe} ${e.option||""}`, e.exonere ? "OUI" : "NON", e.phone || "-", e.parentCode || '-']);
+        doc.autoTable({
+            startY: 62,
+            head: [["NOM", "POST-NOM", "PRÉNOM", "SEXE", "CLASSE", "EXONÉRÉ", "TÉLÉPHONE", "CODE PARENT"]],
+            body: body,
+            theme: "grid",
+            styles: { fontSize: 7, cellPadding: 2 },
+            headStyles: { fillColor: [59, 130, 246], textColor: [255, 255, 255], fontStyle: "bold" }
+        });
+        doc.save(`ListeEleves_${formatDateYMD()}.pdf`);
+        toast("PDF généré", "success");
+    } catch (e) { toast("Erreur", "error"); }
+};
+
+window.genererPDFExoneres = async function() {
+    try {
+        const filters = getPDFFilters();
+        toast("Génération du PDF...", "warning");
+        const tous = await getAllComptaEleves();
+        let eleves = filtrerElevesPourPDF(tous, filters);
+        const ex = eleves.filter(e => e.exonere && !e.abandon);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 45, "F");
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 215, 0);
+        doc.text(currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`, 105, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setTextColor(200, 200, 200);
+        doc.text("LISTE DES ÉLÈVES EXONÉRÉS", 105, 32, { align: "center" });
+        if (filters.classe) doc.text(`Classe: ${filters.classe}`, 20, 55);
+        if (filters.option) doc.text(`Option: ${filters.option}`, 100, 55);
+        if (ex.length === 0) {
+            doc.text("Aucun élève exonéré", 105, 100, { align: "center" });
+        } else {
+            const body = ex.map(e => [e.nom, e.postnom || '', e.prenom || '', e.sexe || 'M', `${e.classe} ${e.option||""}`, e.motifExon || "-", e.parentCode || '-']);
+            doc.autoTable({
+                startY: 62,
+                head: [["NOM", "POST-NOM", "PRÉNOM", "SEXE", "CLASSE", "MOTIF", "CODE PARENT"]],
+                body: body,
+                theme: "grid",
+                styles: { fontSize: 7, cellPadding: 2 },
+                headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold" }
+            });
+        }
+        doc.save(`Exoneres_${formatDateYMD()}.pdf`);
+        toast("PDF généré", "success");
+    } catch (e) { toast("Erreur", "error"); }
+};
+
+// ===== GÉNÉRATION DES CARTES AVEC PHOTOS ET 6 CARTES/PAGE =====
+window.genererPDFCartes = async function() {
+    try {
+        toast("Génération des cartes...", "warning");
+        const { jsPDF } = window.jspdf;
+        const eleves = await getAllComptaEleves();
+        const filters = getPDFFilters();
+        let actifs = filtrerElevesPourPDF(eleves, filters);
+        actifs = actifs.filter(e => !e.abandon);
+        if (actifs.length === 0) { toast("Aucun élève à afficher", "warning"); return; }
+        const doc = new jsPDF("p", "mm", "a4");
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const marginX = 8;
+        const marginY = 10;
+        const cardWidth = (pageWidth - marginX * 3) / 2;
+        const cardHeight = (pageHeight - marginY * 4) / 3;
+        const cardSpacingX = marginX;
+        const cardSpacingY = marginY;
+        let index = 0;
+        const total = actifs.length;
+        const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
+
+        function addCard(e, x, y, w, h) {
+            doc.setFillColor(30, 41, 59);
+            doc.roundedRect(x, y, w, h, 4, 4, "F");
+            doc.setDrawColor(255, 215, 0);
+            doc.setLineWidth(0.3);
+            doc.roundedRect(x, y, w, h, 4, 4, "S");
+            const imgSize = 50;
+            const imgX = x + 10;
+            const imgY = y + 10;
+            doc.setFillColor(255, 255, 255);
+            doc.circle(imgX + imgSize / 2, imgY + imgSize / 2, imgSize / 2, "F");
+            doc.setDrawColor(200, 200, 200);
+            doc.circle(imgX + imgSize / 2, imgY + imgSize / 2, imgSize / 2, "S");
+            try {
+                const imgData = e.photo || defaultAvatar;
+                doc.addImage(imgData, 'JPEG', imgX, imgY, imgSize, imgSize);
+            } catch (err) {
+                doc.addImage(defaultAvatar, 'JPEG', imgX, imgY, imgSize, imgSize);
+            }
+            const textX = x + 10 + imgSize + 8;
+            const textW = w - 10 - imgSize - 8 - 10;
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(255, 215, 0);
+            const nomComplet = `${e.nom} ${e.postnom||''} ${e.prenom||''}`.trim();
+            doc.text(nomComplet.length > 20 ? nomComplet.substring(0, 20) + '...' : nomComplet, textX, y + 14);
+            doc.setFontSize(7);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(200, 200, 200);
+            doc.text(`Sexe: ${e.sexe === 'M' ? 'Masculin' : 'Féminin'}`, textX, y + 24);
+            doc.text(`Classe: ${e.classe} ${e.option ? ' - '+e.option : ''}`, textX, y + 33);
+            doc.text(`Matricule: ${e.id ? e.id.substring(0, 12) : '-'}`, textX, y + 42);
+            doc.setTextColor(59, 130, 246);
+            doc.text(`Code Parent: ${e.parentCode || 'Non attribué'}`, textX, y + 51);
+            doc.setFontSize(5);
+            doc.setTextColor(255, 215, 0);
+            const schoolName = currentSchoolConfig?.nom || `COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`;
+            doc.text(schoolName.length > 25 ? schoolName.substring(0, 25)+'...' : schoolName, x + 10, y + h - 6);
+            doc.setFontSize(5);
+            doc.setTextColor(100, 100, 100);
+            doc.text("Année 2026-2027", x + w - 25, y + h - 6);
+        }
+
+        while (index < total) {
+            if (index > 0) doc.addPage();
+            let yPos = marginY;
+            let row = 0;
+            while (row < 3 && index < total) {
+                let xPos = marginX;
+                let col = 0;
+                while (col < 2 && index < total) {
+                    addCard(actifs[index], xPos, yPos, cardWidth, cardHeight);
+                    xPos += cardWidth + cardSpacingX;
+                    col++;
+                    index++;
+                }
+                yPos += cardHeight + cardSpacingY;
+                row++;
+            }
+        }
+        doc.save(`CartesIdentite_${formatDateYMD()}.pdf`);
+        toast(`${actifs.length} carte(s) générée(s)`, "success");
+    } catch (e) { toast("Erreur lors de la génération des cartes", "error"); console.error(e); }
+};
+
+// ===== AJOUTER PHOTO DANS L'INSCRIPTION =====
+// Modification de la fonction ajouterEleveCompta pour inclure la photo
+// La fonction originale est conservée, on ajoute le champ photo dans le nouvel élève
+
+// ===== INITIALISATION DES FILTRES =====
+document.getElementById('btnApplyCarteFilter').addEventListener('click', function() {
+    afficherCartesIdentite();
+});
+
+document.getElementById('btnResetCarteFilter').addEventListener('click', function() {
+    document.getElementById('carteFilterClasse').value = '';
+    document.getElementById('carteFilterOption').value = '';
+    afficherCartesIdentite();
+});
+
+// Remplir les filtres de classe
+async function remplirFiltresClasse() {
+    const selects = ['carteFilterClasse', 'pdfFilterClasse'];
+    const eleves = await getAllComptaEleves();
+    const classes = new Set();
+    eleves.forEach(e => { if (e.classe) classes.add(e.classe); });
+    const classesTriees = Array.from(classes).sort();
+    selects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Toutes</option>';
+        classesTriees.forEach(c => {
+            sel.innerHTML += `<option value="${c}">${c}</option>`;
+        });
+        if (currentVal) sel.value = currentVal;
+    });
+}
+
+// Remplir les filtres d'option
+async function remplirFiltresOption() {
+    const selects = ['carteFilterOption', 'pdfFilterOption'];
+    const eleves = await getAllComptaEleves();
+    const options = new Set();
+    eleves.forEach(e => { if (e.option) options.add(e.option); });
+    const optionsTriees = Array.from(options).sort();
+    selects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Toutes</option>';
+        optionsTriees.forEach(o => {
+            sel.innerHTML += `<option value="${o}">${o}</option>`;
+        });
+        if (currentVal) sel.value = currentVal;
+    });
+}
+
+// ===== FONCTIONS EXISTANTES CONSERVÉES =====
+window.ouvrirModalInscription = function() {
+    photoDataURL = null;
+    document.getElementById('newElevePhotoPreview').innerHTML = `<span class="default-avatar">👤</span>`;
+    document.getElementById('newElevePhotoInput').value = '';
+    document.getElementById('btnRemovePhoto').style.display = 'none';
+    document.getElementById('addEleveModal').classList.add('show');
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('btnInscrirePrincipal');
+    if (btn) { btn.onclick = function(e) { e.preventDefault(); window.ouvrirModalInscription(); }; btn.ontouchstart = function(e) { e.preventDefault(); window.ouvrirModalInscription(); }; }
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) { logoutBtn.onclick = function() { window.confirmDeconnexion(); }; }
+    var printBtn = document.getElementById('btnPrintCartes');
+    if (printBtn) { printBtn.onclick = function() { window.genererPDFCartes(); }; }
+    var btnPDF = document.getElementById('btnPDFInscription');
+    if (btnPDF) { btnPDF.onclick = function() { window.genererPDFInscription(); }; }
+    document.getElementById('confirmInscriptionPayment').onclick = window.confirmInscriptionPayment;
+    document.getElementById('cancelInscriptionPayment').onclick = function() { document.getElementById('inscriptionPaymentModal').classList.remove('show'); };
+    remplirFiltresClasse();
+    remplirFiltresOption();
+});
+
+window.confirmDeconnexion = function() {
+    var modal = document.getElementById('confirmModal');
+    var msg = document.getElementById('confirmMessage');
+    msg.innerHTML = '🔓 Êtes-vous sûr de vouloir vous déconnecter ?';
+    var oldYes = document.getElementById('confirmYes').onclick;
+    document.getElementById('confirmYes').onclick = function() {
+        document.getElementById('confirmModal').classList.remove('show');
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('loginOverlay').style.display = 'flex';
+        document.getElementById('loginCode').value = '';
+        document.getElementById('loginError').innerHTML = '';
+        toast('Déconnexion réussie', 'success');
+        document.getElementById('confirmYes').onclick = oldYes;
+    };
+    document.getElementById('confirmNo').onclick = function() { document.getElementById('confirmModal').classList.remove('show'); };
+    modal.classList.add('show');
+};
+
+function showChangeSchoolConfirm() {
+    var modal = document.getElementById('confirmModal');
+    var msg = document.getElementById('confirmMessage');
+    msg.innerHTML = '🏫 Êtes-vous sûr de vouloir changer d\'école ?<br><br><span style="font-size:13px;color:#94a3b8;">Vous serez redirigé vers le sélecteur d\'écoles.</span>';
+    var oldYes = document.getElementById('confirmYes').onclick;
+    document.getElementById('confirmYes').onclick = function() {
+        document.getElementById('confirmModal').classList.remove('show');
+        window.location.href = 'https://www.netubex.com/schoolchoice';
+        document.getElementById('confirmYes').onclick = oldYes;
+    };
+    document.getElementById('confirmNo').onclick = function() {
+        document.getElementById('confirmModal').classList.remove('show');
+        document.getElementById('confirmYes').onclick = oldYes;
+    };
+    modal.classList.add('show');
+}
+
+function updatePreview() {
+    var nom = document.getElementById('newEleveNom').value.trim();
+    var postnom = document.getElementById('newElevePostnom').value.trim();
+    var prenom = document.getElementById('newElevePrenom').value.trim();
+    var classe = document.getElementById('newEleveClasse').value;
+    var option = document.getElementById('newEleveOption').value;
+    var exonere = document.getElementById('newEleveExonere').value === 'oui';
+    var phone = document.getElementById('newElevePhone').value.trim();
+    var lieuNaiss = document.getElementById('newEleveLieuNaiss').value.trim();
+    var dateNaiss = document.getElementById('newEleveDateNaiss').value;
+    var nomPere = document.getElementById('newEleveNomPere').value.trim();
+    var nomMere = document.getElementById('newEleveNomMere').value.trim();
+    var montantInscription = document.getElementById('newEleveMontantInscription').value || 0;
+    if (!nom && !prenom && !classe) { document.getElementById('previewInscription').style.display = 'none'; return; }
+    var preview = document.getElementById('previewInscription');
+    var html = '<strong>📋 RÉCAPITULATIF INSCRIPTION</strong>';
+    html += '<p>👤 <strong>' + (nom || '?') + '</strong> ' + (postnom || '') + ' <strong>' + (prenom || '') + '</strong></p>';
+    if (dateNaiss || lieuNaiss) html += '<p>📅 Né(e) le <strong>' + (dateNaiss || '?') + '</strong> à <strong>' + (lieuNaiss || '?') + '</strong></p>';
+    if (nomPere) html += '<p>👨 Père: <strong>' + nomPere + '</strong></p>';
+    if (nomMere) html += '<p>👩 Mère: <strong>' + nomMere + '</strong></p>';
+    html += '<p>📚 Classe: <strong>' + classe + '</strong>' + (option ? ' - ' + option : '') + '</p>';
+    html += '<p>' + (exonere ? '🌟 <strong>EXONÉRATION TOTALE</strong>' : '💰 Minerval standard') + '</p>';
+    if (phone) html += '<p>📞 ' + phone + '</p>';
+    if (montantInscription > 0) html += '<p>💰 Montant versé: <strong>' + parseInt(montantInscription).toLocaleString() + ' FC</strong></p>';
+    if (photoDataURL) html += '<p>📸 Photo: ✅</p>';
+    preview.innerHTML = html;
+    preview.style.display = 'block';
+}
+
+document.getElementById('newEleveNom').oninput = updatePreview;
+document.getElementById('newElevePostnom').oninput = updatePreview;
+document.getElementById('newElevePrenom').oninput = updatePreview;
+document.getElementById('newEleveClasse').onchange = updatePreview;
+document.getElementById('newEleveOption').onchange = updatePreview;
+document.getElementById('newEleveExonere').onchange = function() {
+    var s = this.value === 'oui';
+    document.getElementById('motifExonerationGroup').style.display = s ? 'block' : 'none';
+    document.getElementById('approbateurGroup').style.display = s ? 'block' : 'none';
+    updatePreview();
+};
+document.getElementById('newElevePhone').oninput = updatePreview;
+document.getElementById('newEleveLieuNaiss').oninput = updatePreview;
+document.getElementById('newEleveDateNaiss').oninput = updatePreview;
+document.getElementById('newEleveNomPere').oninput = updatePreview;
+document.getElementById('newEleveNomMere').oninput = updatePreview;
+document.getElementById('newEleveMontantInscription').oninput = updatePreview;
+document.getElementById('cancelAddEleve').onclick = function() { document.getElementById('addEleveModal').classList.remove('show'); };
+document.getElementById('btnChangeSchool').onclick = function() { showChangeSchoolConfirm(); };
 </script>
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -625,7 +1063,7 @@ const snap=await getDocs(q);
 let eleves=[];
 for(const ds of snap.docs){
 const d=ds.data();
-eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||""});
+eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||"",photo:d.photo||null});
 }
 if(eleves.length>0){localEleves=eleves;sauvegarderDansIndexedDB(eleves);}
 return localEleves;
@@ -637,7 +1075,7 @@ const snap=await getDocs(q);
 let eleves=[];
 for(const ds of snap.docs){
 const d=ds.data();
-eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||""});
+eleves.push({id:d.eleveId,nom:d.nom,postnom:d.postnom||"",prenom:d.prenom||"",dateNaiss:d.dateNaiss||"",lieuNaiss:d.lieuNaiss||"",nomPere:d.nomPere||"",nomMere:d.nomMere||"",adresse:d.adresse||"",sexe:d.sexe||"M",phone:d.phone||"",classe:d.classe,option:d.option||"",minerval:d.minerval,exonere:d.exonere||false,motifExon:d.motifExon||"",approbateur:d.approbateur||"",abandon:d.abandon||false,dateAbandon:d.dateAbandon||null,paiements:d.paiements||{},parentCode:d.parentCode||"",photo:d.photo||null});
 }
 localEleves=eleves;
 sauvegarderDansIndexedDB(eleves);
@@ -714,7 +1152,7 @@ await afficherAbandons();
 await afficherCartesIdentite();
 await afficherParentCodes();
 }
-async function ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motifExon,approbateur,parentCode=null,montantInscription=0){
+async function ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motifExon,approbateur,parentCode=null,montantInscription=0,photo=null){
 if(exonere&&compteurExoneres>=(currentSchoolConfig?.maxExonerations||10)){
 toast("Limite d'exonérations atteinte","error");
 return null;
@@ -728,14 +1166,14 @@ if(montantInscription>0){
 paiements[moisCourant]={montant:montantInscription,date:formatDateYMD(),historique:[{montant:montantInscription,date:formatDateYMD(),nouveauTotal:montantInscription}]};
 }
 const docId=`compta_${id}`;
-const newCompta={_type:"compta_eleve",eleveId:id,nom:nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe:classe,option:option||"",minerval:minerval,anneeScolaire:anneeScolaire,paiements:paiements,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,parentCode:codeParent};
+const newCompta={_type:"compta_eleve",eleveId:id,nom:nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe:classe,option:option||"",minerval:minerval,anneeScolaire:anneeScolaire,paiements:paiements,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,parentCode:codeParent,photo:photo||null};
 await setDoc(doc(db,"ecoles",SCHOOL_PREFIX,"compta_eleves",docId),newCompta);
-const newEleve={id,nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe,option:option||"",minerval,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,paiements,parentCode:codeParent};
+const newEleve={id,nom,postnom:postnom||"",prenom:prenom||"",dateNaiss:dateNaiss||"",lieuNaiss:lieuNaiss||"",nomPere:nomPere||"",nomMere:nomMere||"",adresse:adresse||"",sexe:sexe||"M",phone:phone||"",classe,option:option||"",minerval,exonere:exonere||false,motifExon:motifExon||"",approbateur:approbateur||"",abandon:false,dateAbandon:null,paiements,parentCode:codeParent,photo:photo||null};
 localEleves.push(newEleve);
 sauvegarderDansIndexedDB(localEleves);
 if(exonere)compteurExoneres++;
 toast(`✅ Élève inscrit. Code parent: ${codeParent}`,"success");
-return{id,nom,postnom,prenom,classe,option,parentCode:codeParent};
+return{id,nom,postnom,prenom,classe,option,parentCode:codeParent,photo:photo};
 }
 async function genererCodeParentUnique() {
 const eleves = await getAllComptaEleves();
@@ -1007,7 +1445,7 @@ toast(`✅ ${rattacherEleveNom} rattaché à la famille avec le code ${nouveauCo
 
 document.getElementById('cancelRattacherFamille').onclick = function() { document.getElementById('rattacherFamilleModal').classList.remove('show'); };
 
-// ===== AFFICHAGE DES ÉLÈVES AVEC LE BOUTON RATTACHER =====
+// ===== AFFICHAGE DES ÉLÈVES =====
 async function afficherListeEleves(){
 const eleves=await getElevesFiltres();
 const cont=document.getElementById("elevesContainer");
@@ -1069,7 +1507,6 @@ const codeSuggere = await genererCodeParentUnique();
 document.getElementById('editParentCodeInfo').innerHTML = `
 <div class="modal-info-line"><span>ÉLÈVE</span><span style="color:#ffd700;font-weight:bold;">${eleveNom}</span></div>
 <div class="modal-info-line"><span>CODE ACTUEL</span><span class="parent-code-card" style="font-size:18px;padding:6px 14px;">${codeActuel || 'Aucun'}</span></div>
-<div class="modal-info-line"><span>💡 SUGGESTION</span><span style="color:#10b981;font-family:monospace;font-size:18px;">${codeSuggere}</span></div>
 <div style="font-size:11px;color:#94a3b8;margin-top:8px;">Cliquez sur "Générer" pour un nouveau code unique</div>
 `;
 document.getElementById('editParentCodeValue').value = codeActuel || '';
@@ -1141,8 +1578,14 @@ allCodesContainer.innerHTML=codesListHtml;
 
 async function afficherCartesIdentite(){
 const eleves=await getAllComptaEleves();
+const filters = {
+classe: document.getElementById('carteFilterClasse')?.value || '',
+option: document.getElementById('carteFilterOption')?.value || ''
+};
+let filtered = eleves.filter(e=>!e.abandon);
+if(filters.classe) filtered = filtered.filter(e=>e.classe===filters.classe);
+if(filters.option) filtered = filtered.filter(e=>e.option===filters.option);
 const searchTerm=document.getElementById("searchCarte")?.value.trim().toLowerCase()||"";
-let filtered=eleves.filter(e=>!e.abandon);
 if(searchTerm){
 filtered=filtered.filter(e=>
 e.nom.toLowerCase().includes(searchTerm)||
@@ -1155,11 +1598,31 @@ e.id.toLowerCase().includes(searchTerm)
 const container=document.getElementById("cartesContainer");
 if(!filtered.length){container.innerHTML='<div class="empty-state">📭 Aucune carte à afficher</div>';return;}
 let html='';
+const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
 for(let e of filtered){
 const sexeDisplay = e.sexe === 'M' ? 'Masculin' : (e.sexe === 'F' ? 'Féminin' : 'Non renseigné');
 let badgeClass=e.exonere?'exonere':(e.abandon?'abandon':'');
 let badgeText=e.exonere?'EXONÉRÉ':(e.abandon?'ABANDON':'ACTIF');
-html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div><div class="carte-info-grid"><div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div><div class="carte-info-item"><span class="carte-info-label">📍 LIEU DE NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">⚧ SEXE</span><span class="carte-info-value">${sexeDisplay}</span></div><div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">📚 CLASSE / OPTION</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div><div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div></div><div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
+const photoUrl = e.photo || defaultAvatar;
+html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div>
+<div style="display:flex;gap:16px;margin-bottom:15px;">
+<div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,215,0,0.3);flex-shrink:0;background:#1e293b;">
+<img src="${photoUrl}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${defaultAvatar}'">
+</div>
+<div style="flex:1;">
+<div class="carte-info-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+<div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📍 LIEU NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">⚧ SEXE</span><span class="carte-info-value">${sexeDisplay}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📚 CLASSE</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div>
+</div>
+</div>
+</div>
+<div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
 }
 container.innerHTML=html;
 }
@@ -1312,9 +1775,42 @@ await mettreAJourStats();
 };
 window.genererPDFInscription=async function(){
 try{
+const filters = getPDFFilters();
 toast("Génération du PDF...","warning");
 const{jsPDF}=window.jspdf;
-const liste=await window.getElevesAvecFraisInscription();
+const tous=await getAllComptaEleves();
+let eleves = filtrerElevesPourPDF(tous, filters);
+const liste = [];
+for(const eleve of eleves){
+if(eleve.abandon)continue;
+const paiement=eleve.paiements?.[moisCourant]||{montant:0};
+const montantPaye=paiement.montant||0;
+const fraisTotal=eleve.minerval||0;
+if(montantPaye>0){
+const reste=fraisTotal-montantPaye;
+const statut=montantPaye>=fraisTotal?'COMPLET':'PARTIEL';
+liste.push({
+id:eleve.id,
+nom:`${eleve.nom} ${eleve.postnom||''} ${eleve.prenom||''}`,
+classe:eleve.classe,
+option:eleve.option||'',
+fraisTotal:fraisTotal,
+montantPaye:montantPaye,
+reste:reste,
+statut:statut,
+codeParent:eleve.parentCode||'-',
+phone:eleve.phone||'-',
+paiements:eleve.paiements,
+minerval:eleve.minerval,
+exonere:eleve.exonere
+});
+}
+}
+liste.sort((a,b)=>{
+if(a.statut==='PARTIEL'&&b.statut==='COMPLET')return -1;
+if(a.statut==='COMPLET'&&b.statut==='PARTIEL')return 1;
+return 0;
+});
 const doc=new jsPDF("p","mm","a4");
 doc.setFillColor(15,23,42);
 doc.rect(0,0,210,45,"F");
@@ -1327,6 +1823,8 @@ doc.setTextColor(200,200,200);
 doc.text("FRAIS D'INSCRIPTION",105,32,{align:"center"});
 doc.text(`Date: ${formatDateFr(new Date())}`,20,55);
 doc.text(`Mois: ${moisCourant}`,20,62);
+if(filters.classe) doc.text(`Classe: ${filters.classe}`,120,55);
+if(filters.option) doc.text(`Option: ${filters.option}`,120,62);
 if(liste.length===0){
 doc.text("Aucun élève n'a payé les frais d'inscription",105,100,{align:"center"});
 }else{
@@ -1360,11 +1858,6 @@ doc.save(`FraisInscription_${formatDateYMD()}.pdf`);
 toast("PDF généré","success");
 }catch(e){toast("Erreur lors de la génération du PDF","error");}
 };
-window.genererPDFRecouvrement=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const recouv=tous.filter(e=>!e.exonere&&e.moisImpayes>0);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DE RECOUVREMENT",105,32,{align:"center"});doc.text(`Date: ${formatDateFr(new Date())}`,20,55);doc.text(`Année: ${anneeScolaire}`,20,62);if(recouv.length===0){doc.text("Aucun élève à recouvrer",105,100,{align:"center"});}else{const body=recouv.map(e=>[e.nom,`${e.classe} ${e.option||""}`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",`${e.moisImpayes} mois`,e.parentCode||'-']);doc.autoTable({startY:72,head:[["ÉLÈVE","CLASSE","MONTANT DÛ","MOIS IMPAYÉS","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3,textColor:[0,0,0]},headStyles:{fillColor:[255,215,0],textColor:[0,0,0],fontStyle:"bold"}});}doc.save(`Recouvrement_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFListeNoire=async function(){try{toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();const ln=tous.filter(e=>!e.exonere&&e.moisImpayes>=3);const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE NOIRE - 3+ MOIS IMPAYÉS",105,32,{align:"center"});if(ln.length===0){doc.text("Aucun élève en liste noire",105,100,{align:"center"});}else{const body=ln.map(e=>[e.nom,`${e.classe} ${e.option||""}`,`${e.moisImpayes} mois`,formatNbSimple(e.totalMin-e.totalPaye)+" FC",e.parentCode||'-']);doc.autoTable({startY:55,head:[["ÉLÈVE","CLASSE","MOIS IMPAYÉS","MONTANT DÛ","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[239,68,68],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`ListeNoire_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFTousEleves=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE COMPLÈTE DES ÉLÈVES",105,32,{align:"center"});doc.text(`Total: ${actifs.length} élèves`,20,55);const body=actifs.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.exonere?"OUI":"NON",e.phone||"-",e.parentCode||'-']);doc.autoTable({startY:62,head:[["NOM","CLASSE","EXONÉRÉ","TÉLÉPHONE","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:3},headStyles:{fillColor:[59,130,246],textColor:[255,255,255],fontStyle:"bold"}});doc.save(`ListeEleves_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFExoneres=async function(){try{toast("Génération du PDF...","warning");const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(currentSchoolConfig?.nom||`COMPLEXE SCOLAIRE ${SCHOOL_DISPLAY_NAME}`,105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text("LISTE DES ÉLÈVES EXONÉRÉS",105,32,{align:"center"});if(ex.length===0){doc.text("Aucun élève exonéré",105,100,{align:"center"});}else{const body=ex.map(e=>[e.nom,`${e.classe} ${e.option||""}`,e.motifExon||"-",e.parentCode||'-']);doc.autoTable({startY:55,head:[["NOM","CLASSE","MOTIF","CODE PARENT"]],body:body,theme:"grid",styles:{fontSize:9,cellPadding:4},headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontStyle:"bold"}});}doc.save(`Exoneres_${formatDateYMD()}.pdf`);toast("PDF généré","success");}catch(e){toast("Erreur","error");}};
-window.genererPDFCartes=async function(){try{toast("Génération des cartes...","warning");const{jsPDF}=window.jspdf;const eleves=await getAllComptaEleves();const actifs=eleves.filter(e=>!e.abandon);const doc=new jsPDF("p","mm","a4");let y=20;for(let i=0;i<actifs.length;i++){if(i>0&&i%2===0){doc.addPage();y=20;}const e=actifs[i];doc.setFillColor(30,41,59);doc.roundedRect(10,y,85,60,5,5,"F");doc.setDrawColor(255,215,0);doc.setLineWidth(0.5);doc.roundedRect(10,y,85,60,5,5,"S");doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(e.nom+" "+(e.postnom||"")+" "+e.prenom,15,y+8);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(200,200,200);doc.text(`Classe: ${e.classe} ${e.option||""}`,15,y+16);doc.text(`Matricule: ${e.id.substring(0,12)}...`,15,y+22);doc.text(`Tél: ${e.phone||"-"}`,15,y+28);if(e.nomPere)doc.text(`Père: ${e.nomPere.substring(0,18)}`,15,y+34);if(e.nomMere)doc.text(`Mère: ${e.nomMere.substring(0,18)}`,15,y+40);doc.setFontSize(6);doc.setTextColor(59,130,246);doc.text(`Code Parent: ${e.parentCode||'Non attribué'}`,15,y+46);doc.setFontSize(6);doc.setTextColor(255,215,0);doc.text(`${currentSchoolConfig?.nom||"ÉCOLE"}`,15,y+53);if(i%2===1){y+=65;}else{y+=0;}}doc.save(`CartesIdentite_${formatDateYMD()}.pdf`);toast("Cartes générées","success");}catch(e){toast("Erreur","error");}};
 function initTabsEvents(){const tabs=document.querySelectorAll(".tab-btn");tabs.forEach(btn=>{btn.removeEventListener("click",handleTabClick);btn.addEventListener("click",handleTabClick);});}
 async function handleTabClick(){const tabId=this.dataset.tab;if(tabId==="tab7"){if(!await verifierCodeAccesConfig()){return;}}document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));const activePanel=document.getElementById(tabId);if(activePanel)activePanel.classList.add("active");if(tabId==="tab4"){await afficherCartesIdentite();}if(tabId==="tab5"){await afficherParentCodes();}if(tabId==="tab8"){await window.afficherFraisInscription();}}
 function verifierCodeAccesConfig(){return new Promise((resolve)=>{pendingAction={resolve,action:"configTab"};document.getElementById("codeInput").value="";document.getElementById("codeModal").classList.add("show");});}
@@ -1466,12 +1959,13 @@ const motif=document.getElementById("newEleveMotifExon").value;
 const approbateur=document.getElementById("newEleveApprobateur").value;
 const parentCode=document.getElementById("newEleveParentCode").value.trim()||null;
 const montantInscription=parseInt(document.getElementById("newEleveMontantInscription").value)||0;
+const photo = photoDataURL || null;
 if(exonere&&compteurExoneres>=(currentSchoolConfig?.maxExonerations||10)){
 toast(`Limite d'exonérations atteinte (${currentSchoolConfig?.maxExonerations||10})`,"error");
 return;
 }
 if(await showConfirm(`Confirmez-vous l'inscription de ${nom} ${postnom} ${prenom} en ${classe} ?`)){
-const result=await ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motif,approbateur,parentCode,montantInscription);
+const result=await ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motif,approbateur,parentCode,montantInscription,photo);
 if(result){
 toast(`Élève ${nom} ${postnom} ${prenom} inscrit avec succès. Code parent: ${result.parentCode}`,"success");
 document.getElementById("addEleveModal").classList.remove("show");
@@ -1495,6 +1989,10 @@ document.getElementById("newEleveMontantInscription").value="0";
 document.getElementById("motifExonerationGroup").style.display="none";
 document.getElementById("approbateurGroup").style.display="none";
 document.getElementById("previewInscription").style.display="none";
+photoDataURL = null;
+document.getElementById('newElevePhotoPreview').innerHTML = `<span class="default-avatar">👤</span>`;
+document.getElementById('newElevePhotoInput').value = '';
+document.getElementById('btnRemovePhoto').style.display = 'none';
 await afficherListeEleves();
 await mettreAJourStats();
 await afficherCartesIdentite();
@@ -1543,6 +2041,9 @@ window.updatePreview=updatePreview;
 window.afficherCartesIdentite=afficherCartesIdentite;
 window.afficherParentCodes=afficherParentCodes;
 window.ouvrirEditParentCode=ouvrirEditParentCode;
+window.getPDFFilters = getPDFFilters;
+window.filtrerElevesPourPDF = filtrerElevesPourPDF;
+window.photoDataURL = photoDataURL;
 </script>
 </body>
 </html>
