@@ -229,10 +229,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="modal-overlay" id="editParentCodeModal"><div class="modal-card"><h3>✏️ MODIFIER LE CODE PARENT</h3><div id="editParentCodeInfo"></div><div class="form-group"><label>NOUVEAU CODE (6 chiffres)</label><input type="text" id="editParentCodeValue" maxlength="6" inputmode="numeric" placeholder="6 chiffres"></div><div class="form-group"><label>APPLIQUER À LA FAMILLE</label><select id="editParentCodeFamily"><option value="no">Seulement cet élève</option><option value="yes">À tous les enfants avec le même code actuel</option></select></div><div class="modal-buttons"><button class="btn btn-success" id="confirmEditParentCode">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditParentCode">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT FRAIS D'INSCRIPTION</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT À PAYER (FC)</label><input type="number" id="inscriptionPaymentAmount" step="100" value="0"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmInscriptionPayment">✅ PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
 <script>
-document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
-document.addEventListener('keydown',function(e){if(e.key==='F12'){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='i')){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='J'||e.key==='j')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='U'||e.key==='u')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='S'||e.key==='s')){e.preventDefault();return false;}});
-document.addEventListener('dragstart',function(e){e.preventDefault();return false;});
-document.addEventListener('selectstart',function(e){e.preventDefault();return false;});
 window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
 document.addEventListener('DOMContentLoaded',function(){
 var btn=document.getElementById('btnInscrirePrincipal');
@@ -414,49 +410,6 @@ function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return"0";return
 function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${type}`;el.innerHTML=`<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),300);},3000);}
 function formatDateYMD(date=new Date()){return date.toISOString().split('T')[0];}
 function formatDateFr(date){const d=new Date(date);return`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;}
-function mettreAJourSelectsOptions(){
-const filterOption=document.getElementById("filterOption");
-if(filterOption){
-let optionsHtml='<option value="">Toutes</option>';
-let optsUniques=new Set();
-for(let classe of classesListe){
-let opts=optionsConfig[classe]||[];
-opts.forEach(o=>optsUniques.add(o));
-}
-optsUniques.forEach(opt=>{optionsHtml+=`<option value="${opt}">${opt}</option>`;});
-filterOption.innerHTML=optionsHtml;
-}
-const newEleveOption=document.getElementById("newEleveOption");
-if(newEleveOption){
-const updateSelect=()=>{
-let classe=document.getElementById("newEleveClasse").value;
-let opts=optionsConfig[classe]||[];
-let optHtml='<option value="">Sans option</option>';
-opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
-newEleveOption.innerHTML=optHtml;
-if(window.updatePreview)window.updatePreview();
-};
-let classeSelect=document.getElementById("newEleveClasse");
-if(classeSelect){
-classeSelect.removeEventListener('change',updateSelect);
-classeSelect.addEventListener('change',updateSelect);
-}
-updateSelect();
-}
-}
-function forcerMiseAJourOptionsPopup(){
-const classeSelect=document.getElementById("newEleveClasse");
-const optionSelect=document.getElementById("newEleveOption");
-if(classeSelect&&optionSelect){
-const classe=classeSelect.value;
-let opts=optionsConfig[classe]||[];
-let optHtml='<option value="">Sans option</option>';
-opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
-optionSelect.innerHTML=optHtml;
-if(window.updatePreview)window.updatePreview();
-}
-}
-window.forcerMiseAJourOptionsPopup=forcerMiseAJourOptionsPopup;
 async function chargerOptions(){
 try{
 const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
@@ -465,13 +418,11 @@ if(snap.exists()){optionsConfig=snap.data();}
 else{optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));await setDoc(ref,optionsConfig);}
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
-forcerMiseAJourOptionsPopup();
 }catch(error){
 console.error("Erreur chargement options:",error);
 optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
-forcerMiseAJourOptionsPopup();
 }
 }
 function afficherOptionsConfig(){
@@ -497,7 +448,6 @@ const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
 await setDoc(ref,optionsConfig);
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
-forcerMiseAJourOptionsPopup();
 toast(`Option "${option}" supprimée`,"success");
 }catch(e){toast("Erreur lors de la suppression","error");}
 }
@@ -516,11 +466,38 @@ await setDoc(ref,optionsConfig);
 document.getElementById('newOptionName').value='';
 mettreAJourSelectsOptions();
 afficherOptionsConfig();
-forcerMiseAJourOptionsPopup();
 toast(`Option "${option}" ajoutée à ${classe}`,"success");
 }catch(e){toast("Erreur lors de l'ajout","error");}
 };
 document.getElementById('configClasseOptions').onchange=function(){afficherOptionsConfig();};
+function mettreAJourSelectsOptions(){
+const filterOption=document.getElementById("filterOption");
+const newEleveOption=document.getElementById("newEleveOption");
+if(filterOption){
+let optionsHtml='<option value="">Toutes</option>';
+let optsUniques=new Set();
+for(let classe of classesListe){
+let opts=optionsConfig[classe]||[];
+opts.forEach(o=>optsUniques.add(o));
+}
+optsUniques.forEach(opt=>{optionsHtml+=`<option value="${opt}">${opt}</option>`;});
+filterOption.innerHTML=optionsHtml;
+}
+if(newEleveOption){
+const updateSelect=()=>{
+let classe=document.getElementById("newEleveClasse").value;
+let opts=optionsConfig[classe]||[];
+let optHtml='<option value="">Sans option</option>';
+opts.forEach(opt=>{optHtml+=`<option value="${opt}">${opt}</option>`;});
+newEleveOption.innerHTML=optHtml;
+};
+let classeSelect=document.getElementById("newEleveClasse");
+if(classeSelect){
+classeSelect.onchange=function(){updateSelect();if(window.updatePreview)window.updatePreview();};
+updateSelect();
+}
+}
+}
 async function chargerConfigEcole(){
 try{
 const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");
@@ -831,10 +808,7 @@ cont.innerHTML=html;
 await mettreAJourStats();
 }
 async function afficherReleve(eleve){
-if(!eleve||eleve.abandon){
-document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;
-return;
-}
+if(!eleve||eleve.abandon){document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;return;}
 const elevesFraiches=await getAllComptaEleves(true);
 const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
 if(!eleveMaj)return;
@@ -846,7 +820,7 @@ const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;
 const p=paiements[mois]||{montant:0,date:null,historique:[]};
 const montantPaye=p.montant||0;
 const resteMois=minervalMensuel-montantPaye;
-const estPayeTotal=(montantPaye>=minervalMensuel);
+const estPayeTotal=montantPaye>=minervalMensuel;
 let cardClass="";
 if(mois===moisCourant)cardClass="mois-courant";
 else if(!estPayeTotal&&!eleveMaj.exonere)cardClass="mois-impaye";
@@ -945,9 +919,10 @@ const container=document.getElementById("cartesContainer");
 if(!filtered.length){container.innerHTML='<div class="empty-state">📭 Aucune carte à afficher</div>';return;}
 let html='';
 for(let e of filtered){
+const sexeDisplay = e.sexe === 'M' ? 'Masculin' : (e.sexe === 'F' ? 'Féminin' : 'Non renseigné');
 let badgeClass=e.exonere?'exonere':(e.abandon?'abandon':'');
 let badgeText=e.exonere?'EXONÉRÉ':(e.abandon?'ABANDON':'ACTIF');
-html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div><div class="carte-info-grid"><div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div><div class="carte-info-item"><span class="carte-info-label">📍 LIEU DE NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">📚 CLASSE / OPTION</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div><div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div></div><div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
+html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div><div class="carte-info-grid"><div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div><div class="carte-info-item"><span class="carte-info-label">📍 LIEU DE NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">⚧ SEXE</span><span class="carte-info-value">${sexeDisplay}</span></div><div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">📚 CLASSE / OPTION</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div><div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div><div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div></div><div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
 }
 container.innerHTML=html;
 }
@@ -1195,7 +1170,6 @@ async function initApp(){
 if(isAppInitialized)return;
 await chargerOptions();
 await chargerTarifs();
-forcerMiseAJourOptionsPopup();
 await afficherListeEleves();
 await mettreAJourStats();
 await setupStatCards();
