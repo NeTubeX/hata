@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -816,7 +815,6 @@ async function exportEffectifsPDF(prefix) {
     try {
         toast("📤 Génération du PDF...", "info");
         
-        // Récupérer les élèves de la comptabilité
         const comptaSnap = await getDocs(collection(db, `ecoles/${prefix}/compta_eleves`));
         const elevesCompta = [];
         comptaSnap.forEach(ds => {
@@ -835,7 +833,6 @@ async function exportEffectifsPDF(prefix) {
             }
         });
         
-        // Récupérer les professeurs (pour les élèves)
         const profsSnap = await getDocs(collection(db, `${prefix}_professeurs`));
         const elevesProfs = [];
         profsSnap.forEach(ds => {
@@ -855,7 +852,6 @@ async function exportEffectifsPDF(prefix) {
             }
         });
         
-        // Statistiques
         const totalCompta = elevesCompta.length;
         const totalProfs = elevesProfs.length;
         const total = totalCompta + totalProfs;
@@ -878,7 +874,6 @@ async function exportEffectifsPDF(prefix) {
         const pdf = new jsPDF('landscape', 'mm', 'a4');
         const pageWidth = 297;
         
-        // En-tête
         pdf.setFillColor(10, 14, 26);
         pdf.rect(0, 0, pageWidth, 35, 'F');
         pdf.setFontSize(16);
@@ -893,7 +888,6 @@ async function exportEffectifsPDF(prefix) {
         pdf.setTextColor(148, 163, 184);
         pdf.text(`Généré le: ${new Date().toLocaleDateString('fr-FR')}`, 20, 33);
         
-        // Statistiques
         let y = 45;
         pdf.setFillColor(15, 23, 42);
         pdf.rect(20, y, pageWidth - 40, 40, 'F');
@@ -918,7 +912,6 @@ async function exportEffectifsPDF(prefix) {
         
         y = y + 50;
         
-        // Tableau des élèves
         const headers = [['N°', 'Nom complet', 'Classe', 'Option', 'Code Parent', 'Statut', 'Date Inscription']];
         const body = elevesCompta.map((e, i) => [
             (i + 1).toString(),
@@ -960,7 +953,6 @@ async function exportEffectifsPDF(prefix) {
             }
         });
         
-        // Pied de page
         const finalY = pdf.lastAutoTable.finalY || y + 50;
         pdf.setFontSize(7);
         pdf.setTextColor(100, 100, 100);
@@ -993,13 +985,13 @@ async function chargerToutesLesEcoles(silencieux = false) {
         for (const ecole of allEcoles) {
             const prefix = ecole.id;
             try {
-                // Récupérer les élèves de la comptabilité
+                // ✅ CORRECTION : Lecture correcte des élèves comptables
                 const comptaSnap = await getDocs(collection(db, `ecoles/${prefix}/compta_eleves`));
                 comptaSnap.forEach(ds => {
                     const d = ds.data();
                     if (d.nom && !d.abandon) {
                         allElevesCompta.push({
-                            id: ds.id,
+                            id: d.eleveId || ds.id,
                             nom: d.nom || '',
                             postnom: d.postnom || '',
                             prenom: d.prenom || '',
@@ -1134,19 +1126,20 @@ async function chargerToutesLesEcoles(silencieux = false) {
     }
 }
 
+// ✅ CORRECTION : Lecture en temps réel des élèves comptables
 async function chargerToutesLesDonneesTempsReel(silencieux = true) {
     if (!currentEcolePrefix) return;
     try {
         const prefix = currentEcolePrefix;
         
-        // Écouter les élèves de la comptabilité
+        // ✅ CORRECTION : Lecture correcte de la collection compta_eleves
         const unsubCompta = onSnapshot(collection(db, `ecoles/${prefix}/compta_eleves`), (snapshot) => {
             elevesCompta = [];
             snapshot.forEach(ds => {
                 const d = ds.data();
                 if (d.nom && !d.abandon) {
                     elevesCompta.push({
-                        id: ds.id,
+                        id: d.eleveId || ds.id,
                         nom: d.nom || '',
                         postnom: d.postnom || '',
                         prenom: d.prenom || '',
@@ -1313,7 +1306,6 @@ function afficherElevesCompta() {
     tbody.innerHTML = html;
     document.getElementById("infoElevesCompta").textContent = `${filtered.length} élève(s)`;
     
-    // Mettre à jour les filtres
     const classes = [...new Set(elevesCompta.map(e => e.classe).filter(Boolean))];
     const opts = [...new Set(elevesCompta.map(e => e.option).filter(Boolean))];
     document.getElementById("filterClasseCompta").innerHTML = '<option value="">Toutes</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join("");
@@ -1789,7 +1781,6 @@ document.getElementById("changeAdminCodeBtn").addEventListener("click", async ()
 document.getElementById("deleteSchoolBtn").addEventListener("click", async () => {
     if (!currentEcolePrefix) { toast("Aucun établissement sélectionné", "warning"); return; }
     
-    // Compter tous les documents avant suppression
     let totalDocs = 0;
     const allCollections = [
         `${currentEcolePrefix}_professeurs`,
@@ -1847,7 +1838,6 @@ document.getElementById("deleteSchoolBtn").addEventListener("click", async () =>
             }
         }
         
-        // Supprimer l'entrée de l'école
         await deleteDoc(doc(db, "ecoles_autorisees", currentEcolePrefix));
         
         toast(`✅ Établissement supprimé (${deleted} documents)`, "success");
@@ -1858,7 +1848,6 @@ document.getElementById("deleteSchoolBtn").addEventListener("click", async () =>
         currentEcolePrefix = null;
         currentEcoleData = null;
         
-        // Rafraîchir l'affichage
         elevesCompta = [];
         elevesProfs = [];
         profsList = [];
@@ -1996,7 +1985,6 @@ document.getElementById("deleteMembersBtn").addEventListener("click", async () =
                 count++;
             }
         } else if (filter === "classe") {
-            // Par classe
             const snap = await getDocs(collection(db, currentEcolePrefix + "_fiches"));
             for (const ds of snap.docs) {
                 const data = ds.data();
@@ -2076,7 +2064,6 @@ async function loadCollections() {
             }
         });
         
-        // Compter TOUTES les collections pour chaque école
         for (const col of collections) {
             const collectionsToCount = [
                 `${col.prefixe}_professeurs`,
@@ -2164,7 +2151,6 @@ function renderCollections() {
     
     container.innerHTML = html;
     
-    // Événement "Vider" (remplace "Supprimer")
     document.querySelectorAll('.clear-collection').forEach(btn => {
         btn.addEventListener('click', function() {
             const prefix = this.dataset.prefix;
@@ -2173,7 +2159,6 @@ function renderCollections() {
         });
     });
     
-    // Événement "Voir" - affiche TOUTES les collections
     document.querySelectorAll('.view-collection').forEach(btn => {
         btn.addEventListener('click', function() {
             const prefix = this.dataset.prefix;
@@ -2234,7 +2219,6 @@ async function clearCollectionManually(prefix, name) {
         `ecoles/${prefix}/direction`
     ];
     
-    // Compter les documents
     let totalDocs = 0;
     for (const path of collectionsToClear) {
         try {
@@ -2282,7 +2266,6 @@ async function clearCollectionManually(prefix, name) {
         toast(`✅ Collection "${name}" vidée (${deleted} documents supprimés)`, "success");
         loadCollections();
         
-        // Rafraîchir les données si c'est l'école courante
         if (prefix === currentEcolePrefix) {
             await chargerEcoleSelectionnee(true);
         }
@@ -2313,13 +2296,11 @@ async function viewAllCollections(prefix) {
         let html = `<div style="margin-bottom:12px;color:#60a5fa;font-weight:600;">📂 Collections de ${prefix.toUpperCase().replace(/-/g, ' ')}</div>`;
         html += `<div class="collection-tabs" id="collectionTabs">`;
         
-        // Créer les onglets
         collections.forEach((col, idx) => {
             html += `<button class="collection-tab ${idx === 0 ? 'active' : ''}" data-target="col-${idx}">${col.name}</button>`;
         });
         html += `</div>`;
         
-        // Contenu de chaque collection
         for (let i = 0; i < collections.length; i++) {
             const col = collections[i];
             const isActive = i === 0;
@@ -2366,7 +2347,6 @@ async function viewAllCollections(prefix) {
         html += `<div style="margin-top:12px;color:#94a3b8;font-size:0.8rem;">📊 Total: ${totalDocs} documents</div>`;
         html += `<button class="btn btn-sm btn-danger" style="margin-top:12px;" onclick="clearCollectionManually('${prefix}', '${prefix.toUpperCase().replace(/-/g, ' ')}')"><i class="fas fa-trash"></i> Vider toutes les collections de cette école</button>`;
         
-        // Afficher dans le modal
         const modal = document.getElementById("confirmModal");
         document.getElementById("confirmTitle").textContent = `📂 Collections de ${prefix.toUpperCase().replace(/-/g, ' ')}`;
         document.getElementById("confirmMessage").innerHTML = html;
@@ -2380,7 +2360,6 @@ async function viewAllCollections(prefix) {
             document.getElementById("confirmYes").textContent = "Confirmer";
         };
         
-        // Gestion des onglets
         document.querySelectorAll('.collection-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.collection-tab').forEach(t => t.classList.remove('active'));
@@ -2396,7 +2375,6 @@ async function viewAllCollections(prefix) {
     }
 }
 
-// Exposer la fonction pour le bouton dans le modal
 window.clearCollectionManually = clearCollectionManually;
 
 // ============ ANALYTICS ============
