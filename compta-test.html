@@ -1556,6 +1556,91 @@ document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); return false; }
 });
 
+// ===== Correction : Le montant payé par défaut doit être 0 FC, pas 45000 FC =====
+// La fonction getElevesAvecFraisInscription ne filtre plus que les paiements > 0
+// On modifie la fonction pour inclure tous les élèves, même ceux qui n'ont rien payé.
+window.getElevesAvecFraisInscription = async function() {
+    const tous = await getAllComptaEleves();
+    const resultat = [];
+    for (const eleve of tous) {
+        if (eleve.abandon) continue;
+        const paiement = eleve.paiements?.[moisCourant] || { montant: 0 };
+        const montantPaye = paiement.montant || 0;
+        const fraisTotal = eleve.minerval || 0;
+        const reste = fraisTotal - montantPaye;
+        const statut = montantPaye >= fraisTotal ? 'COMPLET' : (montantPaye > 0 ? 'PARTIEL' : 'NON PAYÉ');
+        resultat.push({
+            id: eleve.id,
+            nom: `${eleve.nom} ${eleve.postnom||''} ${eleve.prenom||''}`,
+            classe: eleve.classe,
+            option: eleve.option || '',
+            fraisTotal: fraisTotal,
+            montantPaye: montantPaye,
+            reste: reste,
+            statut: statut,
+            codeParent: eleve.parentCode || '-',
+            phone: eleve.phone || '-',
+            paiements: eleve.paiements,
+            minerval: eleve.minerval,
+            exonere: eleve.exonere
+        });
+    }
+    resultat.sort((a, b) => {
+        if (a.statut === 'PARTIEL' && b.statut === 'COMPLET') return -1;
+        if (a.statut === 'COMPLET' && b.statut === 'PARTIEL') return 1;
+        if (a.statut === 'NON PAYÉ' && b.statut === 'PARTIEL') return 1;
+        if (a.statut === 'PARTIEL' && b.statut === 'NON PAYÉ') return -1;
+        return 0;
+    });
+    return resultat;
+};
+
+// On met à jour l'affichage des frais d'inscription pour inclure tous les élèves
+window.afficherFraisInscription = async function() {
+    const container = document.getElementById('inscriptionsContainer');
+    const liste = await window.getElevesAvecFraisInscription();
+    if (liste.length === 0) {
+        container.innerHTML = '<div class="empty-state">📭 Aucun élève inscrit</div>';
+        return;
+    }
+    const complets = liste.filter(e => e.statut === 'COMPLET').length;
+    const partiels = liste.filter(e => e.statut === 'PARTIEL').length;
+    const nonPayes = liste.filter(e => e.statut === 'NON PAYÉ').length;
+    const totalPaye = liste.reduce((s, e) => s + e.montantPaye, 0);
+    const totalFrais = liste.reduce((s, e) => s + e.fraisTotal, 0);
+    let html = `
+    <div class="inscription-stats">
+        <div class="inscription-stat-card total"><div class="number">${liste.length}</div><div class="label">Total élèves</div></div>
+        <div class="inscription-stat-card complet"><div class="number">${complets}</div><div class="label">Payé intégralement</div></div>
+        <div class="inscription-stat-card partiel"><div class="number">${partiels}</div><div class="label">Payé partiellement</div></div>
+        <div class="inscription-stat-card" style="border-color:#64748b;"><div class="number" style="color:#64748b;">${nonPayes}</div><div class="label">Non payé</div></div>
+        <div class="inscription-stat-card reste"><div class="number">${formatNbSimple(totalFrais-totalPaye)} FC</div><div class="label">Reste total</div></div>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="inscription-table">
+        <thead><tr><th>ÉLÈVE</th><th>CLASSE</th><th style="text-align:right;">FRAIS TOTAL</th><th style="text-align:right;">PAYÉ</th><th style="text-align:right;">RESTE</th><th style="text-align:center;">STATUT</th><th style="text-align:center;">ACTION</th></tr></thead>
+        <tbody>`;
+    for (const e of liste) {
+        const color = e.statut === 'COMPLET' ? '#10b981' : (e.statut === 'PARTIEL' ? '#f59e0b' : '#64748b');
+        const reste = e.reste > 0 ? e.reste : 0;
+        const nomComplet = e.nom.toUpperCase();
+        const statutClass = e.statut === 'COMPLET' ? 'complet' : (e.statut === 'PARTIEL' ? 'partiel' : '');
+        const statutLabel = e.statut === 'NON PAYÉ' ? 'NON PAYÉ' : e.statut;
+        html += `
+        <tr class="${statutClass}">
+            <td style="font-weight:500;color:white;white-space:nowrap;">${nomComplet}</td>
+            <td style="color:#94a3b8;white-space:nowrap;">${e.classe}${e.option ? ' - '+e.option : ''}</td>
+            <td style="text-align:right;color:white;white-space:nowrap;">${formatNbSimple(e.fraisTotal)} FC</td>
+            <td style="text-align:right;color:${color};font-weight:bold;white-space:nowrap;">${formatNbSimple(e.montantPaye)} FC</td>
+            <td style="text-align:right;color:${reste > 0 ? '#ef4444' : '#10b981'};font-weight:bold;white-space:nowrap;">${reste > 0 ? formatNbSimple(reste) + ' FC' : '✓'}</td>
+            <td style="text-align:center;white-space:nowrap;"><span class="status-badge ${statutClass}">${statutLabel}</span></td>
+            <td style="text-align:center;white-space:nowrap;">${reste > 0 ? `<button class="btn btn-sm btn-orange" onclick="window.ouvrirPaiementInscription('${e.id}','${e.nom}',${e.reste},${e.minerval},${e.montantPaye})">💰 PAYER</button>` : '<span style="color:#10b981;">✓</span>'}</td>
+        </tr>`;
+    }
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+};
+
 </script>
 </body>
 </html>
