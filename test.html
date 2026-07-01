@@ -87,7 +87,7 @@
         .login-card p{color:#cbd5e1;font-size:13px;margin-bottom:20px;}
         .login-card input,.login-card select{width:100%;padding:12px;margin-bottom:14px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;}
         .login-card button{width:100%;padding:12px;border-radius:40px;background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;font-weight:600;border:none;cursor:pointer;}
-        .eleve-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+        .eleve-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:10px;}
         .eleve-row input{flex:2;padding:8px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;}
         .eleve-row select{padding:8px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;}
         .epreuve-box{background:rgba(45,55,72,0.6);border-radius:16px;padding:12px;margin-bottom:12px;}
@@ -310,6 +310,10 @@
         .prof-desactiver-msg h2{color:#ef4444;font-size:22px;margin-bottom:12px;}
         .prof-desactiver-msg p{color:#cbd5e1;font-size:14px;line-height:1.8;}
         .prof-desactiver-msg .entreprise{color:#fbbf24;font-weight:700;font-size:16px;}
+        .badge-import{background:rgba(16,185,129,0.15);color:#10b981;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:600;}
+        .badge-lock{color:#94a3b8;font-size:11px;margin-left:6px;}
+        .info-import{background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.15);border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:12px;color:#94a3b8;}
+        .info-import strong{color:#10b981;}
     </style>
 </head>
 <body>
@@ -344,9 +348,19 @@
             </div>
             <div class="prof-config"><h3>CONFIGURATION</h3>
                 <div class="note-max-row"><label>Note max / période :</label><input type="number" id="p1MaxConfig" value="20" step="1"></div>
-                <div class="btn-group"><button class="btn btn-success" id="newFicheBtn">NOUVELLE FICHE</button><button class="btn btn-warning" id="copyElevesBtn">COPIER ELEVES</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
+                <div class="btn-group"><button class="btn btn-success" id="newFicheBtn">NOUVELLE FICHE</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
             </div>
-            <div style="padding:20px;border-top:1px solid #334155;margin-top:20px;"><h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3><div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div><button class="btn btn-success" id="addEleveBtn" style="width:100%">+ AJOUTER UN ÉLÈVE</button></div>
+            <div style="padding:20px;border-top:1px solid #334155;margin-top:20px;">
+                <h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3>
+                <div class="info-import">
+                    <span>📌 Les élèves sont <strong>automatiquement importés</strong> depuis la comptabilité lors de la création de la fiche.</span><br>
+                    <span>🔒 <strong style="color:#f59e0b;">Lecture seule</strong> - Aucune modification autorisée</span>
+                </div>
+                <div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div>
+                <div id="ficheStats" style="margin-top:12px;padding:12px;background:#0f172a;border-radius:12px;font-size:13px;color:#cbd5e1;">
+                    <div id="ficheStatsContent"></div>
+                </div>
+            </div>
         </div></div>
     <div id="tabCorrection" class="tab-content"><div class="card"><div class="card-header">🎯 CORRECTION INTERACTIVE - 2 MODES DE SAISIE</div>
             <div class="fiche-selector"><label>📁 Fiche à coter :</label><select id="correctionFicheSelector"></select></div>
@@ -895,17 +909,6 @@
         d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
     }
 
-    function showPrompt(msg, placeholder, onConfirm) {
-        let d = document.createElement('div');
-        d.className = 'modal-fullscreen';
-        d.innerHTML = '<div class="modal-content" style="max-width:400px;"><p style="color:#fff;margin-bottom:20px;">' + msg + '</p><input type="text" id="promptInput" placeholder="' + placeholder + '" style="width:100%;padding:12px;border-radius:12px;background:#2d3748;border:1px solid #334155;color:#fff;margin-bottom:20px;"><div style="display:flex;gap:12px;"><button class="btn btn-success" id="promptOk">Valider</button><button class="btn btn-outline" id="promptCancel">Annuler</button></div></div>';
-        document.body.appendChild(d);
-        setTimeout(function() { d.classList.add('show'); }, 10);
-        d.querySelector('#promptOk').onclick = function() { let val = d.querySelector('#promptInput').value.trim();
-            d.remove(); if (onConfirm) onConfirm(val); };
-        d.querySelector('#promptCancel').onclick = function() { d.remove(); if (onConfirm) onConfirm(null); };
-    }
-
     async function getDernierCommunique() {
         try {
             const q = query(collection(db, SCHOOL_PREFIX + "_communiques"), orderBy("date", "desc"), limit(1));
@@ -999,6 +1002,7 @@
 
     async function getAllComptaEleves() {
         try {
+            // Premier essai: structure avec sous-collection ecoles/{schoolId}/compta_eleves
             const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve"));
             const snap = await getDocs(q);
             localEleves = [];
@@ -1019,8 +1023,35 @@
                     abandon: d.abandon || false
                 });
             }
+            
+            // Si aucun élève trouvé, essayer la structure plate
+            if (localEleves.length === 0) {
+                const q2 = query(collection(db, SCHOOL_PREFIX + "_compta_eleves"), where("_type", "==", "compta_eleve"));
+                const snap2 = await getDocs(q2);
+                for (const ds of snap2.docs) {
+                    const d = ds.data();
+                    localEleves.push({
+                        id: d.eleveId,
+                        nom: d.nom,
+                        postnom: d.postnom || "",
+                        prenom: d.prenom || "",
+                        sexe: d.sexe || "M",
+                        classe: d.classe,
+                        option: d.option || "",
+                        minerval: d.minerval,
+                        exonere: d.exonere || false,
+                        paiements: d.paiements || {},
+                        parentCode: d.parentCode || "",
+                        abandon: d.abandon || false
+                    });
+                }
+            }
+            
             return localEleves;
-        } catch (error) { return localEleves; }
+        } catch (error) { 
+            console.error("Erreur récupération élèves:", error);
+            return localEleves; 
+        }
     }
 
     async function getAllFiches() {
@@ -2092,6 +2123,7 @@
             mettreAJourEpreuvesSelect();
             correctionUpdateEpreuveList();
             mettreAJourCompteurEleves();
+            mettreAJourStatsFiche();
         }
     }
 
@@ -2139,6 +2171,19 @@
         }
     }
 
+    function mettreAJourStatsFiche() {
+        const container = document.getElementById('ficheStatsContent');
+        if (!container || !currentFiche) return;
+        const eleves = currentFiche.eleves || [];
+        container.innerHTML = `
+            <div style="display:flex;gap:20px;flex-wrap:wrap;">
+                <div><span style="color:#94a3b8;">👥 Total élèves :</span><span style="color:#fff;font-weight:600;margin-left:8px;">${eleves.length}</span></div>
+                <div><span style="color:#94a3b8;">📅 Importé le :</span><span style="color:#94a3b8;margin-left:8px;">${currentFiche.importAuto?.date ? new Date(currentFiche.importAuto.date).toLocaleDateString('fr-FR') : new Date().toLocaleDateString('fr-FR')}</span></div>
+                <div><span style="color:#94a3b8;">📌 Source :</span><span style="color:#10b981;margin-left:8px;">Comptabilité</span></div>
+            </div>
+        `;
+    }
+
     function afficherEleves() {
         let c = document.getElementById('elevesListContainer');
         if (!c) return;
@@ -2148,45 +2193,29 @@
         }
         c.innerHTML = '';
         let ev = currentFiche.eleves || [];
+        
+        if (ev.length === 0) {
+            c.innerHTML = '<div class="empty-state" style="padding:20px;">📭 Aucun élève trouvé dans la comptabilité pour cette classe.<br><span style="font-size:12px;color:#64748b;">Vérifiez que la classe et l\'option sont correctes.</span></div>';
+            return;
+        }
+        
         for (let i = 0; i < ev.length; i++) {
             let d = document.createElement('div');
             d.className = 'eleve-row';
-            d.innerHTML = '<input type="text" value="' + (ev[i].nom || '') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe == 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (ev[i].sexe == 'F' ? 'selected' : '') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px">X</span>';
+            d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.03);border-radius:10px;margin-bottom:6px;';
+            d.innerHTML = `
+                <span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">${ev[i].nom || ''}</span>
+                <span style="color:#94a3b8;padding:8px;background:rgba(59,130,246,0.1);border-radius:20px;padding:4px 12px;font-size:11px;">${ev[i].sexe || 'M'}</span>
+                <span style="color:#10b981;font-size:11px;padding:4px 12px;background:rgba(16,185,129,0.1);border-radius:20px;">📥 Importé</span>
+                <span style="cursor:default;color:#64748b;padding:8px;font-size:11px;" title="Élève importé automatiquement - Non modifiable">🔒</span>
+            `;
             c.appendChild(d);
         }
-        if (ev.length === 0) c.innerHTML = '<div class="empty-state">Aucun élève inscrit</div>';
+        
+        mettreAJourStatsFiche();
         updateExportSelect();
         mettreAJourCompteurEleves();
     }
-
-    window.updEleve = function(i, f, v) {
-        if (f === 'nom' && (!v || v.trim() === '')) {
-            toast("Le nom de l'élève ne peut pas être vide", 'error');
-            return;
-        }
-        currentFiche.eleves[i][f] = v;
-        debounceSave();
-        afficherEleves();
-        afficherCotation();
-        updateExportSelect();
-        refreshGroupes();
-        rafraichirGroupesPourCotation();
-        toast("Élève modifié", 'success');
-    };
-
-    window.delEleve = function(i) {
-        let n = currentFiche.eleves[i]?.nom || 'Élève';
-        showConfirm("Supprimer " + n + " de la liste ?", function() {
-            currentFiche.eleves.splice(i, 1);
-            afficherEleves();
-            afficherCotation();
-            updateExportSelect();
-            refreshGroupes();
-            rafraichirGroupesPourCotation();
-            debounceSave();
-            toast(n + " a été supprimé", 'warning');
-        });
-    };
 
     function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
     function getExamMax(s) { if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2); else return getPeriodeMax(3) + getPeriodeMax(4); }
@@ -2243,29 +2272,49 @@
         let th = document.getElementById('cotationHeader');
         let tb = document.getElementById('cotationBody');
         let ev = currentFiche?.eleves || [];
+
         let elevesFiltres = [...ev];
         const searchTerm = document.getElementById('searchInput')?.value?.toLowerCase() || '';
-        if (searchTerm) elevesFiltres = elevesFiltres.filter(e => (e.nom || '').toLowerCase().includes(searchTerm));
+        if (searchTerm) {
+            elevesFiltres = elevesFiltres.filter(e =>
+                (e.nom || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
         if (!elevesFiltres.length) {
             th.innerHTML = '';
-            tb.innerHTML = '<tr><td class="empty-state">Aucun élève correspondant aux filtres</td></tr>';
+            tb.innerHTML = '<tr><td class="empty-state" colspan="20">Aucun élève correspondant aux filtres</td></tr>';
             return;
         }
-        let p1m = getPeriodeMax(1), p2m = getPeriodeMax(2), p3m = getPeriodeMax(3), p4m = getPeriodeMax(4);
-        let e1m = getExamMax(1), e2m = getExamMax(2);
-        let ts1m = getTotalSemestreMax(1), ts2m = getTotalSemestreMax(2), tam = getTotalAnnuelMax();
+
+        let p1m = getPeriodeMax(1);
+        let p2m = getPeriodeMax(2);
+        let p3m = getPeriodeMax(3);
+        let p4m = getPeriodeMax(4);
+        let e1m = getExamMax(1);
+        let e2m = getExamMax(2);
+        let ts1m = getTotalSemestreMax(1);
+        let ts2m = getTotalSemestreMax(2);
+        let tam = getTotalAnnuelMax();
+
         let h = ['<th>N°</th><th>NOMS</th><th>SEXE</th>'];
         let e1 = currentFiche.epreuvesParPeriode?.[1] || [];
         let e2 = currentFiche.epreuvesParPeriode?.[2] || [];
         let e3 = currentFiche.epreuvesParPeriode?.[3] || [];
         let e4 = currentFiche.epreuvesParPeriode?.[4] || [];
+
         const periodeFiltre = 'all';
+
         if (periodeFiltre === 'all' || periodeFiltre === '1') {
-            for (let ep of e1) h.push('<th>' + ep.nom + '<br>P1 /' + ep.max + '</th>');
+            for (let ep of e1) {
+                h.push('<th>' + ep.nom + '<br>P1 /' + ep.max + '</th>');
+            }
             h.push('<th>MOY P1<br>/' + p1m + '</th>');
         }
         if (periodeFiltre === 'all' || periodeFiltre === '2') {
-            for (let ep of e2) h.push('<th>' + ep.nom + '<br>P2 /' + ep.max + '</th>');
+            for (let ep of e2) {
+                h.push('<th>' + ep.nom + '<br>P2 /' + ep.max + '</th>');
+            }
             h.push('<th>MOY P2<br>/' + p2m + '</th>');
         }
         if (periodeFiltre === 'all') {
@@ -2273,11 +2322,15 @@
             h.push('<th>TOT S1<br>/' + ts1m + '</th>');
         }
         if (periodeFiltre === 'all' || periodeFiltre === '3') {
-            for (let ep of e3) h.push('<th>' + ep.nom + '<br>P3 /' + ep.max + '</th>');
+            for (let ep of e3) {
+                h.push('<th>' + ep.nom + '<br>P3 /' + ep.max + '</th>');
+            }
             h.push('<th>MOY P3<br>/' + p3m + '</th>');
         }
         if (periodeFiltre === 'all' || periodeFiltre === '4') {
-            for (let ep of e4) h.push('<th>' + ep.nom + '<br>P4 /' + ep.max + '</th>');
+            for (let ep of e4) {
+                h.push('<th>' + ep.nom + '<br>P4 /' + ep.max + '</th>');
+            }
             h.push('<th>MOY P4<br>/' + p4m + '</th>');
         }
         if (periodeFiltre === 'all') {
@@ -2286,11 +2339,14 @@
             h.push('<th>TOTAL<br>/' + tam + '</th>');
             h.push('<th>📝 APPRÉCIATION</th>');
         }
+
         th.innerHTML = h.join('');
         tb.innerHTML = '';
+
         for (let i = 0; i < elevesFiltres.length; i++) {
             let e = elevesFiltres[i];
             if (!e.notes) e.notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
+
             let p1 = calcMoy(1, e.notes.p1);
             let p2 = calcMoy(2, e.notes.p2);
             let p3 = calcMoy(3, e.notes.p3);
@@ -2300,13 +2356,19 @@
             let ts1 = p1 + p2 + ex1;
             let ts2 = p3 + p4 + ex2;
             let tot = ts1 + ts2;
+
             const pMax = currentFiche.p1Max || 20;
             const moyGen = getMoyenneGenerale(e);
             const appr = getAppreciation(moyGen.moyenne, pMax);
+
+            // TOUS les élèves sont en lecture seule (importés)
             let r = '<tr>';
-            r += '<td style="text-align:center">' + String(i + 1).padStart(2, '0') + '</td>';
-            r += '<td style="text-align:left"><input type="text" value="' + (e.nom || '') + '" onchange="window.updNoteField(' + i + ',\'nom\',this.value)" style="width:180px"></td>';
-            r += '<td style="text-align:center"><select onchange="window.updNoteField(' + i + ',\'sexe\',this.value)"><option value="M" ' + (e.sexe == 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (e.sexe == 'F' ? 'selected' : '') + '>F</option></select></td>';
+            r += '<td style="text-align:center;font-weight:600;">' + String(i + 1).padStart(2, '0') + '</td>';
+            
+            // Nom en lecture seule avec icône 🔒
+            r += '<td style="text-align:left;color:#10b981;font-weight:600;">' + (e.nom || '') + ' 🔒</td>';
+            r += '<td style="text-align:center;color:#94a3b8;">' + (e.sexe || 'M') + ' 🔒</td>';
+
             if (periodeFiltre === 'all' || periodeFiltre === '1') {
                 for (let ei = 0; ei < e1.length; ei++) {
                     let val = e.notes.p1?.[ei] || 0;
@@ -2317,6 +2379,7 @@
                 let p1Class = getNoteClass(p1, p1m);
                 r += '<td style="background:#1e3a5f" class="' + p1Class + '">' + p1 + '</td>';
             }
+
             if (periodeFiltre === 'all' || periodeFiltre === '2') {
                 for (let ei = 0; ei < e2.length; ei++) {
                     let val = e.notes.p2?.[ei] || 0;
@@ -2327,12 +2390,14 @@
                 let p2Class = getNoteClass(p2, p2m);
                 r += '<td style="background:#1e3a5f" class="' + p2Class + '">' + p2 + '</td>';
             }
+
             if (periodeFiltre === 'all') {
                 let ex1Class = getNoteClass(ex1, e1m);
                 r += '<td><input type="number" step="0.5" min="0" max="' + e1m + '" value="' + ex1 + '" onchange="window.updExam(' + i + ',1,this.value)" style="width:55px" class="' + ex1Class + '"></td>';
                 let ts1Class = getNoteClass(ts1, ts1m);
                 r += '<td style="background:#5c4a1a" class="' + ts1Class + '">' + ts1 + '</td>';
             }
+
             if (periodeFiltre === 'all' || periodeFiltre === '3') {
                 for (let ei = 0; ei < e3.length; ei++) {
                     let val = e.notes.p3?.[ei] || 0;
@@ -2343,6 +2408,7 @@
                 let p3Class = getNoteClass(p3, p3m);
                 r += '<td style="background:#1e3a5f" class="' + p3Class + '">' + p3 + '</td>';
             }
+
             if (periodeFiltre === 'all' || periodeFiltre === '4') {
                 for (let ei = 0; ei < e4.length; ei++) {
                     let val = e.notes.p4?.[ei] || 0;
@@ -2353,6 +2419,7 @@
                 let p4Class = getNoteClass(p4, p4m);
                 r += '<td style="background:#1e3a5f" class="' + p4Class + '">' + p4 + '</td>';
             }
+
             if (periodeFiltre === 'all') {
                 let ex2Class = getNoteClass(ex2, e2m);
                 r += '<td><input type="number" step="0.5" min="0" max="' + e2m + '" value="' + ex2 + '" onchange="window.updExam(' + i + ',2,this.value)" style="width:55px" class="' + ex2Class + '"></td>';
@@ -2362,21 +2429,11 @@
                 r += '<td style="background:#5c4a1a" class="' + totClass + '">' + tot + '</td>';
                 r += '<td><span class="appreciation-badge ' + appr.class + '">' + appr.text + '</span></td>';
             }
+
             r += '</tr>';
             tb.innerHTML += r;
         }
     }
-
-    window.updNoteField = function(i, f, v) {
-        if (f === 'nom' && (!v || v.trim() === '')) { toast("Le nom ne peut pas être vide", 'error'); return; }
-        currentFiche.eleves[i][f] = v;
-        debounceSave();
-        updateExportSelect();
-        refreshGroupes();
-        rafraichirGroupesPourCotation();
-        afficherCotation();
-        mettreAJourCompteurEleves();
-    };
 
     window.updNote = function(i, p, epi, v) {
         let va = parseFloat(v) || 0;
@@ -2896,39 +2953,6 @@
             else await setDoc(doc(db, SCHOOL_PREFIX + "_config", "options_par_classe"), optionsParClasse);
         } catch (e) { console.error(e); }
         toggleOptionField();
-    }
-
-    function getTodayKey() {
-        const today = new Date().toISOString().slice(0, 10);
-        const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
-        return 'parent_questions_' + schoolPrefixForStorage + '_' + today;
-    }
-
-    function getQuestionCountLocal() {
-        const key = getTodayKey();
-        const data = localStorage.getItem(key);
-        if (!data) return 0;
-        try {
-            const parsed = JSON.parse(data);
-            if (parsed.date !== new Date().toISOString().slice(0, 10)) return 0;
-            return parsed.count || 0;
-        } catch (e) { return 0; }
-    }
-
-    function incrementQuestionCountLocal() {
-        const key = getTodayKey();
-        const currentCount = getQuestionCountLocal();
-        const newCount = currentCount + 1;
-        localStorage.setItem(key, JSON.stringify({ date: new Date().toISOString().slice(0, 10), count: newCount }));
-        return newCount;
-    }
-
-    async function typeWriterEffect(element, text, speed = 15) {
-        element.innerHTML = '';
-        for (let i = 0; i < text.length; i++) {
-            element.innerHTML += text.charAt(i);
-            await new Promise(r => setTimeout(r, speed));
-        }
     }
 
     function correctionUpdateEpreuveList() {
@@ -3821,6 +3845,7 @@
         if (!c) { toast("Veuillez renseigner le cours", 'error'); return; }
         if (!cl) { toast("Veuillez sélectionner une classe", 'error'); return; }
         if (cl !== '7ème EB' && cl !== '8ème EB' && !op) { toast("Veuillez sélectionner une option", 'error'); return; }
+        
         showConfirm("Créer une nouvelle fiche ?", async function() {
             isCreatingFiche = true;
             try {
@@ -3828,6 +3853,8 @@
                 let nnum = await getNextFicheNumero();
                 let fop = (cl === '7ème EB' || cl === '8ème EB') ? '' : op;
                 let now = new Date();
+                
+                // 🔄 IMPORT AUTOMATIQUE DES ÉLÈVES DEPUIS LA COMPTABILITÉ
                 await getAllComptaEleves();
                 const elevesCompta = localEleves;
                 let elevesFiltres = elevesCompta.filter(e => {
@@ -3837,6 +3864,7 @@
                     if (fop && e.option !== fop) return false;
                     return true;
                 });
+                
                 let eleves = elevesFiltres.map(e => ({
                     id: e.id || Date.now() + Math.random(),
                     nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
@@ -3846,8 +3874,9 @@
                     parentCode: e.parentCode || '',
                     eleveId: e.id,
                     importeLe: new Date().toISOString(),
-                    source: "auto"
+                    source: "comptabilite"
                 }));
+                
                 let nf = {
                     profId: currentProf.id,
                     ficheId: nid,
@@ -3860,16 +3889,36 @@
                     numeroRef: nnum,
                     dateCreation: now,
                     lastModified: now,
-                    epreuvesParPeriode: { 1: [{ nom: "Interrogation", max: 20 }], 2: [{ nom: "Interrogation", max: 20 }], 3: [{ nom: "Interrogation", max: 20 }], 4: [{ nom: "Interrogation", max: 20 }] },
-                    eleves: eleves,
+                    epreuvesParPeriode: {
+                        1: [{ nom: "Interrogation", max: 20 }],
+                        2: [{ nom: "Interrogation", max: 20 }],
+                        3: [{ nom: "Interrogation", max: 20 }],
+                        4: [{ nom: "Interrogation", max: 20 }]
+                    },
+                    eleves: eleves, // ✅ Importés automatiquement depuis la comptabilité
                     school: SCHOOL_PREFIX,
-                    importAuto: { date: now.toISOString(), nbEleves: eleves.length, classe: cl, option: fop, auto: true }
+                    importAuto: {
+                        date: now.toISOString(),
+                        nbEleves: eleves.length,
+                        classe: cl,
+                        option: fop,
+                        auto: true,
+                        source: "comptabilite"
+                    }
                 };
-                await enregistrerLog("creation_fiche_auto", { message: `Création automatique ${c} - ${cl}${fop ? ' ('+fop+')' : ''}`, nbEleves: eleves.length }, "success");
+                
+                await enregistrerLog("creation_fiche_auto", {
+                    message: `Création automatique ${c} - ${cl}${fop ? ' ('+fop+')' : ''}`,
+                    nbEleves: eleves.length
+                }, "success");
+                
                 await saveToIndexedDB('fiches', { ...nf, id: nid });
                 if (navigator.onLine) {
-                    try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } catch (e) { await addPendingSync('saveFiche', nf); }
+                    try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } catch (e) {
+                        await addPendingSync('saveFiche', nf);
+                    }
                 } else { await addPendingSync('saveFiche', nf); }
+                
                 currentFiche = nf;
                 currentFicheId = nid;
                 document.getElementById('coursInput').value = '';
@@ -3885,54 +3934,18 @@
                 updateExportSelect();
                 refreshGroupes();
                 mettreAJourCompteurEleves();
-                if (eleves.length > 0) toast(`✅ ${eleves.length} élève(s) importé(s) depuis la comptabilité`, 'success');
-                else toast("⚠️ Aucun élève trouvé dans la comptabilité pour cette classe", 'warning');
+                mettreAJourStatsFiche();
+                
+                if (eleves.length > 0) {
+                    toast(`✅ ${eleves.length} élève(s) automatiquement importé(s) depuis la comptabilité`, 'success');
+                } else {
+                    toast("⚠️ Aucun élève trouvé dans la comptabilité pour cette classe", 'warning');
+                }
             } catch (error) {
                 toast("❌ Erreur lors de la création", 'error');
                 console.error(error);
             } finally { isCreatingFiche = false; }
         });
-    };
-
-    document.getElementById('copyElevesBtn').onclick = async function() {
-        if (!currentFiche) {
-            toast("Aucune fiche sélectionnée", 'error');
-            return;
-        }
-        let fd = toutesFiches.filter(function(f) { return f.id !== currentFicheId; });
-        if (fd.length === 0) {
-            toast("Aucune autre fiche disponible", 'warning');
-            return;
-        }
-        let m = document.createElement('div');
-        m.className = 'modal-fullscreen';
-        let oh = '';
-        for (let f of fd) {
-            oh += '<option value="' + f.id + '">' + formatNumero(f.numeroRef) + ' - ' + (f.cours || '') + ' - ' + (f.classe || '') + '</option>';
-        }
-        m.innerHTML = '<div class="modal-content" style="max-width:500px"><div style="display:flex;justify-content:space-between;margin-bottom:20px"><h3>Copier les élèves</h3><span style="font-size:28px;cursor:pointer;color:#94a3b8" id="closeCopyModal">&times;</span></div><p style="color:#cbd5e1;margin-bottom:16px">Fiche source :</p><select id="sourceFicheSelect" style="width:100%;padding:12px;border-radius:40px;background:#2d3748;border:1px solid #334155;color:#fff;margin-bottom:20px">' + oh + '</select><div style="display:flex;gap:10px"><button class="btn btn-success" id="confirmCopyBtn">Copier</button><button class="btn btn-outline" id="cancelCopyBtn">Annuler</button></div></div>';
-        document.body.appendChild(m);
-        setTimeout(function() { m.classList.add('show'); }, 10);
-        let cm = function() { m.remove(); };
-        document.getElementById('closeCopyModal').onclick = cm;
-        document.getElementById('cancelCopyBtn').onclick = cm;
-        document.getElementById('confirmCopyBtn').onclick = async function() {
-            let sid = document.getElementById('sourceFicheSelect').value;
-            let st = await getFromIndexedDB('fiches', sid);
-            if (st && st.eleves?.length) {
-                currentFiche.eleves = st.eleves.map(function(e) {
-                    return { ...e, id: Date.now() + Math.random(), notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 } };
-                });
-                await saveCurrentFiche();
-                afficherEleves();
-                afficherCotation();
-                updateExportSelect();
-                refreshGroupes();
-                mettreAJourCompteurEleves();
-                toast(currentFiche.eleves.length + " élève(s) copié(s)", 'success');
-                setTimeout(cm, 1500);
-            } else toast("Aucun élève trouvé dans la fiche source", 'error');
-        };
     };
 
     document.getElementById('deleteFicheBtn').onclick = async function() {
@@ -3992,22 +4005,6 @@
             afficherCotation();
             toast("Note max modifiée à " + currentFiche.p1Max, 'success');
         }
-    };
-
-    document.getElementById('addEleveBtn').onclick = function() {
-        if (!currentFiche) { toast("Veuillez sélectionner une fiche", 'error'); return; }
-        if (!currentFiche.eleves) currentFiche.eleves = [];
-        currentFiche.eleves.push({ id: Date.now(), nom: "", sexe: "M", notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 } });
-        afficherEleves();
-        afficherCotation();
-        updateExportSelect();
-        refreshGroupes();
-        debounceSave();
-        toast("Nouvel élève ajouté", 'success');
-        setTimeout(function() {
-            let li = document.querySelector('#elevesListContainer .eleve-row:last-child input');
-            if (li) li.focus();
-        }, 100);
     };
 
     document.getElementById('sortAlphaBtn').onclick = function() {
