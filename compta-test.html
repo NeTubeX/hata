@@ -71,7 +71,10 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .eleve-card.en-ordre{border-left:4px solid #10b981;}
 .eleve-card.abandon{opacity:0.6;border-left:4px solid #64748b;}
 .eleve-card-header{padding:12px 16px 8px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-bottom:1px solid rgba(255,215,0,0.08);}
-.eleve-nom{font-weight:700;color:#ffd700;font-size:15px;}
+.eleve-nom{font-weight:700;color:#ffd700;font-size:15px;display:flex;align-items:center;gap:10px;}
+.eleve-photo-mini{width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,215,0,0.3);flex-shrink:0;background:#1e293b;}
+.eleve-photo-mini img{width:100%;height:100%;object-fit:cover;}
+.eleve-photo-mini .default-avatar-mini{font-size:16px;display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;}
 .eleve-badges{display:flex;gap:6px;flex-wrap:wrap;}
 .badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:600;}
 .badge-exonere{background:#10b981;color:white;}
@@ -151,7 +154,9 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .detail-list{max-height:400px;overflow-y:auto;}
 .detail-item{background:rgba(15,23,42,0.6);border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid #ffd700;cursor:pointer;transition:all 0.2s;}
 .detail-item:hover{background:rgba(30,41,59,0.8);transform:translateX(3px);}
-.detail-item .detail-nom{font-weight:700;color:#ffd700;font-size:14px;}
+.detail-item .detail-nom{font-weight:700;color:#ffd700;font-size:14px;display:flex;align-items:center;gap:10px;}
+.detail-item .detail-photo{width:28px;height:28px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,215,0,0.2);flex-shrink:0;background:#1e293b;}
+.detail-item .detail-photo img{width:100%;height:100%;object-fit:cover;}
 .detail-item .detail-info{color:#94a3b8;font-size:11px;margin-top:4px;}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 @media (max-width:500px){.form-row{grid-template-columns:1fr;}}
@@ -249,6 +254,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <div class="filter-group"><label>📚 Classe</label><select id="pdfFilterClasse"><option value="">Toutes</option></select></div>
 <div class="filter-group"><label>🎯 Option</label><select id="pdfFilterOption"><option value="">Toutes</option></select></div>
 <div class="filter-group"><label>📅 Statut</label><select id="pdfFilterStatut"><option value="all">Tous</option><option value="actif">Actifs</option><option value="abandon">Abandons</option></select></div>
+<div class="filter-actions"><button class="btn btn-primary btn-sm" id="btnApplyPdfFilter">🔍 Appliquer</button><button class="btn btn-outline btn-sm" id="btnResetPdfFilter">✖ Réinitialiser</button></div>
 </div>
 </div>
 <div class="pdf-buttons-grid">
@@ -318,6 +324,24 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 </div></div>
 <div class="form-row"><div class="form-group"><label>💰 MONTANT PAYÉ À L'INSCRIPTION (FC)</label><input type="number" id="newEleveMontantInscription" placeholder="Ex: 50000" step="1000" value="0"></div></div>
 <div class="modal-buttons"><button class="btn btn-success" id="confirmAddEleve">✅ INSCRIRE</button><button class="btn btn-outline" id="cancelAddEleve">❌ ANNULER</button></div></div></div>
+
+<!-- MODAL MODIFIER PHOTO -->
+<div class="modal-overlay" id="editPhotoModal">
+<div class="modal-card"><h3>📸 MODIFIER LA PHOTO</h3>
+<div id="editPhotoInfo" style="margin-bottom:16px;"><div class="modal-info-line"><span>ÉLÈVE</span><span id="editPhotoEleveNom" style="color:#ffd700;font-weight:bold;">-</span></div></div>
+<div class="photo-upload-area" style="justify-content:center;">
+<div class="photo-preview" id="editPhotoPreview" style="width:100px;height:100px;"><span class="default-avatar">👤</span></div>
+</div>
+<div class="form-group"><label>Choisir une nouvelle photo</label>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+<input type="file" id="editPhotoInput" class="photo-hidden-input" accept="image/*" style="display:none;">
+<button class="btn btn-primary" id="btnEditPhotoUpload">📤 Choisir une photo</button>
+<button class="btn btn-danger" id="btnEditPhotoRemove">✕ Supprimer la photo</button>
+</div>
+</div>
+<div class="modal-buttons"><button class="btn btn-success" id="confirmEditPhoto">💾 ENREGISTRER</button><button class="btn btn-outline" id="cancelEditPhoto">ANNULER</button></div>
+</div></div>
+
 <div class="modal-overlay" id="detailModal"><div class="modal-card"><h3 id="detailModalTitle"></h3><div id="detailModalContent" class="detail-list"></div><div class="modal-buttons"><button class="btn btn-outline" id="closeDetailModal">FERMER</button></div></div></div>
 <div class="modal-overlay" id="confirmModal"><div class="modal-card"><h3>⚠️ CONFIRMATION</h3><div id="confirmMessage" style="color:#fff; text-align:center; padding:20px;"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmYes">OUI</button><button class="btn btn-outline" id="confirmNo">NON</button></div></div></div>
 <div class="modal-overlay" id="editParentCodeModal"><div class="modal-card"><h3>✏️ MODIFIER LE CODE PARENT</h3><div id="editParentCodeInfo"></div>
@@ -338,8 +362,10 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 <script>
 // ===== VARIABLES PHOTO =====
 let photoDataURL = null;
+let editPhotoEleveId = null;
+let editPhotoDataURL = null;
 
-// ===== GESTION PHOTO =====
+// ===== GESTION PHOTO INSCRIPTION =====
 document.getElementById('btnUploadPhoto').addEventListener('click', function() {
     document.getElementById('newElevePhotoInput').click();
 });
@@ -371,7 +397,78 @@ document.getElementById('btnRemovePhoto').addEventListener('click', function() {
     updatePreview();
 });
 
-// ===== FONCTIONS DE FILTRE POUR PDF =====
+// ===== MODIFICATION PHOTO =====
+function ouvrirEditPhoto(eleveId, eleveNom, photo) {
+    editPhotoEleveId = eleveId;
+    document.getElementById('editPhotoEleveNom').textContent = eleveNom;
+    const preview = document.getElementById('editPhotoPreview');
+    const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
+    if (photo) {
+        preview.innerHTML = `<img src="${photo}" alt="Photo" onerror="this.src='${defaultAvatar}'">`;
+        editPhotoDataURL = photo;
+    } else {
+        preview.innerHTML = `<span class="default-avatar">👤</span>`;
+        editPhotoDataURL = null;
+    }
+    document.getElementById('editPhotoInput').value = '';
+    document.getElementById('editPhotoModal').classList.add('show');
+}
+
+document.getElementById('btnEditPhotoUpload').addEventListener('click', function() {
+    document.getElementById('editPhotoInput').click();
+});
+
+document.getElementById('editPhotoInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+        toast('La photo ne doit pas dépasser 2MB', 'error');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        editPhotoDataURL = event.target.result;
+        const preview = document.getElementById('editPhotoPreview');
+        preview.innerHTML = `<img src="${editPhotoDataURL}" alt="Photo">`;
+        toast('Photo modifiée', 'success');
+    };
+    reader.readAsDataURL(file);
+});
+
+document.getElementById('btnEditPhotoRemove').addEventListener('click', function() {
+    editPhotoDataURL = null;
+    document.getElementById('editPhotoPreview').innerHTML = `<span class="default-avatar">👤</span>`;
+    document.getElementById('editPhotoInput').value = '';
+    toast('Photo supprimée', 'warning');
+});
+
+document.getElementById('confirmEditPhoto').onclick = async function() {
+    if (!editPhotoEleveId) { toast('Aucun élève sélectionné', 'error'); return; }
+    try {
+        const docId = `compta_${editPhotoEleveId}`;
+        const ref = doc(db, "ecoles", SCHOOL_PREFIX, "compta_eleves", docId);
+        await updateDoc(ref, { photo: editPhotoDataURL || null });
+        const idx = localEleves.findIndex(e => e.id === editPhotoEleveId);
+        if (idx !== -1) {
+            localEleves[idx].photo = editPhotoDataURL || null;
+        }
+        sauvegarderDansIndexedDB(localEleves);
+        document.getElementById('editPhotoModal').classList.remove('show');
+        toast('Photo mise à jour avec succès', 'success');
+        await afficherListeEleves();
+        await afficherCartesIdentite();
+        if (currentEleve) await afficherReleve(currentEleve);
+    } catch (error) {
+        toast('Erreur lors de la mise à jour', 'error');
+        console.error(error);
+    }
+};
+
+document.getElementById('cancelEditPhoto').onclick = function() {
+    document.getElementById('editPhotoModal').classList.remove('show');
+};
+
+// ===== FONCTIONS DE FILTRE =====
 function getPDFFilters() {
     const classe = document.getElementById('pdfFilterClasse').value;
     const option = document.getElementById('pdfFilterOption').value;
@@ -388,7 +485,7 @@ function filtrerElevesPourPDF(eleves, filters) {
     return result;
 }
 
-// ===== FONCTIONS PDF AVEC FILTRES =====
+// ===== FONCTIONS PDF =====
 window.genererPDFRecouvrement = async function() {
     try {
         const filters = getPDFFilters();
@@ -539,13 +636,13 @@ window.genererPDFExoneres = async function() {
     } catch (e) { toast("Erreur", "error"); }
 };
 
-// ===== GÉNÉRATION DES CARTES AVEC PHOTOS ET 6 CARTES/PAGE =====
+// ===== CARTES AVEC PHOTOS =====
 window.genererPDFCartes = async function() {
     try {
+        const filters = getPDFFilters();
         toast("Génération des cartes...", "warning");
         const { jsPDF } = window.jspdf;
         const eleves = await getAllComptaEleves();
-        const filters = getPDFFilters();
         let actifs = filtrerElevesPourPDF(eleves, filters);
         actifs = actifs.filter(e => !e.abandon);
         if (actifs.length === 0) { toast("Aucun élève à afficher", "warning"); return; }
@@ -556,8 +653,6 @@ window.genererPDFCartes = async function() {
         const marginY = 10;
         const cardWidth = (pageWidth - marginX * 3) / 2;
         const cardHeight = (pageHeight - marginY * 4) / 3;
-        const cardSpacingX = marginX;
-        const cardSpacingY = marginY;
         let index = 0;
         const total = actifs.length;
         const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
@@ -614,11 +709,11 @@ window.genererPDFCartes = async function() {
                 let col = 0;
                 while (col < 2 && index < total) {
                     addCard(actifs[index], xPos, yPos, cardWidth, cardHeight);
-                    xPos += cardWidth + cardSpacingX;
+                    xPos += cardWidth + marginX;
                     col++;
                     index++;
                 }
-                yPos += cardHeight + cardSpacingY;
+                yPos += cardHeight + marginY;
                 row++;
             }
         }
@@ -626,10 +721,6 @@ window.genererPDFCartes = async function() {
         toast(`${actifs.length} carte(s) générée(s)`, "success");
     } catch (e) { toast("Erreur lors de la génération des cartes", "error"); console.error(e); }
 };
-
-// ===== AJOUTER PHOTO DANS L'INSCRIPTION =====
-// Modification de la fonction ajouterEleveCompta pour inclure la photo
-// La fonction originale est conservée, on ajoute le champ photo dans le nouvel élève
 
 // ===== INITIALISATION DES FILTRES =====
 document.getElementById('btnApplyCarteFilter').addEventListener('click', function() {
@@ -642,45 +733,44 @@ document.getElementById('btnResetCarteFilter').addEventListener('click', functio
     afficherCartesIdentite();
 });
 
-// Remplir les filtres de classe
-async function remplirFiltresClasse() {
-    const selects = ['carteFilterClasse', 'pdfFilterClasse'];
+document.getElementById('btnApplyPdfFilter').addEventListener('click', function() {
+    toast('Filtres PDF appliqués', 'success');
+});
+
+document.getElementById('btnResetPdfFilter').addEventListener('click', function() {
+    document.getElementById('pdfFilterClasse').value = '';
+    document.getElementById('pdfFilterOption').value = '';
+    document.getElementById('pdfFilterStatut').value = 'all';
+    toast('Filtres PDF réinitialisés', 'success');
+});
+
+// ===== REMPLIR LES FILTRES =====
+async function remplirFiltres() {
     const eleves = await getAllComptaEleves();
     const classes = new Set();
-    eleves.forEach(e => { if (e.classe) classes.add(e.classe); });
-    const classesTriees = Array.from(classes).sort();
-    selects.forEach(id => {
-        const sel = document.getElementById(id);
-        if (!sel) return;
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">Toutes</option>';
-        classesTriees.forEach(c => {
-            sel.innerHTML += `<option value="${c}">${c}</option>`;
-        });
-        if (currentVal) sel.value = currentVal;
-    });
-}
-
-// Remplir les filtres d'option
-async function remplirFiltresOption() {
-    const selects = ['carteFilterOption', 'pdfFilterOption'];
-    const eleves = await getAllComptaEleves();
     const options = new Set();
-    eleves.forEach(e => { if (e.option) options.add(e.option); });
+    eleves.forEach(e => { if (e.classe) classes.add(e.classe); if (e.option) options.add(e.option); });
+    const classesTriees = Array.from(classes).sort();
     const optionsTriees = Array.from(options).sort();
-    selects.forEach(id => {
+    ['carteFilterClasse', 'pdfFilterClasse'].forEach(id => {
         const sel = document.getElementById(id);
         if (!sel) return;
         const currentVal = sel.value;
         sel.innerHTML = '<option value="">Toutes</option>';
-        optionsTriees.forEach(o => {
-            sel.innerHTML += `<option value="${o}">${o}</option>`;
-        });
+        classesTriees.forEach(c => { sel.innerHTML += `<option value="${c}">${c}</option>`; });
+        if (currentVal) sel.value = currentVal;
+    });
+    ['carteFilterOption', 'pdfFilterOption'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Toutes</option>';
+        optionsTriees.forEach(o => { sel.innerHTML += `<option value="${o}">${o}</option>`; });
         if (currentVal) sel.value = currentVal;
     });
 }
 
-// ===== FONCTIONS EXISTANTES CONSERVÉES =====
+// ===== FONCTIONS EXISTANTES =====
 window.ouvrirModalInscription = function() {
     photoDataURL = null;
     document.getElementById('newElevePhotoPreview').innerHTML = `<span class="default-avatar">👤</span>`;
@@ -700,8 +790,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnPDF) { btnPDF.onclick = function() { window.genererPDFInscription(); }; }
     document.getElementById('confirmInscriptionPayment').onclick = window.confirmInscriptionPayment;
     document.getElementById('cancelInscriptionPayment').onclick = function() { document.getElementById('inscriptionPaymentModal').classList.remove('show'); };
-    remplirFiltresClasse();
-    remplirFiltresOption();
+    remplirFiltres();
 });
 
 window.confirmDeconnexion = function() {
@@ -1445,11 +1534,24 @@ toast(`✅ ${rattacherEleveNom} rattaché à la famille avec le code ${nouveauCo
 
 document.getElementById('cancelRattacherFamille').onclick = function() { document.getElementById('rattacherFamilleModal').classList.remove('show'); };
 
-// ===== AFFICHAGE DES ÉLÈVES =====
+// ===== AFFICHAGE DES ÉLÈVES AVEC PHOTO =====
+function getDefaultAvatar() {
+return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
+}
+
+function getPhotoHTML(photo, size = 'mini') {
+const defaultAvatar = getDefaultAvatar();
+if (size === 'mini') {
+return `<div class="eleve-photo-mini"><img src="${photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;
+}
+return `<div class="detail-photo"><img src="${photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;
+}
+
 async function afficherListeEleves(){
 const eleves=await getElevesFiltres();
 const cont=document.getElementById("elevesContainer");
 if(!eleves.length){cont.innerHTML='<div class="empty-state">📭 Aucun élève</div>';return;}
+const defaultAvatar = getDefaultAvatar();
 let html='<div class="eleve-cards">';
 for(let e of eleves){
 const estLN=(!e.exonere&&e.moisImpayes>=3);
@@ -1460,19 +1562,103 @@ else if(estLN){badge='<span class="badge badge-listenoire">LISTE NOIRE</span>';c
 else if(estOrdre){badge='<span class="badge badge-en-ordre">EN ORDRE</span>';classeSpec='en-ordre';}
 else if(e.moisImpayes>0){badge='<span class="badge badge-impaye">IMPAYÉ</span>';}
 const codeDisplay=e.parentCode?`<span class="badge badge-code">🔑 ${e.parentCode}</span>`:'';
-html+=`<div class="eleve-card ${classeSpec}"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="eleve-badges">${badge}${codeDisplay}</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">💰</span><span class="eleve-info-value">${e.exonere?"EXONÉRÉ":formatNbSimple(e.minerval)+" FC/mois"}</span></div>${e.phone?`<div class="eleve-info-item"><span class="eleve-info-label">📞</span><span class="eleve-info-value">${e.phone}</span></div>`:''}</div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Paiements</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code parent</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirRattacherFamille('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">👨‍👩‍👧‍👦 Rattacher à une famille</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ Abandon</div></div></div></div></div>`;
+const photoHtml = `<div class="eleve-photo-mini"><img src="${e.photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;
+html+=`<div class="eleve-card ${classeSpec}"><div class="eleve-card-header"><div class="eleve-nom">${photoHtml} ${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="eleve-badges">${badge}${codeDisplay}</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">💰</span><span class="eleve-info-value">${e.exonere?"EXONÉRÉ":formatNbSimple(e.minerval)+" FC/mois"}</span></div>${e.phone?`<div class="eleve-info-item"><span class="eleve-info-label">📞</span><span class="eleve-info-value">${e.phone}</span></div>`:''}</div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Paiements</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code parent</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirRattacherFamille('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">👨‍👩‍👧‍👦 Rattacher</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditPhoto('${e.id}','${e.nom} ${e.prenom||''}','${e.photo||''}')">📸 Modifier photo</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt('${e.id}','${e.nom}')">❌ Abandon</div></div></div></div></div>`;
 }
 html+='</div>';
 cont.innerHTML=html;
 await mettreAJourStats();
 }
 
+async function afficherAbandons(){
+const eleves=await getAbandons();
+const cont=document.getElementById("abandonsContainer");
+if(!eleves.length){cont.innerHTML='<div class="empty-state">📭 Aucun abandon</div>';return;}
+const defaultAvatar = getDefaultAvatar();
+let html='<div class="eleve-cards">';
+for(let e of eleves){
+const photoHtml = `<div class="eleve-photo-mini"><img src="${e.photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;
+html+=`<div class="eleve-card abandon"><div class="eleve-card-header"><div class="eleve-nom">${photoHtml} ${e.nom} ${e.postnom||''} ${e.prenom||''} <span class="badge badge-abandon">ABANDON</span></div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">📅</span><span class="eleve-info-value">${e.dateAbandon||"-"}</span></div><div class="eleve-info-item"><span class="eleve-info-label">🔑</span><span class="eleve-info-value">${e.parentCode||'-'}</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Voir</div><div class="dropdown-item" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">🔄 Réintégrer</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditPhoto('${e.id}','${e.nom} ${e.prenom||''}','${e.photo||''}')">📸 Photo</div></div></div></div></div>`;
+}
+html+='</div>';
+cont.innerHTML=html;
+}
+
+async function afficherCartesIdentite(){
+const eleves=await getAllComptaEleves();
+const filters = {
+classe: document.getElementById('carteFilterClasse')?.value || '',
+option: document.getElementById('carteFilterOption')?.value || ''
+};
+let filtered = eleves.filter(e=>!e.abandon);
+if(filters.classe) filtered = filtered.filter(e=>e.classe===filters.classe);
+if(filters.option) filtered = filtered.filter(e=>e.option===filters.option);
+const searchTerm=document.getElementById("searchCarte")?.value.trim().toLowerCase()||"";
+if(searchTerm){
+filtered=filtered.filter(e=>
+e.nom.toLowerCase().includes(searchTerm)||
+(e.postnom&&e.postnom.toLowerCase().includes(searchTerm))||
+(e.prenom&&e.prenom.toLowerCase().includes(searchTerm))||
+e.classe.toLowerCase().includes(searchTerm)||
+e.id.toLowerCase().includes(searchTerm)
+);
+}
+const container=document.getElementById("cartesContainer");
+if(!filtered.length){container.innerHTML='<div class="empty-state">📭 Aucune carte à afficher</div>';return;}
+const defaultAvatar = getDefaultAvatar();
+let html='';
+for(let e of filtered){
+const sexeDisplay = e.sexe === 'M' ? 'Masculin' : (e.sexe === 'F' ? 'Féminin' : 'Non renseigné');
+let badgeClass=e.exonere?'exonere':(e.abandon?'abandon':'');
+let badgeText=e.exonere?'EXONÉRÉ':(e.abandon?'ABANDON':'ACTIF');
+const photoUrl = e.photo || defaultAvatar;
+html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div>
+<div style="display:flex;gap:16px;margin-bottom:15px;">
+<div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,215,0,0.3);flex-shrink:0;background:#1e293b;">
+<img src="${photoUrl}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${defaultAvatar}'">
+</div>
+<div style="flex:1;">
+<div class="carte-info-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
+<div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📍 LIEU NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">⚧ SEXE</span><span class="carte-info-value">${sexeDisplay}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📚 CLASSE</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div>
+<div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div>
+</div>
+</div>
+</div>
+<div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
+}
+container.innerHTML=html;
+}
+
+// Ouvrir modif photo depuis les actions
+window.ouvrirEditPhoto = function(eleveId, eleveNom, photo) {
+ouvrirEditPhoto(eleveId, eleveNom, photo);
+};
+
+// Fonction voirDetails avec photo
+window.voirDetails=async function(id,nom,classe,option){
+const eleves=await getAllComptaEleves(true);
+currentEleve=eleves.find(e=>e.id===id);
+await afficherReleve(currentEleve);
+document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));
+document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));
+document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active");
+document.getElementById("tab2").classList.add("active");
+};
+
 async function afficherReleve(eleve){
 if(!eleve||eleve.abandon){document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;return;}
 const elevesFraiches=await getAllComptaEleves(true);
 const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
 if(!eleveMaj)return;
-let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
+const defaultAvatar = getDefaultAvatar();
+const photoHtml = `<div style="width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,215,0,0.3);display:inline-block;vertical-align:middle;margin-right:10px;background:#1e293b;"><img src="${eleveMaj.photo || defaultAvatar}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${defaultAvatar}'"></div>`;
+let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;display:flex;align-items:center;">${photoHtml} ${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;margin-left:50px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;margin-left:50px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;margin-left:50px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
 let totalMin=0,totalPaye=0;
 const paiements=eleveMaj.paiements||{};
 for(let mois of moisListe){
@@ -1501,6 +1687,7 @@ html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap
 document.getElementById("releveContainer").innerHTML=html;
 }
 
+// ===== FONCTIONS EXISTANTES RESTANTES =====
 window.ouvrirEditParentCode = async function(eleveId, eleveNom, codeActuel) {
 const modal = document.getElementById('editParentCodeModal');
 const codeSuggere = await genererCodeParentUnique();
@@ -1553,7 +1740,9 @@ container.innerHTML='<div class="empty-state">🔍 Aucun élève trouvé avec ce
 }else{
 let html=`<div class="code-family-group"><div style="font-weight:bold;margin-bottom:12px;">🔑 Code ${searchCode} - ${enfants.length} enfant(s)</div>`;
 for(let e of enfants){
-html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">👤 ${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''} | 📞 ${e.phone||'-'}</div></div>`;
+const defaultAvatar = getDefaultAvatar();
+const photoHtml = `<div class="detail-photo"><img src="${e.photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;
+html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">${photoHtml} ${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''} | 📞 ${e.phone||'-'}</div></div>`;
 }
 html+=`</div><div style="margin-top:12px;"><button class="btn btn-sm btn-outline" onclick="document.getElementById('searchParentCode').value='';afficherParentCodes();">✖ Effacer</button></div>`;
 container.innerHTML=html;
@@ -1576,77 +1765,8 @@ allCodesContainer.innerHTML=codesListHtml;
 }
 }
 
-async function afficherCartesIdentite(){
-const eleves=await getAllComptaEleves();
-const filters = {
-classe: document.getElementById('carteFilterClasse')?.value || '',
-option: document.getElementById('carteFilterOption')?.value || ''
-};
-let filtered = eleves.filter(e=>!e.abandon);
-if(filters.classe) filtered = filtered.filter(e=>e.classe===filters.classe);
-if(filters.option) filtered = filtered.filter(e=>e.option===filters.option);
-const searchTerm=document.getElementById("searchCarte")?.value.trim().toLowerCase()||"";
-if(searchTerm){
-filtered=filtered.filter(e=>
-e.nom.toLowerCase().includes(searchTerm)||
-(e.postnom&&e.postnom.toLowerCase().includes(searchTerm))||
-(e.prenom&&e.prenom.toLowerCase().includes(searchTerm))||
-e.classe.toLowerCase().includes(searchTerm)||
-e.id.toLowerCase().includes(searchTerm)
-);
-}
-const container=document.getElementById("cartesContainer");
-if(!filtered.length){container.innerHTML='<div class="empty-state">📭 Aucune carte à afficher</div>';return;}
-let html='';
-const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSI0MCIgZmlsbD0iIzFlMjkzYiIvPjxjaXJjbGUgY3g9IjQwIiBjeT0iMjgiIHI9IjE4IiBmaWxsPSIjM2IzODI2Ii8+PHBhdGggZD0iTTQwIDUwIGMxMiAwIDIyIDggMjYgMTkgLTEgMTIgLTEyIDIxIC0yNiAyMSAtMTQgMCAtMjUgLTkgLTI2IC0yMSB6IiBmaWxsPSIjM2IzODI2Ii8+PC9zdmc+';
-for(let e of filtered){
-const sexeDisplay = e.sexe === 'M' ? 'Masculin' : (e.sexe === 'F' ? 'Féminin' : 'Non renseigné');
-let badgeClass=e.exonere?'exonere':(e.abandon?'abandon':'');
-let badgeText=e.exonere?'EXONÉRÉ':(e.abandon?'ABANDON':'ACTIF');
-const photoUrl = e.photo || defaultAvatar;
-html+=`<div class="carte-identite"><div class="carte-header"><div class="carte-nom">${e.nom} ${e.postnom||''} ${e.prenom||''}</div><div class="carte-badge ${badgeClass}">${badgeText}</div></div>
-<div style="display:flex;gap:16px;margin-bottom:15px;">
-<div style="width:80px;height:80px;border-radius:50%;overflow:hidden;border:2px solid rgba(255,215,0,0.3);flex-shrink:0;background:#1e293b;">
-<img src="${photoUrl}" alt="Photo" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='${defaultAvatar}'">
-</div>
-<div style="flex:1;">
-<div class="carte-info-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));">
-<div class="carte-info-item"><span class="carte-info-label">📅 NÉ(E) LE</span><span class="carte-info-value">${e.dateNaiss||'Non renseignée'}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">📍 LIEU NAISSANCE</span><span class="carte-info-value">${e.lieuNaiss||'Non renseigné'}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">⚧ SEXE</span><span class="carte-info-value">${sexeDisplay}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">🎓 MATRICULE</span><span class="carte-info-value">${e.id||'-'}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">📚 CLASSE</span><span class="carte-info-value">${e.classe} ${e.option?`(${e.option})`:''}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">📞 TÉLÉPHONE</span><span class="carte-info-value">${e.phone||'-'}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">🏠 ADRESSE</span><span class="carte-info-value">${e.adresse||'-'}</span></div>
-<div class="carte-info-item"><span class="carte-info-label">🔑 CODE PARENT</span><span class="carte-info-value" style="font-family:monospace;font-size:16px;color:#3b82f6;">${e.parentCode||'Non attribué'}</span></div>
-</div>
-</div>
-</div>
-<div class="carte-parents"><div class="carte-info-item"><span class="carte-info-label">👨 PÈRE</span><span class="carte-info-value">${e.nomPere||'Non renseigné'}</span></div><div class="carte-info-item"><span class="carte-info-label">👩 MÈRE</span><span class="carte-info-value">${e.nomMere||'Non renseignée'}</span></div></div></div>`;
-}
-container.innerHTML=html;
-}
 window.marquerAbandonPrompt=async function(id,nom){if(await showConfirm(`⚠️ Êtes-vous sûr de vouloir abandonner l'élève ${nom} ?`)){await marquerAbandon(id);toast(`${nom} a été abandonné`,"warning");}};
-async function afficherAbandons(){
-const eleves=await getAbandons();
-const cont=document.getElementById("abandonsContainer");
-if(!eleves.length){cont.innerHTML='<div class="empty-state">📭 Aucun abandon</div>';return;}
-let html='<div class="eleve-cards">';
-for(let e of eleves){
-html+=`<div class="eleve-card abandon"><div class="eleve-card-header"><div class="eleve-nom">${e.nom} ${e.postnom||''} ${e.prenom||''} <span class="badge badge-abandon">ABANDON</span></div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">${e.classe} ${e.option?`- ${e.option}`:''}</span></div><div class="eleve-info-item"><span class="eleve-info-label">📅</span><span class="eleve-info-value">${e.dateAbandon||"-"}</span></div><div class="eleve-info-item"><span class="eleve-info-label">🔑</span><span class="eleve-info-value">${e.parentCode||'-'}</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')">💰 Voir</div><div class="dropdown-item" onclick="event.stopPropagation(); reintegrerAbandon('${e.id}','${e.nom}')">🔄 Réintégrer</div><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode('${e.id}','${e.nom} ${e.prenom||''}','${e.parentCode||''}')">🔑 Code</div></div></div></div></div>`;
-}
-html+='</div>';
-cont.innerHTML=html;
-}
-window.voirDetails=async function(id,nom,classe,option){
-const eleves=await getAllComptaEleves(true);
-currentEleve=eleves.find(e=>e.id===id);
-await afficherReleve(currentEleve);
-document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));
-document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));
-document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active");
-document.getElementById("tab2").classList.add("active");
-};
+
 window.reintegrerAbandon=async function(id,nom){if(await showConfirm(`🔄 RÉINTÉGRER L'ÉLÈVE ${nom} ?`)){await annulerAbandon(id);toast(`${nom} a été réintégré`,"success");}};
 window.openPaiement=async function(mois,minerval,dejaPaye){if(!await verifierCode("paiement")){toast("Annulé","warning");return;}const reste=minerval-dejaPaye;document.getElementById("modalInfo").innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`;document.getElementById("paymentAmount").value=reste;window.paiementData={mois,minerval,dejaPaye,reste,eleveId:currentEleve.id};document.getElementById("paymentModal").classList.add("show");};
 function verifierCode(action){return new Promise((resolve)=>{pendingAction={resolve,action};document.getElementById("codeInput").value="";document.getElementById("codeModal").classList.add("show");});}
@@ -1658,7 +1778,7 @@ document.getElementById("confirmNo").onclick=()=>{document.getElementById("confi
 document.getElementById("confirmPayment").onclick=async()=>{const montant=parseInt(document.getElementById("paymentAmount").value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.paiementData.reste){toast("Dépasse le reste","error");return;}if(await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour ${currentEleve.nom} (${window.paiementData.mois}) ?`)){await enregistrerPaiement(window.paiementData.eleveId,window.paiementData.mois,montant);document.getElementById("paymentModal").classList.remove("show");await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStats();}};
 document.getElementById("cancelPayment").onclick=()=>document.getElementById("paymentModal").classList.remove("show");
 async function changerCodeAcces(){const ancienCode=document.getElementById("oldCode").value;const nouveauCode1=document.getElementById("newCode1").value;const nouveauCode2=document.getElementById("newCode2").value;if(ancienCode!==currentSchoolConfig?.codeAcces){toast("Ancien code incorrect","error");return;}if(!nouveauCode1||nouveauCode1!==nouveauCode2){toast("Les nouveaux codes ne correspondent pas","error");return;}if(nouveauCode1.length<4){toast("Le code doit contenir au moins 4 caractères","error");return;}currentSchoolConfig.codeAcces=nouveauCode1;const configRef=doc(db,"ecoles",SCHOOL_PREFIX,"_config","settings");await setDoc(configRef,currentSchoolConfig);toast("Code d'accès modifié avec succès","success");document.getElementById("oldCode").value="";document.getElementById("newCode1").value="";document.getElementById("newCode2").value="";}
-async function showDetailModal(title,eleves){const modal=document.getElementById("detailModal");const titleEl=document.getElementById("detailModalTitle");const contentEl=document.getElementById("detailModalContent");titleEl.innerHTML=`${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`;if(eleves.length===0){contentEl.innerHTML='<div class="empty-state">Aucun élément</div>';}else{let html='';for(let e of eleves){html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">👤 ${e.nom} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''}</div>${e.moisImpayes!==undefined?`<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>`:''}<div class="detail-info">🔑 ${e.parentCode||'Aucun code'}</div></div>`;}contentEl.innerHTML=html;}modal.classList.add("show");}
+async function showDetailModal(title,eleves){const modal=document.getElementById("detailModal");const titleEl=document.getElementById("detailModalTitle");const contentEl=document.getElementById("detailModalContent");titleEl.innerHTML=`${title} <span style="font-size:14px;color:#94a3b8;">(${eleves.length})</span>`;if(eleves.length===0){contentEl.innerHTML='<div class="empty-state">Aucun élément</div>';}else{const defaultAvatar=getDefaultAvatar();let html='';for(let e of eleves){const photoHtml=`<div class="detail-photo"><img src="${e.photo || defaultAvatar}" alt="Photo" onerror="this.src='${defaultAvatar}'"></div>`;html+=`<div class="detail-item" onclick="voirDetails('${e.id}','${e.nom}','${e.classe}','${e.option||""}')"><div class="detail-nom">${photoHtml} ${e.nom} ${e.prenom||''}</div><div class="detail-info">📚 ${e.classe} ${e.option?`- ${e.option}`:''}</div>${e.moisImpayes!==undefined?`<div class="detail-info">⚠️ ${e.moisImpayes} mois impayés</div>`:''}<div class="detail-info">🔑 ${e.parentCode||'Aucun code'}</div></div>`;}contentEl.innerHTML=html;}modal.classList.add("show");}
 document.getElementById("closeDetailModal").onclick=()=>document.getElementById("detailModal").classList.remove("show");
 async function setupStatCards(){
 const tous=await getAllComptaEleves();
@@ -2041,9 +2161,11 @@ window.updatePreview=updatePreview;
 window.afficherCartesIdentite=afficherCartesIdentite;
 window.afficherParentCodes=afficherParentCodes;
 window.ouvrirEditParentCode=ouvrirEditParentCode;
+window.ouvrirEditPhoto=ouvrirEditPhoto;
 window.getPDFFilters = getPDFFilters;
 window.filtrerElevesPourPDF = filtrerElevesPourPDF;
 window.photoDataURL = photoDataURL;
+window.getDefaultAvatar = getDefaultAvatar;
 </script>
 </body>
 </html>
