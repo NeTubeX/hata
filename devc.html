@@ -1120,16 +1120,14 @@
                             }
                         }
                     }
-                    const sexe = eleve.sexe || 'Non spécifié';
-                    const nombreElevesClasse = fiche.eleves ? fiche.eleves.length : 0;
                     resultats.push({
                         eleveNom: eleve.nom,
-                        sexe: sexe,
+                        sexe: eleve.sexe || 'M',
                         classe: fiche.classe,
                         option: fiche.option || '',
                         titulaire: fiche.titulaire || null,
                         epreuves: epreuvesList,
-                        nombreElevesClasse: nombreElevesClasse,
+                        nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0,
                         punitions: punitions,
                         presences: presences
                     });
@@ -1189,12 +1187,11 @@
         return lastDataHash === currentHash;
     }
 
-    // Fonction corrigée pour obtenir le genre et le pronom
     function getSexePronom(sexe) {
-        if (sexe === 'F' || sexe === 'Féminin') {
+        if (sexe === 'F' || sexe === 'Féminin' || sexe === 'fille') {
             return { genre: 'fille', pronom: 'elle', possessif: 'sa' };
         }
-        return { genre: 'garçon', pronom: 'il', possessif: 'son' }; // Par défaut pour M ou inconnu
+        return { genre: 'garçon', pronom: 'il', possessif: 'son' };
     }
 
     async function genererReponseNaturelle(question, eleveData) {
@@ -1255,7 +1252,7 @@
         if (!reponse) {
             const { pronom } = getSexePronom(eleveData.sexe);
             let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
-            const sexe = eleveData.sexe || 'Non spécifié';
+            const sexe = eleveData.sexe || 'M';
             let pronom2 = "il";
             if (sexe === 'F' || sexe === 'Féminin') pronom2 = "elle";
             contexte += `Son sexe est ${sexe === 'M' ? 'Masculin' : sexe === 'F' ? 'Féminin' : 'Non spécifié'}. `;
@@ -1467,7 +1464,6 @@
         return `Je vous ai donné toutes les informations sur ${nomComplet}. Si vous avez d'autres questions, je suis là. Sinon, vous pouvez entrer un autre code parent. Bonne journée !`;
     }
 
-    // Fonction pour récupérer le compteur depuis Firebase
     async function getQuestionCountFromFirebase(code) {
         if (!code || code.length !== 6) return 0;
         try {
@@ -1478,7 +1474,6 @@
                 const today = new Date().toISOString().slice(0, 10);
                 if (data.date === today) return data.count || 0;
                 else {
-                    // Réinitialiser si la date est différente
                     await setDoc(docRef, { code: code, count: 0, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
                     return 0;
                 }
@@ -1490,7 +1485,6 @@
         }
     }
 
-    // Fonction pour incrémenter le compteur dans Firebase
     async function incrementQuestionCountInFirebase(code) {
         if (!code || code.length !== 6) return 0;
         const today = new Date().toISOString().slice(0, 10);
@@ -1511,7 +1505,6 @@
                 ecole: SCHOOL_PREFIX,
                 lastUpdated: new Date().toISOString()
             });
-            // Mettre à jour le cache local
             const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
             try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount })); } catch(e) {}
             return newCount;
@@ -1521,10 +1514,8 @@
         }
     }
 
-    // Version mise à jour de getQuestionCountForCode
     async function getQuestionCountForCode(code) {
         if (!code || code.length !== 6) return 0;
-        // Vérifier d'abord le cache local pour la performance
         const today = new Date().toISOString().slice(0, 10);
         const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
         try {
@@ -1532,20 +1523,16 @@
             if (cached) {
                 const data = JSON.parse(cached);
                 if (data.date === today) {
-                    // Vérifier si le cache est à jour (optionnel: on peut forcer une vérification périodique)
                     return data.count || 0;
                 }
             }
         } catch(e) {}
-        // Si pas en cache ou périmé, aller chercher dans Firebase
         return await getQuestionCountFromFirebase(code);
     }
 
-    // Version mise à jour de incrementQuestionCountForCode
     async function incrementQuestionCountForCode(code) {
         if (!code || code.length !== 6) return 0;
         const newCount = await incrementQuestionCountInFirebase(code);
-        // Mettre à jour l'affichage
         updateCounterDisplay();
         return newCount;
     }
@@ -1631,18 +1618,21 @@
         return false;
     }
 
-    // Version mise à jour de afficherInfosEleve avec le genre
     async function afficherInfosEleve(eleve) {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
         dernierEleveConsulte = eleve.nom;
+        
+        const sexe = eleve.sexe || 'M';
+        const { genre, pronom } = getSexePronom(sexe);
+        
         const resultatsNotes = await chercherNotesParNom(eleve.nom);
         const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
         let notesFiltrees = [];
         if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
+        
         const eleveId = eleve.id || eleve.nom;
         if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-        const sexe = eleve.sexe || 'M';
-        const { genre, pronom } = getSexePronom(sexe);
+        
         dernierEleveData = {
             id: eleveId,
             nom: eleve.nom,
@@ -1669,22 +1659,26 @@
         };
         reponseCache.clear();
         lastDataHash = getDataHash(dernierEleveData);
+        
         const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom || ''} dans notre système. C'est ${pronom === 'il' ? 'un garçon' : 'une fille'}. ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
         return reponse;
     }
 
-    // Version mise à jour de afficherInfosEleveMulti avec le genre
     async function afficherInfosEleveMulti(eleve) {
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
         dernierEleveConsulte = eleve.nom;
+        
+        const sexe = eleve.sexe || 'M';
+        const { genre, pronom } = getSexePronom(sexe);
+        
         const resultatsNotes = await chercherNotesParNom(eleve.nom);
         const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
         let notesFiltrees = [];
         if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
+        
         const eleveId = eleve.id || eleve.nom;
         if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-        const sexe = eleve.sexe || 'M';
-        const { genre, pronom } = getSexePronom(sexe);
+        
         dernierEleveData = {
             id: eleveId,
             nom: eleve.nom,
@@ -1711,11 +1705,11 @@
         };
         reponseCache.clear();
         lastDataHash = getDataHash(dernierEleveData);
+        
         const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom || ''} dans notre système. C'est ${pronom === 'il' ? 'un garçon' : 'une fille'}. ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
         return reponse;
     }
 
-    // Version mise à jour de traiterMessage avec incrémentation correcte
     async function traiterMessage(message) {
         const msg = message.trim().toLowerCase();
         const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
@@ -1744,7 +1738,6 @@
             }
             if (infos.length === 1) {
                 currentParentCode = code;
-                // Incrémenter le compteur pour la connexion (première question)
                 await incrementQuestionCountForCode(code);
                 updateCounterDisplay();
                 await logParentalActivity('connexion_reussie', code, { eleve: infos[0].nom, classe: infos[0].classe, option: infos[0].option || '' });
@@ -1754,7 +1747,8 @@
                 enAttenteChoixEleve = true;
                 let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
                 infos.forEach((eleve, index) => {
-                    reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom || ''} - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
+                    const { pronom } = getSexePronom(eleve.sexe);
+                    reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom || ''} (${pronom === 'il' ? 'garçon' : 'fille'}) - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
                 });
                 reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
                 return reponse;
@@ -1767,14 +1761,16 @@
                 const eleveChoisi = listeElevesEnAttente[choix - 1];
                 enAttenteChoixEleve = false;
                 listeElevesEnAttente = [];
-                // Incrémenter le compteur pour le choix de l'élève
                 if (currentParentCode) {
                     await incrementQuestionCountForCode(currentParentCode);
                     updateCounterDisplay();
                 }
                 return await afficherInfosEleveMulti(eleveChoisi);
             } else {
-                let listeNoms = listeElevesEnAttente.map((e, i) => `${i+1}. ${e.nom} ${e.prenom}`).join('\n');
+                let listeNoms = listeElevesEnAttente.map((e, i) => {
+                    const { pronom } = getSexePronom(e.sexe);
+                    return `${i+1}. ${e.nom} ${e.prenom} (${pronom === 'il' ? 'garçon' : 'fille'})`;
+                }).join('\n');
                 return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
             }
         }
@@ -1789,11 +1785,9 @@
             else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
             else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
             
-            // Incrémenter le compteur pour chaque question posée
             if (currentParentCode) {
                 const newCount = await incrementQuestionCountForCode(currentParentCode);
                 updateCounterDisplay();
-                // Vérifier si la limite est atteinte après incrémentation
                 if (newCount >= 10) {
                     await logParentalActivity('limit_reached', currentParentCode, { limit: 10, current_count: newCount });
                 }
@@ -3826,7 +3820,6 @@
         return div;
     }
 
-    // Gestionnaire d'envoi de message mis à jour
     if (parentSendBtnNew) {
         parentSendBtnNew.onclick = async () => {
             if (estEnAttenteReponse) { toast("Veuillez patienter, je vérifie...", 'warning'); return; }
@@ -3842,7 +3835,6 @@
                 voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
                 return;
             }
-            // Vérifier la limite avant d'envoyer
             if (!await canAskQuestion()) {
                 toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
                 parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
@@ -3870,7 +3862,6 @@
                 parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
                 await typeWriterEffect(bubbleBot, reponse, 12);
                 parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-                // Mise à jour du compteur après la réponse
                 updateCounterDisplay();
                 voixParentale(reponse);
                 if (dernierEleveData) {
@@ -3903,7 +3894,6 @@
         });
     }
     
-    // Initialisation du compteur au chargement
     updateCounterDisplay();
 
     document.getElementById('newFicheBtn').onclick = async function() {
@@ -4657,7 +4647,6 @@
 
     loadingScreen.classList.remove('show');
 
-    // Mise à jour initiale du compteur
     setTimeout(() => updateCounterDisplay(), 1000);
 </script>
 </body>
