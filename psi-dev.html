@@ -36,8 +36,6 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
 .badge-online{background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.2);padding:4px 14px;border-radius:30px;font-size:0.7rem;color:#94a3b8;display:flex;align-items:center;gap:6px}
 .badge-online::before{content:"";width:8px;height:8px;background:#31a24c;border-radius:50%;display:inline-block;animation:pulse-dot 2s infinite}
 @keyframes pulse-dot{0%{opacity:1}50%{opacity:0.4}100%{opacity:1}}
-.offline-badge{background:rgba(56,189,248,0.08);border:1px solid rgba(56,189,248,0.15);padding:4px 12px;border-radius:30px;font-size:0.6rem;color:#94a3b8;display:flex;align-items:center;gap:4px}
-.offline-badge.online{background:rgba(16,185,129,0.12);border-color:rgba(16,185,129,0.2);color:#34d399}
 .school-selector{background:rgba(15,23,42,0.6);backdrop-filter:blur(8px);border-radius:32px;padding:14px 24px;margin-bottom:24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:1px solid rgba(56,189,248,0.12);box-shadow:0 4px 20px rgba(0,0,0,0.2)}
 .school-selector label{font-size:0.7rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px}
 .school-selector select{padding:8px 18px;background:rgba(255,255,255,0.06);border:1px solid rgba(56,189,248,0.2);border-radius:40px;color:#EAEAEA;font-size:0.8rem;cursor:pointer;outline:none;min-width:150px;transition:all 0.3s}
@@ -126,7 +124,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
 .toast-time{font-size:0.55rem;color:#64748b;margin-top:2px}
 .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:8000;align-items:center;justify-content:center}
 .modal-overlay.show{display:flex}
-.modal-content{background:#0f172a;border-radius:32px;width:92%;max-width:400px;padding:32px 28px;border:1px solid rgba(56,189,248,0.15);text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.6)}
+.modal-content{background:#0f172a;border-radius:32px;width:92%;max-width:500px;padding:32px 28px;border:1px solid rgba(56,189,248,0.15);text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.6);max-height:90vh;overflow-y:auto}
 .modal-content .modal-icon{font-size:40px;margin-bottom:8px}
 .modal-content h3{color:#EAEAEA;font-size:1.1rem;font-weight:700;margin-bottom:4px}
 .modal-content p{color:#94a3b8;font-size:0.85rem;line-height:1.6;margin-bottom:12px}
@@ -216,6 +214,9 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
 .fullscreen-message .msg-box .content{font-size:1.1rem;color:#EAEAEA;line-height:1.8;margin-bottom:20px;padding:16px;background:rgba(0,0,0,0.2);border-radius:16px}
 .fullscreen-message .msg-box .close-btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:12px 40px;border-radius:40px;font-weight:600;cursor:pointer;font-size:1rem;transition:0.3s}
 .fullscreen-message .msg-box .close-btn:hover{transform:scale(1.05)}
+.analytics-card,.worker-card{background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);margin-bottom:16px}
+.analytics-card h4,.worker-card h4{font-size:0.8rem;color:#94a3b8;margin-bottom:8px}
+.chart-wrapper{height:160px;position:relative}
 @media(max-width:1024px){.studio-container{flex-direction:column;height:auto;min-height:600px}.studio-center .phone-frame{max-width:200px}.studio-console{max-width:200px}}
 @media(max-width:768px){.studio-container{padding:10px}}
 </style>
@@ -239,8 +240,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
     <div class="header">
         <div class="header-left"><div class="logo">PSI</div><div class="header-text"><h1>CHEF PÔLE STRATEGIE & INNOVATION</h1><p>Développement de Projet | 2026-2027</p></div></div>
         <div class="header-right">
-            <span class="offline-badge online" id="statusBadge"><i class="fas fa-wifi"></i> En ligne</span>
-            <span class="badge-online">● Connecté</span>
+            <span class="badge-online" id="statusBadge">● Connecté</span>
             <button class="btn btn-deconnexion btn-sm" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
         </div>
     </div>
@@ -248,6 +248,7 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
         <label>📍 Province</label><select id="provinceFilter"><option value="">Toutes</option></select>
         <label>🏫 Établissement</label><select id="ecoleFilter"><option value="">Sélectionner</option></select>
         <span id="selectedEcoleInfo"></span>
+        <button class="btn btn-sm btn-primary" id="refreshDataBtn"><i class="fas fa-sync"></i> Rafraîchir</button>
     </div>
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><i class="fas fa-users"></i></div></div><div class="stat-value" id="statElevesCompta">-</div><div class="stat-label">Membre Actif (source Comptabilité)</div></div>
@@ -423,21 +424,23 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
     </div>
 
     <div id="analytics-tab" class="tab-content">
-        <div class="card"><div class="card-header"><h3><i class="fas fa-chart-line"></i> Analytics - Espace Parental</h3></div>
+        <div class="card"><div class="card-header"><h3><i class="fas fa-chart-line"></i> Analytics - Espace Parental</h3>
+            <button class="btn btn-sm btn-primary" id="refreshAnalyticsBtn"><i class="fas fa-sync"></i> Rafraîchir</button>
+        </div>
         <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;">
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#60a5fa;" id="analyticsTotal">-</div><div style="font-size:0.7rem;color:#94a3b8;">Total consultations</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#34d399;" id="analyticsToday">-</div><div style="font-size:0.7rem;color:#94a3b8;">Aujourd'hui</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#f5b84b;" id="analyticsWeek">-</div><div style="font-size:0.7rem;color:#94a3b8;">Cette semaine</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#8b6bf5;" id="analyticsMonth">-</div><div style="font-size:0.7rem;color:#94a3b8;">Ce mois</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#f54b4b;" id="analyticsPeak">-</div><div style="font-size:0.7rem;color:#94a3b8;">Pic (heure)</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#4bcbf5;" id="analyticsAvg">-</div><div style="font-size:0.7rem;color:#94a3b8;">Moyenne/jour</div></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#60a5fa;" id="analyticsTotal">-</div><div style="font-size:0.7rem;color:#94a3b8;">Total consultations</div></div>
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#34d399;" id="analyticsToday">-</div><div style="font-size:0.7rem;color:#94a3b8;">Aujourd'hui</div></div>
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#f5b84b;" id="analyticsWeek">-</div><div style="font-size:0.7rem;color:#94a3b8;">Cette semaine</div></div>
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#8b6bf5;" id="analyticsMonth">-</div><div style="font-size:0.7rem;color:#94a3b8;">Ce mois</div></div>
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#f54b4b;" id="analyticsPeak">-</div><div style="font-size:0.7rem;color:#94a3b8;">Pic (heure)</div></div>
+                <div class="analytics-card"><div style="font-size:1.8rem;font-weight:800;color:#4bcbf5;" id="analyticsAvg">-</div><div style="font-size:0.7rem;color:#94a3b8;">Moyenne/jour</div></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Par heure (24h)</h4><canvas id="chartHourly"></canvas></div>
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Par jour (7 jours)</h4><canvas id="chartDaily"></canvas></div>
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Par semaine (12 semaines)</h4><canvas id="chartWeekly"></canvas></div>
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Par mois (12 mois)</h4><canvas id="chartMonthly"></canvas></div>
+                <div class="analytics-card"><h4>Par heure (24h)</h4><div class="chart-wrapper"><canvas id="chartHourly"></canvas></div></div>
+                <div class="analytics-card"><h4>Par jour (7 jours)</h4><div class="chart-wrapper"><canvas id="chartDaily"></canvas></div></div>
+                <div class="analytics-card"><h4>Par semaine (12 semaines)</h4><div class="chart-wrapper"><canvas id="chartWeekly"></canvas></div></div>
+                <div class="analytics-card"><h4>Par mois (12 mois)</h4><div class="chart-wrapper"><canvas id="chartMonthly"></canvas></div></div>
             </div>
         </div></div>
     </div>
@@ -449,19 +452,19 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helv
                 <select id="workerPeriodFilter" style="padding:4px 12px;border-radius:40px;background:rgba(255,255,255,0.06);border:1px solid rgba(56,189,248,0.15);color:#EAEAEA;font-size:0.7rem;">
                     <option value="today">Aujourd'hui</option><option value="week">Cette semaine</option><option value="month">Ce mois</option><option value="year">Cette année</option>
                 </select>
-                <button class="btn btn-sm btn-primary" id="workerFilterBtn">Appliquer</button>
+                <button class="btn btn-sm btn-primary" id="workerFilterBtn"><i class="fas fa-sync"></i> Appliquer</button>
             </div>
         </div>
         <div class="card-body">
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px;">
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#60a5fa;" id="workerTotal">-</div><div style="font-size:0.7rem;color:#94a3b8;">Total sollicitations</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#34d399;" id="workerAvgDay">-</div><div style="font-size:0.7rem;color:#94a3b8;">Moyenne/jour</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#f5b84b;" id="workerPeak">-</div><div style="font-size:0.7rem;color:#94a3b8;">Pic (jour)</div></div>
-                <div style="background:rgba(15,23,42,0.5);border-radius:16px;padding:16px;text-align:center;border:1px solid rgba(56,189,248,0.1);"><div style="font-size:2rem;font-weight:800;color:#8b6bf5;" id="workerGrowth">-</div><div style="font-size:0.7rem;color:#94a3b8;">Croissance (%)</div></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;">
+                <div class="worker-card"><div style="font-size:1.8rem;font-weight:800;color:#60a5fa;" id="workerTotal">-</div><div style="font-size:0.7rem;color:#94a3b8;">Total sollicitations</div></div>
+                <div class="worker-card"><div style="font-size:1.8rem;font-weight:800;color:#34d399;" id="workerAvgDay">-</div><div style="font-size:0.7rem;color:#94a3b8;">Moyenne/jour</div></div>
+                <div class="worker-card"><div style="font-size:1.8rem;font-weight:800;color:#f5b84b;" id="workerPeak">-</div><div style="font-size:0.7rem;color:#94a3b8;">Pic (jour)</div></div>
+                <div class="worker-card"><div style="font-size:1.8rem;font-weight:800;color:#8b6bf5;" id="workerGrowth">-</div><div style="font-size:0.7rem;color:#94a3b8;">Croissance (%)</div></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Évolution des requêtes</h4><canvas id="chartWorkerEvolution"></canvas></div>
-                <div style="background:rgba(15,23,42,0.4);border-radius:16px;padding:16px;border:1px solid rgba(56,189,248,0.1);"><h4 style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">Performance KPI</h4><canvas id="chartWorkerKPI"></canvas></div>
+                <div class="worker-card"><h4>Évolution des requêtes</h4><div class="chart-wrapper"><canvas id="chartWorkerEvolution"></canvas></div></div>
+                <div class="worker-card"><h4>Performance KPI</h4><div class="chart-wrapper"><canvas id="chartWorkerKPI"></canvas></div></div>
             </div>
         </div></div>
     </div>
@@ -491,6 +494,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// ============ VARIABLES GLOBALES ============
 let allEcoles = [];
 let provincesMap = {};
 let currentEcolePrefix = null;
@@ -514,62 +518,41 @@ let dashboardCode = "1234";
 let allLogs = [];
 let allFichesData = { total: 0, eleves: 0, cours: new Set() };
 let unsubscribeAll = [];
-let isRealtime = true;
 let analyticsData = [];
 let workerData = [];
 let collectionsData = [];
 let fullscreenMessageShown = false;
+let poleMessagesList = [];
+let unsubscribePole = null;
+let dbIndexed = null;
 
 const POLE_MESSAGES_DOC_ID = "consultation_pole";
 const poleMessagesDocRef = doc(db, "communication", POLE_MESSAGES_DOC_ID);
 const READ_STATUS_KEY = "pole_chef_read_messages";
 const POLE_NAME = "Chef Pôle Stratégie & Innovation";
-let poleMessagesList = [];
-let unsubscribePole = null;
 
-const loginOverlay = document.getElementById('loginOverlay');
-const mainContent = document.getElementById('mainContent');
-const loginCodeInput = document.getElementById('loginCode');
-const loginBtn = document.getElementById('loginBtn');
-const loginError = document.getElementById('loginError');
-
-async function checkCode() {
-    const entered = loginCodeInput.value.trim();
-    if (entered === dashboardCode) {
-        loginOverlay.style.display = 'none';
-        mainContent.style.display = 'block';
-        await chargerEcoles();
-        await initPoleMessagesDocument();
-        listenToPoleMessages();
-        startAnalyticsRealtime();
-        startWorkerRealtime();
-        loadCollections();
-    } else {
-        loginError.textContent = '❌ Code incorrect. Veuillez réessayer.';
-        loginCodeInput.value = '';
-        loginCodeInput.focus();
-    }
+// ============ UTILITAIRES ============
+function escapeHtml(s) { if (!s) return ""; return s.replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[m]); }
+function formatNum(n) { return String(n).padStart(2, "0"); }
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+function getWeekNumber(date) {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+    const week1 = new Date(d.getFullYear(), 0, 4);
+    return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
 }
 
-loginBtn.addEventListener('click', checkCode);
-loginCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkCode(); });
-
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    document.getElementById('mainContent').style.display = 'none';
-    document.getElementById('loginOverlay').style.display = 'flex';
-    document.getElementById('loginCode').value = '';
-    document.getElementById('loginError').textContent = '';
-    document.getElementById('loginCode').focus();
-    toast("Déconnexion réussie", "success");
-});
-
-const DB_NAME = "InnovationDashboardDB";
-const DB_VERSION = 1;
-let dbIndexed = null;
-
+// ============ INDEXED DB ============
 function openIndexedDB() {
     return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        const req = indexedDB.open("InnovationDashboardDB", 1);
         req.onerror = () => reject(req.error);
         req.onsuccess = () => { dbIndexed = req.result; resolve(dbIndexed); };
         req.onupgradeneeded = (e) => {
@@ -583,7 +566,6 @@ function openIndexedDB() {
         };
     });
 }
-
 async function saveToIndexed(store, data) {
     if (!dbIndexed) await openIndexedDB();
     const tx = dbIndexed.transaction(store, "readwrite");
@@ -591,7 +573,6 @@ async function saveToIndexed(store, data) {
     if (Array.isArray(data)) { data.forEach(d => obj.put(d)); } else { obj.put(data); }
     return new Promise(resolve => { tx.oncomplete = resolve; });
 }
-
 async function loadFromIndexed(store) {
     if (!dbIndexed) await openIndexedDB();
     const tx = dbIndexed.transaction(store, "readonly");
@@ -603,6 +584,7 @@ async function loadFromIndexed(store) {
     });
 }
 
+// ============ TOAST ET MODAL ============
 function toast(msg, type = "success") {
     const c = document.getElementById("toastContainer");
     if (!c) return;
@@ -654,9 +636,7 @@ function showConfirm(title, msg, requireAdmin = false) {
     });
 }
 
-function escapeHtml(s) { if (!s) return ""; return s.replace(/[&<>]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[m]); }
-function formatNum(n) { return String(n).padStart(2, "0"); }
-
+// ============ HORLOGE ============
 function updateClock() {
     const now = new Date();
     const h = String(now.getHours()).padStart(2, '0');
@@ -671,6 +651,52 @@ function updateClock() {
 setInterval(updateClock, 50);
 updateClock();
 
+function updatePhoneClock() {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('phoneTime').textContent = h + ':' + m;
+}
+setInterval(updatePhoneClock, 1000);
+updatePhoneClock();
+
+// ============ LOGIN ============
+const loginOverlay = document.getElementById('loginOverlay');
+const mainContent = document.getElementById('mainContent');
+const loginCodeInput = document.getElementById('loginCode');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+
+async function checkCode() {
+    const entered = loginCodeInput.value.trim();
+    if (entered === dashboardCode) {
+        loginOverlay.style.display = 'none';
+        mainContent.style.display = 'block';
+        await chargerEcoles();
+        await initPoleMessagesDocument();
+        listenToPoleMessages();
+        startAnalyticsRealtime();
+        startWorkerRealtime();
+        loadCollections();
+    } else {
+        loginError.textContent = '❌ Code incorrect. Veuillez réessayer.';
+        loginCodeInput.value = '';
+        loginCodeInput.focus();
+    }
+}
+loginBtn.addEventListener('click', checkCode);
+loginCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkCode(); });
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('loginCode').value = '';
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginCode').focus();
+    toast("Déconnexion réussie", "success");
+});
+
+// ============ CHARGEMENT DES ÉCOLES ============
 async function chargerEcoles() {
     try {
         const snap = await getDocs(collection(db, "ecoles_autorisees"));
@@ -699,9 +725,8 @@ async function chargerEcoles() {
         if (allEcoles.length > 0) {
             const ecoleSelect = document.getElementById("ecoleFilter");
             ecoleSelect.innerHTML = '<option value="">Sélectionner</option><option value="__all__">📊 Tout</option>';
-            let filtered = allEcoles;
-            filtered.sort((a, b) => a.nom.localeCompare(b.nom));
-            filtered.forEach(e => {
+            allEcoles.sort((a, b) => a.nom.localeCompare(b.nom));
+            allEcoles.forEach(e => {
                 const opt = document.createElement("option");
                 opt.value = e.id;
                 opt.textContent = e.nom;
@@ -734,12 +759,17 @@ function mettreAJourEcoles() {
 
 document.getElementById("provinceFilter").addEventListener("change", mettreAJourEcoles);
 document.getElementById("ecoleFilter").addEventListener("change", () => chargerEcoleSelectionnee(false));
+document.getElementById("refreshDataBtn").addEventListener("click", () => {
+    chargerEcoleSelectionnee(true);
+    toast("Données rafraîchies", "success");
+});
 
 function nettoyerUnsubscribe() {
     unsubscribeAll.forEach(unsub => { try { unsub(); } catch(e) {} });
     unsubscribeAll = [];
 }
 
+// ============ CHARGEMENT DES DONNÉES ============
 async function chargerEcoleSelectionnee(silencieux = false) {
     const ecoleId = document.getElementById("ecoleFilter").value;
     if (!ecoleId) { if (!silencieux) toast("Veuillez sélectionner un établissement", "warning"); return; }
@@ -1011,11 +1041,12 @@ async function chargerToutesLesDonneesTempsReel(silencieux = true) {
         });
         unsubscribeAll.push(unsubParental);
 
+        // Liste noire
         const snapCompta = await getDocs(collection(db, "ecoles", prefix, "compta_eleves"));
         let count = 0;
         snapCompta.forEach(ds => {
             const d = ds.data();
-            if (d._type === "compta_eleve" && !d.abandon) {
+            if (d._type === "compta_eleve" && !d.abandon && !d.exonere) {
                 let moisImpayes = 0;
                 const paiements = d.paiements || {};
                 const minerval = d.minerval || 45000;
@@ -1027,12 +1058,10 @@ async function chargerToutesLesDonneesTempsReel(silencieux = true) {
                 if (moisActuel >= 8) moisCourant = moisListe[moisActuel - 8];
                 else moisCourant = moisListe[moisActuel + 4];
                 function estMoisPasse(m) { return moisIndexMap[m] < moisIndexMap[moisCourant]; }
-                if (!d.exonere) {
-                    for (let m of moisListe) {
-                        if (estMoisPasse(m)) {
-                            const mt = paiements[m]?.montant || 0;
-                            if (mt < minerval) moisImpayes++;
-                        }
+                for (let m of moisListe) {
+                    if (estMoisPasse(m)) {
+                        const mt = paiements[m]?.montant || 0;
+                        if (mt < minerval) moisImpayes++;
                     }
                 }
                 if (moisImpayes >= 3) count++;
@@ -1083,9 +1112,7 @@ async function chargerToutesLesDonneesTempsReel(silencieux = true) {
     }
 }
 
-// Le reste des fonctions (afficherElevesCompta, afficherElevesProfs, etc.) reste identique à ton code original
-// Je continue avec les fonctions manquantes...
-
+// ============ AFFICHAGE DES TABLEAUX ============
 function afficherElevesCompta() {
     const search = document.getElementById("searchElevesCompta").value.toLowerCase();
     const classe = document.getElementById("filterClasseCompta").value;
@@ -1195,6 +1222,7 @@ function afficherTitulaires() {
 
 document.getElementById("searchTitulaires").addEventListener("input", afficherTitulaires);
 
+// ============ STATS ET GRAPHIQUES ============
 function mettreAJourStats() {
     const actifs = profsList.filter(p => p.actif).length;
     document.getElementById("statElevesCompta").textContent = elevesCompta.length || "-";
@@ -1268,12 +1296,12 @@ function mettreAJourGraphiques() {
     });
 }
 
+// ============ LOGS ============
 function chargerLogs() {
-    if (unsubscribeAll.some(u => u._name === 'logs')) {
-        const idx = unsubscribeAll.findIndex(u => u._name === 'logs');
-        if (idx !== -1) { try { unsubscribeAll[idx](); } catch(e) {} unsubscribeAll.splice(idx, 1); }
-    }
+    const idx = unsubscribeAll.findIndex(u => u._name === 'logs');
+    if (idx !== -1) { try { unsubscribeAll[idx](); } catch(e) {} unsubscribeAll.splice(idx, 1); }
     
+    if (!currentEcolePrefix) return;
     const unsubLogs = onSnapshot(collection(db, currentEcolePrefix + "_logs"), (snapshot) => {
         allLogs = [];
         snapshot.forEach(ds => {
@@ -1336,6 +1364,7 @@ document.getElementById("clearLogsBtn").addEventListener("click", async () => {
     }
 });
 
+// ============ MESSAGES ============
 async function initPoleMessagesDocument() {
     try {
         const d = await getDoc(poleMessagesDocRef);
@@ -1357,6 +1386,19 @@ function listenToPoleMessages() {
             checkNewMessages();
         }
     });
+}
+
+function getReadMessages() {
+    const r = localStorage.getItem(READ_STATUS_KEY);
+    return r ? JSON.parse(r) : [];
+}
+
+function saveReadMessages(r) {
+    localStorage.setItem(READ_STATUS_KEY, JSON.stringify(r));
+}
+
+function isRead(id) {
+    return getReadMessages().includes(id);
 }
 
 function checkNewMessages() {
@@ -1389,19 +1431,6 @@ function showFullscreenMessage(msg) {
             displayMessages();
         }
     }, 5000);
-}
-
-function getReadMessages() {
-    const r = localStorage.getItem(READ_STATUS_KEY);
-    return r ? JSON.parse(r) : [];
-}
-
-function saveReadMessages(r) {
-    localStorage.setItem(READ_STATUS_KEY, JSON.stringify(r));
-}
-
-function isRead(id) {
-    return getReadMessages().includes(id);
 }
 
 function displayMessages() {
@@ -1468,12 +1497,14 @@ function displayMessages() {
     });
 }
 
-async function sendMessageToPole(message) {
-    if (!message.trim()) { toast("Message vide", "error"); return false; }
+document.getElementById("sendMessageBtn").addEventListener("click", async () => {
+    const input = document.getElementById("newMessageInput");
+    const message = input.value.trim();
+    if (!message) { toast("Message vide", "error"); return; }
     const newMsg = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
         nom: "Ursule Nyandji",
-        message: message.trim(),
+        message: message,
         date: new Date().toISOString(),
         sender: "user",
         type: "new_message"
@@ -1481,17 +1512,10 @@ async function sendMessageToPole(message) {
     try {
         await updateDoc(poleMessagesDocRef, { messages: arrayUnion(newMsg) });
         toast("Message envoyé à Ursule", "success");
-        return true;
+        input.value = "";
     } catch(e) {
         toast("Erreur d'envoi", "error");
-        return false;
     }
-}
-
-document.getElementById("sendMessageBtn").addEventListener("click", async () => {
-    const input = document.getElementById("newMessageInput");
-    await sendMessageToPole(input.value);
-    input.value = "";
 });
 
 document.getElementById("markAllReadMsg").addEventListener("click", () => {
@@ -1503,7 +1527,7 @@ document.getElementById("markAllReadMsg").addEventListener("click", () => {
     saveReadMessages(read);
     displayMessages();
     document.querySelectorAll(".fullscreen-message").forEach(el => el.remove());
-    fullscreenMessageShown = true;
+    fullscreenMessageShown = false;
     toast("Tous les messages marqués comme lus", "success");
 });
 
@@ -1520,6 +1544,7 @@ document.getElementById("deleteAllMessagesBtn").addEventListener("click", async 
     }
 });
 
+// ============ STUDIO ============
 const EXAMPLES = {
     hello: `<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:linear-gradient(135deg,#e8f0fe,#d4e4f7);font-family:sans-serif;padding:25px'><div style='background:#fff;padding:35px 40px;border-radius:20px;box-shadow:0 8px 28px rgba(0,0,0,0.06);text-align:center;max-width:360px'><h1 style='color:#1a73e8;font-size:2rem;margin-bottom:8px'>👋 Hello</h1><p style='color:#5f6368;font-size:1.2rem'>Welcome to NETUBEX Studio</p></div></body>`,
     card: `<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f0f2f5;font-family:sans-serif;padding:25px'><div style='background:#fff;border-radius:16px;padding:32px;max-width:360px;width:100%;box-shadow:0 4px 18px rgba(0,0,0,0.05);border-left:6px solid #1a73e8'><h2 style='color:#202124;font-size:1.5rem;margin-bottom:6px'>📦 Pro Plan</h2><div style='color:#5f6368;font-size:0.95rem;margin-bottom:14px'>Best for growing teams</div><div style='font-size:2.2rem;font-weight:700;color:#1a73e8'>$29/mo</div><button style='display:inline-block;padding:10px 26px;background:#1a73e8;color:#fff;border:none;border-radius:8px;margin-top:12px;cursor:pointer;font-weight:600;font-size:0.95rem'>Get Started</button></div></body>`,
@@ -1560,15 +1585,7 @@ document.querySelectorAll('#exampleHelloBtn,#exampleCardBtn,#exampleFormBtn,#exa
     });
 });
 
-function updatePhoneClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    document.getElementById('phoneTime').textContent = h + ':' + m;
-}
-setInterval(updatePhoneClock, 1000);
-updatePhoneClock();
-
+// ============ ADMIN ============
 document.getElementById("changeAdminCodeBtn").addEventListener("click", async () => {
     const old = document.getElementById("oldAdminCode").value;
     const new1 = document.getElementById("newAdminCode1").value;
@@ -1583,599 +1600,6 @@ document.getElementById("changeAdminCodeBtn").addEventListener("click", async ()
         document.getElementById("oldAdminCode").value = "";
         document.getElementById("newAdminCode1").value = "";
         document.getElementById("newAdminCode2").value = "";
-    }
-});
-
-document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-        btn.classList.add("active");
-        document.getElementById(btn.dataset.tab + "-tab").classList.add("active");
-        if (btn.dataset.tab === "logs") chargerLogs();
-        if (btn.dataset.tab === "messages") { displayMessages(); }
-        if (btn.dataset.tab === "analytics") { updateAnalyticsCharts(); }
-        if (btn.dataset.tab === "worker") { updateWorkerCharts(); }
-        if (btn.dataset.tab === "collections") { loadCollections(); }
-    });
-});
-
-document.getElementById("pdfElevesCompta").addEventListener("click", () => {
-    if (!elevesCompta.length) { toast("Aucune donnée", "warning"); return; }
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("landscape", "mm", "a4");
-    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 297, 25, "F");
-    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
-    const nom = currentEcoleData?.nom || "Tous";
-    pdf.text(`MEMBRES ACTIFS - COMPTABILITÉ (${nom})`, 148, 12, { align: "center" });
-    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
-    pdf.text(`Total: ${elevesCompta.length} membres`, 20, 20);
-    const body = elevesCompta.map((e, i) => [String(i + 1), `${e.nom} ${e.postnom} ${e.prenom}`, e.classe, e.option || "-", e.exonere ? "Exonéré" : "Actif", e.parentCode || "-"]);
-    pdf.autoTable({ startY: 28, head: [["N°", "Nom complet", "Classe", "Option", "Statut", "Code Parent"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 2, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
-    pdf.save(`Membres_Compta_${currentEcolePrefix || "all"}.pdf`);
-    toast("PDF généré", "success");
-});
-
-document.getElementById("pdfElevesProfs").addEventListener("click", () => {
-    if (!elevesProfs.length) { toast("Aucune donnée", "warning"); return; }
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("landscape", "mm", "a4");
-    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 297, 25, "F");
-    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
-    const nom = currentEcoleData?.nom || "Tous";
-    pdf.text(`MEMBRES ACTIFS - PROFESSEURS (${nom})`, 148, 12, { align: "center" });
-    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
-    pdf.text(`Total: ${elevesProfs.length} membres`, 20, 20);
-    const body = elevesProfs.map((e, i) => [String(i + 1), e.nom, e.classe, e.option || "-", e.cours, e.professeur]);
-    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Classe", "Option", "Cours", "Professeur"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 2, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
-    pdf.save(`Membres_Profs_${currentEcolePrefix || "all"}.pdf`);
-    toast("PDF généré", "success");
-});
-
-document.getElementById("pdfProfs").addEventListener("click", () => {
-    if (!profsList.length) { toast("Aucune donnée", "warning"); return; }
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("portrait", "mm", "a4");
-    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 210, 25, "F");
-    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
-    const nom = currentEcoleData?.nom || "Tous";
-    pdf.text(`PROFESSEURS (${nom})`, 105, 12, { align: "center" });
-    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
-    pdf.text(`Total: ${profsList.length} professeurs`, 20, 20);
-    const body = profsList.map((p, i) => [String(i + 1), p.nom, p.code || "-", p.actif ? "Actif" : "Inactif"]);
-    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Code", "Statut"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 3, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
-    pdf.save(`Professeurs_${currentEcolePrefix || "all"}.pdf`);
-    toast("PDF généré", "success");
-});
-
-document.getElementById("pdfTitulaires").addEventListener("click", () => {
-    if (!titulairesList.length) { toast("Aucune donnée", "warning"); return; }
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("portrait", "mm", "a4");
-    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 210, 25, "F");
-    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
-    const nom = currentEcoleData?.nom || "Tous";
-    pdf.text(`TITULAIRES (${nom})`, 105, 12, { align: "center" });
-    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
-    pdf.text(`Total: ${titulairesList.length} titulaires`, 20, 20);
-    const body = titulairesList.map((t, i) => [String(i + 1), t.nom, t.classes]);
-    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Classes responsables"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 3, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
-    pdf.save(`Titulaires_${currentEcolePrefix || "all"}.pdf`);
-    toast("PDF généré", "success");
-});
-
-// Analytics functions
-function startAnalyticsRealtime() {
-    const unsubAnalytics = onSnapshot(collection(db, "analytics_parental"), (snapshot) => {
-        analyticsData = [];
-        snapshot.forEach(ds => {
-            const d = ds.data();
-            analyticsData.push({
-                id: ds.id,
-                timestamp: d.timestamp || new Date().toISOString(),
-                count: d.count || 1,
-                date: d.date || new Date().toISOString().slice(0, 10),
-                hour: d.hour || new Date().getHours(),
-                week: d.week || getWeekNumber(new Date()),
-                month: d.month || new Date().getMonth() + 1,
-                year: d.year || new Date().getFullYear()
-            });
-        });
-        updateAnalyticsCharts();
-        updateAnalyticsStats();
-        saveToIndexed("analytics", analyticsData);
-    });
-    unsubscribeAll.push(unsubAnalytics);
-}
-
-function getWeekNumber(date) {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
-    const week1 = new Date(d.getFullYear(), 0, 4);
-    return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-}
-
-function updateAnalyticsStats() {
-    const total = analyticsData.reduce((sum, d) => sum + d.count, 0);
-    const today = new Date().toISOString().slice(0, 10);
-    const todayData = analyticsData.filter(d => d.date === today);
-    const todayCount = todayData.reduce((sum, d) => sum + d.count, 0);
-    
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    const weekStr = weekStart.toISOString().slice(0, 10);
-    const weekData = analyticsData.filter(d => d.date >= weekStr);
-    const weekCount = weekData.reduce((sum, d) => sum + d.count, 0);
-    
-    const monthStr = now.toISOString().slice(0, 7);
-    const monthData = analyticsData.filter(d => d.date.startsWith(monthStr));
-    const monthCount = monthData.reduce((sum, d) => sum + d.count, 0);
-    
-    const hourly = {};
-    analyticsData.forEach(d => {
-        const h = d.hour || 0;
-        if (!hourly[h]) hourly[h] = 0;
-        hourly[h] += d.count;
-    });
-    let peakHour = 0;
-    let peakCount = 0;
-    Object.keys(hourly).forEach(h => {
-        if (hourly[h] > peakCount) {
-            peakCount = hourly[h];
-            peakHour = parseInt(h);
-        }
-    });
-    
-    const days = Math.max(1, Math.ceil((new Date() - new Date(analyticsData[0]?.date || new Date())) / 86400000));
-    const avg = Math.round(total / days);
-    
-    document.getElementById("analyticsTotal").textContent = total || "-";
-    document.getElementById("analyticsToday").textContent = todayCount || "-";
-    document.getElementById("analyticsWeek").textContent = weekCount || "-";
-    document.getElementById("analyticsMonth").textContent = monthCount || "-";
-    document.getElementById("analyticsPeak").textContent = peakCount ? `${peakCount} (${String(peakHour).padStart(2,'0')}h)` : "-";
-    document.getElementById("analyticsAvg").textContent = avg || "-";
-}
-
-function updateAnalyticsCharts() {
-    const hourly = {};
-    const daily = {};
-    const weekly = {};
-    const monthly = {};
-    
-    analyticsData.forEach(d => {
-        const h = d.hour || 0;
-        const key = `${String(h).padStart(2,'0')}:00`;
-        if (!hourly[key]) hourly[key] = 0;
-        hourly[key] += d.count;
-        
-        if (!daily[d.date]) daily[d.date] = 0;
-        daily[d.date] += d.count;
-        
-        const weekKey = `S${d.week || 0}`;
-        if (!weekly[weekKey]) weekly[weekKey] = 0;
-        weekly[weekKey] += d.count;
-        
-        const monthKey = d.month ? `${d.month}/${d.year}` : '';
-        if (monthKey) {
-            if (!monthly[monthKey]) monthly[monthKey] = 0;
-            monthly[monthKey] += d.count;
-        }
-    });
-    
-    const sortedHours = Object.keys(hourly).sort();
-    const sortedDays = Object.keys(daily).sort().slice(-7);
-    const sortedWeeks = Object.keys(weekly).sort().slice(-12);
-    const sortedMonths = Object.keys(monthly).sort().slice(-12);
-    
-    if (chartHourly) chartHourly.destroy();
-    const ctxHourly = document.getElementById('chartHourly').getContext('2d');
-    chartHourly = new Chart(ctxHourly, {
-        type: 'bar',
-        data: {
-            labels: sortedHours.length ? sortedHours : ['Aucune'],
-            datasets: [{
-                label: 'Consultations',
-                data: sortedHours.length ? sortedHours.map(h => hourly[h] || 0) : [0],
-                backgroundColor: 'rgba(59,130,246,0.7)',
-                borderColor: '#3b82f6',
-                borderWidth: 1,
-                borderRadius: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-    
-    if (chartDaily) chartDaily.destroy();
-    const ctxDaily = document.getElementById('chartDaily').getContext('2d');
-    chartDaily = new Chart(ctxDaily, {
-        type: 'line',
-        data: {
-            labels: sortedDays.length ? sortedDays.map(d => d.slice(5)) : ['Aucune'],
-            datasets: [{
-                label: 'Par jour',
-                data: sortedDays.length ? sortedDays.map(d => daily[d] || 0) : [0],
-                borderColor: '#34d399',
-                backgroundColor: 'rgba(52,211,153,0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-    
-    if (chartWeekly) chartWeekly.destroy();
-    const ctxWeekly = document.getElementById('chartWeekly').getContext('2d');
-    chartWeekly = new Chart(ctxWeekly, {
-        type: 'bar',
-        data: {
-            labels: sortedWeeks.length ? sortedWeeks : ['Aucune'],
-            datasets: [{
-                label: 'Par semaine',
-                data: sortedWeeks.length ? sortedWeeks.map(w => weekly[w] || 0) : [0],
-                backgroundColor: 'rgba(139,107,245,0.7)',
-                borderColor: '#8b6bf5',
-                borderWidth: 1,
-                borderRadius: 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-    
-    if (chartMonthly) chartMonthly.destroy();
-    const ctxMonthly = document.getElementById('chartMonthly').getContext('2d');
-    chartMonthly = new Chart(ctxMonthly, {
-        type: 'line',
-        data: {
-            labels: sortedMonths.length ? sortedMonths : ['Aucune'],
-            datasets: [{
-                label: 'Par mois',
-                data: sortedMonths.length ? sortedMonths.map(m => monthly[m] || 0) : [0],
-                borderColor: '#f5b84b',
-                backgroundColor: 'rgba(245,184,75,0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-}
-
-function startWorkerRealtime() {
-    const unsubWorker = onSnapshot(collection(db, "worker_requests"), (snapshot) => {
-        workerData = [];
-        snapshot.forEach(ds => {
-            const d = ds.data();
-            workerData.push({
-                id: ds.id,
-                timestamp: d.timestamp || new Date().toISOString(),
-                date: d.date || new Date().toISOString().slice(0, 10),
-                hour: d.hour || new Date().getHours(),
-                week: d.week || getWeekNumber(new Date()),
-                month: d.month || new Date().getMonth() + 1,
-                year: d.year || new Date().getFullYear()
-            });
-        });
-        updateWorkerCharts();
-        updateWorkerStats();
-    });
-    unsubscribeAll.push(unsubWorker);
-}
-
-function updateWorkerStats() {
-    const period = document.getElementById('workerPeriodFilter')?.value || 'today';
-    const now = new Date();
-    let filtered = [...workerData];
-    
-    if (period === 'today') {
-        const today = now.toISOString().slice(0, 10);
-        filtered = filtered.filter(d => d.date === today);
-    } else if (period === 'week') {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
-        const weekStr = weekStart.toISOString().slice(0, 10);
-        filtered = filtered.filter(d => d.date >= weekStr);
-    } else if (period === 'month') {
-        const monthStr = now.toISOString().slice(0, 7);
-        filtered = filtered.filter(d => d.date.startsWith(monthStr));
-    } else if (period === 'year') {
-        const yearStr = now.toISOString().slice(0, 4);
-        filtered = filtered.filter(d => d.date.startsWith(yearStr));
-    }
-    
-    const total = filtered.length;
-    const days = Math.max(1, new Set(filtered.map(d => d.date)).size);
-    const avg = Math.round(total / days);
-    
-    const dailyCount = {};
-    filtered.forEach(d => {
-        if (!dailyCount[d.date]) dailyCount[d.date] = 0;
-        dailyCount[d.date]++;
-    });
-    let peak = 0;
-    Object.values(dailyCount).forEach(c => { if (c > peak) peak = c; });
-    
-    document.getElementById("workerTotal").textContent = total || "-";
-    document.getElementById("workerAvgDay").textContent = avg || "-";
-    document.getElementById("workerPeak").textContent = peak || "-";
-    
-    const sortedDates = Object.keys(dailyCount).sort();
-    if (sortedDates.length >= 2) {
-        const first = dailyCount[sortedDates[0]] || 0;
-        const last = dailyCount[sortedDates[sortedDates.length - 1]] || 0;
-        const growth = first > 0 ? Math.round(((last - first) / first) * 100) : 0;
-        document.getElementById("workerGrowth").textContent = growth + '%';
-    } else {
-        document.getElementById("workerGrowth").textContent = '0%';
-    }
-}
-
-function updateWorkerCharts() {
-    const period = document.getElementById('workerPeriodFilter')?.value || 'today';
-    const now = new Date();
-    let filtered = [...workerData];
-    
-    if (period === 'today') {
-        const today = now.toISOString().slice(0, 10);
-        filtered = filtered.filter(d => d.date === today);
-    } else if (period === 'week') {
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - now.getDay());
-        const weekStr = weekStart.toISOString().slice(0, 10);
-        filtered = filtered.filter(d => d.date >= weekStr);
-    } else if (period === 'month') {
-        const monthStr = now.toISOString().slice(0, 7);
-        filtered = filtered.filter(d => d.date.startsWith(monthStr));
-    } else if (period === 'year') {
-        const yearStr = now.toISOString().slice(0, 4);
-        filtered = filtered.filter(d => d.date.startsWith(yearStr));
-    }
-    
-    const dailyCount = {};
-    filtered.forEach(d => {
-        if (!dailyCount[d.date]) dailyCount[d.date] = 0;
-        dailyCount[d.date]++;
-    });
-    
-    const sortedDates = Object.keys(dailyCount).sort();
-    const values = sortedDates.map(d => dailyCount[d] || 0);
-    const labels = sortedDates.map(d => d.slice(5));
-    
-    if (chartWorkerEvolution) chartWorkerEvolution.destroy();
-    const ctxEvolution = document.getElementById('chartWorkerEvolution').getContext('2d');
-    chartWorkerEvolution = new Chart(ctxEvolution, {
-        type: 'line',
-        data: {
-            labels: labels.length ? labels : ['Aucune'],
-            datasets: [{
-                label: 'Requêtes',
-                data: values.length ? values : [0],
-                borderColor: '#60a5fa',
-                backgroundColor: 'rgba(96,165,250,0.1)',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-    
-    if (chartWorkerKPI) chartWorkerKPI.destroy();
-    const ctxKPI = document.getElementById('chartWorkerKPI').getContext('2d');
-    const kpiLabels = ['Total', 'Moy/Jour', 'Pic', 'Croissance'];
-    const kpiValues = [
-        filtered.length,
-        Math.round(filtered.length / Math.max(1, new Set(filtered.map(d => d.date)).size)),
-        Math.max(0, ...Object.values(dailyCount)),
-        sortedDates.length >= 2 ? Math.round(((dailyCount[sortedDates[sortedDates.length-1]] || 0) - (dailyCount[sortedDates[0]] || 0)) / Math.max(1, dailyCount[sortedDates[0]] || 1) * 100) : 0
-    ];
-    chartWorkerKPI = new Chart(ctxKPI, {
-        type: 'bar',
-        data: {
-            labels: kpiLabels,
-            datasets: [{
-                label: 'KPI',
-                data: kpiValues,
-                backgroundColor: ['#60a5fa', '#34d399', '#f5b84b', '#8b6bf5'],
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
-        }
-    });
-}
-
-document.getElementById('workerFilterBtn').addEventListener('click', () => {
-    updateWorkerStats();
-    updateWorkerCharts();
-});
-
-document.getElementById('workerPeriodFilter').addEventListener('change', () => {
-    updateWorkerStats();
-    updateWorkerCharts();
-});
-
-async function loadCollections() {
-    try {
-        const collections = [];
-        const snap = await getDocs(collection(db, "ecoles_autorisees"));
-        snap.forEach(ds => {
-            const d = ds.data();
-            if (d.prefixe) {
-                collections.push({
-                    id: ds.id,
-                    nom: d.nom || d.prefixe,
-                    prefixe: d.prefixe,
-                    type: 'ecole',
-                    count: 0,
-                    size: '0 KB',
-                    createdAt: d.createdAt || 'N/A',
-                    updatedAt: d.updatedAt || 'N/A'
-                });
-            }
-        });
-        
-        for (const col of collections) {
-            try {
-                const snap2 = await getDocs(collection(db, col.prefixe + "_professeurs"));
-                col.count += snap2.size;
-            } catch(e) {}
-            try {
-                const snap2 = await getDocs(collection(db, "ecoles", col.prefixe, "compta_eleves"));
-                col.count += snap2.size;
-            } catch(e) {}
-            try {
-                const snap2 = await getDocs(collection(db, col.prefixe + "_fiches"));
-                col.count += snap2.size;
-            } catch(e) {}
-        }
-        
-        collectionsData = collections;
-        renderCollections();
-        document.getElementById("infoCollections").textContent = `${collections.length} collection(s)`;
-        await saveToIndexed("collections", collections);
-    } catch(e) {
-        const cached = await loadFromIndexed("collections");
-        if (cached.length > 0) {
-            collectionsData = cached;
-            renderCollections();
-        }
-    }
-}
-
-function renderCollections() {
-    const container = document.getElementById("collectionsContainer");
-    const search = document.getElementById("searchCollections").value.toLowerCase();
-    let filtered = collectionsData.filter(c => c.nom.toLowerCase().includes(search));
-    if (!filtered.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-database"></i>Aucune collection trouvée</div>';
-        return;
-    }
-    let html = '';
-    filtered.forEach(col => {
-        html += `<div class="collection-item">
-            <div class="col-name"><i class="fas fa-folder"></i> ${escapeHtml(col.nom)}</div>
-            <div class="col-info">
-                <span>📄 ${col.count} enregistrements</span>
-                <span>📊 ${col.size}</span>
-                <span>📅 Créé: ${col.createdAt}</span>
-                <span>🔄 Modifié: ${col.updatedAt}</span>
-            </div>
-            <div class="col-actions">
-                <button class="btn btn-sm btn-primary view-collection" data-id="${col.id}"><i class="fas fa-eye"></i></button>
-                <button class="btn btn-sm btn-danger clear-collection" data-id="${col.id}"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>`;
-    });
-    container.innerHTML = html;
-    
-    document.querySelectorAll('.view-collection').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const col = collectionsData.find(c => c.id === id);
-            if (col) {
-                toast(`Consultation de ${col.nom}`, "info");
-                try {
-                    const snap = await getDocs(collection(db, col.prefixe + "_professeurs"));
-                    let data = '';
-                    snap.forEach(ds => {
-                        data += JSON.stringify(ds.data(), null, 2).slice(0, 200) + '\n...\n';
-                    });
-                    const modal = document.getElementById("confirmModal");
-                    document.getElementById("confirmTitle").textContent = `Contenu de ${col.nom}`;
-                    document.getElementById("confirmMessage").innerHTML = `<pre style="text-align:left;max-height:300px;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;font-size:0.7rem;color:#94a3b8;">${escapeHtml(data) || 'Aucune donnée'}</pre>`;
-                    document.getElementById("adminCodeInput").style.display = "none";
-                    document.getElementById("confirmYes").textContent = "Fermer";
-                    document.getElementById("confirmNo").style.display = "none";
-                    modal.classList.add("show");
-                    document.getElementById("confirmYes").onclick = () => {
-                        modal.classList.remove("show");
-                        document.getElementById("confirmNo").style.display = "inline-block";
-                        document.getElementById("confirmYes").textContent = "Confirmer";
-                    };
-                } catch(e) {
-                    toast("Erreur lors du chargement", "error");
-                }
-            }
-        });
-    });
-    
-    document.querySelectorAll('.clear-collection').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const col = collectionsData.find(c => c.id === id);
-            if (col) {
-                const ok = await showConfirm(`🗑️ Vider ${col.nom}`, `Supprimer tous les enregistrements de ${col.nom} ?`, true);
-                if (ok) {
-                    try {
-                        const snap = await getDocs(collection(db, col.prefixe + "_professeurs"));
-                        for (const ds of snap.docs) {
-                            await deleteDoc(doc(db, col.prefixe + "_professeurs", ds.id));
-                        }
-                        const snap2 = await getDocs(collection(db, "ecoles", col.prefixe, "compta_eleves"));
-                        for (const ds of snap2.docs) {
-                            await deleteDoc(doc(db, "ecoles", col.prefixe, "compta_eleves", ds.id));
-                        }
-                        toast(`Collection ${col.nom} vidée`, "success");
-                        loadCollections();
-                    } catch(e) {
-                        toast("Erreur lors du vidage", "error");
-                    }
-                }
-            }
-        });
-    });
-}
-
-document.getElementById("searchCollections").addEventListener("input", renderCollections);
-
-document.getElementById("clearAllCollectionsBtn").addEventListener("click", async () => {
-    const ok = await showConfirm("🗑️ Vider toutes les collections", "Cette action est irréversible. Vider toutes les collections ?", true);
-    if (ok) {
-        for (const col of collectionsData) {
-            try {
-                const snap = await getDocs(collection(db, col.prefixe + "_professeurs"));
-                for (const ds of snap.docs) {
-                    await deleteDoc(doc(db, col.prefixe + "_professeurs", ds.id));
-                }
-                const snap2 = await getDocs(collection(db, "ecoles", col.prefixe, "compta_eleves"));
-                for (const ds of snap2.docs) {
-                    await deleteDoc(doc(db, "ecoles", col.prefixe, "compta_eleves", ds.id));
-                }
-            } catch(e) {}
-        }
-        toast("Toutes les collections vidées", "success");
-        loadCollections();
     }
 });
 
@@ -2354,30 +1778,706 @@ document.getElementById("deleteMembersBtn").addEventListener("click", async () =
     }
 });
 
-async function logAnalyticsEvent(code) {
-    const now = new Date();
-    const data = {
-        timestamp: now.toISOString(),
-        date: now.toISOString().slice(0, 10),
-        hour: now.getHours(),
-        week: getWeekNumber(now),
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-        count: 1,
-        code: code || 'unknown'
-    };
+// ============ COLLECTIONS ============
+async function loadCollections() {
     try {
-        await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), data);
+        const collections = [];
+        const snap = await getDocs(collection(db, "ecoles_autorisees"));
+        snap.forEach(ds => {
+            const d = ds.data();
+            if (d.prefixe) {
+                collections.push({
+                    id: ds.id,
+                    nom: d.nom || d.prefixe,
+                    prefixe: d.prefixe,
+                    type: 'ecole',
+                    count: 0,
+                    createdAt: d.createdAt || new Date().toISOString(),
+                    updatedAt: d.updatedAt || new Date().toISOString()
+                });
+            }
+        });
+        for (const col of collections) {
+            try {
+                const snap2 = await getDocs(collection(db, col.prefixe + "_professeurs"));
+                col.count += snap2.size;
+            } catch(e) {}
+            try {
+                const snap2 = await getDocs(collection(db, "ecoles", col.prefixe, "compta_eleves"));
+                col.count += snap2.size;
+            } catch(e) {}
+            try {
+                const snap2 = await getDocs(collection(db, col.prefixe + "_fiches"));
+                col.count += snap2.size;
+            } catch(e) {}
+            try {
+                const snap2 = await getDocs(collection(db, col.prefixe + "_logs"));
+                col.count += snap2.size;
+            } catch(e) {}
+            try {
+                const snap2 = await getDocs(collection(db, col.prefixe + "_parent_messages"));
+                col.count += snap2.size;
+            } catch(e) {}
+        }
+        collectionsData = collections;
+        renderCollections();
+        document.getElementById("infoCollections").textContent = `${collections.length} collection(s)`;
+        await saveToIndexed("collections", collections);
     } catch(e) {
-        console.error("Erreur log analytics:", e);
+        console.error("Erreur chargement collections:", e);
+        const cached = await loadFromIndexed("collections");
+        if (cached.length > 0) {
+            collectionsData = cached;
+            renderCollections();
+            toast("Collections chargées depuis le cache", "info");
+        } else {
+            document.getElementById("collectionsContainer").innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-circle" style="color:#f54b4b;"></i>
+                    <p>Erreur: ${e.message}</p>
+                    <button class="btn btn-primary btn-sm" onclick="loadCollections()" style="margin-top:12px;">
+                        <i class="fas fa-sync"></i> Réessayer
+                    </button>
+                </div>`;
+        }
     }
 }
 
-window.logAnalyticsEvent = logAnalyticsEvent;
+function renderCollections() {
+    const container = document.getElementById("collectionsContainer");
+    const search = document.getElementById("searchCollections").value.toLowerCase();
+    let filtered = collectionsData.filter(c => c.nom.toLowerCase().includes(search));
+    
+    if (!filtered.length) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-database"></i>Aucune collection trouvée</div>`;
+        return;
+    }
+    
+    let html = `<div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-danger btn-sm" id="clearAllCollectionsBtn2"><i class="fas fa-trash-alt"></i> Vider toutes les collections</button>
+        <button class="btn btn-sm" onclick="loadCollections()" style="background:rgba(56,189,248,0.1);color:#60a5fa;"><i class="fas fa-sync"></i> Rafraîchir</button>
+        <span class="filter-info" style="margin-left:auto;">${filtered.length} collection(s)</span>
+    </div>`;
+    
+    filtered.forEach(col => {
+        html += `
+        <div class="collection-item" style="border:1px solid rgba(56,189,248,0.08);border-radius:12px;margin-bottom:8px;padding:12px 16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;width:100%;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="fas fa-folder" style="color:#60a5fa;font-size:1.1rem;"></i>
+                    <div>
+                        <div style="font-weight:600;color:#EAEAEA;font-size:0.9rem;">${escapeHtml(col.nom)}</div>
+                        <div style="font-size:0.7rem;color:#94a3b8;">
+                            <i class="fas fa-file"></i> ${col.count} documents &nbsp;|&nbsp;
+                            <i class="fas fa-calendar"></i> Créé: ${new Date(col.createdAt).toLocaleDateString()}
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-primary view-collection" data-prefix="${col.prefixe}"><i class="fas fa-eye"></i> Voir</button>
+                    <button class="btn btn-sm btn-danger delete-collection" data-prefix="${col.prefixe}" data-name="${col.nom}"><i class="fas fa-trash"></i> Supprimer</button>
+                    <button class="btn btn-sm" style="background:rgba(245,184,75,0.15);color:#f5b84b;" data-export="${col.prefixe}"><i class="fas fa-download"></i> Exporter</button>
+                </div>
+            </div>
+        </div>`;
+    });
+    
+    container.innerHTML = html;
+    
+    document.querySelectorAll('.delete-collection').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const prefix = this.dataset.prefix;
+            const name = this.dataset.name;
+            deleteCollectionManually(prefix, name);
+        });
+    });
+    
+    document.querySelectorAll('.view-collection').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const prefix = this.dataset.prefix;
+            viewCollectionContent(prefix);
+        });
+    });
+    
+    document.querySelectorAll('[data-export]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const prefix = this.dataset.export;
+            exportCollectionData(prefix);
+        });
+    });
+    
+    document.getElementById('clearAllCollectionsBtn2').addEventListener('click', async () => {
+        const ok = await showConfirm("🗑️ Vider toutes les collections", "Cette action est irréversible. Vider toutes les collections ?", true);
+        if (ok) {
+            for (const col of collectionsData) {
+                try {
+                    const collections = [
+                        col.prefixe + "_professeurs",
+                        col.prefixe + "_fiches",
+                        col.prefixe + "_parent_messages",
+                        col.prefixe + "_logs",
+                        "ecoles/" + col.prefixe + "/compta_eleves",
+                        "ecoles/" + col.prefixe + "/comptables",
+                        "ecoles/" + col.prefixe + "/direction"
+                    ];
+                    for (const c of collections) {
+                        try {
+                            const snap = await getDocs(collection(db, c));
+                            for (const ds of snap.docs) {
+                                await deleteDoc(doc(db, c, ds.id));
+                            }
+                        } catch(e) {}
+                    }
+                } catch(e) {}
+            }
+            toast("Toutes les collections vidées", "success");
+            loadCollections();
+        }
+    });
+}
 
-await openIndexedDB();
-loginCodeInput.focus();
+document.getElementById("searchCollections").addEventListener("input", renderCollections);
+document.getElementById("clearAllCollectionsBtn").addEventListener("click", () => {
+    document.getElementById('clearAllCollectionsBtn2')?.click();
+});
 
+async function deleteCollectionManually(prefix, name) {
+    const ok = await showConfirm("🗑️ Supprimer la collection", `Voulez-vous vraiment supprimer définitivement la collection "${name}" ?\n\nCette action est irréversible.`, true);
+    if (!ok) return;
+    try {
+        const collections = [
+            prefix + "_professeurs",
+            prefix + "_fiches",
+            prefix + "_parent_messages",
+            prefix + "_logs",
+            "ecoles/" + prefix + "/compta_eleves",
+            "ecoles/" + prefix + "/comptables",
+            "ecoles/" + prefix + "/direction"
+        ];
+        let totalDeleted = 0;
+        for (const colPath of collections) {
+            try {
+                const snap = await getDocs(collection(db, colPath));
+                if (!snap.empty) {
+                    let count = 0;
+                    const batch = writeBatch(db);
+                    for (const doc of snap.docs) {
+                        batch.delete(doc.ref);
+                        count++;
+                        totalDeleted++;
+                        if (count % 500 === 0) {
+                            await batch.commit();
+                            count = 0;
+                        }
+                    }
+                    if (count > 0) {
+                        await batch.commit();
+                    }
+                }
+            } catch(e) {}
+        }
+        toast(`✅ Collection "${name}" supprimée (${totalDeleted} documents)`, "success");
+        loadCollections();
+    } catch(e) {
+        toast(`❌ Erreur: ${e.message}`, "error");
+    }
+}
+
+async function viewCollectionContent(prefix) {
+    try {
+        const snap = await getDocs(collection(db, prefix + "_professeurs"));
+        const data = [];
+        snap.forEach(doc => {
+            data.push({ id: doc.id, ...doc.data() });
+        });
+        if (data.length === 0) {
+            toast("Cette collection est vide", "warning");
+            return;
+        }
+        const modal = document.getElementById("confirmModal");
+        document.getElementById("confirmTitle").textContent = `📄 Contenu de ${prefix}_professeurs`;
+        document.getElementById("confirmMessage").innerHTML = `
+            <div style="text-align:left;max-height:400px;overflow:auto;background:#0f172a;padding:12px;border-radius:12px;font-size:0.7rem;color:#94a3b8;font-family:monospace;">
+                <div style="color:#34d399;margin-bottom:8px;">${data.length} document(s)</div>
+                ${data.slice(0, 20).map(d => 
+                    `<div style="border-bottom:1px solid rgba(56,189,248,0.05);padding:4px 0;">
+                        <span style="color:#60a5fa;">${d.id}</span>
+                        ${Object.entries(d).filter(([k]) => k !== 'id').map(([k, v]) => 
+                            `<span style="color:#f5b84b;"> ${k}:</span><span style="color:#EAEAEA;"> ${typeof v === 'string' ? v.slice(0, 50) : JSON.stringify(v).slice(0, 50)}</span>`
+                        ).join('')}
+                    </div>`
+                ).join('')}
+                ${data.length > 20 ? `<div style="color:#64748b;margin-top:8px;">... et ${data.length - 20} autres</div>` : ''}
+            </div>
+        `;
+        document.getElementById("adminCodeInput").style.display = "none";
+        document.getElementById("confirmYes").textContent = "Fermer";
+        document.getElementById("confirmNo").style.display = "none";
+        modal.classList.add("show");
+        document.getElementById("confirmYes").onclick = () => {
+            modal.classList.remove("show");
+            document.getElementById("confirmNo").style.display = "inline-block";
+            document.getElementById("confirmYes").textContent = "Confirmer";
+        };
+    } catch(e) {
+        toast("❌ Erreur lors de la visualisation", "error");
+    }
+}
+
+async function exportCollectionData(prefix) {
+    try {
+        toast("📤 Exportation en cours...", "info");
+        const collections = [
+            prefix + "_professeurs",
+            prefix + "_fiches",
+            prefix + "_parent_messages",
+            prefix + "_logs"
+        ];
+        let allData = {};
+        let totalDocs = 0;
+        for (const col of collections) {
+            try {
+                const snap = await getDocs(collection(db, col));
+                const data = [];
+                snap.forEach(doc => {
+                    data.push({ id: doc.id, ...doc.data() });
+                });
+                if (data.length > 0) {
+                    allData[col] = data;
+                    totalDocs += data.length;
+                }
+            } catch(e) {}
+        }
+        if (totalDocs === 0) {
+            toast("Aucune donnée à exporter", "warning");
+            return;
+        }
+        const json = JSON.stringify(allData, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `collection_${prefix}_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast(`✅ ${totalDocs} documents exportés`, "success");
+    } catch(e) {
+        toast("❌ Erreur lors de l'export", "error");
+    }
+}
+
+// ============ ANALYTICS ============
+function startAnalyticsRealtime() {
+    const unsubAnalytics = onSnapshot(collection(db, "analytics_parental"), (snapshot) => {
+        analyticsData = [];
+        snapshot.forEach(ds => {
+            const d = ds.data();
+            analyticsData.push({
+                id: ds.id,
+                timestamp: d.timestamp || new Date().toISOString(),
+                count: d.count || 1,
+                date: d.date || new Date().toISOString().slice(0, 10),
+                hour: d.hour || new Date().getHours(),
+                week: d.week || getWeekNumber(new Date()),
+                month: d.month || new Date().getMonth() + 1,
+                year: d.year || new Date().getFullYear()
+            });
+        });
+        updateAnalyticsCharts();
+        updateAnalyticsStats();
+        saveToIndexed("analytics", analyticsData);
+    });
+    unsubscribeAll.push(unsubAnalytics);
+}
+
+function updateAnalyticsStats() {
+    const total = analyticsData.reduce((sum, d) => sum + d.count, 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = analyticsData.filter(d => d.date === today).reduce((sum, d) => sum + d.count, 0);
+    
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    const weekStr = weekStart.toISOString().slice(0, 10);
+    const weekCount = analyticsData.filter(d => d.date >= weekStr).reduce((sum, d) => sum + d.count, 0);
+    
+    const monthStr = now.toISOString().slice(0, 7);
+    const monthCount = analyticsData.filter(d => d.date.startsWith(monthStr)).reduce((sum, d) => sum + d.count, 0);
+    
+    const hourly = {};
+    analyticsData.forEach(d => {
+        const h = d.hour || 0;
+        if (!hourly[h]) hourly[h] = 0;
+        hourly[h] += d.count;
+    });
+    let peakHour = 0, peakCount = 0;
+    Object.keys(hourly).forEach(h => {
+        if (hourly[h] > peakCount) { peakCount = hourly[h]; peakHour = parseInt(h); }
+    });
+    
+    const days = Math.max(1, Math.ceil((new Date() - new Date(analyticsData[0]?.date || new Date())) / 86400000));
+    const avg = Math.round(total / days);
+    
+    document.getElementById("analyticsTotal").textContent = total || "-";
+    document.getElementById("analyticsToday").textContent = todayCount || "-";
+    document.getElementById("analyticsWeek").textContent = weekCount || "-";
+    document.getElementById("analyticsMonth").textContent = monthCount || "-";
+    document.getElementById("analyticsPeak").textContent = peakCount ? `${peakCount} (${String(peakHour).padStart(2,'0')}h)` : "-";
+    document.getElementById("analyticsAvg").textContent = avg || "-";
+}
+
+function updateAnalyticsCharts() {
+    const hourly = {}, daily = {}, weekly = {}, monthly = {};
+    analyticsData.forEach(d => {
+        const h = d.hour || 0;
+        const key = `${String(h).padStart(2,'0')}:00`;
+        if (!hourly[key]) hourly[key] = 0;
+        hourly[key] += d.count;
+        if (!daily[d.date]) daily[d.date] = 0;
+        daily[d.date] += d.count;
+        const weekKey = `S${d.week || 0}`;
+        if (!weekly[weekKey]) weekly[weekKey] = 0;
+        weekly[weekKey] += d.count;
+        const monthKey = d.month ? `${d.month}/${d.year}` : '';
+        if (monthKey) {
+            if (!monthly[monthKey]) monthly[monthKey] = 0;
+            monthly[monthKey] += d.count;
+        }
+    });
+    
+    const sortedHours = Object.keys(hourly).sort();
+    const sortedDays = Object.keys(daily).sort().slice(-7);
+    const sortedWeeks = Object.keys(weekly).sort().slice(-12);
+    const sortedMonths = Object.keys(monthly).sort().slice(-12);
+    
+    if (chartHourly) chartHourly.destroy();
+    const ctxHourly = document.getElementById('chartHourly').getContext('2d');
+    chartHourly = new Chart(ctxHourly, {
+        type: 'bar',
+        data: {
+            labels: sortedHours.length ? sortedHours : ['Aucune'],
+            datasets: [{
+                label: 'Consultations',
+                data: sortedHours.length ? sortedHours.map(h => hourly[h] || 0) : [0],
+                backgroundColor: 'rgba(59,130,246,0.7)',
+                borderColor: '#3b82f6',
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+    
+    if (chartDaily) chartDaily.destroy();
+    const ctxDaily = document.getElementById('chartDaily').getContext('2d');
+    chartDaily = new Chart(ctxDaily, {
+        type: 'line',
+        data: {
+            labels: sortedDays.length ? sortedDays.map(d => d.slice(5)) : ['Aucune'],
+            datasets: [{
+                label: 'Par jour',
+                data: sortedDays.length ? sortedDays.map(d => daily[d] || 0) : [0],
+                borderColor: '#34d399',
+                backgroundColor: 'rgba(52,211,153,0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+    
+    if (chartWeekly) chartWeekly.destroy();
+    const ctxWeekly = document.getElementById('chartWeekly').getContext('2d');
+    chartWeekly = new Chart(ctxWeekly, {
+        type: 'bar',
+        data: {
+            labels: sortedWeeks.length ? sortedWeeks : ['Aucune'],
+            datasets: [{
+                label: 'Par semaine',
+                data: sortedWeeks.length ? sortedWeeks.map(w => weekly[w] || 0) : [0],
+                backgroundColor: 'rgba(139,107,245,0.7)',
+                borderColor: '#8b6bf5',
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+    
+    if (chartMonthly) chartMonthly.destroy();
+    const ctxMonthly = document.getElementById('chartMonthly').getContext('2d');
+    chartMonthly = new Chart(ctxMonthly, {
+        type: 'line',
+        data: {
+            labels: sortedMonths.length ? sortedMonths : ['Aucune'],
+            datasets: [{
+                label: 'Par mois',
+                data: sortedMonths.length ? sortedMonths.map(m => monthly[m] || 0) : [0],
+                borderColor: '#f5b84b',
+                backgroundColor: 'rgba(245,184,75,0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+}
+
+document.getElementById('refreshAnalyticsBtn').addEventListener('click', () => {
+    updateAnalyticsStats();
+    updateAnalyticsCharts();
+    toast("Analytics rafraîchis", "success");
+});
+
+// ============ WORKER ============
+function startWorkerRealtime() {
+    const unsubWorker = onSnapshot(collection(db, "worker_requests"), (snapshot) => {
+        workerData = [];
+        snapshot.forEach(ds => {
+            const d = ds.data();
+            workerData.push({
+                id: ds.id,
+                timestamp: d.timestamp || new Date().toISOString(),
+                date: d.date || new Date().toISOString().slice(0, 10),
+                hour: d.hour || new Date().getHours(),
+                week: d.week || getWeekNumber(new Date()),
+                month: d.month || new Date().getMonth() + 1,
+                year: d.year || new Date().getFullYear()
+            });
+        });
+        updateWorkerCharts();
+        updateWorkerStats();
+    });
+    unsubscribeAll.push(unsubWorker);
+}
+
+function updateWorkerStats() {
+    const period = document.getElementById('workerPeriodFilter')?.value || 'today';
+    const now = new Date();
+    let filtered = [...workerData];
+    if (period === 'today') {
+        const today = now.toISOString().slice(0, 10);
+        filtered = filtered.filter(d => d.date === today);
+    } else if (period === 'week') {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        const weekStr = weekStart.toISOString().slice(0, 10);
+        filtered = filtered.filter(d => d.date >= weekStr);
+    } else if (period === 'month') {
+        const monthStr = now.toISOString().slice(0, 7);
+        filtered = filtered.filter(d => d.date.startsWith(monthStr));
+    } else if (period === 'year') {
+        const yearStr = now.toISOString().slice(0, 4);
+        filtered = filtered.filter(d => d.date.startsWith(yearStr));
+    }
+    const total = filtered.length;
+    const days = Math.max(1, new Set(filtered.map(d => d.date)).size);
+    const avg = Math.round(total / days);
+    const dailyCount = {};
+    filtered.forEach(d => { if (!dailyCount[d.date]) dailyCount[d.date] = 0; dailyCount[d.date]++; });
+    let peak = 0;
+    Object.values(dailyCount).forEach(c => { if (c > peak) peak = c; });
+    document.getElementById("workerTotal").textContent = total || "-";
+    document.getElementById("workerAvgDay").textContent = avg || "-";
+    document.getElementById("workerPeak").textContent = peak || "-";
+    const sortedDates = Object.keys(dailyCount).sort();
+    if (sortedDates.length >= 2) {
+        const first = dailyCount[sortedDates[0]] || 0;
+        const last = dailyCount[sortedDates[sortedDates.length - 1]] || 0;
+        const growth = first > 0 ? Math.round(((last - first) / first) * 100) : 0;
+        document.getElementById("workerGrowth").textContent = growth + '%';
+    } else {
+        document.getElementById("workerGrowth").textContent = '0%';
+    }
+}
+
+function updateWorkerCharts() {
+    const period = document.getElementById('workerPeriodFilter')?.value || 'today';
+    const now = new Date();
+    let filtered = [...workerData];
+    if (period === 'today') {
+        const today = now.toISOString().slice(0, 10);
+        filtered = filtered.filter(d => d.date === today);
+    } else if (period === 'week') {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        const weekStr = weekStart.toISOString().slice(0, 10);
+        filtered = filtered.filter(d => d.date >= weekStr);
+    } else if (period === 'month') {
+        const monthStr = now.toISOString().slice(0, 7);
+        filtered = filtered.filter(d => d.date.startsWith(monthStr));
+    } else if (period === 'year') {
+        const yearStr = now.toISOString().slice(0, 4);
+        filtered = filtered.filter(d => d.date.startsWith(yearStr));
+    }
+    const dailyCount = {};
+    filtered.forEach(d => { if (!dailyCount[d.date]) dailyCount[d.date] = 0; dailyCount[d.date]++; });
+    const sortedDates = Object.keys(dailyCount).sort();
+    const values = sortedDates.map(d => dailyCount[d] || 0);
+    const labels = sortedDates.map(d => d.slice(5));
+    if (chartWorkerEvolution) chartWorkerEvolution.destroy();
+    const ctxEvolution = document.getElementById('chartWorkerEvolution').getContext('2d');
+    chartWorkerEvolution = new Chart(ctxEvolution, {
+        type: 'line',
+        data: {
+            labels: labels.length ? labels : ['Aucune'],
+            datasets: [{
+                label: 'Requêtes',
+                data: values.length ? values : [0],
+                borderColor: '#60a5fa',
+                backgroundColor: 'rgba(96,165,250,0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+    if (chartWorkerKPI) chartWorkerKPI.destroy();
+    const ctxKPI = document.getElementById('chartWorkerKPI').getContext('2d');
+    const kpiValues = [
+        filtered.length,
+        Math.round(filtered.length / Math.max(1, new Set(filtered.map(d => d.date)).size)),
+        Math.max(0, ...Object.values(dailyCount)),
+        sortedDates.length >= 2 ? Math.round(((dailyCount[sortedDates[sortedDates.length-1]] || 0) - (dailyCount[sortedDates[0]] || 0)) / Math.max(1, dailyCount[sortedDates[0]] || 1) * 100) : 0
+    ];
+    chartWorkerKPI = new Chart(ctxKPI, {
+        type: 'bar',
+        data: {
+            labels: ['Total', 'Moy/Jour', 'Pic', 'Croissance'],
+            datasets: [{
+                label: 'KPI',
+                data: kpiValues,
+                backgroundColor: ['#60a5fa', '#34d399', '#f5b84b', '#8b6bf5'],
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, grid: { color: 'rgba(56,189,248,0.06)' } }, x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 8 } } } }
+        }
+    });
+}
+
+document.getElementById('workerFilterBtn').addEventListener('click', () => {
+    updateWorkerStats();
+    updateWorkerCharts();
+    toast("Worker rafraîchi", "success");
+});
+document.getElementById('workerPeriodFilter').addEventListener('change', () => {
+    updateWorkerStats();
+    updateWorkerCharts();
+});
+
+// ============ PDF EXPORTS ============
+document.getElementById("pdfElevesCompta").addEventListener("click", () => {
+    if (!elevesCompta.length) { toast("Aucune donnée", "warning"); return; }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("landscape", "mm", "a4");
+    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 297, 25, "F");
+    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
+    const nom = currentEcoleData?.nom || "Tous";
+    pdf.text(`MEMBRES ACTIFS - COMPTABILITÉ (${nom})`, 148, 12, { align: "center" });
+    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
+    pdf.text(`Total: ${elevesCompta.length} membres`, 20, 20);
+    const body = elevesCompta.map((e, i) => [String(i + 1), `${e.nom} ${e.postnom} ${e.prenom}`, e.classe, e.option || "-", e.exonere ? "Exonéré" : "Actif", e.parentCode || "-"]);
+    pdf.autoTable({ startY: 28, head: [["N°", "Nom complet", "Classe", "Option", "Statut", "Code Parent"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 2, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
+    pdf.save(`Membres_Compta_${currentEcolePrefix || "all"}.pdf`);
+    toast("PDF généré", "success");
+});
+
+document.getElementById("pdfElevesProfs").addEventListener("click", () => {
+    if (!elevesProfs.length) { toast("Aucune donnée", "warning"); return; }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("landscape", "mm", "a4");
+    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 297, 25, "F");
+    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
+    const nom = currentEcoleData?.nom || "Tous";
+    pdf.text(`MEMBRES ACTIFS - PROFESSEURS (${nom})`, 148, 12, { align: "center" });
+    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
+    pdf.text(`Total: ${elevesProfs.length} membres`, 20, 20);
+    const body = elevesProfs.map((e, i) => [String(i + 1), e.nom, e.classe, e.option || "-", e.cours, e.professeur]);
+    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Classe", "Option", "Cours", "Professeur"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 2, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
+    pdf.save(`Membres_Profs_${currentEcolePrefix || "all"}.pdf`);
+    toast("PDF généré", "success");
+});
+
+document.getElementById("pdfProfs").addEventListener("click", () => {
+    if (!profsList.length) { toast("Aucune donnée", "warning"); return; }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 210, 25, "F");
+    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
+    const nom = currentEcoleData?.nom || "Tous";
+    pdf.text(`PROFESSEURS (${nom})`, 105, 12, { align: "center" });
+    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
+    pdf.text(`Total: ${profsList.length} professeurs`, 20, 20);
+    const body = profsList.map((p, i) => [String(i + 1), p.nom, p.code || "-", p.actif ? "Actif" : "Inactif"]);
+    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Code", "Statut"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 3, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
+    pdf.save(`Professeurs_${currentEcolePrefix || "all"}.pdf`);
+    toast("PDF généré", "success");
+});
+
+document.getElementById("pdfTitulaires").addEventListener("click", () => {
+    if (!titulairesList.length) { toast("Aucune donnée", "warning"); return; }
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    pdf.setFillColor(10, 14, 26); pdf.rect(0, 0, 210, 25, "F");
+    pdf.setFontSize(12); pdf.setFont("helvetica", "bold"); pdf.setTextColor(228, 230, 235);
+    const nom = currentEcoleData?.nom || "Tous";
+    pdf.text(`TITULAIRES (${nom})`, 105, 12, { align: "center" });
+    pdf.setFontSize(7); pdf.setTextColor(148, 163, 184);
+    pdf.text(`Total: ${titulairesList.length} titulaires`, 20, 20);
+    const body = titulairesList.map((t, i) => [String(i + 1), t.nom, t.classes]);
+    pdf.autoTable({ startY: 28, head: [["N°", "Nom", "Classes responsables"]], body, theme: "grid", styles: { fontSize: 7, cellPadding: 3, textColor: [228, 230, 235] }, headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255], fontStyle: "bold" } });
+    pdf.save(`Titulaires_${currentEcolePrefix || "all"}.pdf`);
+    toast("PDF généré", "success");
+});
+
+// ============ TABS ============
+document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        btn.classList.add("active");
+        const tabId = btn.dataset.tab + "-tab";
+        const tab = document.getElementById(tabId);
+        if (tab) tab.classList.add("active");
+        if (btn.dataset.tab === "logs") chargerLogs();
+        if (btn.dataset.tab === "messages") { displayMessages(); }
+        if (btn.dataset.tab === "analytics") { updateAnalyticsCharts(); updateAnalyticsStats(); }
+        if (btn.dataset.tab === "worker") { updateWorkerCharts(); updateWorkerStats(); }
+        if (btn.dataset.tab === "collections") { loadCollections(); }
+    });
+});
+
+// ============ SECURITE ============
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey && e.shiftKey && (e.key === 'C' || e.key === 'c' || e.key === 'I' || e.key === 'i')) || 
         e.key === 'F12' || (e.ctrlKey && e.key === 'u')) {
@@ -2387,7 +2487,10 @@ document.addEventListener('keydown', (e) => {
 });
 document.addEventListener('contextmenu', e => e.preventDefault());
 
-console.log("🚀 CHEF PSI - Dashboard Enterprise");
+// ============ INIT ============
+await openIndexedDB();
+loginCodeInput.focus();
+console.log("🚀 CHEF PSI - Dashboard Enterprise v2.0");
 </script>
 </body>
 </html>
