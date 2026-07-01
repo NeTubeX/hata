@@ -47,6 +47,8 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .btn-change-school:hover{opacity:0.9;transform:scale(0.98);}
 .btn-orange{background:#f59e0b;color:#0f172a;}
 .btn-orange:hover{background:#d97706;}
+.btn-pay{background:#ffd700;color:#0f172a;padding:6px 14px;border-radius:20px;font-size:11px;cursor:pointer;border:none;font-weight:600;}
+.btn-pay:hover{background:#fbbf24;transform:scale(0.97);}
 .w-100{width:100%;}
 .mt-12{margin-top:12px;}
 .mb-12{margin-bottom:12px;}
@@ -105,7 +107,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;}
 .paiement-card-value.partial{color:#f59e0b;}
 .paiement-card-value.impaye{color:#ef4444;}
 .paiement-card-actions button{padding:5px 12px;border-radius:20px;font-size:11px;cursor:pointer;border:none;}
-.btn-pay{background:#ffd700;color:#0f172a;}
 .recap-stats{margin-top:15px;padding:15px;background:rgba(0,0,0,0.2);border-radius:12px;}
 .recap-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,215,0,0.1);}
 .recap-item:last-child{border-bottom:none;}
@@ -409,7 +410,6 @@ function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return"0";return
 function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${type}`;el.innerHTML=`<div class="toast-icon">${icons[type]}</div><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),300);},3000);}
 function formatDateYMD(date=new Date()){return date.toISOString().split('T')[0];}
 function formatDateFr(date){const d=new Date(date);return`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;}
-function estMoisPasse(mois){return moisIndexMap[mois]<moisIndexMap[moisCourant];}
 async function chargerOptions(){
 try{
 const ref=doc(db,"ecoles",SCHOOL_PREFIX,"_config_options","data");
@@ -631,10 +631,8 @@ const paiements=e.paiements||{};
 totalMin=e.minerval*10;
 for(let m of moisListe)totalPaye+=paiements[m]?.montant||0;
 for(let m of moisListe){
-if(estMoisPasse(m)){
 const mt=paiements[m]?.montant||0;
 if(mt<(e.minerval||45000))moisImpayes++;
-}
 }
 const pc=paiements[moisCourant]?.montant||0;
 estEnOrdreMoisCourant=e.exonere||pc>=(e.minerval||45000);
@@ -809,41 +807,138 @@ html+='</div>';
 cont.innerHTML=html;
 await mettreAJourStats();
 }
+
+// ============================================================
+// ⭐ FONCTION CORRIGÉE : afficherReleve
+// Le bouton PAYER apparaît TOUJOURS quand le montant payé < minerval
+// MÊME pour les mois déjà passés !
+// ============================================================
 async function afficherReleve(eleve){
-if(!eleve||eleve.abandon){
-document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;
-return;
+    if(!eleve || eleve.abandon){
+        document.getElementById("releveContainer").innerHTML = `<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon || "?"}</div>`;
+        return;
+    }
+    
+    const elevesFraiches = await getAllComptaEleves(true);
+    const eleveMaj = elevesFraiches.find(e => e.id === eleve.id);
+    if(!eleveMaj) return;
+    
+    let html = `
+    <div style="margin-bottom:20px;">
+        <div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom || ""}</div>
+        <div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option ? `-${eleveMaj.option}` : ""} ${eleveMaj.exonere ? '<span class="badge badge-exonere">EXONÉRÉ</span>' : ''}</div>
+        <div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode || 'Non attribué'}</div>
+        <div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere ? "EXONÉRATION TOTALE" : formatNbSimple(eleveMaj.minerval) + " FC / MOIS"}</div>
+    </div>
+    <div class="paiement-cards">`;
+    
+    let totalMin = 0, totalPaye = 0;
+    const paiements = eleveMaj.paiements || {};
+    
+    for(let mois of moisListe){
+        const minervalMensuel = eleveMaj.exonere ? 0 : eleveMaj.minerval;
+        const p = paiements[mois] || {montant: 0, date: null, historique: []};
+        const montantPaye = p.montant || 0;
+        const resteMois = minervalMensuel - montantPaye;
+        
+        // ✅ CORRECTION : On vérifie UNIQUEMENT le montant payé
+        // Peu importe si le mois est passé ou non !
+        const estPayeTotal = (montantPaye >= minervalMensuel);
+        
+        let cardClass = "";
+        if(mois === moisCourant) cardClass = "mois-courant";
+        else if(!estPayeTotal && !eleveMaj.exonere) cardClass = "mois-impaye";
+        
+        let statut = "", txt = "", resteText = "";
+        
+        if(eleveMaj.exonere){
+            statut = "paye";
+            txt = "EXONÉRÉ";
+            resteText = "0 FC";
+        }
+        else if(estPayeTotal){
+            statut = "paye";
+            txt = `${formatNbSimple(minervalMensuel)} FC`;
+            resteText = "0 FC";
+        }
+        else if(montantPaye > 0){
+            statut = "partial";
+            txt = `${formatNbSimple(montantPaye)} FC`;
+            resteText = `<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(resteMois)} FC</span>`;
+        }
+        else{
+            statut = "impaye";
+            txt = "0 FC";
+            resteText = `<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(minervalMensuel)} FC</span>`;
+        }
+        
+        // Historique des paiements
+        let historiqueHtml = '';
+        if(p.historique && p.historique.length > 0){
+            historiqueHtml = `<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h => `${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
+        }
+        
+        // ✅ CORRECTION : Le bouton PAYER apparaît SI le mois n'est pas complètement payé
+        // Peu importe que le mois soit passé ou non !
+        const showPayButton = (!eleveMaj.exonere && !estPayeTotal);
+        
+        html += `
+        <div class="paiement-card ${cardClass}">
+            <div class="paiement-card-header">
+                <span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span>
+            </div>
+            <div class="paiement-card-details">
+                <div class="paiement-card-infos">
+                    <span class="paiement-card-label">MINERVAL</span>
+                    <span class="paiement-card-value">${eleveMaj.exonere ? "0" : formatNbSimple(minervalMensuel)} FC</span>
+                </div>
+                <div class="paiement-card-infos">
+                    <span class="paiement-card-label">PAYÉ</span>
+                    <span class="paiement-card-value ${statut}">${txt}</span>
+                </div>
+                <div class="paiement-card-infos">
+                    <span class="paiement-card-label">RESTE</span>
+                    <span class="paiement-card-value">${resteText}</span>
+                </div>
+                <div class="paiement-card-actions">
+                    ${showPayButton ? 
+                        `<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>` : 
+                        `<span style="color:#10b981;font-weight:bold;">✓ COMPLET</span>`
+                    }
+                </div>
+            </div>
+            ${historiqueHtml}
+        </div>`;
+        
+        if(!eleveMaj.exonere){
+            totalMin += minervalMensuel;
+            totalPaye += montantPaye;
+        }
+    }
+    
+    html += `
+    </div>
+    <div class="recap-stats">
+        <div class="recap-item">
+            <span class="recap-label">💰 TOTAL MINERVAL</span>
+            <span class="recap-value">${formatNbSimple(totalMin)} FC</span>
+        </div>
+        <div class="recap-item">
+            <span class="recap-label">✅ TOTAL PAYÉ</span>
+            <span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span>
+        </div>
+        <div class="recap-item">
+            <span class="recap-label">⚠️ RESTE À PAYER</span>
+            <span class="recap-value reste">${formatNbSimple(totalMin - totalPaye)} FC</span>
+        </div>
+    </div>`;
+    
+    document.getElementById("releveContainer").innerHTML = html;
 }
-const elevesFraiches=await getAllComptaEleves(true);
-const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
-if(!eleveMaj)return;
-let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div><div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
-let totalMin=0,totalPaye=0;
-const paiements=eleveMaj.paiements||{};
-for(let mois of moisListe){
-const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;
-const p=paiements[mois]||{montant:0,date:null,historique:[]};
-const montantPaye=p.montant||0;
-const estPayeTotal=eleveMaj.exonere||montantPaye>=minervalMensuel;
-const resteMois=eleveMaj.exonere?0:minervalMensuel-montantPaye;
-if(!eleveMaj.exonere){totalMin+=minervalMensuel;totalPaye+=montantPaye;}
-let cardClass="";
-if(mois===moisCourant)cardClass="mois-courant";
-else if(estMoisPasse(mois)&&!estPayeTotal&&!eleveMaj.exonere)cardClass="mois-impaye";
-let statut="",txt="",resteText="";
-if(eleveMaj.exonere){statut="paye";txt="EXONÉRÉ";resteText="0 FC";}
-else if(estPayeTotal){statut="paye";txt=`${formatNbSimple(minervalMensuel)} FC`;resteText="0 FC";}
-else if(montantPaye>0){statut="partial";txt=`${formatNbSimple(montantPaye)} FC`;resteText=`<span style="color:#ef4444;">${formatNbSimple(resteMois)} FC</span>`;}
-else{statut="impaye";txt="0 FC";resteText=`<span style="color:#ef4444;">${formatNbSimple(minervalMensuel)} FC</span>`;}
-let historiqueHtml='';
-if(p.historique&&p.historique.length>0){
-historiqueHtml=`<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h=>`${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
-}
-html+=`<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value">${eleveMaj.exonere?"0":formatNbSimple(minervalMensuel)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${(!eleveMaj.exonere&&!estPayeTotal&&(estMoisPasse(mois)||mois===moisCourant))?`<button class="btn-pay" onclick="openPaiement('${mois}',${eleveMaj.minerval},${montantPaye})">💰 PAYER</button>`:`<span style="color:#10b981;">✓ COMPLET</span>`}</div></div>${historiqueHtml}</div>`;
-}
-html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin-totalPaye)} FC</span></div></div>`;
-document.getElementById("releveContainer").innerHTML=html;
-}
+// ============================================================
+// FIN DE LA CORRECTION
+// ============================================================
+
 window.ouvrirEditParentCode=function(eleveId,eleveNom,codeActuel){
 const modal=document.getElementById('editParentCodeModal');
 document.getElementById('editParentCodeInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${eleveNom}</span></div><div class="modal-info-line"><span>CODE ACTUEL</span><span class="parent-code-card">${codeActuel||'Aucun'}</span></div>`;
