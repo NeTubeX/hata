@@ -344,9 +344,10 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 <div class="prof-config"><h3>CONFIGURATION</h3>
 <div class="note-max-row"><label>Note max / période :</label><input type="number" id="p1MaxConfig" value="20" step="1"></div>
-<div class="btn-group"><button class="btn btn-success" id="newFicheBtn">NOUVELLE FICHE</button><button class="btn btn-warning" id="copyElevesBtn">COPIER ELEVES</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
+<div class="btn-group"><button class="btn btn-success" id="newFicheBtn">NOUVELLE FICHE</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
 </div>
-<div style="padding:20px;border-top:1px solid #334155;margin-top:20px;"><h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3><div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div><button class="btn btn-success" id="addEleveBtn" style="width:100%">+ AJOUTER UN ÉLÈVE</button></div>
+<div style="padding:20px;border-top:1px solid #334155;margin-top:20px;"><h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3><div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-success" id="rechargerElevesBtn" style="flex:1;">🔄 RECHARGER AUTO</button></div><div id="ficheStats" style="margin-top:12px;padding:12px;background:#0f172a;border-radius:12px;font-size:13px;color:#cbd5e1;"><div id="ficheStatsContent"></div></div>
+<div id="codesParentsInfo" style="display:none;"></div></div>
 </div></div>
 <div id="tabCorrection" class="tab-content"><div class="card"><div class="card-header">🎯 CORRECTION INTERACTIVE - 2 MODES DE SAISIE</div>
 <div class="fiche-selector"><label>📁 Fiche à coter :</label><select id="correctionFicheSelector"></select></div>
@@ -431,6 +432,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 </div>
 <script>
+// Protection contre le clic droit et les outils de développement
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
 document.addEventListener('keydown', function(e) {
 if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
@@ -462,10 +464,9 @@ loadingScreen.classList.add('show');
 
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
-
 if (!schoolId) {
     window.location.href = '/schoolchoice';
-    throw new Error('Redirection vers le sélecteur');
+    throw new Error('Redirection');
 }
 
 async function verifierEcoleAutorisee(ecoleId) {
@@ -480,7 +481,6 @@ async function verifierEcoleAutorisee(ecoleId) {
 }
 
 const estAutorisee = await verifierEcoleAutorisee(schoolId);
-
 if (!estAutorisee) {
     document.body.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;">
@@ -509,43 +509,43 @@ if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${scho
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
 
-let currentProf=null,currentFicheId=null,currentFiche=null,toutesFiches=[];
-let saveTimeout=null,isCreatingFiche=false;
-let directriceCode="1111";
-let pendingSync=[];
+let currentProf = null;
+let currentFicheId = null;
+let currentFiche = null;
+let toutesFiches = [];
+let saveTimeout = null;
+let isCreatingFiche = false;
+let directriceCode = "1111";
+let pendingSync = [];
 let groupesActuels = [];
 let optionsParClasse = {
-    "1ère Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],
-    "2ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],
-    "3ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],
-    "4ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],
-    "7ème EB":[],
-    "8ème EB":[]
+    "1ère Année": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES", "TOUTES"],
+    "2ème Année": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES", "TOUTES"],
+    "3ème Année": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES", "TOUTES"],
+    "4ème Année": ["CG", "HP", "TCC", "ELEC", "MG", "SCIENCES", "TOUTES"],
+    "7ème EB": [],
+    "8ème EB": []
 };
-let horaireProf = {lundi:[],mardi:[],mercredi:[],jeudi:[],vendredi:[]};
-let jourAffichage=null;
-let localEleves = [], toutesFichesCompletes = [];
+let horaireProf = { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [] };
+let jourAffichage = null;
+let localEleves = [];
+let toutesFichesCompletes = [];
 const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
 let iaInstructions = null;
 let dernierEleveConsulte = null;
 let dernierEleveData = null;
 let correctionFiche = null;
 let correctionFicheId = null;
-
 let tentativeConnexion = 0;
 let derniereTentative = 0;
 const SEUIL_ALERTE = 3;
-
 let dernierCommunique = null;
 let communiqueAffiche = false;
-
 let enAttenteChoixEleve = false;
 let listeElevesEnAttente = [];
-
 let reponseCache = new Map();
 let lastDataHash = null;
 let currentParentCode = null;
-
 let compteDesactive = false;
 let messageDesactivation = '';
 
@@ -578,6 +578,7 @@ function getWeekNumber(date) {
 }
 
 let sessionId = null;
+
 function getSessionId() {
     if (!sessionId) {
         sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
@@ -607,10 +608,16 @@ async function logParentalActivity(type, code, data = {}) {
         if (navigator.onLine) {
             try {
                 await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData);
-            } catch (e) { saveAnalyticsLocal(logData); }
-        } else { saveAnalyticsLocal(logData); }
+            } catch (e) {
+                saveAnalyticsLocal(logData);
+            }
+        } else {
+            saveAnalyticsLocal(logData);
+        }
         return true;
-    } catch (e) { return false; }
+    } catch (e) {
+        return false;
+    }
 }
 
 async function logWorkerConsultation(type, data = {}) {
@@ -635,10 +642,16 @@ async function logWorkerConsultation(type, data = {}) {
         if (navigator.onLine) {
             try {
                 await setDoc(doc(db, "worker_requests", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData);
-            } catch (e) { saveWorkerLogLocal(logData); }
-        } else { saveWorkerLogLocal(logData); }
+            } catch (e) {
+                saveWorkerLogLocal(logData);
+            }
+        } else {
+            saveWorkerLogLocal(logData);
+        }
         return true;
-    } catch (e) { return false; }
+    } catch (e) {
+        return false;
+    }
 }
 
 function saveAnalyticsLocal(logData) {
@@ -646,7 +659,7 @@ function saveAnalyticsLocal(logData) {
         const analytics = JSON.parse(localStorage.getItem('parental_analytics_cache') || '[]');
         analytics.push(logData);
         localStorage.setItem('parental_analytics_cache', JSON.stringify(analytics));
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function saveWorkerLogLocal(logData) {
@@ -654,7 +667,7 @@ function saveWorkerLogLocal(logData) {
         const logs = JSON.parse(localStorage.getItem('worker_logs_cache') || '[]');
         logs.push(logData);
         localStorage.setItem('worker_logs_cache', JSON.stringify(logs));
-    } catch(e) {}
+    } catch (e) {}
 }
 
 async function syncAnalyticsToFirebase() {
@@ -664,10 +677,10 @@ async function syncAnalyticsToFirebase() {
         for (const log of analytics) {
             try {
                 await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), log);
-            } catch(e) {}
+            } catch (e) {}
         }
         localStorage.removeItem('parental_analytics_cache');
-    } catch(e) {}
+    } catch (e) {}
 }
 
 async function syncWorkerLogsToFirebase() {
@@ -677,10 +690,10 @@ async function syncWorkerLogsToFirebase() {
         for (const log of logs) {
             try {
                 await setDoc(doc(db, "worker_requests", Date.now().toString() + Math.random().toString(36).substr(2, 4)), log);
-            } catch(e) {}
+            } catch (e) {}
         }
         localStorage.removeItem('worker_logs_cache');
-    } catch(e) {}
+    } catch (e) {}
 }
 
 function convertirNombreEnFrancais(n) {
@@ -753,7 +766,9 @@ function voixParentale(texte) {
     texteParle = texteParle.replace(/\!/g, '! ');
     texteParle = texteParle.replace(/:/g, ': ');
     texteParle = texteParle.replace(/-\s/g, '. ');
-    texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); });
+    texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
+        return match.replace(/\./, '. ');
+    });
     texteParle = texteParle.replace(/,/g, ', ');
     texteParle = texteParle.replace(/\s+/g, ' ');
     texteParle = texteParle.replace(/\.\s+\./g, '. ');
@@ -804,7 +819,9 @@ function speak(text, onEnd) {
     texteParle = texteParle.replace(/\!/g, '! ');
     texteParle = texteParle.replace(/:/g, ': ');
     texteParle = texteParle.replace(/-\s/g, '. ');
-    texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); });
+    texteParle = texteParle.replace(/\d+\.\s/g, (match) => {
+        return match.replace(/\./, '. ');
+    });
     texteParle = texteParle.replace(/,/g, ', ');
     texteParle = texteParle.replace(/\s+/g, ' ');
     texteParle = texteParle.replace(/\.\s+\./g, '. ');
@@ -893,7 +910,11 @@ function showStyledConfirm(title, message, onConfirm, onCancel) {
 
 async function getDernierCommunique() {
     try {
-        const q = query(collection(db, SCHOOL_PREFIX + "_communiques"), orderBy("date", "desc"), limit(1));
+        const q = query(
+            collection(db, SCHOOL_PREFIX + "_communiques"),
+            orderBy("date", "desc"),
+            limit(1)
+        );
         const snap = await getDocs(q);
         if (snap.empty) return null;
         const docSnap = snap.docs[0];
@@ -911,12 +932,19 @@ async function getDernierCommunique() {
             titre: data.titre || "Nouveau communiqué",
             contenu: data.contenu || "",
             date: data.date,
-            dateFormatee: dateComm.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            dateFormatee: dateComm.toLocaleDateString('fr-FR', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            }),
             jours: diffJours,
             statut: statut,
             classes: data.classes || null
         };
-    } catch (error) { return null; }
+    } catch (error) {
+        return null;
+    }
 }
 
 async function verifierEtAfficherBoutonCommunique() {
@@ -939,15 +967,25 @@ async function verifierEtAfficherBoutonCommunique() {
 
 async function chercherPunitionsParNom(nom) {
     try {
-        const q = query(collection(db, SCHOOL_PREFIX + "_punitions"), where("eleveNom", "==", nom), where("statut", "==", "active"));
+        const q = query(
+            collection(db, SCHOOL_PREFIX + "_punitions"),
+            where("eleveNom", "==", nom),
+            where("statut", "==", "active")
+        );
         const snap = await getDocs(q);
         const punitions = [];
         snap.forEach(ds => {
             const data = ds.data();
-            punitions.push({ motif: data.motif, justification: data.justification, date: data.date, gravite: data.gravite || 'moyenne', classe: data.classe });
+            punitions.push({
+                motif: data.motif,
+                justification: data.justification,
+                date: data.date,
+                gravite: data.gravite || 'moyenne',
+                classe: data.classe
+            });
         });
         return punitions;
-    } catch(e) { return []; }
+    } catch (e) { return []; }
 }
 
 async function chercherPresencesParNom(nom) {
@@ -965,21 +1003,51 @@ async function chercherPresencesParNom(nom) {
                     const dateStr = data.date ? data.date.slice(0, 10) : '';
                     if (dateStr === aujourdhui) {
                         if (heureActuelle >= 12 && heureActuelle < 17.5) {
-                            presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, enCours: true, heureActuelle: heureActuelle });
+                            presences.push({
+                                date: data.date,
+                                present: e.present,
+                                classe: data.classe,
+                                option: data.option || '',
+                                estAujourdhui: true,
+                                enCours: true,
+                                heureActuelle: heureActuelle
+                            });
                         } else if (heureActuelle < 12) {
-                            presences.push({ date: data.date, present: null, classe: data.classe, option: data.option || '', estAujourdhui: true, avantCours: true, heureActuelle: heureActuelle });
+                            presences.push({
+                                date: data.date,
+                                present: null,
+                                classe: data.classe,
+                                option: data.option || '',
+                                estAujourdhui: true,
+                                avantCours: true,
+                                heureActuelle: heureActuelle
+                            });
                         } else {
-                            presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, apresCours: true, heureActuelle: heureActuelle });
+                            presences.push({
+                                date: data.date,
+                                present: e.present,
+                                classe: data.classe,
+                                option: data.option || '',
+                                estAujourdhui: true,
+                                apresCours: true,
+                                heureActuelle: heureActuelle
+                            });
                         }
                     } else {
-                        presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: false });
+                        presences.push({
+                            date: data.date,
+                            present: e.present,
+                            classe: data.classe,
+                            option: data.option || '',
+                            estAujourdhui: false
+                        });
                     }
                 }
             });
         });
         presences.sort((a, b) => b.date.localeCompare(a.date));
         return presences.slice(0, 5);
-    } catch(e) { return []; }
+    } catch (e) { return []; }
 }
 
 async function getAllComptaEleves() {
@@ -1046,7 +1114,8 @@ async function chercherInfosFinancieresParCode(code) {
             const paiements = data.paiements || {};
             const minerval = data.minerval || 45000;
             const totalAnnuel = minerval * 10;
-            let totalPaye = 0, moisImpayes = [];
+            let totalPaye = 0,
+                moisImpayes = [];
             const moisListe = ["Septembre", "Octobre", "Novembre", "Décembre", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin"];
             for (let mois of moisListe) {
                 const montant = paiements[mois]?.montant || 0;
@@ -1193,18 +1262,15 @@ async function genererReponseNaturelle(question, eleveData) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     const msg = question.toLowerCase();
     const questionKey = getCacheKey(question, eleveData);
-    
     if (questionKey && reponseCache.has(questionKey) && isCacheValid(eleveData)) {
         await logWorkerConsultation('cache_hit', { eleve: eleveData.nom, question: question.slice(0, 100) });
         return reponseCache.get(questionKey);
     }
-    
     const currentHash = getDataHash(eleveData);
     if (currentHash !== lastDataHash) {
         reponseCache.clear();
         lastDataHash = currentHash;
     }
-    
     let reponse = null;
     let questionType = 'generale';
     if (msg.includes('note') || msg.includes('résultat') || msg.includes('point')) questionType = 'notes';
@@ -1213,21 +1279,21 @@ async function genererReponseNaturelle(question, eleveData) {
     else if (msg.includes('punition') || msg.includes('sanction')) questionType = 'punitions';
     else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille')) questionType = 'sexe';
     else if (msg.includes('classe') || msg.includes('titulaire') || msg.includes('professeur')) questionType = 'info_generale';
-    
+
     if (msg.includes('aide') || msg.includes('conseil') || msg.includes('que faire') || msg.includes('comment') || msg.includes('quoi') || msg.includes('que puis-je')) {
         const { pronom } = getSexePronom(eleveData.sexe);
-        reponse = `Je suis là pour vous aider avec ${eleveData.nom} ${eleveData.prenom || ''}. Voici ce que je peux vous dire : - Sa situation financière (minerval, paiements, dettes) - Ses notes et résultats - Sa présence et assiduité - Ses punitions et sanctions. Dites-moi simplement ce que vous voulez savoir. Par exemple : "Ses notes", "Les frais", "${pronom === 'il' ? 'Il' : 'Elle'} est présent aujourd'hui ?", "Les punitions". Je suis là pour vous guider !`;
+        reponse = `Je suis là pour vous aider avec ${eleveData.nom} ${eleveData.prenom||''}. Voici ce que je peux vous dire : - Sa situation financière (minerval, paiements, dettes) - Ses notes et résultats - Sa présence et assiduité - Ses punitions et sanctions. Dites-moi simplement ce que vous voulez savoir. Par exemple : "Ses notes", "Les frais", "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?", "Les punitions". Je suis là pour vous guider !`;
     } else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille') || msg.includes('est-ce') || msg.includes('est il') || msg.includes('est elle')) {
         const { genre } = getSexePronom(eleveData.sexe);
-        reponse = `${eleveData.nom} ${eleveData.prenom || ''} est un${genre === 'fille' ? 'e' : ''} ${genre}.`;
+        reponse = `${eleveData.nom} ${eleveData.prenom||''} est un${genre==='fille'?'e':''} ${genre}.`;
     } else if (msg.includes('titulaire') || msg.includes('professeur') || msg.includes('enseignant')) {
-        if (eleveData.titulaire) reponse = `Le professeur titulaire de ${eleveData.nom} ${eleveData.prenom || ''} est ${eleveData.titulaire}.`;
-        else reponse = `Je n'ai pas d'information sur le titulaire de ${eleveData.nom} ${eleveData.prenom || ''}.`;
+        if (eleveData.titulaire) reponse = `Le professeur titulaire de ${eleveData.nom} ${eleveData.prenom||''} est ${eleveData.titulaire}.`;
+        else reponse = `Je n'ai pas d'information sur le titulaire de ${eleveData.nom} ${eleveData.prenom||''}.`;
     } else if (msg.includes('classe') || msg.includes('quelle classe') || msg.includes('en quelle')) {
-        reponse = `${eleveData.nom} ${eleveData.prenom || ''} est en ${eleveData.classe}${eleveData.option ? ' option '+eleveData.option : ''}.`;
+        reponse = `${eleveData.nom} ${eleveData.prenom||''} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}.`;
     } else if (msg.includes('effectif') || msg.includes('combien d\'élève') || msg.includes('nombre d\'élève') || msg.includes('combien de personne')) {
         const nb = eleveData.nombreElevesClasse || 0;
-        if (nb > 0) reponse = `Il y a ${nb} élèves dans la classe de ${eleveData.nom} ${eleveData.prenom || ''}.`;
+        if (nb > 0) reponse = `Il y a ${nb} élèves dans la classe de ${eleveData.nom} ${eleveData.prenom||''}.`;
         else reponse = `Je n'ai pas d'information sur l'effectif de sa classe.`;
     } else if (msg.includes('résumé') || msg.includes('tout') || msg.includes('complet') || msg.includes('global') || msg.includes('info') || msg.includes('informations')) {
         const frais = await genererReponseFrais(eleveData);
@@ -1238,21 +1304,21 @@ async function genererReponseNaturelle(question, eleveData) {
         const notesClean = notes.split('Voulez-vous voir')[0];
         const presenceClean = presence.split('Voulez-vous voir')[0];
         const punitionsClean = punitions.split('Voulez-vous voir')[0];
-        reponse = `RÉSUMÉ\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${eleveData.nom} ${eleveData.prenom || ''}.`;
+        reponse = `RÉSUMÉ\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''}.`;
     } else if (msg.includes('?') || msg.includes('pourquoi') || msg.includes('comment') || msg.includes('est-ce que')) {
         const { genre, pronom } = getSexePronom(eleveData.sexe);
-        reponse = `Je vais essayer de vous aider. Voici ce que je sais sur ${eleveData.nom} ${eleveData.prenom || ''} : ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleveData.classe}${eleveData.option ? ' option '+eleveData.option : ''}. Posez-moi des questions comme : - "Quelles sont ses notes ?" - "Combien doit-${pronom === 'il' ? 'il' : 'elle'} payer ?" - "${pronom === 'il' ? 'Il' : 'Elle'} est présent aujourd'hui ?" - "A-t-${pronom === 'il' ? 'il' : 'elle'} des punitions ?" Je vous répondrai avec plaisir !`;
+        reponse = `Je vais essayer de vous aider. Voici ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''} : ${pronom==='il'?'Il':'Elle'} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}. Posez-moi des questions comme : - "Quelles sont ses notes ?" - "Combien doit-${pronom==='il'?'il':'elle'} payer ?" - "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?" - "A-t-${pronom==='il'?'il':'elle'} des punitions ?" Je vous répondrai avec plaisir !`;
     }
-    
+
     if (!reponse) {
         const { pronom } = getSexePronom(eleveData.sexe);
-        let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom || ''}. `;
+        let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom||''}. `;
         const sexe = eleveData.sexe || 'M';
         let pronom2 = "il";
         if (sexe === 'F' || sexe === 'Féminin') pronom2 = "elle";
-        contexte += `Son sexe est ${sexe === 'M' ? 'Masculin' : sexe === 'F' ? 'Féminin' : 'Non spécifié'}. `;
-        contexte += `${pronom2 === 'il' ? 'Il' : 'Elle'} est en classe de ${eleveData.classe}. `;
-        contexte += `Sa classe compte ${eleveData.nombreElevesClasse || 0} élèves. `;
+        contexte += `Son sexe est ${sexe==='M'?'Masculin':sexe==='F'?'Féminin':'Non spécifié'}. `;
+        contexte += `${pronom2==='il'?'Il':'Elle'} est en classe de ${eleveData.classe}. `;
+        contexte += `Sa classe compte ${eleveData.nombreElevesClasse||0} élèves. `;
         if (eleveData.option && eleveData.option !== "TOUTES") contexte += `Option ${eleveData.option}. `;
         if (eleveData.titulaire) contexte += `Son professeur est ${eleveData.titulaire}. `;
         if (eleveData.notes && eleveData.notes.length > 0) {
@@ -1271,7 +1337,7 @@ async function genererReponseNaturelle(question, eleveData) {
         if (eleveData.presences && eleveData.presences.length > 0) {
             const today = eleveData.presences[0];
             if (today && today.estAujourdhui && today.present !== null) {
-                contexte += `Aujourd'hui, ${pronom2 === 'il' ? 'il' : 'elle'} est ${today.present ? 'présent' : 'absent'}. `;
+                contexte += `Aujourd'hui, ${pronom2==='il'?'il':'elle'} est ${today.present?'présent':'absent'}. `;
             }
             const total = eleveData.presences.filter(p => p.present !== null).length;
             const presents = eleveData.presences.filter(p => p.present === true).length;
@@ -1281,14 +1347,20 @@ async function genererReponseNaturelle(question, eleveData) {
             }
         }
         if (eleveData.punitions && eleveData.punitions.length > 0) {
-            contexte += `Punitions actives : ${eleveData.punitions.map(p => p.motif).join(", ")}. `;
+            contexte += `Punitions actives : ${eleveData.punitions.map(p=>p.motif).join(", ")}. `;
         }
-        
-        await logWorkerConsultation('worker_call', { eleve: eleveData.nom, question: question.slice(0, 200), type: questionType, classe: eleveData.classe, option: eleveData.option || '' });
-        
+
+        await logWorkerConsultation('worker_call', {
+            eleve: eleveData.nom,
+            question: question.slice(0, 200),
+            type: questionType,
+            classe: eleveData.classe,
+            option: eleveData.option || ''
+        });
+
         const instructions = await chargerInstructionsIA();
         const prompt = `${instructions} CONTEXTE DE L'ÉLÈVE : ${contexte} QUESTION DU PARENT : ${question} RAPPEL IMPORTANT : - Utilise le nom de l'école ${nomEcole} dans ta réponse - Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages - Sois chaleureux et bienveillant - Maximum 3 phrases - Si on te demande le sexe, réponds clairement "C'est un garçon" ou "C'est une fille" - Si on te demande le nombre d'élèves, donne le nombre exact - Utilise "${pronom}" pour parler de l'élève - Utilise TOUJOURS "sa" pour parler de sa situation (le mot situation est féminin) - Si on demande des conseils, donne des encouragements - N'affiche PAS les notes à 0 (zéro)`;
-        
+
         try {
             const response = await fetch(WORKER_URL, {
                 method: 'POST',
@@ -1308,20 +1380,30 @@ async function genererReponseNaturelle(question, eleveData) {
             if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) {
                 reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
             }
-            await logWorkerConsultation('worker_success', { eleve: eleveData.nom, question: question.slice(0, 100), type: questionType, response_length: data.answer?.length || 0 });
+            await logWorkerConsultation('worker_success', {
+                eleve: eleveData.nom,
+                question: question.slice(0, 100),
+                type: questionType,
+                response_length: data.answer?.length || 0
+            });
         } catch (e) {
-            await logWorkerConsultation('worker_error', { eleve: eleveData.nom, question: question.slice(0, 100), type: questionType, error: e.message });
-            reponse = `Je suis désolé, il y a un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom || ''}.`;
+            await logWorkerConsultation('worker_error', {
+                eleve: eleveData.nom,
+                question: question.slice(0, 100),
+                type: questionType,
+                error: e.message
+            });
+            reponse = `Je suis désolé, il y a un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
         }
     }
-    
+
     if (questionKey && reponse) reponseCache.set(questionKey, reponse);
     return reponse;
 }
 
 async function genererReponseFrais(eleveData) {
     ajouterSectionVisitee('frais');
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     const minerval = eleveData.frais.minerval;
     const totalPaye = eleveData.frais.totalPaye;
     const reste = eleveData.frais.reste;
@@ -1339,7 +1421,7 @@ async function genererReponseFrais(eleveData) {
 
 async function genererReponseNotes(eleveData) {
     ajouterSectionVisitee('notes');
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     const notes = eleveData.notes || [];
     const notesParMatiere = {};
     notes.forEach(n => {
@@ -1351,7 +1433,9 @@ async function genererReponseNotes(eleveData) {
     else {
         for (const [matiere, epreuves] of Object.entries(notesParMatiere)) {
             reponse += ` En ${matiere} :`;
-            epreuves.forEach(ep => { reponse += ` - ${ep.epreuve} : ${ep.note} sur ${ep.max}`; });
+            epreuves.forEach(ep => {
+                reponse += ` - ${ep.epreuve} : ${ep.note} sur ${ep.max}`;
+            });
         }
     }
     if (eleveData.titulaire) reponse += ` Son professeur titulaire est ${eleveData.titulaire}.`;
@@ -1361,7 +1445,7 @@ async function genererReponseNotes(eleveData) {
 
 async function genererReponsePresence(eleveData) {
     ajouterSectionVisitee('presence');
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     const presences = eleveData.presences || [];
     const maintenant = new Date();
     const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60;
@@ -1379,7 +1463,7 @@ async function genererReponsePresence(eleveData) {
             const derniere = presences[0];
             if (!derniere.estAujourdhui) {
                 const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
-                reponse += ` La dernière présence enregistrée date du ${dateDerniere}. ${derniere.present ? 'Présent' : 'Absent'}`;
+                reponse += ` La dernière présence enregistrée date du ${dateDerniere}. ${derniere.present?'Présent':'Absent'}`;
             }
         }
         reponse += await genererPropositions(eleveData);
@@ -1389,11 +1473,11 @@ async function genererReponsePresence(eleveData) {
         reponse += ` Les cours sont terminés pour aujourd'hui (fin à 17h30).`;
         if (presences.length > 0 && presences[0].estAujourdhui) {
             const aujourdhui = presences[0];
-            reponse += ` Aujourd'hui, ${nomComplet} était ${aujourdhui.present ? 'présent' : 'absent'}.`;
+            reponse += ` Aujourd'hui, ${nomComplet} était ${aujourdhui.present?'présent':'absent'}.`;
         } else if (presences.length > 0) {
             const derniere = presences[0];
             const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
-            reponse += ` La dernière présence enregistrée date du ${dateDerniere}. ${derniere.present ? 'Présent' : 'Absent'}`;
+            reponse += ` La dernière présence enregistrée date du ${dateDerniere}. ${derniere.present?'Présent':'Absent'}`;
         }
         reponse += await genererPropositions(eleveData);
         return reponse;
@@ -1406,7 +1490,7 @@ async function genererReponsePresence(eleveData) {
         const absents = total - presents;
         const aujourdhui = presences.find(p => p.estAujourdhui);
         if (aujourdhui && aujourdhui.present !== null) {
-            reponse += ` Aujourd'hui, ${nomComplet} est ${aujourdhui.present ? 'présent' : 'absent'}.`;
+            reponse += ` Aujourd'hui, ${nomComplet} est ${aujourdhui.present?'présent':'absent'}.`;
         } else if (aujourdhui && aujourdhui.avantCours) {
             reponse += ` Les cours n'ont pas encore commencé.`;
         }
@@ -1429,18 +1513,18 @@ async function genererReponsePresence(eleveData) {
 
 async function genererReponsePunitions(eleveData) {
     ajouterSectionVisitee('punitions');
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     const punitions = eleveData.punitions || [];
     const { pronom } = getSexePronom(eleveData.sexe);
     let reponse = `Voyons les punitions de ${nomComplet}.`;
     if (punitions.length === 0) {
-        reponse += ` Aucune punition active. ${pronom === 'il' ? 'Il' : 'Elle'} a un bon comportement, c'est bien !`;
+        reponse += ` Aucune punition active. ${pronom==='il'?'Il':'Elle'} a un bon comportement, c'est bien !`;
     } else {
         reponse += ` Voici les punitions enregistrées :`;
         punitions.forEach((p, index) => {
             const date = new Date(p.date).toLocaleDateString('fr-FR');
             const gravite = p.gravite === 'grave' ? 'grave' : p.gravite === 'moyenne' ? 'moyenne' : 'légère';
-            reponse += ` ${index + 1}. ${p.motif} Date : ${date} Gravité : ${gravite}`;
+            reponse += ` ${index+1}. ${p.motif} Date : ${date} Gravité : ${gravite}`;
             if (p.justification) reponse += ` Justification : ${p.justification}`;
             if (p.classe) reponse += ` Classe : ${p.classe}`;
         });
@@ -1450,12 +1534,12 @@ async function genererReponsePunitions(eleveData) {
 }
 
 async function genererReponseMenu(eleveData) {
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     return `Je suis là pour vous aider avec ${nomComplet}. Je peux vous parler des frais, des notes, de la présence ou des punitions. Dites-moi ce que vous voulez savoir.`;
 }
 
 async function genererReponseFin(eleveData) {
-    const nomComplet = `${eleveData.nom} ${eleveData.prenom || ''}`.trim();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
     return `Je vous ai donné toutes les informations sur ${nomComplet}. Si vous avez d'autres questions, je suis là. Sinon, vous pouvez entrer un autre code parent. Bonne journée !`;
 }
 
@@ -1493,15 +1577,11 @@ async function incrementQuestionCountInFirebase(code) {
             else currentCount = 0;
         }
         const newCount = currentCount + 1;
-        await setDoc(docRef, {
-            code: code,
-            count: newCount,
-            date: today,
-            ecole: SCHOOL_PREFIX,
-            lastUpdated: new Date().toISOString()
-        });
+        await setDoc(docRef, { code: code, count: newCount, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
         const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
-        try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount })); } catch(e) {}
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount }));
+        } catch (e) {}
         return newCount;
     } catch (e) {
         console.error("Erreur incrémentation compteur:", e);
@@ -1521,7 +1601,7 @@ async function getQuestionCountForCode(code) {
                 return data.count || 0;
             }
         }
-    } catch(e) {}
+    } catch (e) {}
     return await getQuestionCountFromFirebase(code);
 }
 
@@ -1558,7 +1638,10 @@ function scheduleCounterReset() {
     resetTime.setHours(8, 0, 0, 0);
     if (now >= resetTime) resetTime.setDate(resetTime.getDate() + 1);
     const delay = resetTime.getTime() - now.getTime();
-    setTimeout(() => { resetAllCounters(); scheduleCounterReset(); }, delay);
+    setTimeout(() => {
+        resetAllCounters();
+        scheduleCounterReset();
+    }, delay);
 }
 
 async function resetAllCounters() {
@@ -1575,6 +1658,7 @@ async function resetAllCounters() {
         keys.filter(k => k.startsWith('parent_counter_' + SCHOOL_PREFIX)).forEach(k => localStorage.removeItem(k));
     } catch (e) {}
 }
+
 scheduleCounterReset();
 
 function genererPropositions(eleveData) {
@@ -1585,7 +1669,7 @@ function genererPropositions(eleveData) {
         punitions: { emoji: '', nom: 'les punitions' }
     };
     const nonVisitees = Object.keys(sections).filter(section => !sectionDejaVisitee(section));
-    if (nonVisitees.length === 0) return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom || ''}.`;
+    if (nonVisitees.length === 0) return `\n\nVous avez vu toutes les informations sur ${eleveData.nom} ${eleveData.prenom||''}.`;
     let propositions = '\n\nVoulez-vous voir ';
     const noms = nonVisitees.map(s => sections[s].nom);
     if (noms.length === 1) propositions += noms[0] + ' maintenant ?';
@@ -1616,18 +1700,14 @@ function sectionDejaVisitee(section) {
 async function afficherInfosEleve(eleve) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     dernierEleveConsulte = eleve.nom;
-    
     const sexe = eleve.sexe || 'M';
     const { genre, pronom } = getSexePronom(sexe);
-    
     const resultatsNotes = await chercherNotesParNom(eleve.nom);
     const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
     let notesFiltrees = [];
     if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
-    
     const eleveId = eleve.id || eleve.nom;
     if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-    
     dernierEleveData = {
         id: eleveId,
         nom: eleve.nom,
@@ -1654,26 +1734,21 @@ async function afficherInfosEleve(eleve) {
     };
     reponseCache.clear();
     lastDataHash = getDataHash(dernierEleveData);
-    
-    const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom || ''} dans notre système. C'est ${pronom === 'il' ? 'un garçon' : 'une fille'}. ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
+    const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système. C'est ${pronom==='il'?'un garçon':'une fille'}. ${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
     return reponse;
 }
 
 async function afficherInfosEleveMulti(eleve) {
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
     dernierEleveConsulte = eleve.nom;
-    
     const sexe = eleve.sexe || 'M';
     const { genre, pronom } = getSexePronom(sexe);
-    
     const resultatsNotes = await chercherNotesParNom(eleve.nom);
     const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
     let notesFiltrees = [];
     if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
-    
     const eleveId = eleve.id || eleve.nom;
     if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-    
     dernierEleveData = {
         id: eleveId,
         nom: eleve.nom,
@@ -1700,22 +1775,21 @@ async function afficherInfosEleveMulti(eleve) {
     };
     reponseCache.clear();
     lastDataHash = getDataHash(dernierEleveData);
-    
-    const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom || ''} dans notre système. C'est ${pronom === 'il' ? 'un garçon' : 'une fille'}. ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
+    const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système. C'est ${pronom==='il'?'un garçon':'une fille'}. ${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
     return reponse;
 }
 
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-    
     const aujourdhui = new Date();
     const jourSemaine = aujourdhui.getDay();
+
     if (jourSemaine === 0) {
         await logParentalActivity('tentative', currentParentCode || 'unknown', { message: msg, reason: 'dimanche', jour: 'dimanche' });
         return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
     }
-    
+
     if (/^\d{6}$/.test(msg)) {
         const code = msg;
         const count = await getQuestionCountForCode(code);
@@ -1743,13 +1817,13 @@ async function traiterMessage(message) {
             let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
             infos.forEach((eleve, index) => {
                 const { pronom } = getSexePronom(eleve.sexe);
-                reponse += `${index + 1}. ${eleve.nom} ${eleve.prenom || ''} (${pronom === 'il' ? 'garçon' : 'fille'}) - ${eleve.classe}${eleve.option ? ' ('+eleve.option+')' : ''}\n`;
+                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
             });
             reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
             return reponse;
         }
     }
-    
+
     if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
         const choix = parseInt(msg.trim());
         if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
@@ -1764,12 +1838,12 @@ async function traiterMessage(message) {
         } else {
             let listeNoms = listeElevesEnAttente.map((e, i) => {
                 const { pronom } = getSexePronom(e.sexe);
-                return `${i+1}. ${e.nom} ${e.prenom} (${pronom === 'il' ? 'garçon' : 'fille'})`;
+                return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
             }).join('\n');
             return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
         }
     }
-    
+
     if (dernierEleveConsulte && dernierEleveData) {
         const eleveData = dernierEleveData;
         const texteComplet = msg;
@@ -1779,7 +1853,7 @@ async function traiterMessage(message) {
         else if (texteComplet.includes('présence') || texteComplet.includes('absent')) typeQuestion = 'presence';
         else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
         else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
-        
+
         if (currentParentCode) {
             const newCount = await incrementQuestionCountForCode(currentParentCode);
             updateCounterDisplay();
@@ -1787,17 +1861,21 @@ async function traiterMessage(message) {
                 await logParentalActivity('limit_reached', currentParentCode, { limit: 10, current_count: newCount });
             }
         }
-        
-        await logWorkerConsultation('question_parent', { eleve: eleveData.nom, question: texteComplet.slice(0, 200), type: typeQuestion, code: currentParentCode });
-        
+
+        await logWorkerConsultation('question_parent', {
+            eleve: eleveData.nom,
+            question: texteComplet.slice(0, 200),
+            type: typeQuestion,
+            code: currentParentCode
+        });
+
         const motsBonjour = ['bonjour', 'salut', 'coucou', 'hello', 'hey', 'yo', 'bonsoir', 'bjr', 'slt'];
         const motsMerci = ['merci', 'remerciement', 'remettre', 'je vous remercie', 'je te remercie', 'merci beaucoup', 'merci infiniment', 'merci bien', 'merci pour tout'];
         const motsAurevoir = ['au revoir', 'bye', 'bye bye', 'ciao', 'adieu', 'à bientôt', 'à plus', 'à tout à l\'heure', 'à demain', 'à la prochaine', 'bonne journée', 'bonne soirée', 'bonne nuit'];
-        
         const estBonjour = motsBonjour.some(m => texteComplet.includes(m));
         const estMerci = motsMerci.some(m => texteComplet.includes(m));
         const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
-        
+
         if (estBonjour || estMerci || estAurevoir) {
             const nom = eleveData.nom || '';
             const prenom = eleveData.prenom || '';
@@ -1806,18 +1884,22 @@ async function traiterMessage(message) {
             if (estMerci) return `De rien, c'est un plaisir de vous aider ! Y a-t-il autre chose que je puisse faire pour vous ?`;
             if (estAurevoir) return `Au revoir cher parent ! Ce fut un plaisir de vous aider. N'hésitez pas à revenir si vous avez d'autres questions. Passez une excellente journée !`;
         }
-        
+
         const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
         if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
+
         const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
         if (motsNotes.some(m => texteComplet.includes(m))) return await genererReponseNotes(eleveData);
+
         const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
         if (motsPresence.some(m => texteComplet.includes(m))) return await genererReponsePresence(eleveData);
+
         const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
         if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
+
         return await genererReponseNaturelle(message, eleveData);
     }
-    
+
     return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
 }
 
@@ -1946,13 +2028,11 @@ async function restaurerSession() {
                 localStorage.removeItem('gloria_session_prof');
                 return false;
             }
-            
             const actif = await verifierCompteActif(prof.id);
             if (!actif) {
                 localStorage.removeItem('gloria_session_prof');
                 return false;
             }
-            
             let ap = await getAllFromIndexedDB('professeurs');
             let fp = ap.find(function(p) { return p.id === prof.id && p.school === SCHOOL_PREFIX; });
             if (fp && fp.actif !== false) {
@@ -2002,7 +2082,9 @@ async function getNextFicheNumero() {
     let nv = cv + 1;
     await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv });
     if (navigator.onLine) {
-        try { await setDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"), { valeur: nv }); } catch (e) { await addPendingSync('updateCompteur', nv); }
+        try { await setDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"), { valeur: nv }); } catch (e) {
+            await addPendingSync('updateCompteur', nv);
+        }
     } else { await addPendingSync('updateCompteur', nv); }
     return nv;
 }
@@ -2013,7 +2095,9 @@ async function saveCurrentFiche() {
     let ft = { ...currentFiche, id: currentFicheId, school: SCHOOL_PREFIX };
     await saveToIndexedDB('fiches', ft);
     if (navigator.onLine) {
-        try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId), currentFiche); } catch (e) { await addPendingSync('saveFiche', currentFiche); }
+        try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId), currentFiche); } catch (e) {
+            await addPendingSync('saveFiche', currentFiche);
+        }
     } else { await addPendingSync('saveFiche', currentFiche); }
 }
 
@@ -2098,23 +2182,47 @@ function toggleOptionField() {
     let o = document.getElementById('optionField');
     if (c === '7ème EB' || c === '8ème EB') {
         o.classList.add('hidden-field');
+        // On vide la valeur mais on garde les options
         document.getElementById('optionSelect').value = '';
-    } else if (c && c !== '') o.classList.remove('hidden-field');
-    else o.classList.add('hidden-field');
+    } else if (c && c !== '') {
+        o.classList.remove('hidden-field');
+        // On sélectionne une valeur par défaut si nécessaire
+        let s = document.getElementById('optionSelect');
+        let opts = optionsParClasse[c] || [];
+        if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) {
+            s.value = currentFiche.option;
+        } else if (opts.includes("TOUTES") && s.value === '') {
+            s.value = "TOUTES";
+        } else if (opts.length > 0 && s.value === '') {
+            s.value = opts[0];
+        }
+    } else o.classList.add('hidden-field');
 }
 
 function mettreAJourSelectOptions(c) {
+    // Cette fonction est simplifiée car les options sont déjà dans le HTML
+    // On ne fait que gérer la sélection par défaut
     let s = document.getElementById('optionSelect');
     if (!s) return;
+    
+    // Récupérer les options pour cette classe
     let opts = optionsParClasse[c] || [];
-    s.innerHTML = '<option value="">-- Sélectionner --</option>';
-    opts.forEach(function(o) {
-        let opt = document.createElement('option');
-        opt.value = o;
-        opt.textContent = o;
-        s.appendChild(opt);
-    });
-    if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) s.value = currentFiche.option;
+    
+    // Si la classe n'a pas d'options (7ème EB, 8ème EB)
+    if (opts.length === 0) {
+        s.value = '';
+        return;
+    }
+    
+    // NE PAS VIDER LE SELECT, juste définir la valeur par défaut
+    // Les options sont déjà dans le HTML
+    if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) {
+        s.value = currentFiche.option;
+    } else if (opts.includes("TOUTES") && s.value === '') {
+        s.value = "TOUTES";
+    } else if (opts.length > 0 && s.value === '') {
+        s.value = opts[0];
+    }
 }
 
 function mettreAJourCompteurEleves() {
@@ -2143,9 +2251,9 @@ function afficherEleves() {
         d.className = 'eleve-row';
         const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite';
         if (estImporte) {
-            d.innerHTML = `<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">${ev[i].nom || ''}</span><span style="color:#94a3b8;padding:8px;">${ev[i].sexe || 'M'}</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>`;
+            d.innerHTML = `<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">${ev[i].nom||''}</span><span style="color:#94a3b8;padding:8px;">${ev[i].sexe||'M'}</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>`;
         } else {
-            d.innerHTML = `<input type="text" value="${ev[i].nom || ''}" placeholder="Nom complet" onchange="window.updEleve(${i},'nom',this.value)" style="flex:2"><select onchange="window.updEleve(${i},'sexe',this.value)"><option value="M" ${ev[i].sexe == 'M' ? 'selected' : ''}>M</option><option value="F" ${ev[i].sexe == 'F' ? 'selected' : ''}>F</option></select><span onclick="window.delEleve(${i})" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>`;
+            d.innerHTML = `<input type="text" value="${ev[i].nom||''}" placeholder="Nom complet" onchange="window.updEleve(${i},'nom',this.value)" style="flex:2"><select onchange="window.updEleve(${i},'sexe',this.value)"><option value="M" ${ev[i].sexe=='M'?'selected':''}>M</option><option value="F" ${ev[i].sexe=='F'?'selected':''}>F</option></select><span onclick="window.delEleve(${i})" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>`;
         }
         c.appendChild(d);
     }
@@ -2156,10 +2264,16 @@ function afficherEleves() {
 }
 
 async function importerElevesDepuisCompta() {
-    if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
     const classe = currentFiche.classe;
     const option = currentFiche.option || '';
-    if (!classe) { toast("Veuillez d'abord sélectionner une classe dans la fiche", 'error'); return; }
+    if (!classe) {
+        toast("Veuillez d'abord sélectionner une classe dans la fiche", 'error');
+        return;
+    }
     try {
         await getAllComptaEleves();
         const elevesCompta = localEleves;
@@ -2172,7 +2286,7 @@ async function importerElevesDepuisCompta() {
             return false;
         });
         if (elevesFiltres.length === 0) {
-            toast(`Aucun élève trouvé en ${classe}${option ? ' ('+option+')' : ''}`, 'warning');
+            toast(`Aucun élève trouvé en ${classe}${option?' ('+option+')':''}`, 'warning');
             return;
         }
         const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
@@ -2180,7 +2294,10 @@ async function importerElevesDepuisCompta() {
             const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : '');
             return !nomsExistants.has(nomComplet);
         });
-        if (nouveauxEleves.length === 0) { toast("Tous les élèves sont déjà dans la fiche", 'info'); return; }
+        if (nouveauxEleves.length === 0) {
+            toast("Tous les élèves sont déjà dans la fiche", 'info');
+            return;
+        }
         if (!currentFiche.eleves) currentFiche.eleves = [];
         nouveauxEleves.forEach(e => {
             currentFiche.eleves.push({
@@ -2259,14 +2376,26 @@ window.delEleve = function(i) {
 };
 
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
-function getExamMax(s) { if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2); else return getPeriodeMax(3) + getPeriodeMax(4); }
-function getTotalSemestreMax(s) { if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2) + getExamMax(1); else return getPeriodeMax(3) + getPeriodeMax(4) + getExamMax(2); }
-function getTotalAnnuelMax() { return getTotalSemestreMax(1) + getTotalSemestreMax(2); }
+
+function getExamMax(s) {
+    if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2);
+    else return getPeriodeMax(3) + getPeriodeMax(4);
+}
+
+function getTotalSemestreMax(s) {
+    if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2) + getExamMax(1);
+    else return getPeriodeMax(3) + getPeriodeMax(4) + getExamMax(2);
+}
+
+function getTotalAnnuelMax() {
+    return getTotalSemestreMax(1) + getTotalSemestreMax(2);
+}
 
 function calcMoy(p, notes) {
     let eps = currentFiche.epreuvesParPeriode?.[p] || [];
     if (!eps.length || !notes?.length) return 0;
-    let sommeNotes = 0, sommeMax = 0;
+    let sommeNotes = 0,
+        sommeMax = 0;
     for (let i = 0; i < eps.length; i++) {
         sommeNotes += (notes[i] || 0);
         sommeMax += (eps[i].max || 1);
@@ -2321,9 +2450,15 @@ function afficherCotation() {
         tb.innerHTML = '<tr><td class="empty-state">Aucun élève correspondant aux filtres</td></tr>';
         return;
     }
-    let p1m = getPeriodeMax(1), p2m = getPeriodeMax(2), p3m = getPeriodeMax(3), p4m = getPeriodeMax(4);
-    let e1m = getExamMax(1), e2m = getExamMax(2);
-    let ts1m = getTotalSemestreMax(1), ts2m = getTotalSemestreMax(2), tam = getTotalAnnuelMax();
+    let p1m = getPeriodeMax(1),
+        p2m = getPeriodeMax(2),
+        p3m = getPeriodeMax(3),
+        p4m = getPeriodeMax(4);
+    let e1m = getExamMax(1),
+        e2m = getExamMax(2);
+    let ts1m = getTotalSemestreMax(1),
+        ts2m = getTotalSemestreMax(2),
+        tam = getTotalAnnuelMax();
     let h = ['<th>N°</th><th>NOMS</th><th>SEXE</th>'];
     let e1 = currentFiche.epreuvesParPeriode?.[1] || [];
     let e2 = currentFiche.epreuvesParPeriode?.[2] || [];
@@ -2444,7 +2579,10 @@ function afficherCotation() {
 }
 
 window.updNoteField = function(i, f, v) {
-    if (f === 'nom' && (!v || v.trim() === '')) { toast("Le nom ne peut pas être vide", 'error'); return; }
+    if (f === 'nom' && (!v || v.trim() === '')) {
+        toast("Le nom ne peut pas être vide", 'error');
+        return;
+    }
     currentFiche.eleves[i][f] = v;
     debounceSave();
     updateExportSelect();
@@ -2484,7 +2622,10 @@ window.updExam = function(i, s, v) {
 function afficherEpreuves() {
     let c = document.getElementById('epreuvesContainer');
     if (!c) return;
-    if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; }
+    if (!currentFiche) {
+        c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>';
+        return;
+    }
     c.innerHTML = '';
     for (let p = 1; p <= 4; p++) {
         let b = document.createElement('div');
@@ -2534,7 +2675,10 @@ window.delEpreuve = function(p, i) {
 };
 
 function addEpreuve(p) {
-    if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
     if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = [];
     currentFiche.epreuvesParPeriode[p].push({ nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1), max: 20 });
     afficherEpreuves();
@@ -2649,7 +2793,8 @@ function getJourActuel() {
     return { code: jourAffichage, estWeekend: false, date: jourAffichage + " (navigation)" };
 }
 
-function setJourAffichage(j) { jourAffichage = j; afficherHoraire(); }
+function setJourAffichage(j) { jourAffichage = j;
+    afficherHoraire(); }
 
 function allerHier() {
     const o = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'];
@@ -2669,7 +2814,8 @@ function allerDemain() {
     else toast("Fin de semaine", 'warning');
 }
 
-function revenirAujourdhui() { setJourAffichage(null); toast("Affichage jour réel", 'success'); }
+function revenirAujourdhui() { setJourAffichage(null);
+    toast("Affichage jour réel", 'success'); }
 
 function afficherModalCours(p) {
     let m = document.createElement('div');
@@ -2824,17 +2970,24 @@ function chargerHoraireProf() {
     if (currentProf) {
         let s = localStorage.getItem('gloria_horaire_' + currentProf.id);
         if (s) {
-            try { Object.assign(horaireProf, JSON.parse(s)); } catch (e) {}
+            try {
+                Object.assign(horaireProf, JSON.parse(s));
+            } catch (e) {}
         }
     }
     if (horaireProf.lundi.length === 0) {
         horaireProf = {
-            lundi: [{ heure: 1, classe: "4ème Année", option: "CG", cours: "Mathématiques", pause: false },
+            lundi: [
+                { heure: 1, classe: "4ème Année", option: "CG", cours: "Mathématiques", pause: false },
                 { heure: 2, classe: "3ème Année", option: "HP", cours: "Français", pause: false },
                 { heure: 3, pause: true },
                 { heure: 4, classe: "2ème Année", option: "Sciences", cours: "Physique", pause: false },
-                { heure: 5, classe: "1ère Année", option: "TCC", cours: "Anglais", pause: false }],
-            mardi: [], mercredi: [], jeudi: [], vendredi: []
+                { heure: 5, classe: "1ère Année", option: "TCC", cours: "Anglais", pause: false }
+            ],
+            mardi: [],
+            mercredi: [],
+            jeudi: [],
+            vendredi: []
         };
     }
     afficherHoraire();
@@ -2853,7 +3006,6 @@ async function showLogin() {
     d.innerHTML = '<div class="login-card"><h2>' + schoolId.toUpperCase().replace(/-/g, ' ') + '</h2><p>Accès enseignant</p><select id="loginNom"><option value="">-- Choisir --</option></select><input type="password" id="loginCode" placeholder="Code d\'accès"><button id="loginBtn">Se connecter</button><div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div></div>';
     document.body.appendChild(d);
     await refreshTeachersList();
-
     let clickCount = 0;
     let clickTimeout = null;
     const loginCard = d.querySelector('.login-card');
@@ -2862,7 +3014,9 @@ async function showLogin() {
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return;
             clickCount++;
             if (clickTimeout) clearTimeout(clickTimeout);
-            clickTimeout = setTimeout(() => { clickCount = 0; }, 1000);
+            clickTimeout = setTimeout(() => {
+                clickCount = 0;
+            }, 1000);
             if (clickCount === 3) {
                 clickCount = 0;
                 if (clickTimeout) clearTimeout(clickTimeout);
@@ -2872,51 +3026,47 @@ async function showLogin() {
             }
         });
     }
-
     document.getElementById('loginBtn').onclick = async function() {
         let n = document.getElementById('loginNom').value;
         let c = document.getElementById('loginCode').value;
-
         const maintenant = Date.now();
         if (maintenant - derniereTentative > 60000) tentativeConnexion = 0;
         tentativeConnexion++;
         derniereTentative = maintenant;
-
         let ap = await getAllFromIndexedDB('professeurs');
         let fp = ap.find(function(p) { return p.nom === n && p.school === SCHOOL_PREFIX; });
-
         if (!fp) {
             if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"', ip: "client", tentative: tentativeConnexion, userAgent: navigator.userAgent, raison: "Compte non trouvé" }, "critical");
+                await enregistrerLog("tentative_hack", {
+                    message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"',
+                    ip: "client",
+                    tentative: tentativeConnexion,
+                    userAgent: navigator.userAgent,
+                    raison: "Compte non trouvé"
+                }, "critical");
                 toast("🔒 ALERTE DE SÉCURITÉ : Nombreuses tentatives échouées", "error");
             } else {
-                await enregistrerLog("connexion_echouee", { message: 'Tentative de connexion échouée pour "' + n + '"', raison: "Compte non trouvé", tentative: tentativeConnexion }, "error");
+                await enregistrerLog("connexion_echouee", {
+                    message: 'Tentative de connexion échouée pour "' + n + '"',
+                    raison: "Compte non trouvé",
+                    tentative: tentativeConnexion
+                }, "error");
             }
             document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
             toast("Compte désactivé ou identifiants incorrects", 'error');
             return;
         }
-
         const actif = await verifierCompteActif(fp.profId);
         if (!actif) {
-            document.getElementById('loginOverlay').innerHTML = `
-                <div class="prof-desactiver-msg">
-                    <div class="icon">🚫</div>
-                    <h2>COMPTE DÉSACTIVÉ</h2>
-                    <p>${messageDesactivation}</p>
-                    <p style="margin-top:16px;font-size:12px;color:#94a3b8;">Contactez l'administration pour plus d'informations.</p>
-                    <div style="margin-top:20px;">
-                        <button onclick="window.location.reload()" style="background:#3b82f6;color:#fff;border:none;padding:10px 30px;border-radius:40px;cursor:pointer;font-size:14px;">Réessayer</button>
-                    </div>
-                </div>
-            `;
+            document.getElementById('loginOverlay').innerHTML = `<div class="prof-desactiver-msg"><div class="icon">🚫</div><h2>COMPTE DÉSACTIVÉ</h2><p>${messageDesactivation}</p><p style="margin-top:16px;font-size:12px;color:#94a3b8;">Contactez l'administration pour plus d'informations.</p><div style="margin-top:20px;"><button onclick="window.location.reload()" style="background:#3b82f6;color:#fff;border:none;padding:10px 30px;border-radius:40px;cursor:pointer;font-size:14px;">Réessayer</button></div></div>`;
             return;
         }
-
         tentativeConnexion = 0;
-
         if (c === fp.code) {
-            await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n, code_utilise: c }, "success");
+            await enregistrerLog("connexion_reussie", {
+                message: 'Connexion réussie de ' + n,
+                code_utilise: c
+            }, "success");
             currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
             sauvegarderSession(currentProf);
             document.getElementById('loginOverlay').remove();
@@ -2934,10 +3084,19 @@ async function showLogin() {
             toast("Bienvenue " + currentProf.nom, 'success');
         } else {
             if (tentativeConnexion >= SEUIL_ALERTE) {
-                await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n, code_saisi: c, code_attendu: fp.code, tentative: tentativeConnexion }, "critical");
+                await enregistrerLog("tentative_hack", {
+                    message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n,
+                    code_saisi: c,
+                    code_attendu: fp.code,
+                    tentative: tentativeConnexion
+                }, "critical");
                 toast("🔒 ALERTE DE SÉCURITÉ : Code incorrect à répétition", "error");
             } else {
-                await enregistrerLog("connexion_echouee", { message: 'Code incorrect pour ' + n, code_saisi: c, code_attendu: fp.code }, "error");
+                await enregistrerLog("connexion_echouee", {
+                    message: 'Code incorrect pour ' + n,
+                    code_saisi: c,
+                    code_attendu: fp.code
+                }, "error");
             }
             document.getElementById('loginError').innerHTML = 'Code incorrect';
             toast("Code d'accès incorrect", 'error');
@@ -3080,7 +3239,9 @@ function correctionNextStudent(autoMode) {
             if (disp) disp.textContent = window.correctionMode.currentNote;
         }
         if (autoMode) {
-            setTimeout(() => { speak('Passage à ' + eleves[window.correctionMode.currentIndex]?.nom + '.'); }, 500);
+            setTimeout(() => {
+                speak('Passage à ' + eleves[window.correctionMode.currentIndex]?.nom + '.');
+            }, 500);
         }
     } else {
         toast("Tous les élèves ont été notés !", 'success');
@@ -3104,13 +3265,20 @@ function correctionPrevStudent() {
             const disp = document.querySelector('#gestureZone div:first-child');
             if (disp) disp.textContent = window.correctionMode.currentNote;
         }
-        setTimeout(() => { speak('Retour à ' + eleves[window.correctionMode.currentIndex]?.nom + '.'); }, 500);
+        setTimeout(() => {
+            speak('Retour à ' + eleves[window.correctionMode.currentIndex]?.nom + '.');
+        }, 500);
     } else {
         speak("Vous êtes déjà au premier élève.");
     }
 }
 
-let titulaireConfig = null, toutesFichesTitu = [], fichesTitulaire = [], toutesFichesCompletTitu = [], currentPeriodTitu = "all", currentClasseFilterTitu = "all";
+let titulaireConfig = null,
+    toutesFichesTitu = [],
+    fichesTitulaire = [],
+    toutesFichesCompletTitu = [],
+    currentPeriodTitu = "all",
+    currentClasseFilterTitu = "all";
 const toutesOptionsTitu = ["TOUTES", "CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"];
 const classesSansOptionsTitu = ["7ème EB", "8ème EB"];
 
@@ -3130,7 +3298,8 @@ function formatDateTitu(date) {
 function calcMoyTitu(periode, notes, epsData, pMax) {
     let eps = epsData[periode] || [];
     if (!eps.length || !notes || !notes.length) return 0;
-    let sumN = 0, sumM = 0;
+    let sumN = 0,
+        sumM = 0;
     for (let i = 0; i < eps.length; i++) {
         sumN += (notes[i] || 0);
         sumM += (eps[i].max || 1);
@@ -3143,7 +3312,8 @@ function getNotesByPeriodTitu(fiche, eleve, period) {
     let p2 = calcMoyTitu(2, eleve.notes?.p2 || [], fiche.epreuvesParPeriode, fiche.p1Max);
     let p3 = calcMoyTitu(3, eleve.notes?.p3 || [], fiche.epreuvesParPeriode, fiche.p1Max);
     let p4 = calcMoyTitu(4, eleve.notes?.p4 || [], fiche.epreuvesParPeriode, fiche.p1Max);
-    let exam1 = eleve.notes?.exam1 || 0, exam2 = eleve.notes?.exam2 || 0;
+    let exam1 = eleve.notes?.exam1 || 0,
+        exam2 = eleve.notes?.exam2 || 0;
     if (period === "s1") return { p1, p2, exam1, totalS1: p1 + p2 + exam1, p3: 0, p4: 0, exam2: 0, totalS2: 0, total: p1 + p2 + exam1 };
     if (period === "s2") return { p1: 0, p2: 0, exam1: 0, totalS1: 0, p3, p4, exam2, totalS2: p3 + p4 + exam2, total: p3 + p4 + exam2 };
     return { p1, p2, exam1, totalS1: p1 + p2 + exam1, p3, p4, exam2, totalS2: p3 + p4 + exam2, total: p1 + p2 + exam1 + p3 + p4 + exam2 };
@@ -3154,7 +3324,8 @@ function getNotesForEleveTitu(eleve, fiche) {
     let p2 = calcMoyTitu(2, eleve.notes?.p2 || [], fiche.epreuvesParPeriode, fiche.p1Max);
     let p3 = calcMoyTitu(3, eleve.notes?.p3 || [], fiche.epreuvesParPeriode, fiche.p1Max);
     let p4 = calcMoyTitu(4, eleve.notes?.p4 || [], fiche.epreuvesParPeriode, fiche.p1Max);
-    let exam1 = eleve.notes?.exam1 || 0, exam2 = eleve.notes?.exam2 || 0;
+    let exam1 = eleve.notes?.exam1 || 0,
+        exam2 = eleve.notes?.exam2 || 0;
     return { p1, p2, exam1, totalS1: p1 + p2 + exam1, p3, p4, exam2, totalS2: p3 + p4 + exam2, total: p1 + p2 + exam1 + p3 + p4 + exam2, pMax: fiche.p1Max };
 }
 
@@ -3361,7 +3532,7 @@ function renderFicheCardTitu(fiche) {
             <table class="student-table">
                 <thead>${headerRow}</thead>
                 <tbody>${tableRows}</tbody>
-              </table>
+            </table>
         </div>
         <div class="fiche-actions">
             <button class="btn-pdf export-fiche-titu" data-cours="${fiche.cours}" data-classe="${fiche.classe}" data-option="${fiche.option||''}" data-ref="${refNum}" data-pmax="${pMax}" data-eleves='${JSON.stringify(fiche.eleves)}' data-epreuves='${JSON.stringify(fiche.epreuvesParPeriode)}'>📄 Exporter en PDF</button>
@@ -3395,12 +3566,16 @@ async function generateFichePDFTitu(cours, classe, option, refNum, eleves, epreu
     pdf.text('Cours: ' + cours, 14, 64);
     pdf.text('Classe: ' + classe + (option ? ' - ' + (option === 'TOUTES' ? 'TOUTES OPTIONS' : option) : ''), 14, 71);
     pdf.text('Titulaire: ' + titulaireNom, 14, 78);
-    const headers = [['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
+    const headers = [
+        ['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']
+    ];
     const body = [];
+
     function calcMoyPdf(periode, notes, eps, pM) {
         let e = eps[periode] || [];
         if (!e.length || !notes || !notes.length) return 0;
-        let sn = 0, sm = 0;
+        let sn = 0,
+            sm = 0;
         for (let i = 0; i < e.length; i++) {
             sn += (notes[i] || 0);
             sm += (e[i].max || 1);
@@ -3413,7 +3588,8 @@ async function generateFichePDFTitu(cours, classe, option, refNum, eleves, epreu
         let p2 = calcMoyPdf(2, e.notes?.p2 || [], epreuves, pMax);
         let p3 = calcMoyPdf(3, e.notes?.p3 || [], epreuves, pMax);
         let p4 = calcMoyPdf(4, e.notes?.p4 || [], epreuves, pMax);
-        let exam1 = e.notes?.exam1 || 0, exam2 = e.notes?.exam2 || 0;
+        let exam1 = e.notes?.exam1 || 0,
+            exam2 = e.notes?.exam2 || 0;
         body.push([(i + 1).toString().padStart(2, '0'), e.nom || '', e.sexe || '', p1, p2, exam1, p1 + p2 + exam1, p3, p4, exam2, p3 + p4 + exam2, p1 + p2 + exam1 + p3 + p4 + exam2]);
     }
     if (body.length === 0) body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
@@ -3452,12 +3628,21 @@ async function renderAllFichesTitu() {
     let fichesAFiltrer = fichesTitulaire;
     if (currentClasseFilterTitu !== "all") fichesAFiltrer = fichesTitulaire.filter(fiche => fiche.classe === currentClasseFilterTitu);
     if (fichesAFiltrer.length === 0) {
-        let message = currentClasseFilterTitu !== "all" ? `<div class="empty-state"><h3>📭 Aucune fiche pour la classe "${currentClasseFilterTitu}"</h3><button class="btn-outline" id="resetFilterBtnTitu">✖ Réinitialiser le filtre</button></div>` : '<div class="empty-state"><h3>📭 Aucune fiche disponible</h3><button class="btn-outline" id="reconfigEmptyBtnTitu">⚙️ Modifier la configuration</button></div>';
+        let message = currentClasseFilterTitu !== "all" ?
+            `<div class="empty-state"><h3>📭 Aucune fiche pour la classe "${currentClasseFilterTitu}"</h3><button class="btn-outline" id="resetFilterBtnTitu">✖ Réinitialiser le filtre</button></div>` :
+            '<div class="empty-state"><h3>📭 Aucune fiche disponible</h3><button class="btn-outline" id="reconfigEmptyBtnTitu">⚙️ Modifier la configuration</button></div>';
         container.innerHTML = message;
         const resetBtn = document.getElementById('resetFilterBtnTitu');
-        if (resetBtn) resetBtn.onclick = () => { currentClasseFilterTitu = "all"; document.getElementById('titulaireClasseFilterSelect').value = "all"; renderAllFichesTitu(); };
+        if (resetBtn) resetBtn.onclick = () => {
+            currentClasseFilterTitu = "all";
+            document.getElementById('titulaireClasseFilterSelect').value = "all";
+            renderAllFichesTitu();
+        };
         const rb = document.getElementById('reconfigEmptyBtnTitu');
-        if (rb) rb.onclick = () => { localStorage.removeItem('gloria_titulaire_config'); location.reload(); };
+        if (rb) rb.onclick = () => {
+            localStorage.removeItem('gloria_titulaire_config');
+            location.reload();
+        };
         return;
     }
     let html = '';
@@ -3465,7 +3650,13 @@ async function renderAllFichesTitu() {
     container.innerHTML = html;
     document.querySelectorAll('.export-fiche-titu').forEach(btn => {
         btn.onclick = async () => {
-            const cours = btn.dataset.cours, classe = btn.dataset.classe, option = btn.dataset.option, ref = btn.dataset.ref, pmax = parseInt(btn.dataset.pmax), eleves = JSON.parse(btn.dataset.eleves), epreuves = JSON.parse(btn.dataset.epreuves);
+            const cours = btn.dataset.cours,
+                classe = btn.dataset.classe,
+                option = btn.dataset.option,
+                ref = btn.dataset.ref,
+                pmax = parseInt(btn.dataset.pmax),
+                eleves = JSON.parse(btn.dataset.eleves),
+                epreuves = JSON.parse(btn.dataset.epreuves);
             const pdf = await generateFichePDFTitu(cours, classe, option, ref, eleves, epreuves, pmax, titulaireConfig?.nom || '');
             pdf.save('Fiche_' + cours + '_' + classe + '.pdf');
             toast("PDF exporté avec succès");
@@ -3577,9 +3768,15 @@ function prefillTitulaireNom() {
 
 document.getElementById('saveTitulaireConfigBtn').onclick = async () => {
     let nom = document.getElementById('titulaireNomInput').value.trim();
-    if (!nom) { toast("Veuillez entrer votre nom", 'error'); return; }
+    if (!nom) {
+        toast("Veuillez entrer votre nom", 'error');
+        return;
+    }
     let classesOptions = getSelectedClassesOptionsTitu();
-    if (classesOptions.length === 0) { toast("Veuillez sélectionner au moins une classe", 'error'); return; }
+    if (classesOptions.length === 0) {
+        toast("Veuillez sélectionner au moins une classe", 'error');
+        return;
+    }
     let config = { nom: nom, classesOptions: classesOptions };
     localStorage.setItem('gloria_titulaire_config', JSON.stringify(config));
     titulaireConfig = config;
@@ -3601,7 +3798,10 @@ document.getElementById('reconfigTitulaireBtn').onclick = () => {
 
 document.getElementById('titulaireSearchBtn')?.addEventListener('click', () => {
     const nom = document.getElementById('titulaireSearchNom').value;
-    if (!nom.trim()) { toast("Veuillez entrer un nom d'élève", 'error'); return; }
+    if (!nom.trim()) {
+        toast("Veuillez entrer un nom d'élève", 'error');
+        return;
+    }
     const resultats = rechercherEleveTitu(nom);
     const resultCard = document.getElementById('titulaireResultCard');
     if (resultats.length === 0) {
@@ -3665,7 +3865,9 @@ document.getElementById('exportTitulaireRelevePdfBtn')?.addEventListener('click'
         pdf.text('Élève: ' + window.nomEleveRechercheTitu, 20, 55);
         pdf.text('Sexe: ' + (window.sexeEleveTitu === 'M' ? 'Masculin' : 'Féminin'), 20, 63);
         pdf.text('Classe(s): ' + window.classesEleveTitu, 20, 71);
-        const headers = [['MATIÈRE', 'CLASSE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
+        const headers = [
+            ['MATIÈRE', 'CLASSE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']
+        ];
         const body = window.derniersResultatsTitu.map(r => [r.cours, `${r.classe}`, r.p1, r.p2, r.exam1, r.totalS1, r.p3, r.p4, r.exam2, r.totalS2, r.total]);
         pdf.autoTable({
             head: headers,
@@ -3677,7 +3879,9 @@ document.getElementById('exportTitulaireRelevePdfBtn')?.addEventListener('click'
         });
         pdf.save('Releve_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
         toast("PDF exporté avec succès");
-    } else { toast("Aucun résultat à exporter", 'error'); }
+    } else {
+        toast("Aucun résultat à exporter", 'error');
+    }
 });
 
 document.getElementById('exportTitulaireStatsPdfBtn')?.addEventListener('click', async () => {
@@ -3702,10 +3906,16 @@ document.getElementById('exportTitulaireStatsPdfBtn')?.addEventListener('click',
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(0, 0, 0);
-    const body = [['Total élèves', totalEleves], ['Nombre de fiches', nbFiches], ['Classes responsables', titulaireConfig?.classesOptions.length || 0]];
+    const body = [
+        ['Total élèves', totalEleves],
+        ['Nombre de fiches', nbFiches],
+        ['Classes responsables', titulaireConfig?.classesOptions.length || 0]
+    ];
     for (const [classe, nb] of statsParClasse) body.push([classe, `${nb} élèves`]);
     pdf.autoTable({
-        head: [['Indicateur', 'Valeur']],
+        head: [
+            ['Indicateur', 'Valeur']
+        ],
         body: body,
         startY: 50,
         theme: 'grid',
@@ -3760,7 +3970,6 @@ const parentChatMessagesNew = document.getElementById('parentChatMessages');
 const parentQuestionInputNew = document.getElementById('parentQuestionInput');
 const parentSendBtnNew = document.getElementById('parentSendBtn');
 const parentInfoEleveNew = document.getElementById('parentInfoEleve');
-
 let estEnAttenteReponse = false;
 
 if (parentFloatingBtnNew) {
@@ -3769,16 +3978,7 @@ if (parentFloatingBtnNew) {
         parentModalOverlayNew.classList.add('active');
         document.body.style.overflow = 'hidden';
         reponseCache.clear();
-        parentChatMessagesNew.innerHTML = `
-            <div class="parent-msg bot">
-                <div class="bubble" style="padding:14px 18px;max-width:90%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;">
-                    <div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;">🏫 ${nomEcole}</div>
-                    <div style="color:#e2e8f0;font-size:17px;margin:6px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div>
-                    <div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div>
-                    <div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au samedi</div>
-                </div>
-            </div>
-        `;
+        parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble" style="padding:14px 18px;max-width:90%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;"><div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;">🏫 ${nomEcole}</div><div style="color:#e2e8f0;font-size:17px;margin:6px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div><div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div><div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au samedi</div></div></div>`;
         parentInfoEleveNew.innerHTML = `🏫 ${nomEcole}`;
         parentQuestionInputNew.value = '';
         parentQuestionInputNew.focus();
@@ -3816,7 +4016,10 @@ function createTypingIndicator() {
 
 if (parentSendBtnNew) {
     parentSendBtnNew.onclick = async () => {
-        if (estEnAttenteReponse) { toast("Veuillez patienter, je vérifie...", 'warning'); return; }
+        if (estEnAttenteReponse) {
+            toast("Veuillez patienter, je vérifie...", 'warning');
+            return;
+        }
         const message = parentQuestionInputNew.value.trim();
         if (!message) return;
         const aujourdhui = new Date();
@@ -3874,13 +4077,18 @@ if (parentSendBtnNew) {
             parentChatMessagesNew.appendChild(msgBotDiv);
             parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
             console.error("Erreur traitement message:", error);
-        } finally { estEnAttenteReponse = false; }
+        } finally {
+            estEnAttenteReponse = false;
+        }
     };
 }
 
 if (parentQuestionInputNew) {
     parentQuestionInputNew.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); if (!e.shiftKey) parentSendBtnNew.click(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!e.shiftKey) parentSendBtnNew.click();
+        }
     });
     parentQuestionInputNew.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -3894,9 +4102,18 @@ document.getElementById('newFicheBtn').onclick = async function() {
     let c = document.getElementById('coursInput').value.trim();
     let cl = document.getElementById('classeSelect').value;
     let op = document.getElementById('optionSelect').value;
-    if (!c) { toast("Veuillez renseigner le cours", 'error'); return; }
-    if (!cl) { toast("Veuillez sélectionner une classe", 'error'); return; }
-    if (cl !== '7ème EB' && cl !== '8ème EB' && !op) { toast("Veuillez sélectionner une option", 'error'); return; }
+    if (!c) {
+        toast("Veuillez renseigner le cours", 'error');
+        return;
+    }
+    if (!cl) {
+        toast("Veuillez sélectionner une classe", 'error');
+        return;
+    }
+    if (cl !== '7ème EB' && cl !== '8ème EB' && !op) {
+        toast("Veuillez sélectionner une option", 'error');
+        return;
+    }
     showConfirm("Créer une nouvelle fiche ?", async function() {
         isCreatingFiche = true;
         try {
@@ -3936,15 +4153,31 @@ document.getElementById('newFicheBtn').onclick = async function() {
                 numeroRef: nnum,
                 dateCreation: now,
                 lastModified: now,
-                epreuvesParPeriode: { 1: [{ nom: "Interrogation", max: 20 }], 2: [{ nom: "Interrogation", max: 20 }], 3: [{ nom: "Interrogation", max: 20 }], 4: [{ nom: "Interrogation", max: 20 }] },
+                epreuvesParPeriode: {
+                    1: [{ nom: "Interrogation", max: 20 }],
+                    2: [{ nom: "Interrogation", max: 20 }],
+                    3: [{ nom: "Interrogation", max: 20 }],
+                    4: [{ nom: "Interrogation", max: 20 }]
+                },
                 eleves: eleves,
                 school: SCHOOL_PREFIX,
-                importAuto: { date: now.toISOString(), nbEleves: eleves.length, classe: cl, option: fop, auto: true }
+                importAuto: {
+                    date: now.toISOString(),
+                    nbEleves: eleves.length,
+                    classe: cl,
+                    option: fop,
+                    auto: true
+                }
             };
-            await enregistrerLog("creation_fiche_auto", { message: `Création automatique ${c} - ${cl}${fop ? ' ('+fop+')' : ''}`, nbEleves: eleves.length }, "success");
+            await enregistrerLog("creation_fiche_auto", {
+                message: `Création automatique ${c} - ${cl}${fop?' ('+fop+')':''}`,
+                nbEleves: eleves.length
+            }, "success");
             await saveToIndexedDB('fiches', { ...nf, id: nid });
             if (navigator.onLine) {
-                try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } catch (e) { await addPendingSync('saveFiche', nf); }
+                try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nf); } catch (e) {
+                    await addPendingSync('saveFiche', nf);
+                }
             } else { await addPendingSync('saveFiche', nf); }
             currentFiche = nf;
             currentFicheId = nid;
@@ -3972,10 +4205,16 @@ document.getElementById('newFicheBtn').onclick = async function() {
 };
 
 document.getElementById('rechargerElevesBtn').onclick = async function() {
-    if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
     const classe = currentFiche.classe;
     const option = currentFiche.option;
-    if (!classe) { toast("Veuillez d'abord configurer la classe", 'error'); return; }
+    if (!classe) {
+        toast("Veuillez d'abord configurer la classe", 'error');
+        return;
+    }
     await getAllComptaEleves();
     const elevesCompta = localEleves;
     let elevesFiltres = elevesCompta.filter(e => {
@@ -3987,7 +4226,10 @@ document.getElementById('rechargerElevesBtn').onclick = async function() {
     });
     const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
     const elevesAAjouter = elevesFiltres.filter(e => !nomsExistants.has(e.nom + (e.prenom ? ' ' + e.prenom : '')));
-    if (elevesAAjouter.length === 0) { toast("✅ Aucun nouvel élève à ajouter", 'info'); return; }
+    if (elevesAAjouter.length === 0) {
+        toast("✅ Aucun nouvel élève à ajouter", 'info');
+        return;
+    }
     if (!currentFiche.eleves) currentFiche.eleves = [];
     elevesAAjouter.forEach(e => {
         currentFiche.eleves.push({
@@ -4040,7 +4282,14 @@ selectFiche = async function(id) {
                     source: "auto"
                 }));
                 currentFiche.eleves = eleves;
-                currentFiche.importAuto = { date: new Date().toISOString(), nbEleves: eleves.length, classe: classe, option: option, auto: true, ouverture: true };
+                currentFiche.importAuto = {
+                    date: new Date().toISOString(),
+                    nbEleves: eleves.length,
+                    classe: classe,
+                    option: option,
+                    auto: true,
+                    ouverture: true
+                };
                 await saveCurrentFiche();
                 afficherEleves();
                 afficherCotation();
@@ -4058,64 +4307,125 @@ function mettreAJourStatsFiche() {
     const container = document.getElementById('ficheStatsContent');
     if (!container || !currentFiche) return;
     const eleves = currentFiche.eleves || [];
-    container.innerHTML = `
-        <div style="display:flex;gap:20px;flex-wrap:wrap;">
-            <div><span style="color:#94a3b8;">👥 Total élèves :</span><span style="color:#fff;font-weight:600;">${eleves.length}</span></div>
-            <div><span style="color:#94a3b8;">📅 Importé le :</span><span style="color:#94a3b8;">${currentFiche.importAuto?.date ? new Date(currentFiche.importAuto.date).toLocaleDateString() : 'N/A'}</span></div>
-        </div>
-    `;
+    container.innerHTML = `<div style="display:flex;gap:20px;flex-wrap:wrap;"><div><span style="color:#94a3b8;">👥 Total élèves :</span><span style="color:#fff;font-weight:600;">${eleves.length}</span></div><div><span style="color:#94a3b8;">📅 Importé le :</span><span style="color:#94a3b8;">${currentFiche.importAuto?.date?new Date(currentFiche.importAuto.date).toLocaleDateString():'N/A'}</span></div></div>`;
 }
 
 document.getElementById('deleteFicheBtn').onclick = async function() {
-    if (!currentFicheId) { toast("Aucune fiche sélectionnée", 'error'); return; }
+    if (!currentFicheId) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
     showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function() {
         try {
             let ficheData = await getFromIndexedDB('fiches', currentFicheId);
             let nbEleves = ficheData?.eleves?.length || 0;
-            await enregistrerLog("suppression_fiche", { message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"), ficheId: currentFicheId, cours: ficheData?.cours, classe: ficheData?.classe, option: ficheData?.option || "aucune", numeroRef: ficheData?.numeroRef, nbEleves: nbEleves, action_par: currentProf?.nom }, "warning");
+            await enregistrerLog("suppression_fiche", {
+                message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"),
+                ficheId: currentFicheId,
+                cours: ficheData?.cours,
+                classe: ficheData?.classe,
+                option: ficheData?.option || "aucune",
+                numeroRef: ficheData?.numeroRef,
+                nbEleves: nbEleves,
+                action_par: currentProf?.nom
+            }, "warning");
             if (ficheData) {
                 let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
                 let dateExpiration = new Date();
                 dateExpiration.setDate(dateExpiration.getDate() + 30);
-                corbeille.push({ ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), supprimee: true, enAttenteSuppression: false, professeurId: currentProf.id, professeurNom: currentProf.nom, school: SCHOOL_PREFIX });
+                corbeille.push({
+                    ...ficheData,
+                    dateSuppression: new Date().toISOString(),
+                    dateExpiration: dateExpiration.toISOString(),
+                    supprimee: true,
+                    enAttenteSuppression: false,
+                    professeurId: currentProf.id,
+                    professeurNom: currentProf.nom,
+                    school: SCHOOL_PREFIX
+                });
                 localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
                 if (navigator.onLine) {
-                    try { await setDoc(doc(db, SCHOOL_PREFIX + "_corbeille", currentFicheId), { ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), professeurNom: currentProf.nom }); } catch (e) {}
+                    try {
+                        await setDoc(doc(db, SCHOOL_PREFIX + "_corbeille", currentFicheId), {
+                            ...ficheData,
+                            dateSuppression: new Date().toISOString(),
+                            dateExpiration: dateExpiration.toISOString(),
+                            professeurNom: currentProf.nom
+                        });
+                    } catch (e) {}
                 }
             }
             await deleteFromIndexedDB('fiches', currentFicheId);
             if (navigator.onLine) {
-                try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId)); } catch (e) { await addPendingSync('deleteFiche', currentFicheId); }
+                try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId)); } catch (e) {
+                    await addPendingSync('deleteFiche', currentFicheId);
+                }
             } else { await addPendingSync('deleteFiche', currentFicheId); }
             toutesFiches = await loadAllFiches();
             if (toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
-            else { currentFiche = null; currentFicheId = null; document.getElementById('coursInput').value = ''; document.getElementById('classeSelect').value = ''; document.getElementById('optionSelect').value = ''; document.getElementById('titulaireInput').value = ''; afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshSelectors(); }
+            else {
+                currentFiche = null;
+                currentFicheId = null;
+                document.getElementById('coursInput').value = '';
+                document.getElementById('classeSelect').value = '';
+                document.getElementById('optionSelect').value = '';
+                document.getElementById('titulaireInput').value = '';
+                afficherEpreuves();
+                afficherEleves();
+                afficherCotation();
+                updateExportSelect();
+                refreshSelectors();
+            }
             toast("Fiche supprimée avec succès", 'success');
         } catch (error) {
-            await enregistrerLog("erreur_suppression_fiche", { message: 'Erreur lors de la suppression de la fiche', erreur: error.message, ficheId: currentFicheId }, "error");
+            await enregistrerLog("erreur_suppression_fiche", {
+                message: 'Erreur lors de la suppression de la fiche',
+                erreur: error.message,
+                ficheId: currentFicheId
+            }, "error");
             toast("Erreur lors de la suppression", 'error');
         }
     });
 };
 
 document.getElementById('coursInput').oninput = function() {
-    if (currentFiche && !isCreatingFiche) { currentFiche.cours = document.getElementById('coursInput').value; debounceSave(); refreshSelectors(); }
+    if (currentFiche && !isCreatingFiche) {
+        currentFiche.cours = document.getElementById('coursInput').value;
+        debounceSave();
+        refreshSelectors();
+    }
 };
+
 document.getElementById('classeSelect').onchange = function() {
     if (currentFiche && !isCreatingFiche) {
         currentFiche.classe = document.getElementById('classeSelect').value;
-        if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) { currentFiche.option = ''; document.getElementById('optionSelect').value = ''; }
+        if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) {
+            currentFiche.option = '';
+            document.getElementById('optionSelect').value = '';
+        }
         debounceSave();
         refreshSelectors();
     }
     toggleOptionField();
+    // Recharger les options pour la classe sélectionnée
+    mettreAJourSelectOptions(document.getElementById('classeSelect').value);
 };
+
 document.getElementById('optionSelect').onchange = function() {
-    if (currentFiche && !isCreatingFiche) { currentFiche.option = document.getElementById('optionSelect').value; debounceSave(); refreshSelectors(); }
+    if (currentFiche && !isCreatingFiche) {
+        currentFiche.option = document.getElementById('optionSelect').value;
+        debounceSave();
+        refreshSelectors();
+    }
 };
+
 document.getElementById('titulaireInput').oninput = function() {
-    if (currentFiche && !isCreatingFiche) { currentFiche.titulaire = document.getElementById('titulaireInput').value; debounceSave(); }
+    if (currentFiche && !isCreatingFiche) {
+        currentFiche.titulaire = document.getElementById('titulaireInput').value;
+        debounceSave();
+    }
 };
+
 document.getElementById('p1MaxConfig').onchange = function() {
     if (currentFiche && !isCreatingFiche) {
         currentFiche.p1Max = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
@@ -4126,10 +4436,23 @@ document.getElementById('p1MaxConfig').onchange = function() {
 };
 
 document.getElementById('exportCurrentBtn').onclick = async function() {
-    if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
-    if (!currentFiche.eleves || currentFiche.eleves.length === 0) { toast("Aucun élève à exporter", 'error'); return; }
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    if (!currentFiche.eleves || currentFiche.eleves.length === 0) {
+        toast("Aucun élève à exporter", 'error');
+        return;
+    }
     try {
-        await enregistrerLog("export_pdf", { message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"), ficheId: currentFicheId, cours: currentFiche.cours, classe: currentFiche.classe, nbEleves: currentFiche.eleves.length, type: "fiche_cotation" }, "info");
+        await enregistrerLog("export_pdf", {
+            message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"),
+            ficheId: currentFicheId,
+            cours: currentFiche.cours,
+            classe: currentFiche.classe,
+            nbEleves: currentFiche.eleves.length,
+            type: "fiche_cotation"
+        }, "info");
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('landscape', 'mm', 'a4');
         const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
@@ -4156,13 +4479,24 @@ document.getElementById('exportCurrentBtn').onclick = async function() {
         pdf.text("Cours : " + (currentFiche.cours || ''), 14, 64);
         pdf.text("Classe : " + (currentFiche.classe || ''), 14, 71);
         let y = 78;
-        if (currentFiche.option && currentFiche.option !== '') { pdf.text("Option : " + currentFiche.option, 14, y); y += 7; }
+        if (currentFiche.option && currentFiche.option !== '') {
+            pdf.text("Option : " + currentFiche.option, 14, y);
+            y += 7;
+        }
         pdf.text("Titulaire : " + (currentFiche.titulaire || ''), 14, y);
         const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] };
-        const p1m = getPeriodeMax(1), p2m = getPeriodeMax(2), p3m = getPeriodeMax(3), p4m = getPeriodeMax(4);
-        const e1m = getExamMax(1), e2m = getExamMax(2);
-        const ts1m = getTotalSemestreMax(1), ts2m = getTotalSemestreMax(2), tam = getTotalAnnuelMax();
-        const hd = [['N°', 'NOMS', 'SEXE', 'P1/' + p1m, 'P2/' + p2m, 'EXAM S1/' + e1m, 'TOT S1/' + ts1m, 'P3/' + p3m, 'P4/' + p4m, 'EXAM S2/' + e2m, 'TOT S2/' + ts2m, 'TOTAL/' + tam]];
+        const p1m = getPeriodeMax(1);
+        const p2m = getPeriodeMax(2);
+        const p3m = getPeriodeMax(3);
+        const p4m = getPeriodeMax(4);
+        const e1m = getExamMax(1);
+        const e2m = getExamMax(2);
+        const ts1m = getTotalSemestreMax(1);
+        const ts2m = getTotalSemestreMax(2);
+        const tam = getTotalAnnuelMax();
+        const hd = [
+            ['N°', 'NOMS', 'SEXE', 'P1/' + p1m, 'P2/' + p2m, 'EXAM S1/' + e1m, 'TOT S1/' + ts1m, 'P3/' + p3m, 'P4/' + p4m, 'EXAM S2/' + e2m, 'TOT S2/' + ts2m, 'TOTAL/' + tam]
+        ];
         const bd = [];
         for (let i = 0; i < currentFiche.eleves.length; i++) {
             const e = currentFiche.eleves[i];
@@ -4194,11 +4528,22 @@ document.getElementById('exportCurrentBtn').onclick = async function() {
 
 document.getElementById('exportEleveNotesBtn').onclick = async function() {
     let idx = document.getElementById('eleveForExportSelect').value;
-    if (idx === "") { toast("Veuillez sélectionner un élève", 'warning'); return; }
+    if (idx === "") {
+        toast("Veuillez sélectionner un élève", 'warning');
+        return;
+    }
     let eleve = currentFiche.eleves[parseInt(idx)];
-    if (!eleve) { toast("Élève non trouvé", 'error'); return; }
+    if (!eleve) {
+        toast("Élève non trouvé", 'error');
+        return;
+    }
     try {
-        await enregistrerLog("export_pdf", { message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"), eleve: eleve.nom, ficheId: currentFicheId, type: "releve_eleve" }, "info");
+        await enregistrerLog("export_pdf", {
+            message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"),
+            eleve: eleve.nom,
+            ficheId: currentFicheId,
+            type: "releve_eleve"
+        }, "info");
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('portrait', 'mm', 'a4');
         const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
@@ -4235,12 +4580,52 @@ document.getElementById('exportEleveNotesBtn').onclick = async function() {
         }
         bd.push(['', '', '', '']);
         bd.push(['RECAPITULATIF', '', '', '']);
-        const p1m = getP(1), p2m = getP(2), p3m = getP(3), p4m = getP(4);
-        const p1 = (function() { let e = eps[1] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p1?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p1m, Math.round((s / m) * p1m)) : 0; })();
-        const p2 = (function() { let e = eps[2] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p2?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p2m, Math.round((s / m) * p2m)) : 0; })();
-        const p3 = (function() { let e = eps[3] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p3?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p3m, Math.round((s / m) * p3m)) : 0; })();
-        const p4 = (function() { let e = eps[4] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p4?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p4m, Math.round((s / m) * p4m)) : 0; })();
-        const ex1 = eleve.notes?.exam1 || 0, ex2 = eleve.notes?.exam2 || 0;
+        const p1m = getP(1);
+        const p2m = getP(2);
+        const p3m = getP(3);
+        const p4m = getP(4);
+        const p1 = (function() {
+            let e = eps[1] || [];
+            let s = 0,
+                m = 0;
+            for (let i = 0; i < e.length; i++) {
+                s += (eleve.notes?.p1?.[i] || 0);
+                m += (e[i].max || 1);
+            }
+            return m ? Math.min(p1m, Math.round((s / m) * p1m)) : 0;
+        })();
+        const p2 = (function() {
+            let e = eps[2] || [];
+            let s = 0,
+                m = 0;
+            for (let i = 0; i < e.length; i++) {
+                s += (eleve.notes?.p2?.[i] || 0);
+                m += (e[i].max || 1);
+            }
+            return m ? Math.min(p2m, Math.round((s / m) * p2m)) : 0;
+        })();
+        const p3 = (function() {
+            let e = eps[3] || [];
+            let s = 0,
+                m = 0;
+            for (let i = 0; i < e.length; i++) {
+                s += (eleve.notes?.p3?.[i] || 0);
+                m += (e[i].max || 1);
+            }
+            return m ? Math.min(p3m, Math.round((s / m) * p3m)) : 0;
+        })();
+        const p4 = (function() {
+            let e = eps[4] || [];
+            let s = 0,
+                m = 0;
+            for (let i = 0; i < e.length; i++) {
+                s += (eleve.notes?.p4?.[i] || 0);
+                m += (e[i].max || 1);
+            }
+            return m ? Math.min(p4m, Math.round((s / m) * p4m)) : 0;
+        })();
+        const ex1 = eleve.notes?.exam1 || 0;
+        const ex2 = eleve.notes?.exam2 || 0;
         bd.push(['Période 1', '', p1 + " / " + p1m, '']);
         bd.push(['Période 2', '', p2 + " / " + p2m, '']);
         bd.push(['Examen Semestre 1', '', ex1 + " / " + (p1m + p2m), '']);
@@ -4251,7 +4636,9 @@ document.getElementById('exportEleveNotesBtn').onclick = async function() {
         bd.push(['Total Semestre 2', '', (p3 + p4 + ex2) + " / " + (p3m + p4m + p3m + p4m), '']);
         bd.push(['TOTAL ANNUEL', '', (p1 + p2 + ex1 + p3 + p4 + ex2) + " / " + ((p1m + p2m) * 2 + (p3m + p4m) * 2), '']);
         pdf.autoTable({
-            head: [['Période', 'Epreuve', 'Note', 'Note / max période']],
+            head: [
+                ['Période', 'Epreuve', 'Note', 'Note / max période']
+            ],
             body: bd,
             startY: 75,
             theme: 'grid',
@@ -4286,9 +4673,15 @@ document.getElementById('tousAbsentsBtn')?.addEventListener('click', function() 
 
 document.getElementById('formerEquipesBtn')?.addEventListener('click', function() {
     let p = getElevesPresent();
-    if (p.length === 0) { toast("Aucun élève présent", 'error'); return; }
+    if (p.length === 0) {
+        toast("Aucun élève présent", 'error');
+        return;
+    }
     let nd = parseInt(document.getElementById('nbEquipes').value);
-    if (nd > p.length) { toast("Plus de groupes que d'élèves", 'error'); return; }
+    if (nd > p.length) {
+        toast("Plus de groupes que d'élèves", 'error');
+        return;
+    }
     let g = formerGroupes(p, nd);
     afficherGroupes(g);
     toast(p.length + " élèves répartis en " + g.length + " groupes", 'success');
@@ -4296,7 +4689,10 @@ document.getElementById('formerEquipesBtn')?.addEventListener('click', function(
 
 document.getElementById('formerEquipesOptimiseBtn')?.addEventListener('click', function() {
     let p = getElevesPresent();
-    if (p.length === 0) { toast("Aucun élève présent", 'error'); return; }
+    if (p.length === 0) {
+        toast("Aucun élève présent", 'error');
+        return;
+    }
     let ti = parseInt(document.getElementById('tailleIdeale').value);
     let no = Math.round(p.length / ti);
     if (no < 1) no = 1;
@@ -4306,14 +4702,22 @@ document.getElementById('formerEquipesOptimiseBtn')?.addEventListener('click', f
     toast("Formation optimale : " + p.length + " élèves → " + g.length + " groupes", 'success');
 });
 
-document.getElementById('groupePeriodeSelect')?.addEventListener('change', function() { mettreAJourEpreuvesSelect(); });
+document.getElementById('groupePeriodeSelect')?.addEventListener('change', function() {
+    mettreAJourEpreuvesSelect();
+});
 
 document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click', function() {
-    if (!groupesActuels.length) { toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord", 'error'); return; }
+    if (!groupesActuels.length) {
+        toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord", 'error');
+        return;
+    }
     let p = parseInt(document.getElementById('groupePeriodeSelect').value);
     let ei = parseInt(document.getElementById('groupeEpreuveSelect').value);
     let eps = currentFiche.epreuvesParPeriode?.[p] || [];
-    if (ei >= eps.length) { toast("Épreuve non valide", 'error'); return; }
+    if (ei >= eps.length) {
+        toast("Épreuve non valide", 'error');
+        return;
+    }
     let nme = eps[ei].max;
     let app = 0;
     groupesActuels.forEach(function(g, gIdx) {
@@ -4324,7 +4728,9 @@ document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click', fu
         if (nf < 0) nf = 0;
         localStorage.setItem('groupe_note_' + currentFicheId + '_' + gIdx, nf);
         g.forEach(function(eleve) {
-            let eIdx = currentFiche.eleves.findIndex(function(e) { return e.id === eleve.id; });
+            let eIdx = currentFiche.eleves.findIndex(function(e) {
+                return e.id === eleve.id;
+            });
             if (eIdx !== -1) {
                 if (!currentFiche.eleves[eIdx].notes) currentFiche.eleves[eIdx].notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
                 if (!currentFiche.eleves[eIdx].notes['p' + p]) currentFiche.eleves[eIdx].notes['p' + p] = [];
@@ -4333,7 +4739,13 @@ document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click', fu
             }
         });
     });
-    if (app > 0) { saveCurrentFiche(); afficherCotation(); toast(app + " élève(s) noté(s)", 'success'); } else { toast("Aucune note appliquée", 'warning'); }
+    if (app > 0) {
+        saveCurrentFiche();
+        afficherCotation();
+        toast(app + " élève(s) noté(s)", 'success');
+    } else {
+        toast("Aucune note appliquée", 'warning');
+    }
 });
 
 document.getElementById('configJourSelect')?.addEventListener('change', () => afficherConfigHoraire());
@@ -4342,12 +4754,25 @@ document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () =
 
 document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     let fiche = correctionFiche || currentFiche;
-    if (!fiche || !fiche.eleves?.length) { toast("Aucune fiche ou élève sélectionné", 'error'); return; }
+    if (!fiche || !fiche.eleves?.length) {
+        toast("Aucune fiche ou élève sélectionné", 'error');
+        return;
+    }
     const periode = parseInt(document.getElementById('correctionPeriodeSelect').value);
     const epreuveIdx = parseInt(document.getElementById('correctionEpreuveSelect').value);
     const eps = fiche.epreuvesParPeriode?.[periode] || [];
-    if (!eps[epreuveIdx]) { toast("Veuillez sélectionner une épreuve valide", 'error'); return; }
-    window.correctionMode = { type: 'quick', periode: periode, epreuveIdx: epreuveIdx, noteMax: eps[epreuveIdx].max, currentIndex: 0, currentNote: 0 };
+    if (!eps[epreuveIdx]) {
+        toast("Veuillez sélectionner une épreuve valide", 'error');
+        return;
+    }
+    window.correctionMode = {
+        type: 'quick',
+        periode: periode,
+        epreuveIdx: epreuveIdx,
+        noteMax: eps[epreuveIdx].max,
+        currentIndex: 0,
+        currentNote: 0
+    };
     const eleves = fiche.eleves;
     window.correctionMode.currentIndex = 0;
     window.correctionMode.currentNote = eleves[0]?.notes?.['p' + periode]?.[epreuveIdx] || 0;
@@ -4383,17 +4808,33 @@ document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
     document.getElementById('quickNext').onclick = () => correctionNextStudent(false);
     document.getElementById('quickPrev').onclick = () => correctionPrevStudent();
     document.getElementById('saisieModal').classList.add('show');
-    setTimeout(() => { speak('Mode rapide activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun')); }, 500);
+    setTimeout(() => {
+        speak('Mode rapide activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun'));
+    }, 500);
 });
 
 document.getElementById('correctionGestureBtn')?.addEventListener('click', () => {
     let fiche = correctionFiche || currentFiche;
-    if (!fiche || !fiche.eleves?.length) { toast("Aucune fiche ou élève sélectionné", 'error'); return; }
+    if (!fiche || !fiche.eleves?.length) {
+        toast("Aucune fiche ou élève sélectionné", 'error');
+        return;
+    }
     const periode = parseInt(document.getElementById('correctionPeriodeSelect').value);
     const epreuveIdx = parseInt(document.getElementById('correctionEpreuveSelect').value);
     const eps = fiche.epreuvesParPeriode?.[periode] || [];
-    if (!eps[epreuveIdx]) { toast("Veuillez sélectionner une épreuve valide", 'error'); return; }
-    window.correctionMode = { type: 'gesture', periode: periode, epreuveIdx: epreuveIdx, noteMax: eps[epreuveIdx].max, currentIndex: 0, currentNote: 0, hammer: null };
+    if (!eps[epreuveIdx]) {
+        toast("Veuillez sélectionner une épreuve valide", 'error');
+        return;
+    }
+    window.correctionMode = {
+        type: 'gesture',
+        periode: periode,
+        epreuveIdx: epreuveIdx,
+        noteMax: eps[epreuveIdx].max,
+        currentIndex: 0,
+        currentNote: 0,
+        hammer: null
+    };
     const eleves = fiche.eleves;
     window.correctionMode.currentIndex = 0;
     window.correctionMode.currentNote = eleves[0]?.notes?.['p' + periode]?.[epreuveIdx] || 0;
@@ -4409,12 +4850,24 @@ document.getElementById('correctionGestureBtn')?.addEventListener('click', () =>
         if (window.correctionMode.hammer) window.correctionMode.hammer.destroy();
         window.correctionMode.hammer = new Hammer(zone);
         window.correctionMode.hammer.on('swipeleft', () => {
-            if (window.correctionMode.currentNote > 0) { window.correctionMode.currentNote--; updateGestureDisplay(); if (navigator.vibrate) navigator.vibrate(30); speak(window.correctionMode.currentNote.toString()); }
+            if (window.correctionMode.currentNote > 0) {
+                window.correctionMode.currentNote--;
+                updateGestureDisplay();
+                if (navigator.vibrate) navigator.vibrate(30);
+                speak(window.correctionMode.currentNote.toString());
+            }
         });
         window.correctionMode.hammer.on('swiperight', () => {
-            if (window.correctionMode.currentNote < window.correctionMode.noteMax) { window.correctionMode.currentNote++; updateGestureDisplay(); if (navigator.vibrate) navigator.vibrate(30); speak(window.correctionMode.currentNote.toString()); }
+            if (window.correctionMode.currentNote < window.correctionMode.noteMax) {
+                window.correctionMode.currentNote++;
+                updateGestureDisplay();
+                if (navigator.vibrate) navigator.vibrate(30);
+                speak(window.correctionMode.currentNote.toString());
+            }
         });
-        window.correctionMode.hammer.on('tap', () => { correctionSaveCurrentNote(); });
+        window.correctionMode.hammer.on('tap', () => {
+            correctionSaveCurrentNote();
+        });
 
         function updateGestureDisplay() {
             document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
@@ -4424,7 +4877,9 @@ document.getElementById('correctionGestureBtn')?.addEventListener('click', () =>
     }
     document.getElementById('gestureSkip')?.addEventListener('click', () => correctionNextStudent(false));
     document.getElementById('saisieModal').classList.add('show');
-    setTimeout(() => { speak('Mode gestuel activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun')); }, 500);
+    setTimeout(() => {
+        speak('Mode gestuel activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun'));
+    }, 500);
 });
 
 document.getElementById('closeSaisieModal')?.addEventListener('click', () => {
@@ -4434,7 +4889,9 @@ document.getElementById('closeSaisieModal')?.addEventListener('click', () => {
     stopSpeaking();
 });
 
-window.speechSynthesis.onvoiceschanged = () => { const voices = window.speechSynthesis.getVoices(); };
+window.speechSynthesis.onvoiceschanged = () => {
+    const voices = window.speechSynthesis.getVoices();
+};
 
 document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
     showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => {
@@ -4446,8 +4903,18 @@ async function enregistrerLog(action, details, statut = "info") {
     try {
         const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
         const now = new Date();
-        const userInfo = { nom: currentProf?.nom || "Inconnu", id: currentProf?.id || "inconnu", type: currentProf ? "professeur" : "systeme", ecole: SCHOOL_PREFIX };
-        const browserInfo = { userAgent: navigator.userAgent, screen: window.screen.width + "x" + window.screen.height, platform: navigator.platform, language: navigator.language };
+        const userInfo = {
+            nom: currentProf?.nom || "Inconnu",
+            id: currentProf?.id || "inconnu",
+            type: currentProf ? "professeur" : "systeme",
+            ecole: SCHOOL_PREFIX
+        };
+        const browserInfo = {
+            userAgent: navigator.userAgent,
+            screen: window.screen.width + "x" + window.screen.height,
+            platform: navigator.platform,
+            language: navigator.language
+        };
         const logData = {
             _type: "log_activite",
             id: logId,
@@ -4464,12 +4931,24 @@ async function enregistrerLog(action, details, statut = "info") {
             lu: false
         };
         if (navigator.onLine) {
-            try { await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData); } catch (error) { console.error("Erreur enregistrement log:", error); sauvegarderLogLocal(logData); }
-        } else { sauvegarderLogLocal(logData); }
+            try {
+                await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData);
+            } catch (error) {
+                console.error("Erreur enregistrement log:", error);
+                sauvegarderLogLocal(logData);
+            }
+        } else {
+            sauvegarderLogLocal(logData);
+        }
         if (estActionCritique(action, statut)) alerterAdmin(logData);
-        if (statut === "error" || statut === "critical") { if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error"); }
+        if (statut === "error" || statut === "critical") {
+            if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
+        }
         return logData;
-    } catch (error) { console.error("Erreur enregistrement log:", error); return null; }
+    } catch (error) {
+        console.error("Erreur enregistrement log:", error);
+        return null;
+    }
 }
 
 function sauvegarderLogLocal(logData) {
@@ -4477,7 +4956,9 @@ function sauvegarderLogLocal(logData) {
         const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
         logsLocaux.push(logData);
         localStorage.setItem('logs_locaux', JSON.stringify(logsLocaux));
-    } catch (error) { console.error("Erreur sauvegarde locale:", error); }
+    } catch (error) {
+        console.error("Erreur sauvegarde locale:", error);
+    }
 }
 
 async function synchroniserLogsLocaux() {
@@ -4487,14 +4968,26 @@ async function synchroniserLogsLocaux() {
         if (logsLocaux.length === 0) return;
         let compteur = 0;
         for (const log of logsLocaux) {
-            try { await setDoc(doc(db, SCHOOL_PREFIX + "_logs", log.id), log); compteur++; } catch (error) { console.error("Erreur synchro log:", error); }
+            try {
+                await setDoc(doc(db, SCHOOL_PREFIX + "_logs", log.id), log);
+                compteur++;
+            } catch (error) {
+                console.error("Erreur synchro log:", error);
+            }
         }
         localStorage.removeItem('logs_locaux');
-    } catch (error) { console.error("Erreur synchronisation logs:", error); }
+    } catch (error) {
+        console.error("Erreur synchronisation logs:", error);
+    }
 }
 
 function estActionCritique(action, statut) {
-    const actionsCritiques = ["connexion_echouee", "connexion_reussie", "deconnexion", "suppression_fiche", "modification_code", "creation_professeur", "suppression_professeur", "modification_options", "erreur_systeme", "tentative_hack", "creation_fiche", "suppression_eleve", "modification_code_acces", "export_pdf", "correction_masse"];
+    const actionsCritiques = [
+        "connexion_echouee", "connexion_reussie", "deconnexion", "suppression_fiche",
+        "modification_code", "creation_professeur", "suppression_professeur",
+        "modification_options", "erreur_systeme", "tentative_hack", "creation_fiche",
+        "suppression_eleve", "modification_code_acces", "export_pdf", "correction_masse"
+    ];
     return actionsCritiques.includes(action) || statut === "error" || statut === "critical";
 }
 
@@ -4519,7 +5012,9 @@ async function alerterAdmin(logData) {
             priorite: logData.statut === "critical" ? "haute" : "moyenne",
         };
         await setDoc(doc(db, SCHOOL_PREFIX + "_alertes_admin", alertId), alertData);
-    } catch (error) { console.error("Erreur envoi alerte admin:", error); }
+    } catch (error) {
+        console.error("Erreur envoi alerte admin:", error);
+    }
 }
 
 async function enregistrerMessageParental(message, reponse, codeOuNom) {
@@ -4538,10 +5033,20 @@ async function enregistrerMessageParental(message, reponse, codeOuNom) {
             source: "espace_parental"
         };
         if (navigator.onLine) {
-            try { await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msgId), messageData); } catch (error) { console.error("Erreur enregistrement message parental:", error); sauvegarderMessageLocal(messageData); }
-        } else { sauvegarderMessageLocal(messageData); }
+            try {
+                await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msgId), messageData);
+            } catch (error) {
+                console.error("Erreur enregistrement message parental:", error);
+                sauvegarderMessageLocal(messageData);
+            }
+        } else {
+            sauvegarderMessageLocal(messageData);
+        }
         return true;
-    } catch (error) { console.error("Erreur:", error); return false; }
+    } catch (error) {
+        console.error("Erreur:", error);
+        return false;
+    }
 }
 
 function sauvegarderMessageLocal(messageData) {
@@ -4549,7 +5054,9 @@ function sauvegarderMessageLocal(messageData) {
         const messagesLocaux = JSON.parse(localStorage.getItem('parent_messages_locaux') || '[]');
         messagesLocaux.push(messageData);
         localStorage.setItem('parent_messages_locaux', JSON.stringify(messagesLocaux));
-    } catch (error) { console.error("Erreur sauvegarde locale:", error); }
+    } catch (error) {
+        console.error("Erreur sauvegarde locale:", error);
+    }
 }
 
 async function synchroniserMessagesParentaux() {
@@ -4559,15 +5066,23 @@ async function synchroniserMessagesParentaux() {
         if (messagesLocaux.length === 0) return;
         let compteur = 0;
         for (const msg of messagesLocaux) {
-            try { await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msg.id), msg); compteur++; } catch (error) { console.error("Erreur synchro message:", error); }
+            try {
+                await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msg.id), msg);
+                compteur++;
+            } catch (error) {
+                console.error("Erreur synchro message:", error);
+            }
         }
         localStorage.removeItem('parent_messages_locaux');
-    } catch (error) { console.error("Erreur synchronisation messages:", error); }
+    } catch (error) {
+        console.error("Erreur synchronisation messages:", error);
+    }
 }
 
 let compteurKey = 'global_' + SCHOOL_PREFIX;
 let ce = await getFromIndexedDB('compteur', compteurKey);
 if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
+
 await initIndexedDB();
 await chargerOptionsParClasse();
 
@@ -4605,7 +5120,10 @@ setInterval(function() {
     let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
     let modifie = false;
     corbeille = corbeille.filter(f => {
-        if (f.dateExpiration && new Date(f.dateExpiration) <= new Date()) { modifie = true; return false; }
+        if (f.dateExpiration && new Date(f.dateExpiration) <= new Date()) {
+            modifie = true;
+            return false;
+        }
         if (f.school && f.school !== SCHOOL_PREFIX) return false;
         return true;
     });
@@ -4652,6 +5170,10 @@ function initOnglets() {
         });
     });
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    initOnglets();
+});
 
 initOnglets();
 
