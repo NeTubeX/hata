@@ -225,6 +225,7 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .tab-content .card .assistant-grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;}
 @media(min-width:768px){.tab-content .card .assistant-grid{grid-template-columns:repeat(2,1fr);}}
 .tab-content .card .result-area-full{margin-top:20px;}
+
 .parent-floating-btn{position:fixed;bottom:24px;right:24px;width:80px;height:80px;border-radius:50%;background:transparent;border:none;padding:0;cursor:pointer;z-index:10001;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;box-shadow:0 0 0 0 rgba(16,185,129,0.6);animation:breathe 2.5s ease-in-out infinite;}
 .parent-floating-btn img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;border:3px solid #10b981;box-sizing:border-box;}
 @keyframes breathe{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(16,185,129,0.5);}50%{transform:scale(1.08);box-shadow:0 0 35px 15px rgba(16,185,129,0.25);}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(16,185,129,0.5);}}
@@ -450,7 +451,7 @@ return true;
 </script>
 <script type="module">
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, onSnapshot, orderBy, updateDoc } from "firebase/firestore";
 
 const firebaseConfig = {
 apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
@@ -554,6 +555,7 @@ let currentParentCode = null;
 let compteDesactive = false;
 let messageDesactivation = '';
 let sessionId = null;
+let estEnAttenteReponse = false;
 
 function normaliserClasse(nomClasse) {
 if (!nomClasse) return '';
@@ -572,6 +574,157 @@ const correspondances = {
 const cleaned = nomClasse.trim().replace(/\s+/g, ' ');
 return correspondances[cleaned] || cleaned;
 }
+
+// ============================================================
+// FONCTIONS MANQUANTES AJOUTÉES - COPIÉES DE L'ANCIEN CODE
+// ============================================================
+
+// Fonction canAskQuestion (essentielle pour le bouton d'envoi)
+async function canAskQuestion() {
+    if (!currentParentCode) return true;
+    const count = await getQuestionCountForCode(currentParentCode);
+    return count < 10;
+}
+
+// Fonction createTypingIndicator
+function createTypingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'parent-msg bot';
+    div.id = 'typingIndicator';
+    div.innerHTML = `<div class="typing-indicator"><span>en train d'écrire</span><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+    return div;
+}
+
+// Fonction typeWriterEffect
+async function typeWriterEffect(element, text, speed = 15) {
+    element.innerHTML = '';
+    for (let i = 0; i < text.length; i++) {
+        element.innerHTML += text.charAt(i);
+        await new Promise(r => setTimeout(r, speed));
+    }
+}
+
+// Fonction getCacheKey
+function getCacheKey(question, eleveData) {
+    const hash = getDataHash(eleveData);
+    if (!hash) return null;
+    const normalizedQuestion = question.toLowerCase().trim().replace(/\s+/g, ' ');
+    return `${hash}_${normalizedQuestion}`;
+}
+
+// Fonction getDataHash
+function getDataHash(eleveData) {
+    if (!eleveData) return null;
+    const dataStr = JSON.stringify({
+        nom: eleveData.nom,
+        prenom: eleveData.prenom,
+        sexe: eleveData.sexe,
+        classe: eleveData.classe,
+        notes: eleveData.notes,
+        frais: eleveData.frais,
+        punitions: eleveData.punitions,
+        presences: eleveData.presences
+    });
+    let hash = 0;
+    for (let i = 0; i < dataStr.length; i++) {
+        const char = dataStr.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash.toString();
+}
+
+// Fonction getQuestionCountForCode
+async function getQuestionCountForCode(code) {
+    if (!code || code.length !== 6) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
+    try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            const data = JSON.parse(cached);
+            if (data.date === today) {
+                return data.count || 0;
+            }
+        }
+    } catch (e) {}
+    return await getQuestionCountFromFirebase(code);
+}
+
+// Fonction updateCounterDisplay
+function updateCounterDisplay() {
+    const counterSpan = document.getElementById('parentQuestionCounter');
+    if (!counterSpan) return;
+    if (currentParentCode) {
+        getQuestionCountForCode(currentParentCode).then(count => {
+            counterSpan.textContent = count + '/10';
+            counterSpan.style.background = count >= 10 ? '#ef4444' : '#10b981';
+        });
+    } else {
+        counterSpan.textContent = '0/10';
+        counterSpan.style.background = '#10b981';
+    }
+}
+
+// Fonction getQuestionCountFromFirebase
+async function getQuestionCountFromFirebase(code) {
+    if (!code || code.length !== 6) return 0;
+    try {
+        const docRef = doc(db, SCHOOL_PREFIX + "_parent_usage", code);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const today = new Date().toISOString().slice(0, 10);
+            if (data.date === today) return data.count || 0;
+            else {
+                await setDoc(docRef, { code: code, count: 0, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
+                return 0;
+            }
+        }
+        return 0;
+    } catch (e) {
+        console.error("Erreur récupération compteur:", e);
+        return 0;
+    }
+}
+
+// Fonction incrementQuestionCountForCode
+async function incrementQuestionCountForCode(code) {
+    if (!code || code.length !== 6) return 0;
+    const newCount = await incrementQuestionCountInFirebase(code);
+    updateCounterDisplay();
+    return newCount;
+}
+
+// Fonction incrementQuestionCountInFirebase
+async function incrementQuestionCountInFirebase(code) {
+    if (!code || code.length !== 6) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+        const docRef = doc(db, SCHOOL_PREFIX + "_parent_usage", code);
+        const docSnap = await getDoc(docRef);
+        let currentCount = 0;
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.date === today) currentCount = data.count || 0;
+            else currentCount = 0;
+        }
+        const newCount = currentCount + 1;
+        await setDoc(docRef, { code: code, count: newCount, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
+        const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount }));
+        } catch (e) {}
+        return newCount;
+    } catch (e) {
+        console.error("Erreur incrémentation compteur:", e);
+        return 0;
+    }
+}
+
+// ============================================================
+// FIN DES FONCTIONS MANQUANTES AJOUTÉES
+// ============================================================
 
 async function verifierCompteActif(profId) {
 try {
@@ -1196,97 +1349,57 @@ return eleves;
 } catch (e) { return null; }
 }
 
-async function chercherMeilleureNote(nom) {
+async function chercherNotesParNom(nom) {
 const fiches = await getAllFiches();
+const resultats = [];
 const searchTerm = nom.toLowerCase().trim();
-let meilleureEpreuve = null;
-let meilleurScore = 0;
-let infosEleve = null;
-let punitions = [];
-let presences = [];
-
 for (const fiche of fiches) {
-if (!fiche.eleves || fiche.eleves.length === 0) continue;
-
-for (const eleve of fiche.eleves) {
+for (const eleve of (fiche.eleves || [])) {
 const nomEleve = (eleve.nom || '').toLowerCase();
-
-if (nomEleve.includes(searchTerm)) {
-if (!infosEleve) {
-infosEleve = {
+if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
+const punitions = await chercherPunitionsParNom(eleve.nom);
+const presences = await chercherPresencesParNom(eleve.nom);
+const epreuvesList = [];
+if (eleve.notes) {
+for (let periode = 1; periode <= 4; periode++) {
+const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
+const notesPeriode = eleve.notes[`p${periode}`] || [];
+for (let i = 0; i < epreuves.length; i++) {
+const nomEpreuve = epreuves[i].nom || "Epreuve";
+if (!nomEpreuve.toLowerCase().includes("examen")) {
+let note = notesPeriode[i] || 0;
+let max = epreuves[i].max || 1;
+if (note > 0) {
+epreuvesList.push({
+matiere: fiche.cours,
+epreuve: nomEpreuve,
+note: note,
+max: max,
+periode: periode,
+titulaire: fiche.titulaire || null,
+classe: fiche.classe,
+option: fiche.option || ''
+});
+}
+}
+}
+}
+}
+resultats.push({
 eleveNom: eleve.nom,
 sexe: eleve.sexe || 'M',
 classe: fiche.classe,
 option: fiche.option || '',
 titulaire: fiche.titulaire || null,
-nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0
-};
-punitions = await chercherPunitionsParNom(eleve.nom);
-presences = await chercherPresencesParNom(eleve.nom);
-}
-
-if (eleve.notes) {
-for (let periode = 1; periode <= 4; periode++) {
-const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
-const notesPeriode = eleve.notes[`p${periode}`] || [];
-
-for (let i = 0; i < epreuves.length; i++) {
-const note = notesPeriode[i] || 0;
-if (note > 0 && note > meilleurScore) {
-meilleurScore = note;
-meilleureEpreuve = {
-matiere: fiche.cours,
-epreuve: epreuves[i].nom || "Epreuve",
-note: note,
-max: epreuves[i].max || 20,
-periode: periode,
-classe: fiche.classe,
-option: fiche.option || '',
-titulaire: fiche.titulaire || null
-};
-}
-}
-}
-if (eleve.notes.exam1 && eleve.notes.exam1 > meilleurScore) {
-meilleurScore = eleve.notes.exam1;
-meilleureEpreuve = {
-matiere: fiche.cours,
-epreuve: "Examen Semestre 1",
-note: eleve.notes.exam1,
-max: (fiche.p1Max || 20) * 2,
-periode: "Semestre 1",
-classe: fiche.classe,
-option: fiche.option || '',
-titulaire: fiche.titulaire || null
-};
-}
-if (eleve.notes.exam2 && eleve.notes.exam2 > meilleurScore) {
-meilleurScore = eleve.notes.exam2;
-meilleureEpreuve = {
-matiere: fiche.cours,
-epreuve: "Examen Semestre 2",
-note: eleve.notes.exam2,
-max: (fiche.p1Max || 20) * 2,
-periode: "Semestre 2",
-classe: fiche.classe,
-option: fiche.option || '',
-titulaire: fiche.titulaire || null
-};
-}
-}
-}
-}
-}
-
-if (infosEleve && meilleureEpreuve) {
-return {
-...infosEleve,
-meilleureEpreuve: meilleureEpreuve,
+epreuves: epreuvesList,
+nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0,
 punitions: punitions,
 presences: presences
-};
+});
 }
-return null;
+}
+}
+return resultats;
 }
 
 async function chargerInstructionsIA() {
@@ -1303,40 +1416,6 @@ iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles
 iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`;
 }
 return iaInstructions;
-}
-
-function getDataHash(eleveData) {
-if (!eleveData) return null;
-const dataStr = JSON.stringify({
-nom: eleveData.nom,
-prenom: eleveData.prenom,
-sexe: eleveData.sexe,
-classe: eleveData.classe,
-notes: eleveData.notes,
-frais: eleveData.frais,
-punitions: eleveData.punitions,
-presences: eleveData.presences
-});
-let hash = 0;
-for (let i = 0; i < dataStr.length; i++) {
-const char = dataStr.charCodeAt(i);
-hash = ((hash << 5) - hash) + char;
-hash = hash & hash;
-}
-return hash.toString();
-}
-
-function getCacheKey(question, eleveData) {
-const hash = getDataHash(eleveData);
-if (!hash) return null;
-const normalizedQuestion = question.toLowerCase().trim().replace(/\s+/g, ' ');
-return `${hash}_${normalizedQuestion}`;
-}
-
-function isCacheValid(eleveData) {
-const currentHash = getDataHash(eleveData);
-if (!currentHash) return false;
-return lastDataHash === currentHash;
 }
 
 function getSexePronom(sexe) {
@@ -1509,19 +1588,25 @@ return reponse;
 
 async function genererReponseNotes(eleveData) {
 ajouterSectionVisitee('notes');
-const meilleure = eleveData.meilleureEpreuve || null;
-
-if (!meilleure) {
-return `${eleveData.nom} n'a pas encore de notes enregistrees.`;
+const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+const notes = eleveData.notes || [];
+const notesParMatiere = {};
+notes.forEach(n => {
+if (!notesParMatiere[n.matiere]) notesParMatiere[n.matiere] = [];
+notesParMatiere[n.matiere].push(n);
+});
+let reponse = `Voyons les résultats de ${nomComplet}.`;
+if (notes.length === 0) reponse += ` Il n'y a pas encore de notes enregistrées.`;
+else {
+for (const [matiere, epreuves] of Object.entries(notesParMatiere)) {
+reponse += ` En ${matiere} :`;
+epreuves.forEach(ep => {
+reponse += ` - ${ep.epreuve} : ${ep.note} sur ${ep.max}`;
+});
 }
-
-let reponse = `Sa meilleure note est ${meilleure.note}/${meilleure.max}`;
-if (meilleure.matiere) reponse += ` en ${meilleure.matiere}`;
-if (meilleure.epreuve) reponse += ` (${meilleure.epreuve})`;
-reponse += `.`;
-
-reponse += `\n\nVoulez-vous aussi voir sa situation financiere, sa presence ou ses punitions ?`;
-
+}
+if (eleveData.titulaire) reponse += ` Son professeur titulaire est ${eleveData.titulaire}.`;
+reponse += await genererPropositions(eleveData);
 return reponse;
 }
 
@@ -1615,6 +1700,16 @@ reponse += await genererPropositions(eleveData);
 return reponse;
 }
 
+async function genererReponseMenu(eleveData) {
+const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+return `Je suis là pour vous aider avec ${nomComplet}. Je peux vous parler des frais, des notes, de la présence ou des punitions. Dites-moi ce que vous voulez savoir.`;
+}
+
+async function genererReponseFin(eleveData) {
+const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+return `Je vous ai donné toutes les informations sur ${nomComplet}. Si vous avez d'autres questions, je suis là. Sinon, vous pouvez entrer un autre code parent. Bonne journée !`;
+}
+
 function genererPropositions(eleveData) {
 const sections = {
 frais: { emoji: '', nom: 'les frais' },
@@ -1651,30 +1746,36 @@ if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) return histo
 return false;
 }
 
+function isCacheValid(eleveData) {
+const currentHash = getDataHash(eleveData);
+if (!currentHash) return false;
+return lastDataHash === currentHash;
+}
+
 async function afficherInfosEleve(eleve) {
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 dernierEleveConsulte = eleve.nom;
 const sexe = eleve.sexe || 'M';
 const { genre, pronom } = getSexePronom(sexe);
-
-const data = await chercherMeilleureNote(eleve.nom);
-
+const resultatsNotes = await chercherNotesParNom(eleve.nom);
+const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+let notesFiltrees = [];
+if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
 const eleveId = eleve.id || eleve.nom;
 if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-
 dernierEleveData = {
 id: eleveId,
 nom: eleve.nom,
-prenom: eleve.prenom || '',
+prenom: eleve.prenom,
 sexe: sexe,
 genre: genre,
 pronom: pronom,
 classe: eleve.classe,
-option: eleve.option || '',
+option: eleve.option,
 ecole: nomEcole,
-meilleureEpreuve: data ? data.meilleureEpreuve : null,
-titulaire: data ? data.titulaire : null,
-nombreElevesClasse: data ? data.nombreElevesClasse : 0,
+notes: notesFiltrees,
+titulaire: noteData ? noteData.titulaire : null,
+nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
 frais: {
 minerval: eleve.minerval,
 totalPaye: eleve.totalPaye,
@@ -1682,20 +1783,13 @@ reste: eleve.reste,
 moisImpayes: eleve.moisImpayes,
 statut: eleve.statut
 },
-punitions: data ? data.punitions : [],
-presences: data ? data.presences : [],
+punitions: noteData ? noteData.punitions : [],
+presences: noteData ? noteData.presences : [],
 sectionsVisitees: historiqueSections[eleveId] || []
 };
-
 reponseCache.clear();
 lastDataHash = getDataHash(dernierEleveData);
-
-let reponse = `Bonjour cher parent, j'ai trouve ${eleve.nom} ${eleve.prenom || ''} dans notre systeme. `;
-reponse += `C'est ${pronom === 'il' ? 'un garcon' : 'une fille'} en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}.`;
-
-reponse += `\n\nJe peux vous parler de sa situation financiere, de ses notes, de sa presence ou de ses punitions. `;
-reponse += `Par quoi voulez-vous commencer ?`;
-
+const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système. C'est ${pronom==='il'?'un garçon':'une fille'}. ${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
 return reponse;
 }
 
@@ -1704,25 +1798,25 @@ const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEX
 dernierEleveConsulte = eleve.nom;
 const sexe = eleve.sexe || 'M';
 const { genre, pronom } = getSexePronom(sexe);
-
-const data = await chercherMeilleureNote(eleve.nom);
-
+const resultatsNotes = await chercherNotesParNom(eleve.nom);
+const noteData = resultatsNotes.length > 0 ? resultatsNotes[0] : null;
+let notesFiltrees = [];
+if (noteData && noteData.epreuves) notesFiltrees = noteData.epreuves.filter(ep => ep.note > 0);
 const eleveId = eleve.id || eleve.nom;
 if (!historiqueSections[eleveId]) historiqueSections[eleveId] = [];
-
 dernierEleveData = {
 id: eleveId,
 nom: eleve.nom,
-prenom: eleve.prenom || '',
+prenom: eleve.prenom,
 sexe: sexe,
 genre: genre,
 pronom: pronom,
 classe: eleve.classe,
-option: eleve.option || '',
+option: eleve.option,
 ecole: nomEcole,
-meilleureEpreuve: data ? data.meilleureEpreuve : null,
-titulaire: data ? data.titulaire : null,
-nombreElevesClasse: data ? data.nombreElevesClasse : 0,
+notes: notesFiltrees,
+titulaire: noteData ? noteData.titulaire : null,
+nombreElevesClasse: noteData ? noteData.nombreElevesClasse : 0,
 frais: {
 minerval: eleve.minerval,
 totalPaye: eleve.totalPaye,
@@ -1730,20 +1824,13 @@ reste: eleve.reste,
 moisImpayes: eleve.moisImpayes,
 statut: eleve.statut
 },
-punitions: data ? data.punitions : [],
-presences: data ? data.presences : [],
+punitions: noteData ? noteData.punitions : [],
+presences: noteData ? noteData.presences : [],
 sectionsVisitees: historiqueSections[eleveId] || []
 };
-
 reponseCache.clear();
 lastDataHash = getDataHash(dernierEleveData);
-
-let reponse = `Bonjour cher parent, j'ai trouve ${eleve.nom} ${eleve.prenom || ''} dans notre systeme. `;
-reponse += `C'est ${pronom === 'il' ? 'un garcon' : 'une fille'} en ${eleve.classe}${eleve.option ? ' option '+eleve.option : ''}.`;
-
-reponse += `\n\nJe peux vous parler de sa situation financiere, de ses notes, de sa presence ou de ses punitions. `;
-reponse += `Par quoi voulez-vous commencer ?`;
-
+const reponse = `Bonjour cher parent, j'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système. C'est ${pronom==='il'?'un garçon':'une fille'}. ${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}. Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
 return reponse;
 }
 
@@ -1865,139 +1952,11 @@ if (motsPresence.some(m => texteComplet.includes(m))) return await genererRepons
 const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
 if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
 
-const motsCoursExclus = ['frais', 'argent', 'payer', 'presence', 'present', 'absent', 'punition', 'sanction', 'meilleure', 'note', 'resultat'];
-const estAutreCours = !motsCoursExclus.some(m => texteComplet.includes(m)) && 
-                       texteComplet.split(' ').some(mot => mot.length > 3);
-
-if (estAutreCours && eleveData.meilleureEpreuve) {
-const meilleure = eleveData.meilleureEpreuve;
-let reponse = `Je ne donne que la note superieure aux autres epreuves. `;
-reponse += `L'epreuve ou ${eleveData.nom} ${eleveData.prenom || ''} a fait le plus de points est `;
-reponse += `${meilleure.note}/${meilleure.max}`;
-if (meilleure.matiere) reponse += ` en ${meilleure.matiere}`;
-if (meilleure.epreuve) reponse += ` (${meilleure.epreuve})`;
-reponse += `.`;
-reponse += `\n\nVoulez-vous aussi voir sa situation financiere, sa presence ou ses punitions ?`;
-return reponse;
-}
-
 return await genererReponseNaturelle(message, eleveData);
 }
 
 return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
 }
-
-async function getQuestionCountFromFirebase(code) {
-if (!code || code.length !== 6) return 0;
-try {
-const docRef = doc(db, SCHOOL_PREFIX + "_parent_usage", code);
-const docSnap = await getDoc(docRef);
-if (docSnap.exists()) {
-const data = docSnap.data();
-const today = new Date().toISOString().slice(0, 10);
-if (data.date === today) return data.count || 0;
-else {
-await setDoc(docRef, { code: code, count: 0, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
-return 0;
-}
-}
-return 0;
-} catch (e) {
-console.error("Erreur récupération compteur:", e);
-return 0;
-}
-}
-
-async function incrementQuestionCountInFirebase(code) {
-if (!code || code.length !== 6) return 0;
-const today = new Date().toISOString().slice(0, 10);
-try {
-const docRef = doc(db, SCHOOL_PREFIX + "_parent_usage", code);
-const docSnap = await getDoc(docRef);
-let currentCount = 0;
-if (docSnap.exists()) {
-const data = docSnap.data();
-if (data.date === today) currentCount = data.count || 0;
-else currentCount = 0;
-}
-const newCount = currentCount + 1;
-await setDoc(docRef, { code: code, count: newCount, date: today, ecole: SCHOOL_PREFIX, lastUpdated: new Date().toISOString() });
-const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
-try {
-localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount }));
-} catch (e) {}
-return newCount;
-} catch (e) {
-console.error("Erreur incrémentation compteur:", e);
-return 0;
-}
-}
-
-async function getQuestionCountForCode(code) {
-if (!code || code.length !== 6) return 0;
-const today = new Date().toISOString().slice(0, 10);
-const cacheKey = 'parent_counter_' + SCHOOL_PREFIX + '_' + code;
-try {
-const cached = localStorage.getItem(cacheKey);
-if (cached) {
-const data = JSON.parse(cached);
-if (data.date === today) {
-return data.count || 0;
-}
-}
-} catch (e) {}
-return await getQuestionCountFromFirebase(code);
-}
-
-async function incrementQuestionCountForCode(code) {
-if (!code || code.length !== 6) return 0;
-const newCount = await incrementQuestionCountInFirebase(code);
-updateCounterDisplay();
-return newCount;
-}
-
-function updateCounterDisplay() {
-const counterSpan = document.getElementById('parentQuestionCounter');
-if (!counterSpan) return;
-if (currentParentCode) {
-getQuestionCountForCode(currentParentCode).then(count => {
-counterSpan.textContent = count + '/10';
-counterSpan.style.background = count >= 10 ? '#ef4444' : '#10b981';
-});
-} else {
-counterSpan.textContent = '0/10';
-counterSpan.style.background = '#10b981';
-}
-}
-
-function scheduleCounterReset() {
-const now = new Date();
-const resetTime = new Date(now);
-resetTime.setHours(8, 0, 0, 0);
-if (now >= resetTime) resetTime.setDate(resetTime.getDate() + 1);
-const delay = resetTime.getTime() - now.getTime();
-setTimeout(() => {
-resetAllCounters();
-scheduleCounterReset();
-}, delay);
-}
-
-async function resetAllCounters() {
-try {
-const querySnapshot = await getDocs(collection(db, SCHOOL_PREFIX + "_parent_usage"));
-const today = new Date().toISOString().slice(0, 10);
-for (const doc of querySnapshot.docs) {
-const data = doc.data();
-if (data.date !== today) {
-await setDoc(doc.ref, { ...data, count: 0, date: today });
-}
-}
-const keys = Object.keys(localStorage);
-keys.filter(k => k.startsWith('parent_counter_' + SCHOOL_PREFIX)).forEach(k => localStorage.removeItem(k));
-} catch (e) {}
-}
-
-scheduleCounterReset();
 
 async function initIndexedDB() {
 return new Promise(function(res, rej) {
@@ -3221,39 +3180,6 @@ else await setDoc(doc(db, SCHOOL_PREFIX + "_config", "options_par_classe"), opti
 toggleOptionField();
 }
 
-function getTodayKey() {
-const today = new Date().toISOString().slice(0, 10);
-const schoolPrefixForStorage = (typeof SCHOOL_PREFIX !== 'undefined') ? SCHOOL_PREFIX : 'default';
-return 'parent_questions_' + schoolPrefixForStorage + '_' + today;
-}
-
-function getQuestionCountLocal() {
-const key = getTodayKey();
-const data = localStorage.getItem(key);
-if (!data) return 0;
-try {
-const parsed = JSON.parse(data);
-if (parsed.date !== new Date().toISOString().slice(0, 10)) return 0;
-return parsed.count || 0;
-} catch (e) { return 0; }
-}
-
-function incrementQuestionCountLocal() {
-const key = getTodayKey();
-const currentCount = getQuestionCountLocal();
-const newCount = currentCount + 1;
-localStorage.setItem(key, JSON.stringify({ date: new Date().toISOString().slice(0, 10), count: newCount }));
-return newCount;
-}
-
-async function typeWriterEffect(element, text, speed = 15) {
-element.innerHTML = '';
-for (let i = 0; i < text.length; i++) {
-element.innerHTML += text.charAt(i);
-await new Promise(r => setTimeout(r, speed));
-}
-}
-
 function correctionUpdateEpreuveList() {
 const periodeSelect = document.getElementById('correctionPeriodeSelect');
 const epreuveSelect = document.getElementById('correctionEpreuveSelect');
@@ -4057,7 +3983,6 @@ const parentChatMessagesNew = document.getElementById('parentChatMessages');
 const parentQuestionInputNew = document.getElementById('parentQuestionInput');
 const parentSendBtnNew = document.getElementById('parentSendBtn');
 const parentInfoEleveNew = document.getElementById('parentInfoEleve');
-let estEnAttenteReponse = false;
 
 if (parentFloatingBtnNew) {
 parentFloatingBtnNew.onclick = async () => {
@@ -4093,81 +4018,76 @@ estEnAttenteReponse = false;
 }
 };
 
-function createTypingIndicator() {
-const div = document.createElement('div');
-div.className = 'parent-msg bot';
-div.id = 'typingIndicator';
-div.innerHTML = `<div class="typing-indicator"><span>en train d'écrire</span><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
-return div;
-}
-
+// ============================================================
+// BOUTON D'ENVOI - COPIÉ DE L'ANCIEN CODE QUI FONCTIONNE
+// ============================================================
 if (parentSendBtnNew) {
-parentSendBtnNew.onclick = async () => {
-if (estEnAttenteReponse) {
-toast("Veuillez patienter, je vérifie...", 'warning');
-return;
-}
-const message = parentQuestionInputNew.value.trim();
-if (!message) return;
-const aujourdhui = new Date();
-const jourSemaine = aujourdhui.getDay();
-if (jourSemaine === 0) {
-parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.</div></div>`;
-parentQuestionInputNew.value = '';
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
-return;
-}
-if (!await canAskQuestion()) {
-toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
-parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-voixParentale("Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.");
-return;
-}
-parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-parentQuestionInputNew.value = '';
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-const typingIndicator = createTypingIndicator();
-parentChatMessagesNew.appendChild(typingIndicator);
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-estEnAttenteReponse = true;
-try {
-const reponse = await traiterMessage(message);
-const typingElement = document.getElementById('typingIndicator');
-if (typingElement) typingElement.remove();
-const msgBotDiv = document.createElement('div');
-msgBotDiv.className = 'parent-msg bot';
-const bubbleBot = document.createElement('div');
-bubbleBot.className = 'bubble';
-msgBotDiv.appendChild(bubbleBot);
-parentChatMessagesNew.appendChild(msgBotDiv);
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-await typeWriterEffect(bubbleBot, reponse, 12);
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-updateCounterDisplay();
-voixParentale(reponse);
-if (dernierEleveData) {
-const questionKey = getCacheKey(message, dernierEleveData);
-if (questionKey) reponseCache.set(questionKey, reponse);
-}
-} catch (error) {
-const typingElement = document.getElementById('typingIndicator');
-if (typingElement) typingElement.remove();
-const msgBotDiv = document.createElement('div');
-msgBotDiv.className = 'parent-msg bot';
-const bubbleBot = document.createElement('div');
-bubbleBot.className = 'bubble';
-bubbleBot.textContent = "Désolé, une erreur s'est produite. Veuillez réessayer.";
-msgBotDiv.appendChild(bubbleBot);
-parentChatMessagesNew.appendChild(msgBotDiv);
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-console.error("Erreur traitement message:", error);
-} finally {
-estEnAttenteReponse = false;
-}
-};
+    parentSendBtnNew.onclick = async () => {
+        if (estEnAttenteReponse) {
+            toast("Veuillez patienter, je vérifie...", 'warning');
+            return;
+        }
+        const message = parentQuestionInputNew.value.trim();
+        if (!message) return;
+        const aujourdhui = new Date();
+        const jourSemaine = aujourdhui.getDay();
+        if (jourSemaine === 0) {
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.</div></div>`;
+            parentQuestionInputNew.value = '';
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
+            return;
+        }
+        if (!await canAskQuestion()) {
+            toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
+            parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            voixParentale("Limite de 10 questions par jour atteinte pour ce code parent. Revenez demain.");
+            return;
+        }
+        parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
+        parentQuestionInputNew.value = '';
+        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        const typingIndicator = createTypingIndicator();
+        parentChatMessagesNew.appendChild(typingIndicator);
+        parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+        estEnAttenteReponse = true;
+        try {
+            const reponse = await traiterMessage(message);
+            const typingElement = document.getElementById('typingIndicator');
+            if (typingElement) typingElement.remove();
+            const msgBotDiv = document.createElement('div');
+            msgBotDiv.className = 'parent-msg bot';
+            const bubbleBot = document.createElement('div');
+            bubbleBot.className = 'bubble';
+            msgBotDiv.appendChild(bubbleBot);
+            parentChatMessagesNew.appendChild(msgBotDiv);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            await typeWriterEffect(bubbleBot, reponse, 12);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            updateCounterDisplay();
+            voixParentale(reponse);
+            if (dernierEleveData) {
+                const questionKey = getCacheKey(message, dernierEleveData);
+                if (questionKey) reponseCache.set(questionKey, reponse);
+            }
+        } catch (error) {
+            const typingElement = document.getElementById('typingIndicator');
+            if (typingElement) typingElement.remove();
+            const msgBotDiv = document.createElement('div');
+            msgBotDiv.className = 'parent-msg bot';
+            const bubbleBot = document.createElement('div');
+            bubbleBot.className = 'bubble';
+            bubbleBot.textContent = "Désolé, une erreur s'est produite. Veuillez réessayer.";
+            msgBotDiv.appendChild(bubbleBot);
+            parentChatMessagesNew.appendChild(msgBotDiv);
+            parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
+            console.error("Erreur traitement message:", error);
+        } finally {
+            estEnAttenteReponse = false;
+        }
+    };
 }
 
 if (parentQuestionInputNew) {
@@ -4186,138 +4106,158 @@ this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 updateCounterDisplay();
 
 document.getElementById('newFicheBtn').addEventListener('click', async function() {
-if (this.dataset.creating === 'true') {
-toast("⏳ Création en cours...", 'warning');
-return;
-}
-let cours = document.getElementById('coursInput').value.trim();
-let classe = document.getElementById('classeSelect').value;
-let option = document.getElementById('optionSelect').value;
-let titulaire = document.getElementById('titulaireInput').value.trim();
-if (!cours) {
-toast("Veuillez renseigner le cours", 'error');
-return;
-}
-if (!classe) {
-toast("Veuillez sélectionner une classe", 'error');
-return;
-}
-if (classe !== '7ème EB' && classe !== '8ème EB' && !option) {
-toast("Veuillez sélectionner une option", 'error');
-return;
-}
-const fichesExistantes = await loadAllFiches();
-const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
-const doublon = fichesExistantes.find(f => 
-f.cours === cours && 
-f.classe === classe && 
-(f.option || '') === fop
-);
-if (doublon) {
-const refNum = doublon.numeroRef ? formatNumero(doublon.numeroRef) : 'sans réf';
-toast(`⚠️ ATTENTION : Une fiche similaire existe déjà (Réf: ${refNum}). Création quand même...`, 'warning');
-}
-this.dataset.creating = 'true';
-this.disabled = true;
-this.innerHTML = '⏳ CRÉATION...';
-try {
-if (currentFiche && currentFicheId) {
-await saveCurrentFiche();
-}
-const nid = 'f' + Date.now();
-const nnum = await getNextFicheNumero();
-const now = new Date();
-await getAllComptaEleves();
-const elevesCompta = localEleves;
-let elevesFiltres = elevesCompta.filter(e => {
-if (e.abandon) return false;
-if (e.classe !== classe) return false;
-if (fop === 'TOUTES') return true;
-if (fop && e.option !== fop) return false;
-return true;
-});
-let eleves = elevesFiltres.map(e => ({
-id: e.id || Date.now() + Math.random(),
-nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-sexe: e.sexe || 'M',
-notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
-parentCode: e.parentCode || '',
-eleveId: e.id,
-importeLe: new Date().toISOString(),
-source: "auto"
-}));
-let nouvelleFiche = {
-profId: currentProf.id,
-ficheId: nid,
-cours: cours,
-classe: classe,
-option: fop,
-titulaire: titulaire,
-anneeScolaire: "2026-2027",
-p1Max: 20,
-numeroRef: nnum,
-dateCreation: now,
-lastModified: now,
-epreuvesParPeriode: {
-1: [{ nom: "Interrogation", max: 20 }],
-2: [{ nom: "Interrogation", max: 20 }],
-3: [{ nom: "Interrogation", max: 20 }],
-4: [{ nom: "Interrogation", max: 20 }]
-},
-eleves: eleves,
-school: SCHOOL_PREFIX,
-importAuto: {
-date: now.toISOString(),
-nbEleves: eleves.length,
-classe: classe,
-option: fop,
-auto: true
-}
-};
-await saveToIndexedDB('fiches', { ...nouvelleFiche, id: nid });
-if (navigator.onLine) {
-try { 
-await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nouvelleFiche); 
-} catch (e) {
-await addPendingSync('saveFiche', nouvelleFiche);
-}
-} else { 
-await addPendingSync('saveFiche', nouvelleFiche); 
-}
-currentFiche = nouvelleFiche;
-currentFicheId = nid;
-document.getElementById('coursInput').value = '';
-document.getElementById('classeSelect').value = '';
-document.getElementById('optionSelect').value = '';
-document.getElementById('titulaireInput').value = '';
-document.getElementById('p1MaxConfig').value = 20;
-toggleOptionField();
-await refreshSelectors();
-afficherEpreuves();
-afficherEleves();
-afficherCotation();
-updateExportSelect();
-refreshGroupes();
-mettreAJourCompteurEleves();
-mettreAJourStatsFiche();
-let msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
-if (doublon) {
-msg += ` ⚠️ (Doublon détecté mais création autorisée)`;
-}
-toast(msg, doublon ? 'warning' : 'success');
-setTimeout(() => {
-toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info');
-}, 1500);
-document.getElementById('coursInput').focus();
-} catch (error) {
-toast("❌ Erreur lors de la création", 'error');
-console.error(error);
-} finally {
-this.dataset.creating = 'false';
-this.disabled = false;
-this.innerHTML = '📝 CRÉER UNE FICHE';
-}
+    
+    if (this.dataset.creating === 'true') {
+        toast("⏳ Création en cours...", 'warning');
+        return;
+    }
+    
+    let cours = document.getElementById('coursInput').value.trim();
+    let classe = document.getElementById('classeSelect').value;
+    let option = document.getElementById('optionSelect').value;
+    let titulaire = document.getElementById('titulaireInput').value.trim();
+    
+    if (!cours) {
+        toast("Veuillez renseigner le cours", 'error');
+        return;
+    }
+    if (!classe) {
+        toast("Veuillez sélectionner une classe", 'error');
+        return;
+    }
+    if (classe !== '7ème EB' && classe !== '8ème EB' && !option) {
+        toast("Veuillez sélectionner une option", 'error');
+        return;
+    }
+    
+    const fichesExistantes = await loadAllFiches();
+    const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
+    
+    const doublon = fichesExistantes.find(f => 
+        f.cours === cours && 
+        f.classe === classe && 
+        (f.option || '') === fop
+    );
+    
+    if (doublon) {
+        const refNum = doublon.numeroRef ? formatNumero(doublon.numeroRef) : 'sans réf';
+        toast(`⚠️ ATTENTION : Une fiche similaire existe déjà (Réf: ${refNum}). Création quand même...`, 'warning');
+    }
+    
+    this.dataset.creating = 'true';
+    this.disabled = true;
+    this.innerHTML = '⏳ CRÉATION...';
+    
+    try {
+        if (currentFiche && currentFicheId) {
+            await saveCurrentFiche();
+        }
+        
+        const nid = 'f' + Date.now();
+        const nnum = await getNextFicheNumero();
+        const now = new Date();
+        
+        await getAllComptaEleves();
+        const elevesCompta = localEleves;
+        let elevesFiltres = elevesCompta.filter(e => {
+            if (e.abandon) return false;
+            if (e.classe !== classe) return false;
+            if (fop === 'TOUTES') return true;
+            if (fop && e.option !== fop) return false;
+            return true;
+        });
+        
+        let eleves = elevesFiltres.map(e => ({
+            id: e.id || Date.now() + Math.random(),
+            nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            sexe: e.sexe || 'M',
+            notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+            parentCode: e.parentCode || '',
+            eleveId: e.id,
+            importeLe: new Date().toISOString(),
+            source: "auto"
+        }));
+        
+        let nouvelleFiche = {
+            profId: currentProf.id,
+            ficheId: nid,
+            cours: cours,
+            classe: classe,
+            option: fop,
+            titulaire: titulaire,
+            anneeScolaire: "2026-2027",
+            p1Max: 20,
+            numeroRef: nnum,
+            dateCreation: now,
+            lastModified: now,
+            epreuvesParPeriode: {
+                1: [{ nom: "Interrogation", max: 20 }],
+                2: [{ nom: "Interrogation", max: 20 }],
+                3: [{ nom: "Interrogation", max: 20 }],
+                4: [{ nom: "Interrogation", max: 20 }]
+            },
+            eleves: eleves,
+            school: SCHOOL_PREFIX,
+            importAuto: {
+                date: now.toISOString(),
+                nbEleves: eleves.length,
+                classe: classe,
+                option: fop,
+                auto: true
+            }
+        };
+        
+        await saveToIndexedDB('fiches', { ...nouvelleFiche, id: nid });
+        if (navigator.onLine) {
+            try { 
+                await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nouvelleFiche); 
+            } catch (e) {
+                await addPendingSync('saveFiche', nouvelleFiche);
+            }
+        } else { 
+            await addPendingSync('saveFiche', nouvelleFiche); 
+        }
+        
+        currentFiche = nouvelleFiche;
+        currentFicheId = nid;
+        
+        document.getElementById('coursInput').value = '';
+        document.getElementById('classeSelect').value = '';
+        document.getElementById('optionSelect').value = '';
+        document.getElementById('titulaireInput').value = '';
+        document.getElementById('p1MaxConfig').value = 20;
+        toggleOptionField();
+        
+        await refreshSelectors();
+        afficherEpreuves();
+        afficherEleves();
+        afficherCotation();
+        updateExportSelect();
+        refreshGroupes();
+        mettreAJourCompteurEleves();
+        mettreAJourStatsFiche();
+        
+        let msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
+        if (doublon) {
+            msg += ` ⚠️ (Doublon détecté mais création autorisée)`;
+        }
+        toast(msg, doublon ? 'warning' : 'success');
+        
+        setTimeout(() => {
+            toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info');
+        }, 1500);
+        
+        document.getElementById('coursInput').focus();
+        
+    } catch (error) {
+        toast("❌ Erreur lors de la création", 'error');
+        console.error(error);
+    } finally {
+        this.dataset.creating = 'false';
+        this.disabled = false;
+        this.innerHTML = '📝 CRÉER UNE FICHE';
+    }
 });
 
 document.getElementById('rechargerElevesBtn').onclick = async function() {
@@ -5297,7 +5237,6 @@ initOnglets();
 
 loadingScreen.classList.remove('show');
 setTimeout(() => updateCounterDisplay(), 1000);
-
 </script>
 </body>
 </html>
