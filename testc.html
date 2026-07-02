@@ -649,38 +649,38 @@ async function chercherNotesParNom(nom) {
                                     periode: periode,
                                     titulaire: fiche.titulaire || null,
                                     classe: fiche.classe,
-                                    option: fiche.option || ''
+                                    option: fiche.option || '',
+                                    profId: fiche.profId
                                 });
                             }
                         }
                     }
                 }
-            }
-            
-            // Ajouter les examens
-            if (e.notes) {
-                if (e.notes.exam1 > 0) {
+                
+                if (e.notes.exam1 && e.notes.exam1 > 0) {
                     epreuvesList.push({
                         matiere: fiche.cours,
-                        epreuve: "Examen",
+                        epreuve: "Examen S1",
                         note: e.notes.exam1,
                         max: 20,
                         periode: 0,
                         titulaire: fiche.titulaire || null,
                         classe: fiche.classe,
-                        option: fiche.option || ''
+                        option: fiche.option || '',
+                        profId: fiche.profId
                     });
                 }
-                if (e.notes.exam2 > 0) {
+                if (e.notes.exam2 && e.notes.exam2 > 0) {
                     epreuvesList.push({
                         matiere: fiche.cours,
-                        epreuve: "Examen",
+                        epreuve: "Examen S2",
                         note: e.notes.exam2,
                         max: 20,
                         periode: 0,
                         titulaire: fiche.titulaire || null,
                         classe: fiche.classe,
-                        option: fiche.option || ''
+                        option: fiche.option || '',
+                        profId: fiche.profId
                     });
                 }
             }
@@ -721,31 +721,6 @@ async function getMatieresDeLEleve(nomEleve) {
 }
 
 // ============================================
-// FONCTION POUR DÉTECTER UNE RÉPONSE NÉGATIVE
-// ============================================
-function estReponseNegative(message) {
-    const msg = message.toLowerCase().trim();
-    const negations = [
-        'non', 'nan', 'non merci', 'pas maintenant', 'plus tard',
-        'ça suffit', 'stop', 'arrête', 'pas besoin', 'non non',
-        'pas pour l\'instant', 'après', 'pas tout de suite',
-        'non merci', 'merci non', 'non ça va', 'ça va', 'ok non'
-    ];
-    
-    for (const neg of negations) {
-        if (msg.includes(neg)) {
-            return true;
-        }
-    }
-    
-    if (msg.startsWith('non') || msg.startsWith('pas')) {
-        return true;
-    }
-    
-    return false;
-}
-
-// ============================================
 // FONCTION POUR AFFICHER LES NOTES D'UNE MATIÈRE (SANS ICÔNES)
 // ============================================
 async function genererReponseNotesSimples(nomEleve, matiereChoisie) {
@@ -761,7 +736,10 @@ async function genererReponseNotesSimples(nomEleve, matiereChoisie) {
                 notes.push({
                     nom: ep.epreuve,
                     note: ep.note,
-                    max: ep.max
+                    max: ep.max,
+                    periode: ep.periode,
+                    classe: ep.classe,
+                    option: ep.option
                 });
             }
         }
@@ -774,7 +752,10 @@ async function genererReponseNotesSimples(nomEleve, matiereChoisie) {
     let reponse = `${matiereChoisie.toUpperCase()} - ${nomEleve}\n\n`;
     
     for (const n of notes) {
-        reponse += `  • ${n.nom} : ${n.note}/${n.max}\n`;
+        reponse += `  • ${n.nom} : ${n.note}/${n.max}`;
+        if (n.periode > 0) reponse += ` (Période ${n.periode})`;
+        if (n.classe) reponse += ` - ${n.classe}`;
+        reponse += `\n`;
     }
     
     return reponse;
@@ -802,11 +783,38 @@ async function genererResumeSimple(nom, matieres) {
         }
         
         if (notes.length > 0) {
-            reponse += `${matiere} : ${notes.join(', ')}\n`;
+            reponse += `${matiere} : ${notes.join(', ')}\n\n`;
+        } else {
+            reponse += `${matiere} : Pas encore de notes\n\n`;
         }
     }
     
     return reponse;
+}
+
+// ============================================
+// FONCTION POUR DÉTECTER UNE RÉPONSE NÉGATIVE
+// ============================================
+function estReponseNegative(message) {
+    const msg = message.toLowerCase().trim();
+    const negations = [
+        'non', 'nan', 'non merci', 'pas maintenant', 'plus tard',
+        'ça suffit', 'stop', 'arrête', 'pas besoin', 'non non',
+        'pas pour l\'instant', 'après', 'pas tout de suite',
+        'non merci', 'merci non', 'non ça va', 'ça va', 'ok non'
+    ];
+    
+    for (const neg of negations) {
+        if (msg.includes(neg)) {
+            return true;
+        }
+    }
+    
+    if (msg.startsWith('non') || msg.startsWith('pas')) {
+        return true;
+    }
+    
+    return false;
 }
 
 // ============================================
@@ -833,13 +841,13 @@ async function traiterDemandeNotes(message, eleveData) {
     for (const matiere of matieres) {
         if (msg.includes(matiere.toLowerCase())) {
             const notes = await genererReponseNotesSimples(nom, matiere);
-            return notes + `\n\nVoulez-vous quelle autre matière ?`;
+            return notes + `\n\nVoulez-vous voir une autre matière ?`;
         }
     }
     
     let reponse = `J'ai trouvé des notes pour votre enfant dans :\n\n`;
     for (const matiere of matieres) {
-        reponse += `${matiere}\n`;
+        reponse += `  ${matiere}\n`;
     }
     reponse += `\nPar quelle matière voulez-vous commencer ?\n`;
     reponse += `   Répondez par le nom de la matière.\n`;
@@ -1999,7 +2007,7 @@ async function traiterMessage(message) {
         else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
         else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
 
-        // ✅ DÉTECTION DES DEMANDES DE NOTES
+        // DÉTECTION DES DEMANDES DE NOTES
         const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves'];
         if (motsNotes.some(m => texteComplet.includes(m))) {
             return await traiterDemandeNotes(message, eleveData);
