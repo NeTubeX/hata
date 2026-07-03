@@ -712,6 +712,12 @@ async function incrementQuestionCountInFirebase(code) {
     }
 }
 
+function isCacheValid(eleveData) {
+    const currentHash = getDataHash(eleveData);
+    if (!currentHash) return false;
+    return lastDataHash === currentHash;
+}
+
 // ============================================================
 // FIN DES FONCTIONS MANQUANTES AJOUTÉES
 // ============================================================
@@ -1779,12 +1785,6 @@ if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) return histo
 return false;
 }
 
-function isCacheValid(eleveData) {
-const currentHash = getDataHash(eleveData);
-if (!currentHash) return false;
-return lastDataHash === currentHash;
-}
-
 async function afficherInfosEleve(eleve) {
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 dernierEleveConsulte = eleve.nom;
@@ -1881,128 +1881,168 @@ reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
 }
 
+// ============================================================
+// TRAITER MESSAGE - AVEC GESTION DU "OUI"
+// ============================================================
 async function traiterMessage(message) {
-const msg = message.trim().toLowerCase();
-const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-const aujourdhui = new Date();
-const jourSemaine = aujourdhui.getDay();
+    const msg = message.trim().toLowerCase();
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    const aujourdhui = new Date();
+    const jourSemaine = aujourdhui.getDay();
 
-if (jourSemaine === 0) {
-await logParentalActivity('tentative', currentParentCode || 'unknown', { message: msg, reason: 'dimanche', jour: 'dimanche' });
-return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
-}
+    if (jourSemaine === 0) {
+        await logParentalActivity('tentative', currentParentCode || 'unknown', { message: msg, reason: 'dimanche', jour: 'dimanche' });
+        return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
+    }
 
-if (/^\d{6}$/.test(msg)) {
-const code = msg;
-const count = await getQuestionCountForCode(code);
-await logParentalActivity('code_entered', code, { attempt_type: 'connexion', count: count });
-if (count >= 10) {
-await logParentalActivity('limit_reached', code, { limit: 10, current_count: count });
-return `⚠️ Limite quotidienne atteinte pour ce code parent (10 requêtes). Veuillez réessayer demain à partir de 08h00. Si vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
-}
-const infos = await chercherInfosFinancieresParCode(msg);
-if (!infos || infos.length === 0) {
-await logParentalActivity('code_invalide', code, { reason: 'code non trouvé', ecole: SCHOOL_PREFIX });
-dernierEleveConsulte = null;
-dernierEleveData = null;
-return `Code parent "${msg}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
-}
-if (infos.length === 1) {
-currentParentCode = code;
-await incrementQuestionCountForCode(code);
-updateCounterDisplay();
-await logParentalActivity('connexion_reussie', code, { eleve: infos[0].nom, classe: infos[0].classe, option: infos[0].option || '' });
-return await afficherInfosEleve(infos[0]);
-} else {
-listeElevesEnAttente = infos;
-enAttenteChoixEleve = true;
-let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
-infos.forEach((eleve, index) => {
-const { pronom } = getSexePronom(eleve.sexe);
-reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
-});
-reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
-return reponse;
-}
-}
+    // ============================================================
+    // GESTION DU MOT "OUI"
+    // ============================================================
+    if (msg === 'oui' || msg === 'o' || msg === 'ok' || msg === 'd\'accord' || msg === 'vas-y' || msg === 'go') {
+        if (dernierEleveData) {
+            const sections = ['notes', 'frais', 'presence', 'punitions'];
+            const sectionsVisitees = dernierEleveData.sectionsVisitees || [];
+            
+            let prochaineSection = null;
+            for (const section of sections) {
+                if (!sectionsVisitees.includes(section)) {
+                    prochaineSection = section;
+                    break;
+                }
+            }
+            
+            if (prochaineSection) {
+                switch(prochaineSection) {
+                    case 'notes':
+                        return await genererReponseNotes(dernierEleveData);
+                    case 'frais':
+                        return await genererReponseFrais(dernierEleveData);
+                    case 'presence':
+                        return await genererReponsePresence(dernierEleveData);
+                    case 'punitions':
+                        return await genererReponsePunitions(dernierEleveData);
+                    default:
+                        return `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
+                }
+            } else {
+                return `Vous avez vu toutes les informations sur ${dernierEleveData.nom} ${dernierEleveData.prenom||''}.\n\nSi vous avez d'autres questions, n'hésitez pas à les poser. Sinon, vous pouvez entrer un autre code parent.`;
+            }
+        } else {
+            return `Bonjour cher parent, veuillez d'abord entrer votre code parent à 6 chiffres.`;
+        }
+    }
 
-if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
-const choix = parseInt(msg.trim());
-if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
-const eleveChoisi = listeElevesEnAttente[choix - 1];
-enAttenteChoixEleve = false;
-listeElevesEnAttente = [];
-if (currentParentCode) {
-await incrementQuestionCountForCode(currentParentCode);
-updateCounterDisplay();
-}
-return await afficherInfosEleveMulti(eleveChoisi);
-} else {
-let listeNoms = listeElevesEnAttente.map((e, i) => {
-const { pronom } = getSexePronom(e.sexe);
-return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
-}).join('\n');
-return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
-}
-}
+    if (/^\d{6}$/.test(msg)) {
+        const code = msg;
+        const count = await getQuestionCountForCode(code);
+        await logParentalActivity('code_entered', code, { attempt_type: 'connexion', count: count });
+        if (count >= 10) {
+            await logParentalActivity('limit_reached', code, { limit: 10, current_count: count });
+            return `⚠️ Limite quotidienne atteinte pour ce code parent (10 requêtes). Veuillez réessayer demain à partir de 08h00. Si vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
+        }
+        const infos = await chercherInfosFinancieresParCode(msg);
+        if (!infos || infos.length === 0) {
+            await logParentalActivity('code_invalide', code, { reason: 'code non trouvé', ecole: SCHOOL_PREFIX });
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `Code parent "${msg}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
+        }
+        if (infos.length === 1) {
+            currentParentCode = code;
+            await incrementQuestionCountForCode(code);
+            updateCounterDisplay();
+            await logParentalActivity('connexion_reussie', code, { eleve: infos[0].nom, classe: infos[0].classe, option: infos[0].option || '' });
+            return await afficherInfosEleve(infos[0]);
+        } else {
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
+            infos.forEach((eleve, index) => {
+                const { pronom } = getSexePronom(eleve.sexe);
+                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
+            });
+            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
+            return reponse;
+        }
+    }
 
-if (dernierEleveConsulte && dernierEleveData) {
-const eleveData = dernierEleveData;
-const texteComplet = msg;
-let typeQuestion = 'generale';
-if (texteComplet.includes('frais') || texteComplet.includes('argent') || texteComplet.includes('payer')) typeQuestion = 'frais';
-else if (texteComplet.includes('note') || texteComplet.includes('résultat') || texteComplet.includes('point')) typeQuestion = 'notes';
-else if (texteComplet.includes('présence') || texteComplet.includes('absent')) typeQuestion = 'presence';
-else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
-else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = parseInt(msg.trim());
+        if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
+            const eleveChoisi = listeElevesEnAttente[choix - 1];
+            enAttenteChoixEleve = false;
+            listeElevesEnAttente = [];
+            if (currentParentCode) {
+                await incrementQuestionCountForCode(currentParentCode);
+                updateCounterDisplay();
+            }
+            return await afficherInfosEleveMulti(eleveChoisi);
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => {
+                const { pronom } = getSexePronom(e.sexe);
+                return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
+            }).join('\n');
+            return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
+        }
+    }
 
-if (currentParentCode) {
-const newCount = await incrementQuestionCountForCode(currentParentCode);
-updateCounterDisplay();
-if (newCount >= 10) {
-await logParentalActivity('limit_reached', currentParentCode, { limit: 10, current_count: newCount });
-}
-}
+    if (dernierEleveConsulte && dernierEleveData) {
+        const eleveData = dernierEleveData;
+        const texteComplet = msg;
+        let typeQuestion = 'generale';
+        if (texteComplet.includes('frais') || texteComplet.includes('argent') || texteComplet.includes('payer')) typeQuestion = 'frais';
+        else if (texteComplet.includes('note') || texteComplet.includes('résultat') || texteComplet.includes('point')) typeQuestion = 'notes';
+        else if (texteComplet.includes('présence') || texteComplet.includes('absent')) typeQuestion = 'presence';
+        else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
+        else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
 
-await logWorkerConsultation('question_parent', {
-eleve: eleveData.nom,
-question: texteComplet.slice(0, 200),
-type: typeQuestion,
-code: currentParentCode
-});
+        if (currentParentCode) {
+            const newCount = await incrementQuestionCountForCode(currentParentCode);
+            updateCounterDisplay();
+            if (newCount >= 10) {
+                await logParentalActivity('limit_reached', currentParentCode, { limit: 10, current_count: newCount });
+            }
+        }
 
-const motsBonjour = ['bonjour', 'salut', 'coucou', 'hello', 'hey', 'yo', 'bonsoir', 'bjr', 'slt'];
-const motsMerci = ['merci', 'remerciement', 'remettre', 'je vous remercie', 'je te remercie', 'merci beaucoup', 'merci infiniment', 'merci bien', 'merci pour tout'];
-const motsAurevoir = ['au revoir', 'bye', 'bye bye', 'ciao', 'adieu', 'à bientôt', 'à plus', 'à tout à l\'heure', 'à demain', 'à la prochaine', 'bonne journée', 'bonne soirée', 'bonne nuit'];
-const estBonjour = motsBonjour.some(m => texteComplet.includes(m));
-const estMerci = motsMerci.some(m => texteComplet.includes(m));
-const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
+        await logWorkerConsultation('question_parent', {
+            eleve: eleveData.nom,
+            question: texteComplet.slice(0, 200),
+            type: typeQuestion,
+            code: currentParentCode
+        });
 
-if (estBonjour || estMerci || estAurevoir) {
-const nom = eleveData.nom || '';
-const prenom = eleveData.prenom || '';
-const nomComplet = `${nom} ${prenom}`.trim();
-if (estBonjour) return `Bonjour cher parent ! Je suis ravi de vous aider. Que souhaitez-vous savoir sur ${nomComplet} ?`;
-if (estMerci) return `De rien, c'est un plaisir de vous aider ! Y a-t-il autre chose que je puisse faire pour vous ?`;
-if (estAurevoir) return `Au revoir cher parent ! Ce fut un plaisir de vous aider. N'hésitez pas à revenir si vous avez d'autres questions. Passez une excellente journée !`;
-}
+        const motsBonjour = ['bonjour', 'salut', 'coucou', 'hello', 'hey', 'yo', 'bonsoir', 'bjr', 'slt'];
+        const motsMerci = ['merci', 'remerciement', 'remettre', 'je vous remercie', 'je te remercie', 'merci beaucoup', 'merci infiniment', 'merci bien', 'merci pour tout'];
+        const motsAurevoir = ['au revoir', 'bye', 'bye bye', 'ciao', 'adieu', 'à bientôt', 'à plus', 'à tout à l\'heure', 'à demain', 'à la prochaine', 'bonne journée', 'bonne soirée', 'bonne nuit'];
+        const estBonjour = motsBonjour.some(m => texteComplet.includes(m));
+        const estMerci = motsMerci.some(m => texteComplet.includes(m));
+        const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
 
-const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
-if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
+        if (estBonjour || estMerci || estAurevoir) {
+            const nom = eleveData.nom || '';
+            const prenom = eleveData.prenom || '';
+            const nomComplet = `${nom} ${prenom}`.trim();
+            if (estBonjour) return `Bonjour cher parent ! Je suis ravi de vous aider. Que souhaitez-vous savoir sur ${nomComplet} ?`;
+            if (estMerci) return `De rien, c'est un plaisir de vous aider ! Y a-t-il autre chose que je puisse faire pour vous ?`;
+            if (estAurevoir) return `Au revoir cher parent ! Ce fut un plaisir de vous aider. N'hésitez pas à revenir si vous avez d'autres questions. Passez une excellente journée !`;
+        }
 
-const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
-if (motsNotes.some(m => texteComplet.includes(m))) return await genererReponseNotes(eleveData);
+        const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
+        if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
 
-const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
-if (motsPresence.some(m => texteComplet.includes(m))) return await genererReponsePresence(eleveData);
+        const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
+        if (motsNotes.some(m => texteComplet.includes(m))) return await genererReponseNotes(eleveData);
 
-const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
-if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
+        const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
+        if (motsPresence.some(m => texteComplet.includes(m))) return await genererReponsePresence(eleveData);
 
-return await genererReponseNaturelle(message, eleveData);
-}
+        const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
+        if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
 
-return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
+        return await genererReponseNaturelle(message, eleveData);
+    }
+
+    return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
 }
 
 async function initIndexedDB() {
@@ -4171,8 +4211,1138 @@ this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 
 updateCounterDisplay();
 
-// Le reste du code (newFicheBtn, rechargerElevesBtn, etc.) continue ici...
-// ... (tout le code existant pour les boutons de gestion des fiches)
+// ============================================================
+// BOUTON CRÉER UNE FICHE
+// ============================================================
+document.getElementById('newFicheBtn').addEventListener('click', async function() {
+    
+    if (this.dataset.creating === 'true') {
+        toast("⏳ Création en cours...", 'warning');
+        return;
+    }
+    
+    let cours = document.getElementById('coursInput').value.trim();
+    let classe = document.getElementById('classeSelect').value;
+    let option = document.getElementById('optionSelect').value;
+    let titulaire = document.getElementById('titulaireInput').value.trim();
+    
+    if (!cours) {
+        toast("Veuillez renseigner le cours", 'error');
+        return;
+    }
+    if (!classe) {
+        toast("Veuillez sélectionner une classe", 'error');
+        return;
+    }
+    if (classe !== '7ème EB' && classe !== '8ème EB' && !option) {
+        toast("Veuillez sélectionner une option", 'error');
+        return;
+    }
+    
+    const fichesExistantes = await loadAllFiches();
+    const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
+    
+    const doublon = fichesExistantes.find(f => 
+        f.cours === cours && 
+        f.classe === classe && 
+        (f.option || '') === fop
+    );
+    
+    if (doublon) {
+        const refNum = doublon.numeroRef ? formatNumero(doublon.numeroRef) : 'sans réf';
+        toast(`⚠️ ATTENTION : Une fiche similaire existe déjà (Réf: ${refNum}). Création quand même...`, 'warning');
+    }
+    
+    this.dataset.creating = 'true';
+    this.disabled = true;
+    this.innerHTML = '⏳ CRÉATION...';
+    
+    try {
+        if (currentFiche && currentFicheId) {
+            await saveCurrentFiche();
+        }
+        
+        const nid = 'f' + Date.now();
+        const nnum = await getNextFicheNumero();
+        const now = new Date();
+        
+        await getAllComptaEleves();
+        const elevesCompta = localEleves;
+        let elevesFiltres = elevesCompta.filter(e => {
+            if (e.abandon) return false;
+            if (e.classe !== classe) return false;
+            if (fop === 'TOUTES') return true;
+            if (fop && e.option !== fop) return false;
+            return true;
+        });
+        
+        let eleves = elevesFiltres.map(e => ({
+            id: e.id || Date.now() + Math.random(),
+            nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+            sexe: e.sexe || 'M',
+            notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+            parentCode: e.parentCode || '',
+            eleveId: e.id,
+            importeLe: new Date().toISOString(),
+            source: "auto"
+        }));
+        
+        let nouvelleFiche = {
+            profId: currentProf.id,
+            ficheId: nid,
+            cours: cours,
+            classe: classe,
+            option: fop,
+            titulaire: titulaire,
+            anneeScolaire: "2026-2027",
+            p1Max: 20,
+            numeroRef: nnum,
+            dateCreation: now,
+            lastModified: now,
+            epreuvesParPeriode: {
+                1: [{ nom: "Interrogation", max: 20 }],
+                2: [{ nom: "Interrogation", max: 20 }],
+                3: [{ nom: "Interrogation", max: 20 }],
+                4: [{ nom: "Interrogation", max: 20 }]
+            },
+            eleves: eleves,
+            school: SCHOOL_PREFIX,
+            importAuto: {
+                date: now.toISOString(),
+                nbEleves: eleves.length,
+                classe: classe,
+                option: fop,
+                auto: true
+            }
+        };
+        
+        await saveToIndexedDB('fiches', { ...nouvelleFiche, id: nid });
+        if (navigator.onLine) {
+            try { 
+                await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", nid), nouvelleFiche); 
+            } catch (e) {
+                await addPendingSync('saveFiche', nouvelleFiche);
+            }
+        } else { 
+            await addPendingSync('saveFiche', nouvelleFiche); 
+        }
+        
+        currentFiche = nouvelleFiche;
+        currentFicheId = nid;
+        
+        document.getElementById('coursInput').value = '';
+        document.getElementById('classeSelect').value = '';
+        document.getElementById('optionSelect').value = '';
+        document.getElementById('titulaireInput').value = '';
+        document.getElementById('p1MaxConfig').value = 20;
+        toggleOptionField();
+        
+        await refreshSelectors();
+        afficherEpreuves();
+        afficherEleves();
+        afficherCotation();
+        updateExportSelect();
+        refreshGroupes();
+        mettreAJourCompteurEleves();
+        mettreAJourStatsFiche();
+        
+        let msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
+        if (doublon) {
+            msg += ` ⚠️ (Doublon détecté mais création autorisée)`;
+        }
+        toast(msg, doublon ? 'warning' : 'success');
+        
+        setTimeout(() => {
+            toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info');
+        }, 1500);
+        
+        document.getElementById('coursInput').focus();
+        
+    } catch (error) {
+        toast("❌ Erreur lors de la création", 'error');
+        console.error(error);
+    } finally {
+        this.dataset.creating = 'false';
+        this.disabled = false;
+        this.innerHTML = '📝 CRÉER UNE FICHE';
+    }
+});
+
+document.getElementById('rechargerElevesBtn').onclick = async function() {
+if (!currentFiche) {
+toast("Aucune fiche sélectionnée", 'error');
+return;
+}
+const classe = currentFiche.classe;
+const option = currentFiche.option;
+if (!classe) {
+toast("Veuillez d'abord configurer la classe", 'error');
+return;
+}
+await getAllComptaEleves();
+const elevesCompta = localEleves;
+let elevesFiltres = elevesCompta.filter(e => {
+if (e.abandon) return false;
+if (e.classe !== classe) return false;
+if (option === 'TOUTES') return true;
+if (option && e.option !== option) return false;
+return true;
+});
+const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
+const elevesAAjouter = elevesFiltres.filter(e => {
+const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : '');
+return !nomsExistants.has(nomComplet);
+});
+if (elevesAAjouter.length === 0) {
+toast("✅ Aucun nouvel élève à ajouter", 'info');
+return;
+}
+if (!currentFiche.eleves) currentFiche.eleves = [];
+elevesAAjouter.forEach(e => {
+currentFiche.eleves.push({
+id: e.id || Date.now() + Math.random(),
+nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+sexe: e.sexe || 'M',
+notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+parentCode: e.parentCode || '',
+eleveId: e.id,
+importeLe: new Date().toISOString(),
+source: "reload"
+});
+});
+await saveCurrentFiche();
+afficherEleves();
+afficherCotation();
+refreshGroupes();
+mettreAJourCompteurEleves();
+mettreAJourStatsFiche();
+toast(`✅ ${elevesAAjouter.length} nouvel(le)s élève(s) ajouté(s)`, 'success');
+};
+
+const originalSelectFiche = selectFiche;
+selectFiche = async function(id) {
+await originalSelectFiche(id);
+if (currentFiche && (!currentFiche.eleves || currentFiche.eleves.length === 0)) {
+const classe = currentFiche.classe;
+const option = currentFiche.option;
+if (classe) {
+await getAllComptaEleves();
+const elevesCompta = localEleves;
+let elevesFiltres = elevesCompta.filter(e => {
+if (e.abandon) return false;
+if (e.classe !== classe) return false;
+if (option === 'TOUTES') return true;
+if (option && e.option !== option) return false;
+return true;
+});
+if (elevesFiltres.length > 0) {
+let eleves = elevesFiltres.map(e => ({
+id: e.id || Date.now() + Math.random(),
+nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
+sexe: e.sexe || 'M',
+notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
+parentCode: e.parentCode || '',
+eleveId: e.id,
+importeLe: new Date().toISOString(),
+source: "auto"
+}));
+currentFiche.eleves = eleves;
+currentFiche.importAuto = {
+date: new Date().toISOString(),
+nbEleves: eleves.length,
+classe: classe,
+option: option,
+auto: true,
+ouverture: true
+};
+await saveCurrentFiche();
+afficherEleves();
+afficherCotation();
+refreshGroupes();
+mettreAJourCompteurEleves();
+mettreAJourStatsFiche();
+toast(`✅ ${eleves.length} élève(s) chargé(s) automatiquement`, 'success');
+}
+}
+}
+mettreAJourStatsFiche();
+};
+
+function mettreAJourStatsFiche() {
+const container = document.getElementById('ficheStatsContent');
+if (!container || !currentFiche) return;
+const eleves = currentFiche.eleves || [];
+container.innerHTML = `<div style="display:flex;gap:20px;flex-wrap:wrap;"><div><span style="color:#94a3b8;">👥 Total élèves :</span><span style="color:#fff;font-weight:600;">${eleves.length}</span></div><div><span style="color:#94a3b8;">📅 Importé le :</span><span style="color:#94a3b8;">${currentFiche.importAuto?.date?new Date(currentFiche.importAuto.date).toLocaleDateString():'N/A'}</span></div></div>`;
+}
+
+document.getElementById('deleteFicheBtn').onclick = async function() {
+if (!currentFicheId) {
+toast("Aucune fiche sélectionnée", 'error');
+return;
+}
+showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function() {
+try {
+let ficheData = await getFromIndexedDB('fiches', currentFicheId);
+let nbEleves = ficheData?.eleves?.length || 0;
+await enregistrerLog("suppression_fiche", {
+message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"),
+ficheId: currentFicheId,
+cours: ficheData?.cours,
+classe: ficheData?.classe,
+option: ficheData?.option || "aucune",
+numeroRef: ficheData?.numeroRef,
+nbEleves: nbEleves,
+action_par: currentProf?.nom
+}, "warning");
+if (ficheData) {
+let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+let dateExpiration = new Date();
+dateExpiration.setDate(dateExpiration.getDate() + 30);
+corbeille.push({
+...ficheData,
+dateSuppression: new Date().toISOString(),
+dateExpiration: dateExpiration.toISOString(),
+supprimee: true,
+enAttenteSuppression: false,
+professeurId: currentProf.id,
+professeurNom: currentProf.nom,
+school: SCHOOL_PREFIX
+});
+localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
+if (navigator.onLine) {
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_corbeille", currentFicheId), {
+...ficheData,
+dateSuppression: new Date().toISOString(),
+dateExpiration: dateExpiration.toISOString(),
+professeurNom: currentProf.nom
+});
+} catch (e) {}
+}
+}
+await deleteFromIndexedDB('fiches', currentFicheId);
+if (navigator.onLine) {
+try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId)); } catch (e) {
+await addPendingSync('deleteFiche', currentFicheId);
+}
+} else { await addPendingSync('deleteFiche', currentFicheId); }
+toutesFiches = await loadAllFiches();
+if (toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
+else {
+currentFiche = null;
+currentFicheId = null;
+document.getElementById('coursInput').value = '';
+document.getElementById('classeSelect').value = '';
+document.getElementById('optionSelect').value = '';
+document.getElementById('titulaireInput').value = '';
+afficherEpreuves();
+afficherEleves();
+afficherCotation();
+updateExportSelect();
+refreshSelectors();
+}
+toast("Fiche supprimée avec succès", 'success');
+} catch (error) {
+await enregistrerLog("erreur_suppression_fiche", {
+message: 'Erreur lors de la suppression de la fiche',
+erreur: error.message,
+ficheId: currentFicheId
+}, "error");
+toast("Erreur lors de la suppression", 'error');
+}
+});
+};
+
+document.getElementById('coursInput').oninput = function() {
+if (currentFiche && !isCreatingFiche) {
+currentFiche.cours = document.getElementById('coursInput').value;
+debounceSave();
+refreshSelectors();
+}
+};
+
+document.getElementById('classeSelect').onchange = function() {
+if (currentFiche && !isCreatingFiche) {
+currentFiche.classe = document.getElementById('classeSelect').value;
+if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) {
+currentFiche.option = '';
+document.getElementById('optionSelect').value = '';
+}
+debounceSave();
+refreshSelectors();
+}
+toggleOptionField();
+mettreAJourSelectOptions(document.getElementById('classeSelect').value);
+};
+
+document.getElementById('optionSelect').onchange = function() {
+if (currentFiche && !isCreatingFiche) {
+currentFiche.option = document.getElementById('optionSelect').value;
+debounceSave();
+refreshSelectors();
+}
+};
+
+document.getElementById('titulaireInput').oninput = function() {
+if (currentFiche && !isCreatingFiche) {
+currentFiche.titulaire = document.getElementById('titulaireInput').value;
+debounceSave();
+}
+};
+
+document.getElementById('p1MaxConfig').onchange = function() {
+if (currentFiche && !isCreatingFiche) {
+currentFiche.p1Max = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
+debounceSave();
+afficherCotation();
+toast("Note max modifiée à " + currentFiche.p1Max, 'success');
+}
+};
+
+document.getElementById('exportCurrentBtn').onclick = async function() {
+if (!currentFiche) {
+toast("Aucune fiche sélectionnée", 'error');
+return;
+}
+if (!currentFiche.eleves || currentFiche.eleves.length === 0) {
+toast("Aucun élève à exporter", 'error');
+return;
+}
+try {
+await enregistrerLog("export_pdf", {
+message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"),
+ficheId: currentFicheId,
+cours: currentFiche.cours,
+classe: currentFiche.classe,
+nbEleves: currentFiche.eleves.length,
+type: "fiche_cotation"
+}, "info");
+const { jsPDF } = window.jspdf;
+const pdf = new jsPDF('landscape', 'mm', 'a4');
+const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+pdf.setFillColor(255, 255, 255);
+pdf.rect(0, 0, 297, 210, 'F');
+pdf.setFont('helvetica', 'bold');
+pdf.setFontSize(14);
+pdf.setTextColor(0, 51, 102);
+let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' });
+pdf.setFont('helvetica', 'normal');
+pdf.setFontSize(10);
+pdf.setTextColor(80, 80, 80);
+pdf.text('GESTION SCOLAIRE', 148, 27, { align: 'center' });
+pdf.setFont('helvetica', 'bold');
+pdf.setFontSize(12);
+pdf.setTextColor(0, 51, 102);
+pdf.text('FICHE DE COTATION', 148, 37, { align: 'center' });
+pdf.setFont('helvetica', 'normal');
+pdf.setFontSize(9);
+pdf.setTextColor(0, 0, 0);
+pdf.text("Année scolaire : " + (currentFiche.anneeScolaire || '2026-2027'), 14, 50);
+pdf.text("Référence : " + rn, 14, 57);
+pdf.text("Cours : " + (currentFiche.cours || ''), 14, 64);
+pdf.text("Classe : " + (currentFiche.classe || ''), 14, 71);
+let y = 78;
+if (currentFiche.option && currentFiche.option !== '') {
+pdf.text("Option : " + currentFiche.option, 14, y);
+y += 7;
+}
+pdf.text("Titulaire : " + (currentFiche.titulaire || ''), 14, y);
+const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] };
+const p1m = getPeriodeMax(1);
+const p2m = getPeriodeMax(2);
+const p3m = getPeriodeMax(3);
+const p4m = getPeriodeMax(4);
+const e1m = getExamMax(1);
+const e2m = getExamMax(2);
+const ts1m = getTotalSemestreMax(1);
+const ts2m = getTotalSemestreMax(2);
+const tam = getTotalAnnuelMax();
+const hd = [
+['N°', 'NOMS', 'SEXE', 'P1/' + p1m, 'P2/' + p2m, 'EXAM S1/' + e1m, 'TOT S1/' + ts1m, 'P3/' + p3m, 'P4/' + p4m, 'EXAM S2/' + e2m, 'TOT S2/' + ts2m, 'TOTAL/' + tam]
+];
+const bd = [];
+for (let i = 0; i < currentFiche.eleves.length; i++) {
+const e = currentFiche.eleves[i];
+const n = e.notes || {};
+const p1 = calcMoy(1, n.p1);
+const p2 = calcMoy(2, n.p2);
+const p3 = calcMoy(3, n.p3);
+const p4 = calcMoy(4, n.p4);
+const ex1 = n.exam1 || 0;
+const ex2 = n.exam2 || 0;
+bd.push([(i + 1).toString(), e.nom || '', e.sexe === 'F' ? 'F' : 'M', p1, p2, ex1, p1 + p2 + ex1, p3, p4, ex2, p3 + p4 + ex2, p1 + p2 + ex1 + p3 + p4 + ex2]);
+}
+pdf.autoTable({
+head: hd,
+body: bd,
+startY: y + 10,
+theme: 'grid',
+styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', textColor: [0, 0, 0] },
+headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+alternateRowStyles: { fillColor: [245, 245, 245] }
+});
+pdf.save("Fiche_" + rn + "_" + (currentFiche.cours || 'cours') + ".pdf");
+toast("PDF exporté", 'success');
+} catch (e) {
+toast("Erreur lors de la génération du PDF", 'error');
+console.error(e);
+}
+};
+
+document.getElementById('exportEleveNotesBtn').onclick = async function() {
+let idx = document.getElementById('eleveForExportSelect').value;
+if (idx === "") {
+toast("Veuillez sélectionner un élève", 'warning');
+return;
+}
+let eleve = currentFiche.eleves[parseInt(idx)];
+if (!eleve) {
+toast("Élève non trouvé", 'error');
+return;
+}
+try {
+await enregistrerLog("export_pdf", {
+message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"),
+eleve: eleve.nom,
+ficheId: currentFicheId,
+type: "releve_eleve"
+}, "info");
+const { jsPDF } = window.jspdf;
+const pdf = new jsPDF('portrait', 'mm', 'a4');
+const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+pdf.setFillColor(255, 255, 255);
+pdf.rect(0, 0, 210, 297, 'F');
+pdf.setFont('helvetica', 'bold');
+pdf.setFontSize(14);
+pdf.setTextColor(0, 51, 102);
+let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 105, 20, { align: 'center' });
+pdf.setFont('helvetica', 'normal');
+pdf.setFontSize(10);
+pdf.setTextColor(80, 80, 80);
+pdf.text('GESTION SCOLAIRE', 105, 27, { align: 'center' });
+pdf.setFont('helvetica', 'bold');
+pdf.setFontSize(12);
+pdf.setTextColor(0, 51, 102);
+pdf.text('RELEVE DES EPREUVES', 105, 37, { align: 'center' });
+pdf.setFont('helvetica', 'normal');
+pdf.setFontSize(9);
+pdf.setTextColor(0, 0, 0);
+pdf.text("Référence: " + rn, 150, 50);
+pdf.text("Élève: " + (eleve.nom || ''), 20, 50);
+pdf.text("Classe: " + (currentFiche.classe || '') + (currentFiche.option ? ' - ' + currentFiche.option : ''), 20, 58);
+pdf.text("Cours: " + (currentFiche.cours || ''), 20, 66);
+const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] };
+const getP = function(p) { return currentFiche.p1Max || 20; };
+const bd = [];
+for (let p = 1; p <= 4; p++) {
+for (let ei = 0; ei < (eps[p] || []).length; ei++) {
+let nt = (eleve.notes?.['p' + p] && eleve.notes['p' + p][ei]) ? eleve.notes['p' + p][ei] : 0;
+bd.push(["Période " + p, eps[p][ei].nom, nt + " / " + eps[p][ei].max, Math.round((nt / eps[p][ei].max) * getP(p)) + " / " + getP(p)]);
+}
+}
+bd.push(['', '', '', '']);
+bd.push(['RECAPITULATIF', '', '', '']);
+const p1m = getP(1);
+const p2m = getP(2);
+const p3m = getP(3);
+const p4m = getP(4);
+const p1 = (function() {
+let e = eps[1] || [];
+let s = 0,
+m = 0;
+for (let i = 0; i < e.length; i++) {
+s += (eleve.notes?.p1?.[i] || 0);
+m += (e[i].max || 1);
+}
+return m ? Math.min(p1m, Math.round((s / m) * p1m)) : 0;
+})();
+const p2 = (function() {
+let e = eps[2] || [];
+let s = 0,
+m = 0;
+for (let i = 0; i < e.length; i++) {
+s += (eleve.notes?.p2?.[i] || 0);
+m += (e[i].max || 1);
+}
+return m ? Math.min(p2m, Math.round((s / m) * p2m)) : 0;
+})();
+const p3 = (function() {
+let e = eps[3] || [];
+let s = 0,
+m = 0;
+for (let i = 0; i < e.length; i++) {
+s += (eleve.notes?.p3?.[i] || 0);
+m += (e[i].max || 1);
+}
+return m ? Math.min(p3m, Math.round((s / m) * p3m)) : 0;
+})();
+const p4 = (function() {
+let e = eps[4] || [];
+let s = 0,
+m = 0;
+for (let i = 0; i < e.length; i++) {
+s += (eleve.notes?.p4?.[i] || 0);
+m += (e[i].max || 1);
+}
+return m ? Math.min(p4m, Math.round((s / m) * p4m)) : 0;
+})();
+const ex1 = eleve.notes?.exam1 || 0;
+const ex2 = eleve.notes?.exam2 || 0;
+bd.push(['Période 1', '', p1 + " / " + p1m, '']);
+bd.push(['Période 2', '', p2 + " / " + p2m, '']);
+bd.push(['Examen Semestre 1', '', ex1 + " / " + (p1m + p2m), '']);
+bd.push(['Total Semestre 1', '', (p1 + p2 + ex1) + " / " + (p1m + p2m + p1m + p2m), '']);
+bd.push(['Période 3', '', p3 + " / " + p3m, '']);
+bd.push(['Période 4', '', p4 + " / " + p4m, '']);
+bd.push(['Examen Semestre 2', '', ex2 + " / " + (p3m + p4m), '']);
+bd.push(['Total Semestre 2', '', (p3 + p4 + ex2) + " / " + (p3m + p4m + p3m + p4m), '']);
+bd.push(['TOTAL ANNUEL', '', (p1 + p2 + ex1 + p3 + p4 + ex2) + " / " + ((p1m + p2m) * 2 + (p3m + p4m) * 2), '']);
+pdf.autoTable({
+head: [
+['Période', 'Epreuve', 'Note', 'Note / max période']
+],
+body: bd,
+startY: 75,
+theme: 'grid',
+styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0] },
+headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' },
+alternateRowStyles: { fillColor: [245, 245, 245] }
+});
+pdf.save("Releve_" + rn + "_" + (eleve.nom || 'eleve').replace(/\s/g, '_') + ".pdf");
+toast("PDF généré pour " + eleve.nom, 'success');
+} catch (e) {
+toast("Erreur lors de la génération du PDF", 'error');
+console.error(e);
+}
+};
+
+document.getElementById('addEpreuve1').onclick = function() { addEpreuve(1); };
+document.getElementById('addEpreuve2').onclick = function() { addEpreuve(2); };
+document.getElementById('addEpreuve3').onclick = function() { addEpreuve(3); };
+document.getElementById('addEpreuve4').onclick = function() { addEpreuve(4); };
+
+document.getElementById('tousPresentBtn')?.addEventListener('click', function() {
+let cb = document.querySelectorAll('#listePresenceEleves input[type="checkbox"]');
+cb.forEach(function(c) { c.checked = true; });
+toast("Tous les élèves marqués présents", 'success');
+});
+
+document.getElementById('tousAbsentsBtn')?.addEventListener('click', function() {
+let cb = document.querySelectorAll('#listePresenceEleves input[type="checkbox"]');
+cb.forEach(function(c) { c.checked = false; });
+toast("Tous les élèves marqués absents", 'warning');
+});
+
+document.getElementById('formerEquipesBtn')?.addEventListener('click', function() {
+let p = getElevesPresent();
+if (p.length === 0) {
+toast("Aucun élève présent", 'error');
+return;
+}
+let nd = parseInt(document.getElementById('nbEquipes').value);
+if (nd > p.length) {
+toast("Plus de groupes que d'élèves", 'error');
+return;
+}
+let g = formerGroupes(p, nd);
+afficherGroupes(g);
+toast(p.length + " élèves répartis en " + g.length + " groupes", 'success');
+});
+
+document.getElementById('formerEquipesOptimiseBtn')?.addEventListener('click', function() {
+let p = getElevesPresent();
+if (p.length === 0) {
+toast("Aucun élève présent", 'error');
+return;
+}
+let ti = parseInt(document.getElementById('tailleIdeale').value);
+let no = Math.round(p.length / ti);
+if (no < 1) no = 1;
+let g = formerGroupes(p, no);
+afficherGroupes(g);
+document.getElementById('nbEquipes').value = g.length;
+toast("Formation optimale : " + p.length + " élèves → " + g.length + " groupes", 'success');
+});
+
+document.getElementById('groupePeriodeSelect')?.addEventListener('change', function() {
+mettreAJourEpreuvesSelect();
+});
+
+document.getElementById('appliquerNotesGroupeBtn')?.addEventListener('click', function() {
+if (!groupesActuels.length) {
+toast("Aucun groupe formé. Allez dans l'onglet GROUPES d'abord", 'error');
+return;
+}
+let p = parseInt(document.getElementById('groupePeriodeSelect').value);
+let ei = parseInt(document.getElementById('groupeEpreuveSelect').value);
+let eps = currentFiche.epreuvesParPeriode?.[p] || [];
+if (ei >= eps.length) {
+toast("Épreuve non valide", 'error');
+return;
+}
+let nme = eps[ei].max;
+let app = 0;
+groupesActuels.forEach(function(g, gIdx) {
+let inp = document.getElementById('groupeNote_' + gIdx);
+let nr = parseFloat(inp?.value);
+if (isNaN(nr)) return;
+let nf = Math.min(nr, nme);
+if (nf < 0) nf = 0;
+localStorage.setItem('groupe_note_' + currentFicheId + '_' + gIdx, nf);
+g.forEach(function(eleve) {
+let eIdx = currentFiche.eleves.findIndex(function(e) {
+return e.id === eleve.id;
+});
+if (eIdx !== -1) {
+if (!currentFiche.eleves[eIdx].notes) currentFiche.eleves[eIdx].notes = { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 };
+if (!currentFiche.eleves[eIdx].notes['p' + p]) currentFiche.eleves[eIdx].notes['p' + p] = [];
+currentFiche.eleves[eIdx].notes['p' + p][ei] = nf;
+app++;
+}
+});
+});
+if (app > 0) {
+saveCurrentFiche();
+afficherCotation();
+toast(app + " élève(s) noté(s)", 'success');
+} else {
+toast("Aucune note appliquée", 'warning');
+}
+});
+
+document.getElementById('configJourSelect')?.addEventListener('change', () => afficherConfigHoraire());
+document.getElementById('ajouterHeureBtn')?.addEventListener('click', () => ajouterHeure());
+document.getElementById('sauvegarderHoraireBtn')?.addEventListener('click', () => sauvegarderHoraireAuto());
+
+document.getElementById('correctionQuickBtn')?.addEventListener('click', () => {
+let fiche = correctionFiche || currentFiche;
+if (!fiche || !fiche.eleves?.length) {
+toast("Aucune fiche ou élève sélectionné", 'error');
+return;
+}
+const periode = parseInt(document.getElementById('correctionPeriodeSelect').value);
+const epreuveIdx = parseInt(document.getElementById('correctionEpreuveSelect').value);
+const eps = fiche.epreuvesParPeriode?.[periode] || [];
+if (!eps[epreuveIdx]) {
+toast("Veuillez sélectionner une épreuve valide", 'error');
+return;
+}
+window.correctionMode = {
+type: 'quick',
+periode: periode,
+epreuveIdx: epreuveIdx,
+noteMax: eps[epreuveIdx].max,
+currentIndex: 0,
+currentNote: 0
+};
+const eleves = fiche.eleves;
+window.correctionMode.currentIndex = 0;
+window.correctionMode.currentNote = eleves[0]?.notes?.['p' + periode]?.[epreuveIdx] || 0;
+document.getElementById('saisieModalStudentName').textContent = eleves[0]?.nom || '---';
+document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
+document.getElementById('saisieEpreuveInfo').innerHTML = '📌 ' + eps[epreuveIdx].nom + ' (max ' + eps[epreuveIdx].max + ')';
+document.getElementById('voiceBadge').style.display = 'none';
+document.getElementById('saisieVoiceFeedback').style.display = 'none';
+let controls = `<div class="saisie-numpad" id="saisieNumpad"></div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><button id="quickPrev" style="background:#334155;font-size:14px;padding:8px 16px;">◀ Préc</button><button id="quickSave" style="background:#10b981;font-size:14px;padding:8px 16px;">✓ Valider</button><button id="quickNext" style="background:#3b82f6;font-size:14px;padding:8px 16px;">Suiv ▶</button></div>`;
+document.getElementById('saisieModalControls').innerHTML = controls;
+const pad = document.getElementById('saisieNumpad');
+if (pad) {
+pad.innerHTML = '';
+[7, 8, 9, 4, 5, 6, 1, 2, 3, 0, 'C', '←'].forEach(btn => {
+let b = document.createElement('button');
+b.textContent = btn;
+b.style.background = btn === 'C' ? '#ef4444' : (btn === '←' ? '#f59e0b' : '#334155');
+b.style.padding = '8px';
+b.style.fontSize = '18px';
+b.onclick = () => {
+if (btn === 'C') window.correctionMode.currentNote = 0;
+else if (btn === '←') window.correctionMode.currentNote = Math.floor(window.correctionMode.currentNote / 10);
+else {
+let newVal = parseFloat(window.correctionMode.currentNote.toString() + btn.toString());
+if (newVal <= window.correctionMode.noteMax) window.correctionMode.currentNote = newVal;
+}
+document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
+};
+pad.appendChild(b);
+});
+}
+document.getElementById('quickSave').onclick = () => correctionSaveCurrentNote();
+document.getElementById('quickNext').onclick = () => correctionNextStudent(false);
+document.getElementById('quickPrev').onclick = () => correctionPrevStudent();
+document.getElementById('saisieModal').classList.add('show');
+setTimeout(() => {
+speak('Mode rapide activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun'));
+}, 500);
+});
+
+document.getElementById('correctionGestureBtn')?.addEventListener('click', () => {
+let fiche = correctionFiche || currentFiche;
+if (!fiche || !fiche.eleves?.length) {
+toast("Aucune fiche ou élève sélectionné", 'error');
+return;
+}
+const periode = parseInt(document.getElementById('correctionPeriodeSelect').value);
+const epreuveIdx = parseInt(document.getElementById('correctionEpreuveSelect').value);
+const eps = fiche.epreuvesParPeriode?.[periode] || [];
+if (!eps[epreuveIdx]) {
+toast("Veuillez sélectionner une épreuve valide", 'error');
+return;
+}
+window.correctionMode = {
+type: 'gesture',
+periode: periode,
+epreuveIdx: epreuveIdx,
+noteMax: eps[epreuveIdx].max,
+currentIndex: 0,
+currentNote: 0,
+hammer: null
+};
+const eleves = fiche.eleves;
+window.correctionMode.currentIndex = 0;
+window.correctionMode.currentNote = eleves[0]?.notes?.['p' + periode]?.[epreuveIdx] || 0;
+document.getElementById('saisieModalStudentName').textContent = eleves[0]?.nom || '---';
+document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
+document.getElementById('saisieEpreuveInfo').innerHTML = '👆 ' + eps[epreuveIdx].nom + ' (max ' + eps[epreuveIdx].max + ')<br>Swipe ← → | Tap = Valider';
+document.getElementById('voiceBadge').style.display = 'none';
+document.getElementById('saisieVoiceFeedback').style.display = 'none';
+let controls = `<div id="gestureZone" class="saisie-gesture-zone" style="padding:30px;text-align:center;"><div style="font-size:50px;font-weight:bold;color:#f59e0b;">${window.correctionMode.currentNote}</div><div style="margin-top:15px;color:#94a3b8;font-size:11px;">👈 Swipe gauche = -1 | 👉 Swipe droite = +1 | 👆 Tap = Valider</div></div><div style="margin-top:12px;"><button id="gestureSkip" style="background:#f59e0b;font-size:14px;padding:8px 16px;">⏩ Passer élève</button></div>`;
+document.getElementById('saisieModalControls').innerHTML = controls;
+const zone = document.getElementById('gestureZone');
+if (zone && window.Hammer) {
+if (window.correctionMode.hammer) window.correctionMode.hammer.destroy();
+window.correctionMode.hammer = new Hammer(zone);
+window.correctionMode.hammer.on('swipeleft', () => {
+if (window.correctionMode.currentNote > 0) {
+window.correctionMode.currentNote--;
+updateGestureDisplay();
+if (navigator.vibrate) navigator.vibrate(30);
+speak(window.correctionMode.currentNote.toString());
+}
+});
+window.correctionMode.hammer.on('swiperight', () => {
+if (window.correctionMode.currentNote < window.correctionMode.noteMax) {
+window.correctionMode.currentNote++;
+updateGestureDisplay();
+if (navigator.vibrate) navigator.vibrate(30);
+speak(window.correctionMode.currentNote.toString());
+}
+});
+window.correctionMode.hammer.on('tap', () => {
+correctionSaveCurrentNote();
+});
+
+function updateGestureDisplay() {
+document.getElementById('saisieNoteValue').textContent = window.correctionMode.currentNote;
+const disp = document.querySelector('#gestureZone div:first-child');
+if (disp) disp.textContent = window.correctionMode.currentNote;
+}
+}
+document.getElementById('gestureSkip')?.addEventListener('click', () => correctionNextStudent(false));
+document.getElementById('saisieModal').classList.add('show');
+setTimeout(() => {
+speak('Mode gestuel activé. Élève actuel: ' + (eleves[0]?.nom || 'aucun'));
+}, 500);
+});
+
+document.getElementById('closeSaisieModal')?.addEventListener('click', () => {
+document.getElementById('saisieModal').classList.remove('show');
+if (window.correctionMode?.hammer) window.correctionMode.hammer.destroy();
+window.correctionMode = null;
+stopSpeaking();
+});
+
+window.speechSynthesis.onvoiceschanged = () => {
+const voices = window.speechSynthesis.getVoices();
+};
+
+document.getElementById('changeSchoolBtn')?.addEventListener('click', () => {
+showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => {
+window.location.href = 'https://www.netubex.com/schoolchoice';
+});
+});
+
+async function enregistrerLog(action, details, statut = "info") {
+try {
+const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+const now = new Date();
+const userInfo = {
+nom: currentProf?.nom || "Inconnu",
+id: currentProf?.id || "inconnu",
+type: currentProf ? "professeur" : "systeme",
+ecole: SCHOOL_PREFIX
+};
+const browserInfo = {
+userAgent: navigator.userAgent,
+screen: window.screen.width + "x" + window.screen.height,
+platform: navigator.platform,
+language: navigator.language
+};
+const logData = {
+_type: "log_activite",
+id: logId,
+action: action,
+utilisateur: userInfo.nom,
+utilisateurId: userInfo.id,
+utilisateurType: userInfo.type,
+ecole: userInfo.ecole,
+date: now.toISOString(),
+dateTimestamp: now.getTime(),
+details: { ...details, browser: browserInfo, url: window.location.href },
+statut: statut,
+message: details.message || action,
+lu: false
+};
+if (navigator.onLine) {
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData);
+} catch (error) {
+console.error("Erreur enregistrement log:", error);
+sauvegarderLogLocal(logData);
+}
+} else {
+sauvegarderLogLocal(logData);
+}
+if (estActionCritique(action, statut)) alerterAdmin(logData);
+if (statut === "error" || statut === "critical") {
+if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
+}
+return logData;
+} catch (error) {
+console.error("Erreur enregistrement log:", error);
+return null;
+}
+}
+
+function sauvegarderLogLocal(logData) {
+try {
+const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
+logsLocaux.push(logData);
+localStorage.setItem('logs_locaux', JSON.stringify(logsLocaux));
+} catch (error) {
+console.error("Erreur sauvegarde locale:", error);
+}
+}
+
+async function synchroniserLogsLocaux() {
+if (!navigator.onLine) return;
+try {
+const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
+if (logsLocaux.length === 0) return;
+let compteur = 0;
+for (const log of logsLocaux) {
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_logs", log.id), log);
+compteur++;
+} catch (error) {
+console.error("Erreur synchro log:", error);
+}
+}
+localStorage.removeItem('logs_locaux');
+} catch (error) {
+console.error("Erreur synchronisation logs:", error);
+}
+}
+
+function estActionCritique(action, statut) {
+const actionsCritiques = [
+"connexion_echouee", "connexion_reussie", "deconnexion", "suppression_fiche",
+"modification_code", "creation_professeur", "suppression_professeur",
+"modification_options", "erreur_systeme", "tentative_hack", "creation_fiche",
+"suppression_eleve", "modification_code_acces", "export_pdf", "correction_masse"
+];
+return actionsCritiques.includes(action) || statut === "error" || statut === "critical";
+}
+
+async function alerterAdmin(logData) {
+try {
+const alertId = "alert_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+const now = new Date();
+const alertData = {
+_type: "alerte_admin",
+id: alertId,
+logId: logData.id,
+action: logData.action,
+utilisateur: logData.utilisateur,
+utilisateurId: logData.utilisateurId,
+ecole: logData.ecole,
+date: now.toISOString(),
+dateTimestamp: now.getTime(),
+details: logData.details,
+statut: logData.statut,
+message: logData.message || logData.action,
+lue: false,
+priorite: logData.statut === "critical" ? "haute" : "moyenne",
+};
+await setDoc(doc(db, SCHOOL_PREFIX + "_alertes_admin", alertId), alertData);
+} catch (error) {
+console.error("Erreur envoi alerte admin:", error);
+}
+}
+
+async function enregistrerMessageParental(message, reponse, codeOuNom) {
+try {
+const msgId = "parent_msg_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+const now = new Date();
+const messageData = {
+_type: "parent_message",
+id: msgId,
+codeOuNom: codeOuNom || "inconnu",
+message: message,
+reponse: reponse,
+date: now.toISOString(),
+dateTimestamp: now.getTime(),
+ecole: SCHOOL_PREFIX,
+source: "espace_parental"
+};
+if (navigator.onLine) {
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msgId), messageData);
+} catch (error) {
+console.error("Erreur enregistrement message parental:", error);
+sauvegarderMessageLocal(messageData);
+}
+} else {
+sauvegarderMessageLocal(messageData);
+}
+return true;
+} catch (error) {
+console.error("Erreur:", error);
+return false;
+}
+}
+
+function sauvegarderMessageLocal(messageData) {
+try {
+const messagesLocaux = JSON.parse(localStorage.getItem('parent_messages_locaux') || '[]');
+messagesLocaux.push(messageData);
+localStorage.setItem('parent_messages_locaux', JSON.stringify(messagesLocaux));
+} catch (error) {
+console.error("Erreur sauvegarde locale:", error);
+}
+}
+
+async function synchroniserMessagesParentaux() {
+if (!navigator.onLine) return;
+try {
+const messagesLocaux = JSON.parse(localStorage.getItem('parent_messages_locaux') || '[]');
+if (messagesLocaux.length === 0) return;
+let compteur = 0;
+for (const msg of messagesLocaux) {
+try {
+await setDoc(doc(db, SCHOOL_PREFIX + "_parent_messages", msg.id), msg);
+compteur++;
+} catch (error) {
+console.error("Erreur synchro message:", error);
+}
+}
+localStorage.removeItem('parent_messages_locaux');
+} catch (error) {
+console.error("Erreur synchronisation messages:", error);
+}
+}
+
+let compteurKey = 'global_' + SCHOOL_PREFIX;
+let ce = await getFromIndexedDB('compteur', compteurKey);
+if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
+
+await initIndexedDB();
+await chargerOptionsParClasse();
+
+if (navigator.onLine) {
+try {
+let fp = await getDocs(query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof")));
+for (let ds of fp.docs) {
+let pd = ds.data();
+await saveToIndexedDB('professeurs', { ...pd, id: pd.profId });
+}
+let allDocs = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+for (let ds of allDocs.docs) {
+let data = ds.data();
+if (!data._type && data.profId && data.ficheId) {
+await saveToIndexedDB('fiches', { ...data, id: data.ficheId });
+}
+}
+let cs = await getDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"));
+if (cs.exists()) {
+await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
+}
+} catch (e) { console.log(e); }
+}
+
+let sessionRestored = await restaurerSession();
+if (!sessionRestored) {
+showLogin();
+} else {
+if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove();
+}
+
+initTitulaire();
+
+setInterval(function() {
+let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
+let modifie = false;
+corbeille = corbeille.filter(f => {
+if (f.dateExpiration && new Date(f.dateExpiration) <= new Date()) {
+modifie = true;
+return false;
+}
+if (f.school && f.school !== SCHOOL_PREFIX) return false;
+return true;
+});
+if (modifie) localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
+}, 24 * 60 * 60 * 1000);
+
+window.addEventListener('online', function() {
+syncToFirebase();
+synchroniserLogsLocaux();
+synchroniserMessagesParentaux();
+syncAnalyticsToFirebase();
+syncWorkerLogsToFirebase();
+});
+
+setInterval(function() {
+synchroniserLogsLocaux();
+synchroniserMessagesParentaux();
+}, 30000);
+
+console.log('✅ École autorisée:', schoolId);
+
+const originalSelectFiche2 = selectFiche;
+selectFiche = async function(id) {
+await originalSelectFiche2(id);
+mettreAJourStatsFiche();
+};
+
+const originalAfficherEleves2 = afficherEleves;
+afficherEleves = function() {
+originalAfficherEleves2();
+mettreAJourStatsFiche();
+};
+
+function initOnglets() {
+const tabs = document.querySelectorAll('.tab');
+const contents = document.querySelectorAll('.tab-content');
+tabs.forEach(tab => {
+tab.addEventListener('click', function() {
+tabs.forEach(t => t.classList.remove('active'));
+this.classList.add('active');
+contents.forEach(c => c.classList.remove('active'));
+const target = document.getElementById(this.dataset.tab);
+if (target) target.classList.add('active');
+});
+});
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+initOnglets();
+});
+
+initOnglets();
 
 loadingScreen.classList.remove('show');
 setTimeout(() => updateCounterDisplay(), 1000);
