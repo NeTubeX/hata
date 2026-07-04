@@ -42,6 +42,8 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .form-field input,.form-field select{background:#2d3748;border:1px solid #334155;border-radius:12px;padding:10px 14px;color:#fff;}
 .form-field input:focus,.form-field select:focus{outline:none;border-color:#3b82f6;}
 .hidden-field{display:none !important;}
+.field-required label::after{content:" *";color:#ef4444;}
+.field-optional label::after{content:" (facultatif)";color:#94a3b8;font-size:10px;font-weight:normal;}
 .btn{background:#1e3a5f;color:#fff;border:none;padding:10px 20px;border-radius:40px;font-weight:500;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s;}
 .btn:hover{opacity:0.9;transform:scale(0.98);}
 .btn-sm{padding:6px 14px;font-size:12px;}
@@ -108,8 +110,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .prof-config .note-max-row label{color:#cbd5e1;font-size:12px;}
 .prof-config .note-max-row input{width:100px;padding:8px;border-radius:12px;background:#2d3748;color:#fff;border:1px solid #334155;}
 .prof-config .btn-group{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
-.field-required label::after{content:" *";color:#ef4444;}
-.field-optional label::after{content:" (facultatif)";color:#94a3b8;font-size:10px;font-weight:normal;}
 .pedagogie-section{background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border-radius:20px;overflow:hidden;border:1px solid rgba(59,130,246,0.3);}
 .section-header{background:linear-gradient(135deg,#1e3a5f,#0f2b44);padding:14px 20px;font-weight:700;color:#fff;font-size:15px;display:flex;align-items:center;gap:10px;}
 .pedagogie-controls{display:flex;flex-wrap:wrap;gap:15px;margin-bottom:20px;}
@@ -342,7 +342,19 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <div class="form-grid">
 <div class="form-field field-required"><label>COURS</label><input type="text" id="coursInput" placeholder="Ex: Mathématiques, Français..."></div>
 <div class="form-field field-required"><label>CLASSE</label><select id="classeSelect"><option value="">-- Sélectionner --</option><option value="7ème EB">7ème EB</option><option value="8ème EB">8ème EB</option><option value="1ère Année">1ère Année</option><option value="2ème Année">2ème Année</option><option value="3ème Année">3ème Année</option><option value="4ème Année">4ème Année</option></select></div>
-<div class="form-field" id="optionField"><label>OPTION</label><select id="optionSelect"><option value="">-- Sélectionner --</option></select></div>
+<div class="form-field" id="optionField"><label>OPTION</label>
+<select id="optionSelect">
+    <option value="">-- Sélectionner --</option>
+    <option value="LATIN-PHILO">LATIN-PHILO</option>
+    <option value="SCIENCES">SCIENCES</option>
+    <option value="PEDAGOGIE GENERALE">PÉDAGOGIE GÉNÉRALE</option>
+    <option value="COMMERCIALE ET GESTION">COMMERCIALE ET GESTION</option>
+    <option value="ELECTRICITE">ÉLECTRICITÉ</option>
+    <option value="MECANIQUE GENERALE">MÉCANIQUE GÉNÉRALE</option>
+    <option value="COUPE ET COUTURE">COUPE ET COUTURE</option>
+    <option value="TOUTES">TOUTES</option>
+</select>
+</div>
 <div class="form-field field-optional"><label>TITULAIRE</label><input type="text" id="titulaireInput" placeholder="Nom du professeur titulaire (facultatif)"></div>
 <div class="form-field"><label>ANNEE SCOLAIRE</label><input type="text" id="anneeInput" value="2026-2027" readonly></div>
 </div>
@@ -424,7 +436,15 @@ if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${scho
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [], saveTimeout = null, isCreatingFiche = false, directriceCode = "1111", pendingSync = [], groupesActuels = [];
-let optionsParClasse = {"1ère Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],"2ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],"3ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],"4ème Année":["CG","HP","TCC","ELEC","MG","SCIENCES","TOUTES"],"7ème EB":[],"8ème EB":[]};
+let optionsParClasse = {
+    "1ère Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
+    "2ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
+    "3ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
+    "4ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
+    "7ème EB": [],
+    "8ème EB": []
+};
+const toutesOptionsTitu = ["TOUTES", "LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"];
 let horaireProf = { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [] };
 let jourAffichage = null, localEleves = [], toutesFichesCompletes = [];
 const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
@@ -948,64 +968,18 @@ mettreAJourStatsFiche();
 }
 }
 async function selectFicheForCorrection(id) { if (!id) return; let st = await getFromIndexedDB('fiches', id); if (st && !st._type) { correctionFiche = st; correctionFicheId = id; correctionUpdateEpreuveList(); document.getElementById('correctionFicheSelector').value = id; toast("Fiche chargée pour la correction : " + (st.cours || '') + ' - ' + (st.classe || ''), 'success'); } }
-const originalSelectFiche = selectFiche;
-selectFiche = async function(id) {
-if (isCreatingFiche) {
-console.log('⏳ Création en cours, sélection de fiche ignorée');
-return;
+function toggleOptionField() { 
+    let c = document.getElementById('classeSelect').value; 
+    let o = document.getElementById('optionField'); 
+    if (c === '7ème EB' || c === '8ème EB') { 
+        o.classList.add('hidden-field'); 
+        document.getElementById('optionSelect').value = ''; 
+    } else if (c && c !== '') { 
+        o.classList.remove('hidden-field'); 
+    } else {
+        o.classList.add('hidden-field');
+    }
 }
-await originalSelectFiche(id);
-if (currentFiche && currentFiche.eleves && currentFiche.eleves.length === 0) {
-const estNouvelle = currentFiche.dateCreation &&
-(Date.now() - new Date(currentFiche.dateCreation).getTime() < 5000);
-if (!estNouvelle) {
-const classe = currentFiche.classe;
-const option = currentFiche.option;
-if (classe) {
-await getAllComptaEleves();
-const elevesCompta = localEleves;
-let elevesFiltres = elevesCompta.filter(e => {
-if (e.abandon) return false;
-if (e.classe !== classe) return false;
-if (option === 'TOUTES') return true;
-if (option && e.option !== option) return false;
-return true;
-});
-if (elevesFiltres.length > 0) {
-let eleves = elevesFiltres.map(e => ({
-id: e.id || Date.now() + Math.random(),
-nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''),
-sexe: e.sexe || 'M',
-notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 },
-parentCode: e.parentCode || '',
-eleveId: e.id,
-importeLe: new Date().toISOString(),
-source: "auto"
-}));
-currentFiche.eleves = eleves;
-currentFiche.importAuto = {
-date: new Date().toISOString(),
-nbEleves: eleves.length,
-classe: classe,
-option: option,
-auto: true,
-ouverture: true
-};
-await saveCurrentFiche();
-afficherEleves();
-afficherCotation();
-refreshGroupes();
-mettreAJourCompteurEleves();
-mettreAJourStatsFiche();
-toast(`✅ ${eleves.length} élève(s) chargé(s) automatiquement`, 'success');
-}
-}
-}
-}
-mettreAJourStatsFiche();
-};
-function toggleOptionField() { let c = document.getElementById('classeSelect').value; let o = document.getElementById('optionField'); if (c === '7ème EB' || c === '8ème EB') { o.classList.add('hidden-field'); document.getElementById('optionSelect').value = ''; } else if (c && c !== '') { o.classList.remove('hidden-field'); let s = document.getElementById('optionSelect'); let opts = optionsParClasse[c] || []; if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) { s.value = currentFiche.option; } else if (opts.includes("TOUTES") && s.value === '') { s.value = "TOUTES"; } else if (opts.length > 0 && s.value === '') { s.value = opts[0]; } } else o.classList.add('hidden-field'); }
 function mettreAJourSelectOptions(c) { let s = document.getElementById('optionSelect'); if (!s) return; let opts = optionsParClasse[c] || []; if (opts.length === 0) { s.value = ''; return; } if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) { s.value = currentFiche.option; } else if (opts.includes("TOUTES") && s.value === '') { s.value = "TOUTES"; } else if (opts.length > 0 && s.value === '') { s.value = opts[0]; } }
 function mettreAJourCompteurEleves() { const countSpan = document.getElementById('eleveCount'); if (countSpan && currentFiche) { const nb = currentFiche.eleves?.length || 0; countSpan.textContent = nb; } }
 function afficherEleves() { let c = document.getElementById('elevesListContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; let importBtn = document.createElement('div'); importBtn.style.cssText = 'margin-bottom:12px;'; importBtn.innerHTML = '<button class="btn btn-success" id="importerElevesBtn" style="width:100%;">📥 IMPORTER LES ÉLÈVES DE LA COMPTABILITÉ</button>'; c.appendChild(importBtn); let ev = currentFiche.eleves || []; for (let i = 0; i < ev.length; i++) { let d = document.createElement('div'); d.className = 'eleve-row'; const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite'; if (estImporte) { d.innerHTML = '<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">' + (ev[i].nom||'') + '</span><span style="color:#94a3b8;padding:8px;">' + (ev[i].sexe||'M') + '</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>'; } else { d.innerHTML = '<input type="text" value="' + (ev[i].nom||'') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe=='M'?'selected':'') + '>M</option><option value="F" ' + (ev[i].sexe=='F'?'selected':'') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>'; } c.appendChild(d); } if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>'; updateExportSelect(); mettreAJourCompteurEleves(); document.getElementById('importerElevesBtn')?.addEventListener('click', importerElevesDepuisCompta); }
@@ -1244,7 +1218,6 @@ setTimeout(() => { speak('Retour à ' + eleves[window.correctionMode.currentInde
 } else { speak("Vous êtes déjà au premier élève."); }
 }
 let titulaireConfig = null, toutesFichesTitu = [], fichesTitulaire = [], toutesFichesCompletTitu = [], currentPeriodTitu = "all", currentClasseFilterTitu = "all";
-const toutesOptionsTitu = ["TOUTES", "CG", "HP", "TCC", "ELEC", "MG", "SCIENCES"];
 const classesSansOptionsTitu = ["7ème EB", "8ème EB"];
 function getGreetingTitu() { const h = new Date().getHours(); if (h < 12) return "Bonjour"; if (h < 18) return "Bon après-midi"; return "Bonsoir"; }
 function formatDateTitu(date) { if (!date) return 'Date inconnue'; const d = date.toDate ? date.toDate() : new Date(date); return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }
