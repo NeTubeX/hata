@@ -860,7 +860,6 @@ const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
 if (estBonjour || estMerci || estAurevoir) {
 const nom = eleveData.nom || ''; const prenom = eleveData.prenom || ''; const nomComplet = `${nom} ${prenom}`.trim();
 if (estBonjour) return `Bonjour cher parent ! Je suis ravi de vous aider. Que souhaitez-vous savoir sur ${nomComplet} ?`;
-// ✅ Suppression de "Y a-t-il autre chose..."
 if (estMerci) return `De rien, c'est un plaisir de vous aider !`;
 if (estAurevoir) return `Au revoir cher parent ! Ce fut un plaisir de vous aider. N'hésitez pas à revenir si vous avez d'autres questions. Passez une excellente journée !`;
 }
@@ -949,18 +948,13 @@ mettreAJourStatsFiche();
 }
 }
 async function selectFicheForCorrection(id) { if (!id) return; let st = await getFromIndexedDB('fiches', id); if (st && !st._type) { correctionFiche = st; correctionFicheId = id; correctionUpdateEpreuveList(); document.getElementById('correctionFicheSelector').value = id; toast("Fiche chargée pour la correction : " + (st.cours || '') + ' - ' + (st.classe || ''), 'success'); } }
-// ═══════════════════════════════════════════════════════════════
-// 🔒 VERSION CORRIGÉE DE selectFiche - PROTECTION PENDANT LA CRÉATION
-// ═══════════════════════════════════════════════════════════════
 const originalSelectFiche = selectFiche;
 selectFiche = async function(id) {
-// ⛔ NE PAS EXÉCUTER PENDANT LA CRÉATION
 if (isCreatingFiche) {
 console.log('⏳ Création en cours, sélection de fiche ignorée');
 return;
 }
 await originalSelectFiche(id);
-// Chargement automatique des élèves - UNIQUEMENT si la fiche est vide ET qu'elle n'est pas fraîchement créée
 if (currentFiche && currentFiche.eleves && currentFiche.eleves.length === 0) {
 const estNouvelle = currentFiche.dateCreation &&
 (Date.now() - new Date(currentFiche.dateCreation).getTime() < 5000);
@@ -1814,9 +1808,6 @@ parentQuestionInputNew.addEventListener('keypress', (e) => { if (e.key === 'Ente
 parentQuestionInputNew.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px'; });
 }
 updateCounterDisplay();
-// ═══════════════════════════════════════════════════════════════
-// 🔧 BOUTON CRÉATION - VERSION CORRIGÉE AVEC PROTECTION
-// ═══════════════════════════════════════════════════════════════
 document.getElementById('newFicheBtn').addEventListener('click', async function() {
 if (isCreatingFiche) {
 toast("⏳ Une création est déjà en cours...", 'warning');
@@ -1829,15 +1820,9 @@ let titulaire = document.getElementById('titulaireInput').value.trim();
 if (!cours) { toast("Veuillez renseigner le cours", 'error'); return; }
 if (!classe) { toast("Veuillez sélectionner une classe", 'error'); return; }
 if (classe !== '7ème EB' && classe !== '8ème EB' && !option) { toast("Veuillez sélectionner une option", 'error'); return; }
-// ⚠️ Vérification des doublons AVANT la création
 const fichesExistantes = await loadAllFiches();
 const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
 const doublon = fichesExistantes.find(f => f.cours === cours && f.classe === classe && (f.option || '') === fop);
-if (doublon) {
-const refNum = doublon.numeroRef ? formatNumero(doublon.numeroRef) : 'sans réf';
-toast(`⚠️ Une fiche similaire existe déjà (Réf: ${refNum}). Création quand même...`, 'warning');
-}
-// 🔒 BLOCAGE DE LA CRÉATION
 isCreatingFiche = true;
 this.dataset.creating = 'true';
 this.disabled = true;
@@ -1917,13 +1902,11 @@ refreshGroupes();
 mettreAJourCompteurEleves();
 mettreAJourStatsFiche();
 let msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
-if (doublon) msg += ` ⚠️ (Doublon détecté mais création autorisée)`;
-toast(msg, doublon ? 'warning' : 'success');
+toast(msg, 'success');
 setTimeout(() => { toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info'); }, 1500);
 document.getElementById('coursInput').focus();
 } catch (error) { toast("❌ Erreur lors de la création", 'error'); console.error(error); }
 finally {
-// 🔓 TOUJOURS réinitialiser le flag
 isCreatingFiche = false;
 this.dataset.creating = 'false';
 this.disabled = false;
