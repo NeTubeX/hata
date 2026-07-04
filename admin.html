@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Gestion des Écoles</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e1a;
+            color: #e2e8f0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            background: linear-gradient(135deg, #0f2b44, #071a2c);
+            padding: 24px 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffd700, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .sub {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn:hover { transform: scale(0.97); opacity: 0.9; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-warning { background: #f59e0b; color: #0a0e1a; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-secondary { background: #334155; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(18, 18, 31, 0.8);
+            border-radius: 16px;
+            padding: 16px 20px;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 28px;
+            font-weight: 800;
+            color: #ffd700;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        
+        .ecole-card {
+            background: rgba(18, 18, 31, 0.9);
+            border-radius: 20px;
+            margin-bottom: 24px;
+            overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+        .ecole-header {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.2);
+        }
+        .ecole-header .nom {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffd700;
+        }
+        .ecole-header .id {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: monospace;
+        }
+        .ecole-header .count {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            color: #60a5fa;
+        }
+        .ecole-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .fiches-list {
+            padding: 16px 24px;
+        }
+        .fiche-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.08);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .fiche-item:last-child { border-bottom: none; }
+        .fiche-item .info {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .fiche-item .cours {
+            font-weight: 600;
+            color: #fff;
+        }
+        .fiche-item .classe {
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .fiche-item .eleves {
+            color: #60a5fa;
+            font-size: 12px;
+        }
+        .fiche-item .ref {
+            color: #64748b;
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .fiche-item .actions {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #60a5fa;
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: rgba(18, 25, 45, 0.95);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 14px 20px;
+            min-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 4px solid #10b981;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.error { border-left-color: #ef4444; }
+        .toast.warning { border-left-color: #f59e0b; }
+        .toast .icon { font-size: 20px; }
+        .toast .content { flex: 1; }
+        .toast .title { font-weight: 600; font-size: 14px; color: #fff; }
+        .toast .message { font-size: 12px; color: #cbd5e1; }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(10px);
+            z-index: 20000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .modal-overlay.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .modal-box {
+            background: #1e293b;
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            border: 1px solid rgba(59,130,246,0.3);
+            text-align: center;
+        }
+        .modal-box .icon { font-size: 56px; margin-bottom: 16px; }
+        .modal-box h3 { color: #fff; margin-bottom: 12px; }
+        .modal-box p { color: #94a3b8; font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+        .modal-box .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .modal-box .btn { min-width: 120px; }
+        
+        @media (max-width: 600px) {
+            .header { flex-direction: column; text-align: center; }
+            .ecole-header { flex-direction: column; text-align: center; }
+            .fiche-item { flex-direction: column; text-align: center; }
+            .fiche-item .info { justify-content: center; }
+            .fiche-item .actions { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <h1>🏫 Administration - Gestion des Écoles</h1>
+            <div class="sub">Visualisation et suppression des données</div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-danger" onclick="toutSupprimer()">🗑️ TOUT SUPPRIMER</button>
+            <button class="btn btn-primary" onclick="rafraichir()">🔄 RAFRAÎCHIR</button>
+        </div>
+    </div>
+
+    <div class="stats" id="statsContainer">
+        <div class="stat-card"><div class="number" id="statEcoles">0</div><div class="label">🏫 Écoles</div></div>
+        <div class="stat-card"><div class="number" id="statFiches">0</div><div class="label">📄 Fiches</div></div>
+        <div class="stat-card"><div class="number" id="statEleves">0</div><div class="label">👥 Élèves</div></div>
+    </div>
+
+    <div id="ecolesContainer">
+        <div class="loading">⏳ Chargement des données...</div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <div class="icon">⚠️</div>
+        <h3 id="confirmTitle">Confirmation</h3>
+        <p id="confirmMessage">Êtes-vous sûr de vouloir effectuer cette action ?</p>
+        <div class="buttons">
+            <button class="btn btn-danger" id="confirmYes">OUI, SUPPRIMER</button>
+            <button class="btn btn-secondary" id="confirmNo">ANNULER</button>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+}
+</script>
+
+<script type="module">
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where } from "firebase/firestore";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
+    authDomain: "netubexmoney.firebaseapp.com",
+    projectId: "netubexmoney",
+    storageBucket: "netubexmoney.firebasestorage.app",
+    messagingSenderId: "856592608176",
+    appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let toutesEcoles = [];
+let toutesFiches = [];
+
+function toast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const titles = { success: 'Succès', error: 'Erreur', warning: 'Attention', info: 'Info' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `
+        <div class="icon">${icons[type] || '📢'}</div>
+        <div class="content">
+            <div class="title">${titles[type] || 'Info'}</div>
+            <div class="message">${message}</div>
+        </div>
+    `;
+    container.appendChild(el);
+    setTimeout(() => el.classList.add('show'), 10);
+    setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+    }, 4000);
+}
+
+function showConfirm(title, message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').innerHTML = message;
+    modal.classList.add('show');
+    
+    const yesBtn = document.getElementById('confirmYes');
+    const noBtn = document.getElementById('confirmNo');
+    
+    const cleanup = () => {
+        modal.classList.remove('show');
+        yesBtn.removeEventListener('click', handler);
+        noBtn.removeEventListener('click', cleanup);
+    };
+    
+    const handler = () => {
+        cleanup();
+        if (onConfirm) onConfirm();
+    };
+    
+    yesBtn.addEventListener('click', handler);
+    noBtn.addEventListener('click', cleanup);
+}
+
+async function chargerEcoles() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles"));
+        toutesEcoles = [];
+        snap.forEach(ds => {
+            toutesEcoles.push({
+                id: ds.id,
+                ...ds.data()
+            });
+        });
+        return toutesEcoles;
+    } catch (e) {
+        console.error("Erreur chargement écoles:", e);
+        return [];
+    }
+}
+
+async function chargerFiches(ecoleId) {
+    try {
+        const prefix = ecoleId.replace(/-/g, '_');
+        const snap = await getDocs(collection(db, prefix + "_fiches"));
+        const fiches = [];
+        snap.forEach(ds => {
+            const data = ds.data();
+            fiches.push({
+                id: ds.id,
+                ...data,
+                nbEleves: data.eleves ? data.eleves.length : 0
+            });
+        });
+        return fiches;
+    } catch (e) {
+        return [];
+    }
+}
+
+async function chargerToutesFiches() {
+    toutesFiches = [];
+    let totalEleves = 0;
+    for (const ecole of toutesEcoles) {
+        const fiches = await chargerFiches(ecole.id);
+        fiches.forEach(f => {
+            f.ecoleId = ecole.id;
+            f.ecoleNom = ecole.nom || ecole.id;
+            totalEleves += f.nbEleves || 0;
+        });
+        toutesFiches = toutesFiches.concat(fiches);
+    }
+    return { fiches: toutesFiches, totalEleves };
+}
+
+async function supprimerEcole(ecoleId) {
+    try {
+        const prefix = ecoleId.replace(/-/g, '_');
+        
+        // Supprimer toutes les fiches de l'école
+        const snap = await getDocs(collection(db, prefix + "_fiches"));
+        for (const ds of snap.docs) {
+            await deleteDoc(ds.ref);
+        }
+        
+        // Supprimer la configuration de l'école
+        try {
+            await deleteDoc(doc(db, "ecoles", ecoleId));
+        } catch (e) {}
+        
+        toast(`✅ École ${ecoleId} supprimée avec succès`, 'success');
+        await rafraichir();
+    } catch (e) {
+        console.error("Erreur suppression école:", e);
+        toast(`❌ Erreur lors de la suppression: ${e.message}`, 'error');
+    }
+}
+
+async function supprimerFiche(ecoleId, ficheId) {
+    try {
+        const prefix = ecoleId.replace(/-/g, '_');
+        await deleteDoc(doc(db, prefix + "_fiches", ficheId));
+        toast(`✅ Fiche ${ficheId} supprimée avec succès`, 'success');
+        await rafraichir();
+    } catch (e) {
+        console.error("Erreur suppression fiche:", e);
+        toast(`❌ Erreur lors de la suppression: ${e.message}`, 'error');
+    }
+}
+
+async function toutSupprimer() {
+    showConfirm(
+        "🗑️ RÉINITIALISATION COMPLÈTE",
+        `⚠️ <strong>ACTION IRRÉVERSIBLE</strong><br><br>
+         Vous allez supprimer :<br>
+         - <strong>${toutesEcoles.length}</strong> écoles<br>
+         - <strong>${toutesFiches.length}</strong> fiches<br><br>
+         <span style="color:#ef4444;">Toutes les données seront définitivement perdues !</span>`,
+        async () => {
+            try {
+                let totalSupprimees = 0;
+                for (const ecole of toutesEcoles) {
+                    const prefix = ecole.id.replace(/-/g, '_');
+                    const snap = await getDocs(collection(db, prefix + "_fiches"));
+                    for (const ds of snap.docs) {
+                        await deleteDoc(ds.ref);
+                        totalSupprimees++;
+                    }
+                    try {
+                        await deleteDoc(doc(db, "ecoles", ecole.id));
+                    } catch (e) {}
+                }
+                toast(`✅ ${totalSupprimees} fiches et ${toutesEcoles.length} écoles supprimées`, 'success');
+                await rafraichir();
+            } catch (e) {
+                toast(`❌ Erreur: ${e.message}`, 'error');
+            }
+        }
+    );
+}
+
+function afficherEcoles() {
+    const container = document.getElementById('ecolesContainer');
+    
+    if (toutesEcoles.length === 0) {
+        container.innerHTML = `<div class="empty-state">📭 Aucune école enregistrée</div>`;
+        return;
+    }
+    
+    let html = '';
+    for (const ecole of toutesEcoles) {
+        const fiches = toutesFiches.filter(f => f.ecoleId === ecole.id);
+        const nbFiches = fiches.length;
+        const nbEleves = fiches.reduce((sum, f) => sum + (f.nbEleves || 0), 0);
+        
+        html += `
+        <div class="ecole-card">
+            <div class="ecole-header">
+                <div>
+                    <div class="nom">🏫 ${ecole.nom || ecole.id}</div>
+                    <div class="id">ID: ${ecole.id}</div>
+                </div>
+                <div>
+                    <span class="count">📄 ${nbFiches} fiches</span>
+                    <span class="count" style="margin-left:8px;">👥 ${nbEleves} élèves</span>
+                </div>
+                <div class="ecole-actions">
+                    <button class="btn btn-danger btn-sm" onclick="window.supprimerEcoleAction('${ecole.id}')">🗑️ Supprimer</button>
+                </div>
+            </div>
+            <div class="fiches-list">
+                ${nbFiches === 0 ? '<div class="empty-state" style="padding:20px;">Aucune fiche</div>' : ''}
+                ${fiches.map(f => `
+                    <div class="fiche-item">
+                        <div class="info">
+                            <span class="cours">📘 ${f.cours || 'Sans cours'}</span>
+                            <span class="classe">${f.classe || 'Sans classe'}</span>
+                            ${f.option ? `<span class="classe">${f.option}</span>` : ''}
+                            <span class="eleves">👥 ${f.nbEleves || 0} élèves</span>
+                            <span class="ref">${f.numeroRef ? 'Réf: ' + f.numeroRef : ''}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-danger btn-sm" onclick="window.supprimerFicheAction('${ecole.id}','${f.id}')">✕</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+        `;
+    }
+    
+    container.innerHTML = html;
+    
+    // Mettre à jour les statistiques
+    document.getElementById('statEcoles').textContent = toutesEcoles.length;
+    document.getElementById('statFiches').textContent = toutesFiches.length;
+    const totalEleves = toutesFiches.reduce((sum, f) => sum + (f.nbEleves || 0), 0);
+    document.getElementById('statEleves').textContent = totalEleves;
+}
+
+window.supprimerEcoleAction = function(ecoleId) {
+    const ecole = toutesEcoles.find(e => e.id === ecoleId);
+    const fiches = toutesFiches.filter(f => f.ecoleId === ecoleId);
+    showConfirm(
+        "🗑️ Supprimer l'école",
+        `⚠️ Vous allez supprimer l'école <strong>${ecole?.nom || ecoleId}</strong><br>
+         <strong>${fiches.length}</strong> fiches seront supprimées.<br><br>
+         <span style="color:#ef4444;">Action irréversible !</span>`,
+        () => supprimerEcole(ecoleId)
+    );
+};
+
+window.supprimerFicheAction = function(ecoleId, ficheId) {
+    const fiche = toutesFiches.find(f => f.id === ficheId);
+    showConfirm(
+        "🗑️ Supprimer la fiche",
+        `⚠️ Supprimer la fiche : <strong>${fiche?.cours || 'Sans cours'}</strong><br>
+         Classe : ${fiche?.classe || 'Sans classe'}<br>
+         ${fiche?.option ? 'Option : ' + fiche.option + '<br>' : ''}
+         <strong>${fiche?.nbEleves || 0}</strong> élèves concernés.<br><br>
+         <span style="color:#ef4444;">Action irréversible !</span>`,
+        () => supprimerFiche(ecoleId, ficheId)
+    );
+};
+
+async function rafraichir() {
+    document.getElementById('ecolesContainer').innerHTML = '<div class="loading">⏳ Chargement...</div>';
+    await chargerEcoles();
+    await chargerToutesFiches();
+    afficherEcoles();
+    toast('✅ Données actualisées', 'info');
+}
+
+// Exposer les fonctions au scope global
+window.toutSupprimer = toutSupprimer;
+window.rafraichir = rafraichir;
+
+// Chargement initial
+await rafraichir();
+
+console.log('✅ Admin panel loaded');
+console.log(`📊 ${toutesEcoles.length} écoles, ${toutesFiches.length} fiches`);
+
+</script>
+</body>
+</html>
