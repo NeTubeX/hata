@@ -436,6 +436,7 @@ if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${scho
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [], saveTimeout = null, isCreatingFiche = false, directriceCode = "1111", pendingSync = [], groupesActuels = [];
+let isUpdatingSelectors = false;
 let optionsParClasse = {
     "1ère Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
     "2ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
@@ -910,36 +911,55 @@ async function loadAllFiches() { if (!currentProf) return []; let all = await ge
 async function getNextFicheNumero() { let compteurKey = 'global_' + SCHOOL_PREFIX; let c = await getFromIndexedDB('compteur', compteurKey); let cv = c?.valeur || 0; let nv = cv + 1; await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv }); if (navigator.onLine) { try { await setDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"), { valeur: nv }); } catch (e) { await addPendingSync('updateCompteur', nv); } } else { await addPendingSync('updateCompteur', nv); } return nv; }
 async function saveCurrentFiche() { if (!currentProf || !currentFicheId || !currentFiche) return; currentFiche.lastModified = new Date(); let ft = { ...currentFiche, id: currentFicheId, school: SCHOOL_PREFIX }; await saveToIndexedDB('fiches', ft); if (navigator.onLine) { try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId), currentFiche); } catch (e) { await addPendingSync('saveFiche', currentFiche); } } else { await addPendingSync('saveFiche', currentFiche); } }
 function debounceSave() { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(function() { saveCurrentFiche(); }, 500); }
-async function refreshSelectors() {
-if (isCreatingFiche) return;
-toutesFiches = await loadAllFiches();
-let sl = ['ficheSelect', 'epreuveFicheSelector', 'cotationFicheSelector', 'exportFicheSelector', 'correctionFicheSelector'];
-for (let s = 0; s < sl.length; s++) {
-let sel = document.getElementById(sl[s]);
-if (sel) {
-sel.innerHTML = '<option value="">-- Choisir --</option>';
-for (let f of toutesFiches) {
-let opt = document.createElement('option');
-opt.value = f.id;
-let refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
-let optText = f.option ? ' (' + f.option + ')' : '';
-opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
-if (currentFicheId === f.id) opt.selected = true;
-sel.appendChild(opt);
-}
-if (sl[s] === 'correctionFicheSelector') { if (correctionFicheId) { sel.value = correctionFicheId; } }
-sel.onchange = async function() {
-if (isCreatingFiche) return;
-if (sel.value && !isCreatingFiche) {
-if (sl[s] === 'correctionFicheSelector') {
-await selectFicheForCorrection(sel.value);
-} else {
-await selectFiche(sel.value);
-}
-}
-};
-}
-}
+async function refreshSelectors(selectedId = null) {
+    if (isCreatingFiche) return;
+    if (isUpdatingSelectors) return;
+    isUpdatingSelectors = true;
+    toutesFiches = await loadAllFiches();
+    let selectorIds = ['ficheSelect', 'epreuveFicheSelector', 'cotationFicheSelector', 'exportFicheSelector', 'correctionFicheSelector'];
+    for (let s of selectorIds) {
+        let sel = document.getElementById(s);
+        if (!sel) continue;
+        let currentValue = sel.value;
+        sel.innerHTML = '<option value="">-- Choisir --</option>';
+        for (let f of toutesFiches) {
+            let opt = document.createElement('option');
+            opt.value = f.id;
+            let refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
+            let optText = f.option ? ' (' + f.option + ')' : '';
+            opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
+            sel.appendChild(opt);
+        }
+        if (selectedId) {
+            sel.value = selectedId;
+        } else if (currentValue && toutesFiches.some(f => f.id === currentValue)) {
+            sel.value = currentValue;
+        } else if (currentFicheId && toutesFiches.some(f => f.id === currentFicheId)) {
+            sel.value = currentFicheId;
+        }
+        if (s === 'correctionFicheSelector') {
+            sel.onchange = async function() {
+                if (isUpdatingSelectors || isCreatingFiche) return;
+                if (this.value && !isCreatingFiche) {
+                    await selectFicheForCorrection(this.value);
+                }
+            };
+        } else {
+            sel.onchange = async function() {
+                if (isUpdatingSelectors || isCreatingFiche) return;
+                if (this.value && !isCreatingFiche) {
+                    await selectFiche(this.value);
+                }
+            };
+        }
+    }
+    if (selectedId && !isUpdatingSelectors) {
+        const fichesCorrespondantes = toutesFiches.filter(f => f.id === selectedId);
+        if (fichesCorrespondantes.length > 0) {
+            await selectFiche(selectedId);
+        }
+    }
+    isUpdatingSelectors = false;
 }
 async function selectFiche(id) {
 if (!id || isCreatingFiche) return;
@@ -982,8 +1002,30 @@ function toggleOptionField() {
 }
 function mettreAJourSelectOptions(c) { let s = document.getElementById('optionSelect'); if (!s) return; let opts = optionsParClasse[c] || []; if (opts.length === 0) { s.value = ''; return; } if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) { s.value = currentFiche.option; } else if (opts.includes("TOUTES") && s.value === '') { s.value = "TOUTES"; } else if (opts.length > 0 && s.value === '') { s.value = opts[0]; } }
 function mettreAJourCompteurEleves() { const countSpan = document.getElementById('eleveCount'); if (countSpan && currentFiche) { const nb = currentFiche.eleves?.length || 0; countSpan.textContent = nb; } }
-function afficherEleves() { let c = document.getElementById('elevesListContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; let importBtn = document.createElement('div'); importBtn.style.cssText = 'margin-bottom:12px;'; importBtn.innerHTML = '<button class="btn btn-success" id="importerElevesBtn" style="width:100%;">📥 IMPORTER LES ÉLÈVES DE LA COMPTABILITÉ</button>'; c.appendChild(importBtn); let ev = currentFiche.eleves || []; for (let i = 0; i < ev.length; i++) { let d = document.createElement('div'); d.className = 'eleve-row'; const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite'; if (estImporte) { d.innerHTML = '<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">' + (ev[i].nom||'') + '</span><span style="color:#94a3b8;padding:8px;">' + (ev[i].sexe||'M') + '</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>'; } else { d.innerHTML = '<input type="text" value="' + (ev[i].nom||'') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe=='M'?'selected':'') + '>M</option><option value="F" ' + (ev[i].sexe=='F'?'selected':'') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>'; } c.appendChild(d); } if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>'; updateExportSelect(); mettreAJourCompteurEleves(); document.getElementById('importerElevesBtn')?.addEventListener('click', importerElevesDepuisCompta); }
-async function importerElevesDepuisCompta() { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } const classe = currentFiche.classe; const option = currentFiche.option || ''; if (!classe) { toast("Veuillez d'abord sélectionner une classe dans la fiche", 'error'); return; } try { await getAllComptaEleves(); const elevesCompta = localEleves; let elevesFiltres = elevesCompta.filter(e => { if (e.abandon) return false; if (e.classe !== classe) return false; if (option === 'TOUTES') return true; if (!option && !e.option) return true; if (option && e.option === option) return true; return false; }); if (elevesFiltres.length === 0) { toast('Aucun élève trouvé en ' + classe + (option?' ('+option+')':''), 'warning'); return; } const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom)); const nouveauxEleves = elevesFiltres.filter(e => { const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : ''); return !nomsExistants.has(nomComplet); }); if (nouveauxEleves.length === 0) { toast("Tous les élèves sont déjà dans la fiche", 'info'); return; } if (!currentFiche.eleves) currentFiche.eleves = []; nouveauxEleves.forEach(e => { currentFiche.eleves.push({ id: e.id || Date.now() + Math.random(), nom: e.nom + (e.prenom ? ' ' + e.prenom : ''), nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''), sexe: e.sexe || 'M', notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 }, parentCode: e.parentCode || '', eleveId: e.id, importeLe: new Date().toISOString(), source: "comptabilite" }); }); await saveCurrentFiche(); afficherEleves(); afficherCotation(); refreshGroupes(); mettreAJourCompteurEleves(); const elevesAvecCode = nouveauxEleves.filter(e => e.parentCode); if (elevesAvecCode.length > 0) { toast(nouveauxEleves.length + ' élève(s) importé(s) avec leurs codes parents', 'success'); } else { toast(nouveauxEleves.length + ' élève(s) importé(s)', 'success'); } } catch (error) { console.error("Erreur importation:", error); toast("Erreur lors de l'importation", 'error'); } }
+function afficherEleves() { 
+    let c = document.getElementById('elevesListContainer'); 
+    if (!c) return; 
+    if (!currentFiche) { 
+        c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; 
+        return; 
+    } 
+    c.innerHTML = ''; 
+    let ev = currentFiche.eleves || []; 
+    for (let i = 0; i < ev.length; i++) { 
+        let d = document.createElement('div'); 
+        d.className = 'eleve-row'; 
+        const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite'; 
+        if (estImporte) { 
+            d.innerHTML = '<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">' + (ev[i].nom||'') + '</span><span style="color:#94a3b8;padding:8px;">' + (ev[i].sexe||'M') + '</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>'; 
+        } else { 
+            d.innerHTML = '<input type="text" value="' + (ev[i].nom||'') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe=='M'?'selected':'') + '>M</option><option value="F" ' + (ev[i].sexe=='F'?'selected':'') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>'; 
+        } 
+        c.appendChild(d); 
+    } 
+    if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>'; 
+    updateExportSelect(); 
+    mettreAJourCompteurEleves(); 
+}
 window.updEleve = function(i, f, v) { let eleve = currentFiche.eleves[i]; if (!eleve) return; const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite'; if (estImporte) { toast("🔒 Impossible de modifier un élève importé de la comptabilité", 'error'); return; } if (f === 'nom' && (!v || v.trim() === '')) { toast("Le nom de l'élève ne peut pas être vide", 'error'); return; } currentFiche.eleves[i][f] = v; debounceSave(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshGroupes(); rafraichirGroupesPourCotation(); mettreAJourCompteurEleves(); mettreAJourStatsFiche(); toast("Élève modifié", 'success'); };
 window.delEleve = function(i) { let eleve = currentFiche.eleves[i]; if (!eleve) return; const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite'; if (estImporte) { toast("🔒 Impossible de supprimer un élève importé de la comptabilité", 'error'); return; } let n = eleve.nom || 'Élève'; showConfirm("Supprimer " + n + " de la liste ?", function() { currentFiche.eleves.splice(i, 1); afficherEleves(); afficherCotation(); updateExportSelect(); refreshGroupes(); rafraichirGroupesPourCotation(); debounceSave(); mettreAJourStatsFiche(); toast(n + " a été supprimé", 'warning'); }); };
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
@@ -1866,7 +1908,7 @@ document.getElementById('optionSelect').value = '';
 document.getElementById('titulaireInput').value = '';
 document.getElementById('p1MaxConfig').value = 20;
 toggleOptionField();
-await refreshSelectors();
+await refreshSelectors(nid);
 afficherEpreuves();
 afficherEleves();
 afficherCotation();
