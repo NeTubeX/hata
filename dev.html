@@ -57,6 +57,8 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .btn-secondary:hover{background:#475569;}
 .btn-warning{background:#b45309;color:#fff;}
 .btn-warning:hover{background:#c2410c;}
+.btn-info{background:#1e3a5f;color:#fff;}
+.btn-info:hover{background:#2563eb;}
 .table-wrapper{overflow-x:auto;touch-action:pan-x pan-y;}
 .student-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1400px;}
 .student-table th{background:#0f172a;padding:12px 6px;border-bottom:2px solid #334155;font-size:11px;color:#fff;}
@@ -319,6 +321,25 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 .prof-desactiver-msg .entreprise{color:#fbbf24;font-weight:700;font-size:16px;}
 .eleve-importe{color:#10b981;font-size:11px;font-weight:600;background:rgba(16,185,129,0.15);padding:2px 10px;border-radius:30px;}
 .eleve-importe-lock{color:#64748b;font-size:14px;cursor:default;margin-left:4px;}
+/* Nouveaux styles pour la séparation création/consultation */
+.mode-selector{display:flex;gap:8px;margin-bottom:16px;border-radius:12px;background:rgba(0,0,0,0.3);padding:6px;}
+.mode-btn{flex:1;padding:10px 16px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s ease;background:transparent;color:#94a3b8;font-family:'Inter',sans-serif;}
+.mode-btn:hover{background:rgba(59,130,246,0.1);}
+.mode-btn.active{background:linear-gradient(135deg,#1e3a5f,#0f2b44);color:#fff;box-shadow:0 4px 15px rgba(59,130,246,0.2);}
+.mode-btn[data-mode="creation"].active{background:linear-gradient(135deg,#14532d,#0f2b1a);box-shadow:0 4px 15px rgba(16,185,129,0.3);}
+.mode-content{display:none;}
+.mode-content.active{display:block;animation:fadeIn 0.3s ease;}
+.fiche-liste-item{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:rgba(255,255,255,0.03);border-radius:14px;margin-bottom:10px;border:1px solid rgba(59,130,246,0.1);transition:all 0.2s;cursor:pointer;}
+.fiche-liste-item:hover{background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.3);}
+.fiche-liste-item .info{flex:1;}
+.fiche-liste-item .info .cours{font-weight:600;color:#fff;font-size:15px;}
+.fiche-liste-item .info .details{font-size:12px;color:#94a3b8;margin-top:4px;}
+.fiche-liste-item .info .details span{margin-right:12px;}
+.fiche-liste-item .actions{display:flex;gap:8px;}
+.fiche-liste-item .actions button{padding:6px 14px;border-radius:30px;font-size:11px;border:none;cursor:pointer;}
+.fiche-liste-empty{text-align:center;padding:40px;color:#94a3b8;}
+.fiche-liste-empty .icon{font-size:48px;margin-bottom:12px;}
+.fiche-liste-empty .sub{font-size:13px;color:#64748b;margin-top:8px;}
 </style>
 </head>
 <body>
@@ -337,8 +358,14 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 <button class="tab" data-tab="tabHoraire">MON HORAIRE</button>
 <button class="tab" data-tab="tabParams">PARAMETRES</button>
 </div></div>
-<div id="tabProf" class="tab-content active"><div class="card"><div class="card-header">GESTION DES FICHES</div>
-<div class="fiche-selector"><label>Fiche active :</label><select id="ficheSelect"></select></div>
+<div id="tabProf" class="tab-content active"><div class="card"><div class="card-header">📋 GESTION DES FICHES</div>
+<!-- Sélecteur de mode : Création / Mes fiches -->
+<div class="mode-selector">
+<button class="mode-btn active" data-mode="creation">🆕 Créer une fiche</button>
+<button class="mode-btn" data-mode="mesfiches">📁 Mes fiches</button>
+</div>
+<!-- Mode Création -->
+<div class="mode-content active" id="modeCreation">
 <div class="form-grid">
 <div class="form-field field-required"><label>COURS</label><input type="text" id="coursInput" placeholder="Ex: Mathématiques, Français..."></div>
 <div class="form-field field-required"><label>CLASSE</label><select id="classeSelect"><option value="">-- Sélectionner --</option><option value="7ème EB">7ème EB</option><option value="8ème EB">8ème EB</option><option value="1ère Année">1ère Année</option><option value="2ème Année">2ème Année</option><option value="3ème Année">3ème Année</option><option value="4ème Année">4ème Année</option></select></div>
@@ -360,10 +387,17 @@ select{appearance:none;-webkit-appearance:none;background-image:url("data:image/
 </div>
 <div class="prof-config"><h3>CONFIGURATION</h3>
 <div class="note-max-row"><label>Note max / période :</label><input type="number" id="p1MaxConfig" value="20" step="1"></div>
-<div class="btn-group"><button class="btn btn-success" id="newFicheBtn">📝 CRÉER UNE FICHE</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
+<div class="btn-group"><button class="btn btn-success" id="newFicheBtn">📝 CRÉER UNE FICHE</button></div>
 </div>
-<div style="padding:20px;border-top:1px solid #334155;margin-top:20px;"><h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3><div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-success" id="rechargerElevesBtn" style="flex:1;">🔄 RECHARGER AUTO</button></div><div id="ficheStats" style="margin-top:12px;padding:12px;background:#0f172a;border-radius:12px;font-size:13px;color:#cbd5e1;"><div id="ficheStatsContent"></div></div>
-<div id="codesParentsInfo" style="display:none;"></div></div>
+</div>
+<!-- Mode Mes fiches -->
+<div class="mode-content" id="modeMesFiches">
+<div style="margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+<button class="btn btn-sm btn-info" id="refreshFichesListBtn">🔄 Rafraîchir</button>
+<span id="fichesCountLabel" style="color:#94a3b8;font-size:13px;">0 fiche(s)</span>
+</div>
+<div id="mesFichesList" style="max-height:500px;overflow-y:auto;"></div>
+</div>
 </div></div>
 <div id="tabCorrection" class="tab-content"><div class="card"><div class="card-header">🎯 CORRECTION INTERACTIVE - 2 MODES DE SAISIE</div>
 <div class="fiche-selector"><label>📁 Fiche à coter :</label><select id="correctionFicheSelector"></select></div>
@@ -436,6 +470,7 @@ if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${scho
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
 let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [], saveTimeout = null, isCreatingFiche = false, directriceCode = "1111", pendingSync = [], groupesActuels = [];
+let isUpdatingSelectors = false;
 let optionsParClasse = {
     "1ère Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
     "2ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
@@ -906,41 +941,108 @@ window.addEventListener('online', function() { syncToFirebase(); syncAnalyticsTo
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: SCHOOL_PREFIX })); } else { localStorage.removeItem('gloria_session_prof'); } }
 async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== SCHOOL_PREFIX) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } let ap = await getAllFromIndexedDB('professeurs'); let fp = ap.find(function(p) { return p.id === prof.id && p.school === SCHOOL_PREFIX; }); if (fp && fp.actif !== false) { currentProf = { id: fp.profId, nom: fp.nom, code: fp.code, createdAt: fp.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); await chargerSelecteursDynamiques(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } } catch (e) { console.log(e); } } return false; }
 async function chargerSelecteursDynamiques() { const toutes = await getAllFromIndexedDB('fiches'); const matieresSet = new Set(); const classesSet = new Set(); for (const f of toutes) { if (f.cours && f.cours.trim()) matieresSet.add(f.cours); if (f.classe && f.classe.trim()) classesSet.add(f.classe); } }
-async function loadAllFiches() { if (!currentProf) return []; let all = await getAllFromIndexedDB('fiches'); let pf = all.filter(function(f) { return f.profId === currentProf.id && !f._type && f.school === SCHOOL_PREFIX; }); pf.sort(function(a, b) { return (a.numeroRef || 999) - (b.numeroRef || 999); }); return pf.map(function(f) { return { id: f.ficheId, cours: f.cours || '', classe: f.classe || '', option: f.option || '', numeroRef: f.numeroRef || null }; }); }
+async function loadAllFiches() { if (!currentProf) return []; let all = await getAllFromIndexedDB('fiches'); let pf = all.filter(function(f) { return f.profId === currentProf.id && !f._type && f.school === SCHOOL_PREFIX; }); pf.sort(function(a, b) { return (a.numeroRef || 999) - (b.numeroRef || 999); }); return pf.map(function(f) { return { id: f.ficheId, cours: f.cours || '', classe: f.classe || '', option: f.option || '', numeroRef: f.numeroRef || null, eleves: f.eleves || [] }; }); }
 async function getNextFicheNumero() { let compteurKey = 'global_' + SCHOOL_PREFIX; let c = await getFromIndexedDB('compteur', compteurKey); let cv = c?.valeur || 0; let nv = cv + 1; await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv }); if (navigator.onLine) { try { await setDoc(doc(db, SCHOOL_PREFIX + "_compteur", "global"), { valeur: nv }); } catch (e) { await addPendingSync('updateCompteur', nv); } } else { await addPendingSync('updateCompteur', nv); } return nv; }
 async function saveCurrentFiche() { if (!currentProf || !currentFicheId || !currentFiche) return; currentFiche.lastModified = new Date(); let ft = { ...currentFiche, id: currentFicheId, school: SCHOOL_PREFIX }; await saveToIndexedDB('fiches', ft); if (navigator.onLine) { try { await setDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId), currentFiche); } catch (e) { await addPendingSync('saveFiche', currentFiche); } } else { await addPendingSync('saveFiche', currentFiche); } }
 function debounceSave() { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(function() { saveCurrentFiche(); }, 500); }
-async function refreshSelectors() {
-if (isCreatingFiche) return;
-toutesFiches = await loadAllFiches();
-let sl = ['ficheSelect', 'epreuveFicheSelector', 'cotationFicheSelector', 'exportFicheSelector', 'correctionFicheSelector'];
-for (let s = 0; s < sl.length; s++) {
-let sel = document.getElementById(sl[s]);
-if (sel) {
-sel.innerHTML = '<option value="">-- Choisir --</option>';
-for (let f of toutesFiches) {
-let opt = document.createElement('option');
-opt.value = f.id;
-let refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
-let optText = f.option ? ' (' + f.option + ')' : '';
-opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
-if (currentFicheId === f.id) opt.selected = true;
-sel.appendChild(opt);
+async function refreshSelectors(selectedId = null) {
+    if (isCreatingFiche) return;
+    if (isUpdatingSelectors) return;
+    isUpdatingSelectors = true;
+    toutesFiches = await loadAllFiches();
+    let selectorIds = ['ficheSelect', 'epreuveFicheSelector', 'cotationFicheSelector', 'exportFicheSelector', 'correctionFicheSelector'];
+    for (let s of selectorIds) {
+        let sel = document.getElementById(s);
+        if (!sel) continue;
+        let currentValue = sel.value;
+        sel.innerHTML = '<option value="">-- Choisir --</option>';
+        for (let f of toutesFiches) {
+            let opt = document.createElement('option');
+            opt.value = f.id;
+            let refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
+            let optText = f.option ? ' (' + f.option + ')' : '';
+            opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
+            sel.appendChild(opt);
+        }
+        if (selectedId) {
+            sel.value = selectedId;
+        } else if (currentValue && toutesFiches.some(f => f.id === currentValue)) {
+            sel.value = currentValue;
+        } else if (currentFicheId && toutesFiches.some(f => f.id === currentFicheId)) {
+            sel.value = currentFicheId;
+        }
+        if (s === 'correctionFicheSelector') {
+            sel.onchange = async function() {
+                if (isUpdatingSelectors || isCreatingFiche) return;
+                if (this.value && !isCreatingFiche) {
+                    await selectFicheForCorrection(this.value);
+                }
+            };
+        } else {
+            sel.onchange = async function() {
+                if (isUpdatingSelectors || isCreatingFiche) return;
+                if (this.value && !isCreatingFiche) {
+                    await selectFiche(this.value);
+                }
+            };
+        }
+    }
+    if (selectedId && !isUpdatingSelectors) {
+        const fichesCorrespondantes = toutesFiches.filter(f => f.id === selectedId);
+        if (fichesCorrespondantes.length > 0) {
+            await selectFiche(selectedId);
+        }
+    }
+    // Mettre à jour la liste "Mes fiches"
+    afficherMesFiches();
+    isUpdatingSelectors = false;
 }
-if (sl[s] === 'correctionFicheSelector') { if (correctionFicheId) { sel.value = correctionFicheId; } }
-sel.onchange = async function() {
-if (isCreatingFiche) return;
-if (sel.value && !isCreatingFiche) {
-if (sl[s] === 'correctionFicheSelector') {
-await selectFicheForCorrection(sel.value);
-} else {
-await selectFiche(sel.value);
+function afficherMesFiches() {
+    const container = document.getElementById('mesFichesList');
+    const countLabel = document.getElementById('fichesCountLabel');
+    if (!container) return;
+    toutesFiches = toutesFiches || [];
+    if (countLabel) countLabel.textContent = toutesFiches.length + ' fiche(s)';
+    if (toutesFiches.length === 0) {
+        container.innerHTML = `<div class="fiche-liste-empty"><div class="icon">📭</div><div>Aucune fiche créée</div><div class="sub">Créez votre première fiche dans l'onglet "Créer une fiche"</div></div>`;
+        return;
+    }
+    let html = '';
+    for (const f of toutesFiches) {
+        const ref = f.numeroRef ? formatNumero(f.numeroRef) : '???';
+        const nbEleves = f.eleves?.length || 0;
+        const estActive = (currentFicheId === f.id);
+        html += `<div class="fiche-liste-item" style="${estActive ? 'border-color:#10b981;border-width:2px;' : ''}" onclick="window.ouvrirFiche('${f.id}')">
+            <div class="info">
+                <div class="cours">${f.cours || 'Sans cours'} ${estActive ? '✅' : ''}</div>
+                <div class="details">
+                    <span>📚 ${f.classe || 'Sans classe'}</span>
+                    ${f.option ? `<span>🎯 ${f.option}</span>` : ''}
+                    <span>📌 ${ref}</span>
+                    <span>👥 ${nbEleves} élève${nbEleves > 1 ? 's' : ''}</span>
+                </div>
+            </div>
+            <div class="actions">
+                <button class="btn-sm btn-outline" onclick="event.stopPropagation();window.ouvrirFiche('${f.id}')">Ouvrir</button>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
 }
-}
+window.ouvrirFiche = async function(id) {
+    if (!id) return;
+    const fiche = toutesFiches.find(f => f.id === id);
+    if (!fiche) return;
+    await selectFiche(id);
+    toast("Fiche ouverte : " + (fiche.cours || '') + ' - ' + (fiche.classe || ''), 'success');
+    // Basculer vers l'onglet Cotation pour voir la fiche
+    document.querySelectorAll('#tabsProfesseur .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#spaceProfesseur .tab-content').forEach(c => c.classList.remove('active'));
+    const tabCotation = document.querySelector('#tabsProfesseur .tab[data-tab="tabCotation"]');
+    if (tabCotation) { tabCotation.classList.add('active'); }
+    const contentCotation = document.getElementById('tabCotation');
+    if (contentCotation) { contentCotation.classList.add('active'); }
 };
-}
-}
-}
 async function selectFiche(id) {
 if (!id || isCreatingFiche) return;
 currentFicheId = id;
@@ -965,6 +1067,7 @@ mettreAJourEpreuvesSelect();
 correctionUpdateEpreuveList();
 mettreAJourCompteurEleves();
 mettreAJourStatsFiche();
+afficherMesFiches();
 }
 }
 async function selectFicheForCorrection(id) { if (!id) return; let st = await getFromIndexedDB('fiches', id); if (st && !st._type) { correctionFiche = st; correctionFicheId = id; correctionUpdateEpreuveList(); document.getElementById('correctionFicheSelector').value = id; toast("Fiche chargée pour la correction : " + (st.cours || '') + ' - ' + (st.classe || ''), 'success'); } }
@@ -982,8 +1085,30 @@ function toggleOptionField() {
 }
 function mettreAJourSelectOptions(c) { let s = document.getElementById('optionSelect'); if (!s) return; let opts = optionsParClasse[c] || []; if (opts.length === 0) { s.value = ''; return; } if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) { s.value = currentFiche.option; } else if (opts.includes("TOUTES") && s.value === '') { s.value = "TOUTES"; } else if (opts.length > 0 && s.value === '') { s.value = opts[0]; } }
 function mettreAJourCompteurEleves() { const countSpan = document.getElementById('eleveCount'); if (countSpan && currentFiche) { const nb = currentFiche.eleves?.length || 0; countSpan.textContent = nb; } }
-function afficherEleves() { let c = document.getElementById('elevesListContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; let importBtn = document.createElement('div'); importBtn.style.cssText = 'margin-bottom:12px;'; importBtn.innerHTML = '<button class="btn btn-success" id="importerElevesBtn" style="width:100%;">📥 IMPORTER LES ÉLÈVES DE LA COMPTABILITÉ</button>'; c.appendChild(importBtn); let ev = currentFiche.eleves || []; for (let i = 0; i < ev.length; i++) { let d = document.createElement('div'); d.className = 'eleve-row'; const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite'; if (estImporte) { d.innerHTML = '<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">' + (ev[i].nom||'') + '</span><span style="color:#94a3b8;padding:8px;">' + (ev[i].sexe||'M') + '</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>'; } else { d.innerHTML = '<input type="text" value="' + (ev[i].nom||'') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe=='M'?'selected':'') + '>M</option><option value="F" ' + (ev[i].sexe=='F'?'selected':'') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>'; } c.appendChild(d); } if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>'; updateExportSelect(); mettreAJourCompteurEleves(); document.getElementById('importerElevesBtn')?.addEventListener('click', importerElevesDepuisCompta); }
-async function importerElevesDepuisCompta() { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } const classe = currentFiche.classe; const option = currentFiche.option || ''; if (!classe) { toast("Veuillez d'abord sélectionner une classe dans la fiche", 'error'); return; } try { await getAllComptaEleves(); const elevesCompta = localEleves; let elevesFiltres = elevesCompta.filter(e => { if (e.abandon) return false; if (e.classe !== classe) return false; if (option === 'TOUTES') return true; if (!option && !e.option) return true; if (option && e.option === option) return true; return false; }); if (elevesFiltres.length === 0) { toast('Aucun élève trouvé en ' + classe + (option?' ('+option+')':''), 'warning'); return; } const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom)); const nouveauxEleves = elevesFiltres.filter(e => { const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : ''); return !nomsExistants.has(nomComplet); }); if (nouveauxEleves.length === 0) { toast("Tous les élèves sont déjà dans la fiche", 'info'); return; } if (!currentFiche.eleves) currentFiche.eleves = []; nouveauxEleves.forEach(e => { currentFiche.eleves.push({ id: e.id || Date.now() + Math.random(), nom: e.nom + (e.prenom ? ' ' + e.prenom : ''), nomComplet: e.nom + (e.prenom ? ' ' + e.prenom : ''), sexe: e.sexe || 'M', notes: { p1: [], p2: [], p3: [], p4: [], exam1: 0, exam2: 0 }, parentCode: e.parentCode || '', eleveId: e.id, importeLe: new Date().toISOString(), source: "comptabilite" }); }); await saveCurrentFiche(); afficherEleves(); afficherCotation(); refreshGroupes(); mettreAJourCompteurEleves(); const elevesAvecCode = nouveauxEleves.filter(e => e.parentCode); if (elevesAvecCode.length > 0) { toast(nouveauxEleves.length + ' élève(s) importé(s) avec leurs codes parents', 'success'); } else { toast(nouveauxEleves.length + ' élève(s) importé(s)', 'success'); } } catch (error) { console.error("Erreur importation:", error); toast("Erreur lors de l'importation", 'error'); } }
+function afficherEleves() { 
+    let c = document.getElementById('elevesListContainer'); 
+    if (!c) return; 
+    if (!currentFiche) { 
+        c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; 
+        return; 
+    } 
+    c.innerHTML = ''; 
+    let ev = currentFiche.eleves || []; 
+    for (let i = 0; i < ev.length; i++) { 
+        let d = document.createElement('div'); 
+        d.className = 'eleve-row'; 
+        const estImporte = ev[i].source === 'auto' || ev[i].source === 'reload' || ev[i].source === 'auto_refresh' || ev[i].source === 'comptabilite'; 
+        if (estImporte) { 
+            d.innerHTML = '<span style="flex:2;color:#e2e8f0;padding:8px;font-weight:500;">' + (ev[i].nom||'') + '</span><span style="color:#94a3b8;padding:8px;">' + (ev[i].sexe||'M') + '</span><span class="eleve-importe">🔒 Importé</span><span class="eleve-importe-lock" title="Impossible de modifier un élève importé de la comptabilité">🔒</span>'; 
+        } else { 
+            d.innerHTML = '<input type="text" value="' + (ev[i].nom||'') + '" placeholder="Nom complet" onchange="window.updEleve(' + i + ',\'nom\',this.value)" style="flex:2"><select onchange="window.updEleve(' + i + ',\'sexe\',this.value)"><option value="M" ' + (ev[i].sexe=='M'?'selected':'') + '>M</option><option value="F" ' + (ev[i].sexe=='F'?'selected':'') + '>F</option></select><span onclick="window.delEleve(' + i + ')" style="cursor:pointer;color:#ef4444;padding:8px;">X</span>'; 
+        } 
+        c.appendChild(d); 
+    } 
+    if (ev.length === 0) c.innerHTML += '<div class="empty-state">Aucun élève inscrit</div>'; 
+    updateExportSelect(); 
+    mettreAJourCompteurEleves(); 
+}
 window.updEleve = function(i, f, v) { let eleve = currentFiche.eleves[i]; if (!eleve) return; const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite'; if (estImporte) { toast("🔒 Impossible de modifier un élève importé de la comptabilité", 'error'); return; } if (f === 'nom' && (!v || v.trim() === '')) { toast("Le nom de l'élève ne peut pas être vide", 'error'); return; } currentFiche.eleves[i][f] = v; debounceSave(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshGroupes(); rafraichirGroupesPourCotation(); mettreAJourCompteurEleves(); mettreAJourStatsFiche(); toast("Élève modifié", 'success'); };
 window.delEleve = function(i) { let eleve = currentFiche.eleves[i]; if (!eleve) return; const estImporte = eleve.source === 'auto' || eleve.source === 'reload' || eleve.source === 'auto_refresh' || eleve.source === 'comptabilite'; if (estImporte) { toast("🔒 Impossible de supprimer un élève importé de la comptabilité", 'error'); return; } let n = eleve.nom || 'Élève'; showConfirm("Supprimer " + n + " de la liste ?", function() { currentFiche.eleves.splice(i, 1); afficherEleves(); afficherCotation(); updateExportSelect(); refreshGroupes(); rafraichirGroupesPourCotation(); debounceSave(); mettreAJourStatsFiche(); toast(n + " a été supprimé", 'warning'); }); };
 function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
@@ -1682,6 +1807,26 @@ const target = document.getElementById(this.dataset.tab);
 if (target) target.classList.add('active');
 });
 });
+// Gestion du sélecteur de mode Création / Mes fiches
+document.querySelectorAll('.mode-btn').forEach(btn => {
+btn.addEventListener('click', function() {
+document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+this.classList.add('active');
+const mode = this.dataset.mode;
+document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+if (mode === 'mesfiches') {
+toutesFiches = toutesFiches || [];
+afficherMesFiches();
+}
+});
+});
+// Bouton rafraîchir la liste des fiches
+document.getElementById('refreshFichesListBtn')?.addEventListener('click', async function() {
+toutesFiches = await loadAllFiches();
+afficherMesFiches();
+toast("Liste rafraîchie : " + toutesFiches.length + " fiche(s)", 'success');
+});
 const parentModalOverlayNew = document.getElementById('parentModalOverlay');
 const parentFloatingBtnNew = document.getElementById('parentFloatingBtn');
 const closeParentModalNew = document.getElementById('closeParentModal');
@@ -1860,13 +2005,14 @@ catch (e) { await addPendingSync('saveFiche', nouvelleFiche); }
 } else { await addPendingSync('saveFiche', nouvelleFiche); }
 currentFiche = nouvelleFiche;
 currentFicheId = nid;
+// Réinitialiser le formulaire
 document.getElementById('coursInput').value = '';
 document.getElementById('classeSelect').value = '';
 document.getElementById('optionSelect').value = '';
 document.getElementById('titulaireInput').value = '';
 document.getElementById('p1MaxConfig').value = 20;
 toggleOptionField();
-await refreshSelectors();
+await refreshSelectors(nid);
 afficherEpreuves();
 afficherEleves();
 afficherCotation();
@@ -1874,10 +2020,18 @@ updateExportSelect();
 refreshGroupes();
 mettreAJourCompteurEleves();
 mettreAJourStatsFiche();
+// Basculer automatiquement vers "Mes fiches" après création
+document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+const mesFichesBtn = document.querySelector('.mode-btn[data-mode="mesfiches"]');
+if (mesFichesBtn) { mesFichesBtn.classList.add('active'); }
+const mesFichesContent = document.getElementById('modeMesFiches');
+if (mesFichesContent) { mesFichesContent.classList.add('active'); }
+toutesFiches = await loadAllFiches();
+afficherMesFiches();
 let msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
 toast(msg, 'success');
-setTimeout(() => { toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info'); }, 1500);
-document.getElementById('coursInput').focus();
+setTimeout(() => { toast("📁 La fiche a été ajoutée à vos fiches", 'info'); }, 1500);
 } catch (error) { toast("❌ Erreur lors de la création", 'error'); console.error(error); }
 finally {
 isCreatingFiche = false;
@@ -1926,6 +2080,7 @@ if (navigator.onLine) { try { await setDoc(doc(db, SCHOOL_PREFIX + "_corbeille",
 await deleteFromIndexedDB('fiches', currentFicheId);
 if (navigator.onLine) { try { await deleteDoc(doc(db, SCHOOL_PREFIX + "_fiches", currentFicheId)); } catch (e) { await addPendingSync('deleteFiche', currentFicheId); } } else { await addPendingSync('deleteFiche', currentFicheId); }
 toutesFiches = await loadAllFiches();
+afficherMesFiches();
 if (toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
 else { currentFiche = null; currentFicheId = null; document.getElementById('coursInput').value = ''; document.getElementById('classeSelect').value = ''; document.getElementById('optionSelect').value = ''; document.getElementById('titulaireInput').value = ''; afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshSelectors(); }
 toast("Fiche supprimée avec succès", 'success');
