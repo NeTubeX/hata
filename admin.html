@@ -384,10 +384,10 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 
 <script type="module">
 // ============================================================
-// LOGIC - FULLY PRESERVED
+// LOGIC - FIXED: Students loaded from sub-collection
 // ============================================================
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, startAfter, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, startAfter, onSnapshot, arrayUnion, arrayRemove } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
@@ -410,7 +410,6 @@ let currentEleveFilter = { classe: "", option: "", sexe: "", statut: "" };
 let auditList = [];
 let floryMessages = [];
 let supportMessages = [];
-let parentalMessages = [];
 let unsubscribeFlory = null;
 let unsubscribeSupport = null;
 
@@ -457,7 +456,7 @@ function formatDateShort(d) { const dt = new Date(d); return dt.toLocaleDateStri
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function escapeHtml(str) { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;' : m); }
 
-// ===== LOADING FUNCTIONS =====
+// ===== LOADING FUNCTIONS - FIXED for students =====
 async function chargerEcoles() {
   try {
     const snap = await getDocs(collection(db, "ecoles_autorisees"));
@@ -495,9 +494,10 @@ async function chargerFiches(e) {
   } catch(e) { return []; }
 }
 
+// FIXED: Load students from sub-collection: ecoles/{schoolId}/compta_eleves
 async function chargerElevesCompta(e) {
   try {
-    const snap = await getDocs(collection(db, `${e}_compta_eleves`));
+    const snap = await getDocs(collection(db, "ecoles", e, "compta_eleves"));
     const el = [];
     snap.forEach(ds => {
       const d = ds.data();
@@ -811,7 +811,7 @@ function renderMembers() {
     </div>`;
   
   if (!members.length) {
-    html += `<div class="empty-state"><span class="empty-icon">👥</span>No members found. Students are loaded from accounting (compta_eleves).</div>`;
+    html += `<div class="empty-state"><span class="empty-icon">👥</span>No members found. Students are loaded from accounting (ecoles/{school}/compta_eleves).</div>`;
   } else {
     html += `<div class="table-wrapper"><table class="excel-table"><thead><tr>
       <th>#</th><th>Name</th><th>Class</th><th>Option</th><th>Gender</th><th>School</th><th>Parent Code</th><th class="col-center">Status</th>
@@ -944,10 +944,8 @@ function renderAudit() {
           </thead>
           <tbody>`;
   const labels = { desactivation: 'Deactivation', reactivation: 'Reactivation', suppression: 'Deletion', modification: 'Modification' };
-  const badgeClasses = { desactivation: 'desactivation', reactivation: 'reactivation', suppression: 'suppression', modification: 'modification' };
   for (const a of audit.slice(0, 100)) {
     const actionLabel = labels[a.action] || a.action;
-    const badgeClass = badgeClasses[a.action] || 'modification';
     const detailsStr = a.details ? JSON.stringify(a.details) : '';
     html += `<tr>
       <td class="audit-user">${escapeHtml(a.utilisateur || 'Unknown')}</td>
