@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-<title>Firebase Manager - Explorer</title>
+<title>Firebase Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
@@ -34,7 +34,7 @@ h1 i{color:#2563eb}
 .btn-purple{background:#7c3aed;color:#fff}
 .btn-purple:hover{background:#6d28d9}
 .collection-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-top:16px}
-.collection-card{background:#fff;border-radius:14px;padding:16px;border:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all .3s;position:relative}
+.collection-card{background:#fff;border-radius:14px;padding:16px;border:1px solid #e5e7eb;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all .3s}
 .collection-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.06);border-color:#d1d5db}
 .collection-card .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .collection-card .name{font-weight:700;font-size:14px;color:#1a1a2e;display:flex;align-items:center;gap:8px;word-break:break-all}
@@ -51,7 +51,6 @@ h1 i{color:#2563eb}
 .collection-card .doc-item .doc-actions .del-btn{color:#dc2626}
 .collection-card .doc-item .doc-actions .del-btn:hover{background:#fee2e2}
 .collection-card .card-actions{margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;gap:8px;flex-wrap:wrap}
-.collection-card .card-actions .btn{font-size:11px;padding:5px 12px}
 .empty-state{text-align:center;padding:40px 20px;color:#6b7280}
 .empty-state i{font-size:48px;opacity:0.2;margin-bottom:12px;display:block}
 .loading{text-align:center;padding:30px;color:#6b7280}
@@ -99,14 +98,14 @@ h1 i{color:#2563eb}
 .progress-bar .progress-fill{height:100%;background:#2563eb;width:0%;transition:width .3s}
 .delete-collection-btn{background:#dc2626;color:#fff;border:none;padding:5px 12px;border-radius:30px;font-size:11px;font-weight:600;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:6px}
 .delete-collection-btn:hover{background:#b91c1c;transform:scale(1.05)}
-.delete-collection-btn:disabled{opacity:0.5;cursor:not-allowed}
-.manual-list{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-top:8px;max-height:150px;overflow-y:auto;font-size:12px;font-family:monospace;white-space:pre-wrap;word-break:break-all;color:#1a1a2e}
+.delete-all-btn{background:#d97706;color:#fff;border:none;padding:5px 12px;border-radius:30px;font-size:11px;font-weight:600;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:6px}
+.delete-all-btn:hover{background:#b45309;transform:scale(1.05)}
 </style>
 </head>
 <body>
 <div class="container">
     <h1><i class="fas fa-database"></i> Firebase Manager</h1>
-    <p class="subtitle">Explorez vos collections Firebase</p>
+    <p class="subtitle">Explorez et gérez vos collections Firebase</p>
 
     <div class="config-card">
         <h3><i class="fas fa-cog"></i> Configuration</h3>
@@ -187,7 +186,7 @@ let isConnecting = false;
 let isExploring = false;
 let allCollectionsData = {};
 
-// ===== TOUS LES PRÉFIXES DE VOTRE LISTE =====
+// ===== TOUS LES PRÉFIXES =====
 const allPrefixesList = [
     '', 'jol_', 'kanto_', 'kola_', 'la charité_', 'la_vie_', 'lava_',
     'les_charitables_', 'lionnel_', 'lova_', 'lycee_francofonne_',
@@ -195,7 +194,7 @@ const allPrefixesList = [
     'tera_', 'umoja_ninguv_', 'umoja_ninguvu_', 'ursa_', 'ursule_'
 ];
 
-// ===== TOUS LES NOMS DE COLLECTIONS DE VOTRE LISTE =====
+// ===== TOUS LES NOMS DE COLLECTIONS =====
 const allNamesList = [
     'alertes_admin', 'compteur', 'config', 'corbeille', 'fiches',
     'horaires', 'logs', 'parent_messages', 'parent_usage', 'presences',
@@ -209,28 +208,28 @@ let collectionNames = [];
 
 // Charger depuis localStorage
 try {
-    const savedPrefix = localStorage.getItem('firebase_prefixes_v2');
+    const savedPrefix = localStorage.getItem('firebase_prefixes_v3');
     if (savedPrefix) {
         const parsed = JSON.parse(savedPrefix);
         if (Array.isArray(parsed) && parsed.length > 0) activePrefixes = parsed;
-        else activePrefixes = allPrefixesList.slice(0, 5);
-    } else activePrefixes = allPrefixesList.slice(0, 5);
+        else activePrefixes = allPrefixesList.slice(0, 8);
+    } else activePrefixes = allPrefixesList.slice(0, 8);
 
-    const savedNames = localStorage.getItem('firebase_collection_names_v2');
+    const savedNames = localStorage.getItem('firebase_collection_names_v3');
     if (savedNames) {
         const parsed = JSON.parse(savedNames);
         if (Array.isArray(parsed) && parsed.length > 0) collectionNames = parsed;
-        else collectionNames = allNamesList.slice(0, 5);
-    } else collectionNames = allNamesList.slice(0, 5);
+        else collectionNames = allNamesList.slice(0, 8);
+    } else collectionNames = allNamesList.slice(0, 8);
 } catch(e) {
-    activePrefixes = allPrefixesList.slice(0, 5);
-    collectionNames = allNamesList.slice(0, 5);
+    activePrefixes = allPrefixesList.slice(0, 8);
+    collectionNames = allNamesList.slice(0, 8);
 }
 
 function saveData() {
     try {
-        localStorage.setItem('firebase_prefixes_v2', JSON.stringify(activePrefixes));
-        localStorage.setItem('firebase_collection_names_v2', JSON.stringify(collectionNames));
+        localStorage.setItem('firebase_prefixes_v3', JSON.stringify(activePrefixes));
+        localStorage.setItem('firebase_collection_names_v3', JSON.stringify(collectionNames));
     } catch(e) {}
 }
 
@@ -373,6 +372,47 @@ async function deleteCollection(collectionName) {
 }
 window.deleteCollection = deleteCollection;
 
+// Supprimer toutes les collections avec un préfixe
+async function deleteAllWithPrefix(prefix) {
+    if (!db) { toast('Connectez-vous d\'abord', 'error'); return; }
+    if (!prefix || prefix === '') { toast('Préfixe invalide', 'error'); return; }
+    
+    const toDelete = Object.keys(allCollectionsData).filter(name => name.startsWith(prefix));
+    if (toDelete.length === 0) {
+        toast(`Aucune collection trouvée avec le préfixe "${prefix}"`, 'warning');
+        return;
+    }
+
+    if (!confirm(`⚠️ Supprimer ${toDelete.length} collection(s) avec le préfixe "${prefix}" ?\n\n${toDelete.join('\n')}`)) return;
+    if (!confirm(`DERNIÈRE CHANCE - Confirmer la suppression de TOUTES ces collections ?`)) return;
+
+    let deleted = 0;
+    let errors = [];
+    for (const name of toDelete) {
+        try {
+            const q = query(collection(db, name));
+            const snap = await getDocs(q);
+            if (!snap.empty) {
+                const batch = writeBatch(db);
+                snap.forEach(docSnap => batch.delete(docSnap.ref));
+                await batch.commit();
+                deleted += snap.size;
+                toast(`Collection "${name}" supprimée (${snap.size} docs)`, 'warning');
+            }
+        } catch (e) {
+            errors.push(`${name}: ${e.message}`);
+        }
+    }
+    
+    if (errors.length > 0) {
+        toast(`⚠️ ${errors.length} erreur(s): ${errors.join('; ')}`, 'error');
+    } else {
+        toast(`✅ ${toDelete.length} collection(s) supprimées (${deleted} documents)`, 'success');
+    }
+    loadAllCollections();
+}
+window.deleteAllWithPrefix = deleteAllWithPrefix;
+
 async function loadAllCollections() {
     const container = document.getElementById('collectionsContainer');
     if (!db) { container.innerHTML = '<div class="loading"><i class="fas fa-spinner"></i> Connectez-vous d\'abord</div>'; return; }
@@ -450,12 +490,7 @@ async function loadAllCollections() {
                             <i class="fas fa-trash"></i> Supprimer
                         </button>
                         ${prefixMatch ? `
-                            <button class="delete-collection-btn" style="background:#d97706;" onclick="if(confirm('Supprimer TOUTES les collections "${prefixMatch}"* ?')){ 
-                                const toDelete = Object.keys(allCollectionsData).filter(n => n.startsWith('${escapeHtml(prefixMatch)}'));
-                                if(confirm('${toDelete.length} collection(s) vont être supprimées. Confirmer ?')) {
-                                    toDelete.forEach(async n => { await deleteCollection(n); });
-                                }
-                            }">
+                            <button class="delete-all-btn" onclick="deleteAllWithPrefix('${escapeHtml(prefixMatch)}')">
                                 <i class="fas fa-trash-alt"></i> Tout "${prefixMatch}"
                             </button>
                         ` : ''}
@@ -507,7 +542,6 @@ function connectFirebase() {
     isConnecting = false;
 }
 
-// Ajouter tous les préfixes
 document.getElementById('addAllPrefixesBtn').addEventListener('click', function() {
     let added = 0;
     for (const p of allPrefixesList) {
@@ -522,7 +556,6 @@ document.getElementById('addAllPrefixesBtn').addEventListener('click', function(
     if (db) loadAllCollections();
 });
 
-// Ajouter tous les noms
 document.getElementById('addAllNamesBtn').addEventListener('click', function() {
     let added = 0;
     for (const n of allNamesList) {
@@ -537,10 +570,8 @@ document.getElementById('addAllNamesBtn').addEventListener('click', function() {
     if (db) loadAllCollections();
 });
 
-// Détection automatique
 document.getElementById('autoDetectBtn').addEventListener('click', function() {
     if (!db) { toast('Connectez-vous d\'abord', 'error'); return; }
-    // Ajouter tous les préfixes et noms
     document.getElementById('addAllPrefixesBtn').click();
     document.getElementById('addAllNamesBtn').click();
     toast('🔍 Détection automatique lancée !', 'success');
