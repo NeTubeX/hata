@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet" />
 <style>
+/* ===== STYLES ===== */
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
   --bg-primary:#0B1120;
@@ -43,7 +44,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 ::-webkit-scrollbar-track{background:var(--bg-card);}
 ::-webkit-scrollbar-thumb{background:var(--blue);border-radius:10px;}
 
-/* ===== SIDEBAR - Fond gris clair dégradé ===== */
+/* ===== SIDEBAR - Fond dégradé ===== */
 .sidebar{
   width:var(--sidebar-width);
   flex-shrink:0;
@@ -137,7 +138,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 .card-header h3 .count{background:var(--bg-primary);padding:0 14px;border-radius:40px;font-size:12px;font-weight:500;color:var(--text-secondary);}
 .card-header .actions{display:flex;gap:6px;}
 
-/* ===== EXCEL-STYLE TABLE ===== */
+/* ===== TABLE ===== */
 .table-wrapper{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border-color);}
 .excel-table{width:100%;border-collapse:collapse;font-size:13px;}
 .excel-table thead tr{background:linear-gradient(135deg,#1a2a4a,#0f1f33);}
@@ -192,10 +193,8 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 
 /* ===== FLORY MESSAGES ===== */
 .msg-bubble{max-width:84%;padding:12px 16px;border-radius:16px;font-size:14px;line-height:1.5;word-wrap:break-word;position:relative;margin-bottom:6px;}
-/* Message envoyé par Flory (moi) - Aligné à droite */
 .msg-right{align-self:flex-end;background:linear-gradient(145deg,#1e3a5f,#0f2b44);border:1px solid rgba(59,130,246,0.15);border-bottom-right-radius:6px;}
 .msg-right .msg-sender{color:var(--gold);font-weight:600;font-size:12px;}
-/* Message reçu de Ursule Nyandji - Aligné à gauche */
 .msg-left{align-self:flex-start;background:rgba(15,23,42,0.85);border:1px solid rgba(255,255,255,0.05);border-bottom-left-radius:6px;}
 .msg-left .msg-sender{color:var(--purple);font-weight:600;font-size:12px;}
 .msg-time{font-size:10px;opacity:0.6;margin-top:4px;display:block;text-align:right;}
@@ -215,7 +214,6 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 .send-form textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,0.08);}
 .send-form .btn-send{background:var(--blue);color:#fff;border:none;padding:12px;border-radius:40px;font-weight:700;cursor:pointer;width:100%;font-size:14px;transition:0.2s;}
 .send-form .btn-send:hover{background:var(--blue-dark);transform:scale(0.99);}
-
 .filter-bar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 18px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border-color);align-items:center;}
 .filter-bar label{font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;}
 .filter-bar select,.filter-bar input{padding:6px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;outline:none;min-width:130px;transition:0.2s;}
@@ -364,7 +362,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 
 <script type="module">
 // ============================================================
-// LOGIC - FULLY CORRECTED
+// LOGIC - CORRIGÉ
 // ============================================================
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, startAfter, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -382,43 +380,34 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // ===== GLOBAL VARIABLES =====
-let toutesEcoles = [], toutesFiches = [], tousProfs = [], tousEleves = [], tousLogs = [], toutesCorbeille = [];
-let focusListeners = [], focusActive = false, voiceActive = false, chartInstances = {};
-let logsLastDoc = null, logsLoading = false, logsHasMore = true, logsLimit = 20;
+let toutesEcoles = [], toutesFiches = [], tousProfs = [], tousEleves = [], tousLogs = [];
+let chartInstances = {};
 let currentSchoolFilter = "all";
 let currentEleveFilter = { classe: "", option: "", sexe: "", statut: "" };
 let auditList = [];
 let floryMessages = [];
-let supportMessages = [];
-let parentalMessages = [];
 let unsubscribeFlory = null;
-let unsubscribeSupport = null;
 
 const FLORY_DOC_ID = "communication_pole";
-const SUPPORT_DOC_ID = "support_netubex_board";
 const AUDIT_COLLECTION = "audit_logs";
 const floryDocRef = doc(db, "communication", FLORY_DOC_ID);
-const supportDocRef = doc(db, "communication", SUPPORT_DOC_ID);
 const READ_STATUS_KEY = "flory_read_messages";
-const SENDER_NAME = "Flory";
-const RECIPIENT_NAME = "Ursule Nyandji";
 
 // ===== TOAST =====
 function toast(m, t = "success") {
   const c = document.getElementById("toastContainer");
   if (!c) return;
   const ic = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
-  const ti = { success: "Success", error: "Error", warning: "Warning", info: "Info" };
   const el = document.createElement("div");
   el.className = `toast ${t}`;
-  el.innerHTML = `<div class="icon">${ic[t] || "📢"}</div><div class="content"><div class="title">${ti[t] || "Info"}</div><div class="message">${m}</div></div>`;
+  el.innerHTML = `<div class="icon">${ic[t] || "📢"}</div><div class="content"><div class="title">${t}</div><div class="message">${m}</div></div>`;
   c.appendChild(el);
   setTimeout(() => el.classList.add("show"), 10);
   setTimeout(() => { el.classList.remove("show"); setTimeout(() => { if (el.parentNode) el.remove(); }, 280); }, 3400);
 }
 
 // ===== SHOW CONFIRM =====
-function showConfirm(t, m, onConfirm) {
+function showConfirm(t, m) {
   return new Promise((resolve) => {
     const modal = document.getElementById("confirmModal");
     if (!modal) { resolve(false); return; }
@@ -427,8 +416,8 @@ function showConfirm(t, m, onConfirm) {
     modal.classList.add("show");
     const yes = document.getElementById("confirmYes");
     const no = document.getElementById("confirmNo");
-    const clean = () => { modal.classList.remove("show"); yes.removeEventListener("click", h); no.removeEventListener("click", clean); };
-    const h = () => { clean(); resolve(true); if (onConfirm) onConfirm(); };
+    const clean = () => { modal.classList.remove("show"); yes.removeEventListener("click", h); no.removeEventListener("click", n); };
+    const h = () => { clean(); resolve(true); };
     const n = () => { clean(); resolve(false); };
     yes.addEventListener("click", h);
     no.addEventListener("click", n);
@@ -482,18 +471,28 @@ async function chargerFiches(e) {
 // ===== FONCTION CORRIGÉE POUR CHARGER LES ÉLÈVES =====
 async function chargerElevesCompta(e) {
   try {
+    console.log(`🔍 Chargement des élèves pour ${e}...`);
     const snap = await getDocs(collection(db, `${e}_compta_eleves`));
+    console.log(`📊 ${snap.size} documents trouvés`);
+    
     const el = [];
     snap.forEach(ds => {
       const d = ds.data();
+      console.log(`📄 Document ${ds.id}:`, d);
+      
       // ✅ Vérification du _type comme dans le code comptable
-      if (d._type === "compta_eleve" || d._type === "compta_eleves") {
+      if (d._type === "compta_eleve") {
         el.push({ 
           id: d.eleveId || ds.id, 
           ...d 
         });
+        console.log(`✅ Élève ajouté: ${d.nom} ${d.prenom || ''}`);
+      } else {
+        console.warn(`⚠️ Document ignoré (mauvais _type):`, d._type);
       }
     });
+    
+    console.log(`👥 Total élèves pour ${e}: ${el.length}`);
     return el;
   } catch(e) { 
     console.warn("Error loading students for", e, e);
@@ -501,16 +500,9 @@ async function chargerElevesCompta(e) {
   }
 }
 
-async function chargerLogs(e, last = null, lim = 20) {
+async function chargerLogs(e) {
   try {
-    let q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), limit(lim));
-    if (last) {
-      const snapLast = await getDoc(doc(db, `${e}_logs`, last));
-      if (snapLast.exists()) {
-        q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), startAfter(snapLast), limit(lim));
-      }
-    }
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(collection(db, `${e}_logs`), orderBy("date", "desc"), limit(50)));
     const l = [];
     snap.forEach(ds => { l.push({ id: ds.id, ...ds.data() }); });
     return l;
@@ -555,7 +547,6 @@ function updateStats(total, abandons, exoneres, today) {
   document.getElementById("statProfs").textContent = tousProfs.length;
   document.getElementById("statFiches").textContent = toutesFiches.length;
   
-  // Filtrer les membres par école pour les stats
   let members = tousEleves;
   let abandonsFiltres = tousEleves.filter(e => e.abandon === true);
   let exoneresFiltres = tousEleves.filter(e => e.exonere === true);
@@ -594,52 +585,6 @@ function getFilteredMembers() {
   else if (currentEleveFilter.statut === "abandon") members = members.filter(e => e.abandon === true);
   else if (currentEleveFilter.statut === "exonere") members = members.filter(e => e.exonere === true);
   return members;
-}
-
-// ===== LOG AUDIT =====
-async function logAuditAction(action, details, utilisateur) {
-  utilisateur = utilisateur || SENDER_NAME;
-  try {
-    const auditId = "audit_" + Date.now() + "_" + Math.random().toString(36).substr(2, 6);
-    const auditData = {
-      id: auditId,
-      action: action,
-      utilisateur: utilisateur,
-      details: details,
-      date: new Date().toISOString(),
-      dateTimestamp: Date.now(),
-      type: "audit"
-    };
-    try { await setDoc(doc(db, AUDIT_COLLECTION, auditId), auditData); } catch(e) {}
-    return auditData;
-  } catch(e) { return null; }
-}
-
-// ===== DELETE FUNCTIONS =====
-async function supprimerProfesseur(ecoleId, profId, profNom) {
-  if (await showConfirm("Delete Teacher", `Delete teacher <strong>${profNom}</strong> from ${ecoleId}?<br><br>This action is irreversible.`)) {
-    try {
-      await deleteDoc(doc(db, `${ecoleId}_professeurs`, profId));
-      await logAuditAction("suppression", { professeur: profNom, ecole: ecoleId });
-      toast(`Teacher ${profNom} deleted`, "success");
-      await rafraichir();
-    } catch(e) {
-      toast("Error deleting teacher: " + e.message, "error");
-    }
-  }
-}
-
-async function supprimerFiche(ecoleId, ficheId, ficheNom) {
-  if (await showConfirm("Delete Sheet", `Delete sheet <strong>${ficheNom}</strong> from ${ecoleId}?<br><br>This action is irreversible.`)) {
-    try {
-      await deleteDoc(doc(db, `${ecoleId}_fiches`, ficheId));
-      await logAuditAction("suppression", { fiche: ficheNom, ecole: ecoleId });
-      toast(`Sheet ${ficheNom} deleted`, "success");
-      await rafraichir();
-    } catch(e) {
-      toast("Error deleting sheet: " + e.message, "error");
-    }
-  }
 }
 
 // ===== RENDER FUNCTIONS =====
@@ -795,7 +740,6 @@ function renderProfs() {
   });
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
-  window.supprimerProfesseur = supprimerProfesseur;
 }
 
 // ===== RENDER MEMBERS CORRIGÉ =====
@@ -803,21 +747,59 @@ function renderMembers() {
   const container = document.getElementById("membersContainer");
   const members = getFilteredMembers();
   
+  // Extraire les classes uniques pour les filtres
+  const classeOptions = [...new Set(tousEleves.map(e => e.classe).filter(Boolean))].sort();
+  const optionOptions = [...new Set(tousEleves.map(e => e.option).filter(Boolean))].sort();
+  
   let html = `<div class="card">
     <div class="card-header">
       <h3>👥 Active Members <span class="count">${members.length}</span></h3>
-      <div class="actions"><button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button></div>
+      <div class="actions">
+        <button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button>
+        <button class="btn success sm" onclick="window.synchroniserEleves()" style="background:#10b981;color:white;">🔗 Sync</button>
+      </div>
     </div>
     <div class="filter-row">
-      <div class="filter-group"><label>📚 Class</label><select id="memberFilterClasse"><option value="">All</option>${[...new Set(tousEleves.map(e=>e.classe).filter(Boolean))].sort().map(c=>`<option value="${c}">${c}</option>`).join("")}</select></div>
-      <div class="filter-group"><label>🎯 Option</label><select id="memberFilterOption"><option value="">All</option>${[...new Set(tousEleves.map(e=>e.option).filter(Boolean))].sort().map(o=>`<option value="${o}">${o}</option>`).join("")}</select></div>
-      <div class="filter-group"><label>⚧ Gender</label><select id="memberFilterSexe"><option value="">All</option><option value="M">Male</option><option value="F">Female</option></select></div>
-      <div class="filter-group"><label>📌 Status</label><select id="memberFilterStatut"><option value="">All</option><option value="actif">Active</option><option value="abandon">Dropout</option><option value="exonere">Exempted</option></select></div>
-      <div class="filter-group" style="flex:0.5;"><button class="btn primary" id="applyMemberFilter" style="width:100%;">🔍 Filter</button></div>
+      <div class="filter-group"><label>📚 Class</label>
+        <select id="memberFilterClasse">
+          <option value="">All</option>
+          ${classeOptions.map(c => `<option value="${c}">${c}</option>`).join("")}
+        </select>
+      </div>
+      <div class="filter-group"><label>🎯 Option</label>
+        <select id="memberFilterOption">
+          <option value="">All</option>
+          ${optionOptions.map(o => `<option value="${o}">${o}</option>`).join("")}
+        </select>
+      </div>
+      <div class="filter-group"><label>⚧ Gender</label>
+        <select id="memberFilterSexe">
+          <option value="">All</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+      </div>
+      <div class="filter-group"><label>📌 Status</label>
+        <select id="memberFilterStatut">
+          <option value="">All</option>
+          <option value="actif">Active</option>
+          <option value="abandon">Dropout</option>
+          <option value="exonere">Exempted</option>
+        </select>
+      </div>
+      <div class="filter-group" style="flex:0.5;">
+        <button class="btn primary" id="applyMemberFilter" style="width:100%;">🔍 Filter</button>
+      </div>
     </div>`;
   
   if (!members.length) {
-    html += `<div class="empty-state"><span class="empty-icon">👥</span>No members found. Students are loaded from accounting (compta_eleves).</div>`;
+    html += `<div class="empty-state">
+      <span class="empty-icon">👥</span>
+      No members found in accounting (compta_eleves).<br>
+      <span style="font-size:12px;color:#6b7280;">Students are imported from accounting when a teacher creates a sheet.</span>
+      <br><br>
+      <button class="btn primary" onclick="window.rafraichir()">🔄 Refresh</button>
+    </div>`;
   } else {
     html += `<div class="table-wrapper"><table class="excel-table"><thead><tr>
       <th>#</th><th>Name</th><th>Class</th><th>Option</th><th>Gender</th><th>School</th><th>Parent Code</th><th class="col-center">Status</th>
@@ -851,6 +833,13 @@ function renderMembers() {
     updateStats(0,0,0,0);
   };
 }
+
+// ===== FONCTION DE SYNCHRONISATION =====
+window.synchroniserEleves = async function() {
+  toast("🔄 Synchronisation des élèves...", "info");
+  await rafraichir();
+  toast("✅ Synchronisation terminée", "success");
+};
 
 function renderFiches() {
   const container = document.getElementById("fichesContainer");
@@ -895,7 +884,6 @@ function renderFiches() {
   });
   html += `</tbody></table></div></div>`;
   container.innerHTML = html;
-  window.supprimerFiche = supprimerFiche;
 }
 
 function renderLogs() {
@@ -1125,16 +1113,6 @@ function listenToFlory() {
   }, () => {});
 }
 
-function listenToSupport() {
-  if (unsubscribeSupport) unsubscribeSupport();
-  unsubscribeSupport = onSnapshot(supportDocRef, snap => {
-    if (snap.exists()) {
-      const data = snap.data();
-      supportMessages = (data.messages || []).sort((a,b) => new Date(a.date) - new Date(b.date));
-    }
-  }, () => {});
-}
-
 // ===== NAVIGATION =====
 function setupTabs() {
   document.querySelectorAll(".nav-item, .tab-btn").forEach(el => {
@@ -1166,7 +1144,6 @@ function setupTabs() {
 function setupSchoolFilter() {
   document.getElementById("schoolFilter").addEventListener("change", function() {
     currentSchoolFilter = this.value;
-    // Mettre à jour toutes les vues avec le filtre
     renderEcoles();
     renderProfs();
     renderFiches();
@@ -1174,7 +1151,6 @@ function setupSchoolFilter() {
     renderAudit();
     renderMembers();
     renderParental();
-    // Mettre à jour les stats avec le filtre
     updateStats(0, 0, 0, 0);
     if (document.getElementById("dashboardContainer").classList.contains("active")) renderDashboard();
     if (document.getElementById("floryContainer").classList.contains("active")) renderFlory();
@@ -1207,6 +1183,33 @@ async function rafraichir() {
 }
 window.rafraichir = rafraichir;
 
+// ===== DELETE FUNCTIONS =====
+async function supprimerProfesseur(ecoleId, profId, profNom) {
+  if (await showConfirm("Delete Teacher", `Delete teacher <strong>${profNom}</strong> from ${ecoleId}?<br><br>This action is irreversible.`)) {
+    try {
+      await deleteDoc(doc(db, `${ecoleId}_professeurs`, profId));
+      toast(`Teacher ${profNom} deleted`, "success");
+      await rafraichir();
+    } catch(e) {
+      toast("Error deleting teacher: " + e.message, "error");
+    }
+  }
+}
+window.supprimerProfesseur = supprimerProfesseur;
+
+async function supprimerFiche(ecoleId, ficheId, ficheNom) {
+  if (await showConfirm("Delete Sheet", `Delete sheet <strong>${ficheNom}</strong> from ${ecoleId}?<br><br>This action is irreversible.`)) {
+    try {
+      await deleteDoc(doc(db, `${ecoleId}_fiches`, ficheId));
+      toast(`Sheet ${ficheNom} deleted`, "success");
+      await rafraichir();
+    } catch(e) {
+      toast("Error deleting sheet: " + e.message, "error");
+    }
+  }
+}
+window.supprimerFiche = supprimerFiche;
+
 // ===== KEYBOARD SHORTCUTS =====
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -1236,7 +1239,6 @@ document.getElementById("sidebarToggle")?.addEventListener("click", function() {
     updateStats(total, abandons, exoneres, today);
     auditList = await chargerAuditLogs();
     listenToFlory();
-    listenToSupport();
     renderDashboard();
     renderEcoles();
     renderProfs();
