@@ -1,573 +1,314 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes, viewport-fit=cover">
-  <title>Dashboard · NETUBEX</title>
-  <script type="importmap">
-    {
-      "imports": {
-        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
-      }
-    }
-  </script>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{background:#0b1324;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e8edf5;padding:16px;line-height:1.4;min-height:100vh}
-    .container{max-width:1440px;margin:0 auto}
-
-    .glass{background:rgba(16,28,52,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(59,130,246,0.15);box-shadow:0 12px 40px -8px rgba(0,0,0,0.7), inset 0 1px 0 rgba(59,130,246,0.05);border-radius:24px}
-
-    .header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 24px;margin-bottom:24px}
-    .header-left{display:flex;align-items:center;gap:16px}
-    .logo-badge{width:48px;height:48px;border-radius:16px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(59,130,246,0.3)}
-    .logo-badge img{width:60%;height:60%;object-fit:contain;filter:brightness(0)invert(1)}
-    .header-text h1{font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;color:#e8edf5}
-    .header-text h1 span{color:#60a5fa}
-    .header-text p{font-size:.85rem;color:#8ba0c7;letter-spacing:0.3px}
-    .header-actions{display:flex;gap:8px;flex-wrap:wrap}
-
-    .btn{background:transparent;border:none;padding:6px 18px;border-radius:40px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px;touch-action:manipulation}
-    .btn:active{transform:scale(.94)}
-    .btn-danger{background:#ef4444;color:#fff;box-shadow:0 4px 12px rgba(239,68,68,0.2)}
-    .btn-danger:hover{background:#dc2626;box-shadow:0 6px 16px rgba(239,68,68,0.3)}
-    .btn-primary{background:#3b82f6;color:#fff;box-shadow:0 4px 12px rgba(59,130,246,0.3)}
-    .btn-primary:hover{background:#2563eb;box-shadow:0 6px 16px rgba(59,130,246,0.4)}
-    .btn-outline{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);color:#8ba0c7}
-    .btn-outline:hover{background:rgba(59,130,246,0.15);color:#60a5fa;border-color:#3b82f6}
-    .btn-success{background:#10b981;color:#fff;box-shadow:0 4px 12px rgba(16,185,129,0.2)}
-    .btn-success:hover{background:#059669;box-shadow:0 6px 16px rgba(16,185,129,0.3)}
-    .btn-sm{padding:4px 14px;font-size:.7rem;border-radius:32px}
-
-    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-    .stat-card{background:rgba(16,28,52,0.7);backdrop-filter:blur(6px);border-radius:20px;padding:16px 12px;border:1px solid rgba(59,130,246,0.08);text-align:center;transition:all .2s}
-    .stat-card:hover{border-color:rgba(59,130,246,0.25);background:rgba(16,28,52,0.85)}
-    .stat-value{font-size:1.9rem;font-weight:800;color:#60a5fa;line-height:1.2;letter-spacing:-0.02em}
-    .stat-value.danger{color:#ef4444}
-    .stat-value.success{color:#34d399}
-    .stat-value.purple{color:#a78bfa}
-    .stat-value.orange{color:#f59e0b}
-    .stat-label{font-size:.7rem;color:#8ba0c7;text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-top:4px}
-
-    .tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;background:rgba(16,28,52,0.5);padding:6px;border-radius:16px;border:1px solid rgba(59,130,246,0.08)}
-    .tab{background:transparent;border:none;padding:8px 20px;border-radius:12px;font-size:.85rem;font-weight:600;color:#8ba0c7;cursor:pointer;transition:all .2s;flex:1;min-width:80px;text-align:center}
-    .tab:hover{color:#e8edf5;background:rgba(59,130,246,0.1)}
-    .tab.active{background:#3b82f6;color:#fff;box-shadow:0 4px 12px rgba(59,130,246,0.3)}
-    .tab-content{display:none}
-    .tab-content.active{display:block}
-
-    .section-card{background:rgba(16,28,52,0.6);backdrop-filter:blur(6px);border-radius:20px;padding:20px;border:1px solid rgba(59,130,246,0.08);margin-bottom:16px}
-    .section-card h3{font-size:1rem;font-weight:700;color:#60a5fa;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-    .section-card h3 .count{background:rgba(59,130,246,0.15);padding:0 12px;border-radius:20px;font-size:.75rem;color:#8ba0c7}
-
-    .ecole-item{background:rgba(0,0,0,0.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;border-left:3px solid #3b82f6;transition:all .2s}
-    .ecole-item:hover{background:rgba(0,0,0,0.3)}
-    .ecole-item .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-    .ecole-item .nom{font-weight:700;color:#e8edf5;font-size:1rem}
-    .ecole-item .id{font-size:.7rem;color:#8ba0c7;font-family:monospace;background:rgba(0,0,0,0.2);padding:0 10px;border-radius:12px}
-    .ecole-item .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .badge{background:rgba(59,130,246,0.12);padding:3px 12px;border-radius:24px;font-size:.7rem;color:#60a5fa;font-weight:500}
-    .badge.green{background:rgba(16,185,129,0.12);color:#34d399}
-    .badge.purple{background:rgba(167,139,250,0.12);color:#a78bfa}
-    .badge.orange{background:rgba(245,158,11,0.12);color:#f59e0b}
-    .badge.source{background:rgba(59,130,246,0.08);font-size:.6rem;padding:1px 8px;border-radius:12px;color:#64748b}
-
-    .prof-item, .eleve-item{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:10px;margin-bottom:4px;background:rgba(0,0,0,0.15);flex-wrap:wrap;gap:4px;transition:background .15s}
-    .prof-item:hover, .eleve-item:hover{background:rgba(0,0,0,0.25)}
-    .prof-item .info, .eleve-item .info{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.8rem}
-    .prof-item .name, .eleve-item .name{font-weight:600;color:#f1f5f9}
-    .prof-item .code{color:#8ba0c7;font-size:.7rem;font-family:monospace;background:rgba(0,0,0,0.15);padding:0 8px;border-radius:12px}
-    .prof-item .status{font-size:.6rem;padding:2px 10px;border-radius:20px;font-weight:500}
-    .prof-item .status.active{background:rgba(16,185,129,0.15);color:#34d399}
-    .prof-item .status.inactive{background:rgba(239,68,68,0.15);color:#ef4444}
-
-    .eleve-item .classe{color:#8ba0c7;font-size:.7rem}
-
-    .empty-state{text-align:center;padding:28px;color:#8ba0c7;font-size:.9rem}
-    .loading{text-align:center;padding:28px;color:#60a5fa;font-size:.9rem}
-    .loading::before{content:"";display:inline-block;width:16px;height:16px;border:2px solid rgba(59,130,246,0.15);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite;margin-right:10px;vertical-align:middle}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    .toast-container{position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px}
-    .toast{background:rgba(11,19,36,0.96);backdrop-filter:blur(6px);border-radius:14px;padding:10px 18px;display:flex;align-items:center;gap:12px;border-left:4px solid #34d399;transform:translateX(100%);transition:transform .3s cubic-bezier(0.16, 1, 0.3, 1);pointer-events:auto;box-shadow:0 12px 32px rgba(0,0,0,0.7);font-size:.85rem}
-    .toast.show{transform:translateX(0)}
-    .toast.error{border-left-color:#ef4444}
-    .toast .icon{font-size:1.2rem}
-    .toast .content{flex:1}
-    .toast .title{font-weight:600;font-size:.8rem;color:#fff}
-    .toast .message{font-size:.75rem;color:#8ba0c7}
-
-    .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:20000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all .25s}
-    .modal-overlay.show{visibility:visible;opacity:1}
-    .modal-box{background:rgba(16,28,52,0.96);backdrop-filter:blur(8px);border-radius:24px;padding:28px;max-width:420px;width:92%;border:1px solid rgba(59,130,246,0.15);text-align:center;box-shadow:0 20px 48px rgba(0,0,0,0.8)}
-    .modal-box .icon{font-size:2.6rem;margin-bottom:6px}
-    .modal-box h3{color:#60a5fa;font-size:1.1rem;margin-bottom:6px;font-weight:700}
-    .modal-box p{color:#8ba0c7;font-size:.9rem;margin-bottom:18px;line-height:1.5}
-    .modal-box .buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-    .modal-box .btn{min-width:90px;padding:8px 20px}
-
-    .form-add{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;background:rgba(0,0,0,0.15);padding:16px;border-radius:16px;align-items:center}
-    .form-add input{flex:2;min-width:180px;background:rgba(0,0,0,0.3);border:1px solid rgba(59,130,246,0.15);border-radius:40px;padding:10px 16px;color:#e8edf5;font-size:.85rem;outline:none}
-    .form-add input:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
-    .form-add select{flex:1;min-width:140px;background:rgba(0,0,0,0.3);border:1px solid rgba(59,130,246,0.15);border-radius:40px;padding:10px 16px;color:#e8edf5;font-size:.85rem;outline:none}
-    .form-add select:focus{border-color:#3b82f6}
-    .form-add .btn{flex-shrink:0}
-
-    @media(max-width:640px){body{padding:10px}.stats-grid{grid-template-columns:1fr 1fr;gap:10px}.stat-value{font-size:1.5rem}.header{padding:12px 16px}.header-text h1{font-size:1.2rem}.tabs{flex-wrap:nowrap;overflow-x:auto}.tab{flex:1;min-width:60px;padding:6px 12px;font-size:.75rem}.form-add{flex-direction:column}.form-add input,.form-add select{width:100%}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+<title>Dashboard Admin · NETUBEX</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="importmap">
+{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b1324;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e8edf5;padding:16px;line-height:1.4;min-height:100vh}
+.container{max-width:1440px;margin:0 auto}
+.glass{background:rgba(16,28,52,0.85);backdrop-filter:blur(10px);border:1px solid rgba(59,130,246,0.15);box-shadow:0 12px 40px -8px rgba(0,0,0,0.7);border-radius:24px}
+.header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 24px;margin-bottom:24px}
+.header-left{display:flex;align-items:center;gap:16px}
+.logo-badge{width:48px;height:48px;border-radius:16px;background:linear-gradient(145deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(59,130,246,0.3)}
+.logo-badge img{width:60%;height:60%;object-fit:contain;filter:brightness(0)invert(1)}
+.header-text h1{font-size:1.6rem;font-weight:800;letter-spacing:-0.02em;color:#e8edf5}
+.header-text h1 span{color:#60a5fa}
+.header-text p{font-size:.85rem;color:#8ba0c7}
+.school-selector{padding:8px 16px;background:rgba(16,28,52,0.6);border-radius:12px;border:1px solid rgba(59,130,246,0.15);color:#e8edf5;font-size:14px;cursor:pointer;min-width:200px}
+.school-selector:focus{outline:none;border-color:#3b82f6}
+.btn{background:transparent;border:none;padding:6px 18px;border-radius:40px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(.94)}
+.btn-danger{background:#ef4444;color:#fff;box-shadow:0 4px 12px rgba(239,68,68,0.2)}
+.btn-danger:hover{background:#dc2626}
+.btn-primary{background:#3b82f6;color:#fff;box-shadow:0 4px 12px rgba(59,130,246,0.3)}
+.btn-primary:hover{background:#2563eb}
+.btn-outline{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15);color:#8ba0c7}
+.btn-outline:hover{background:rgba(59,130,246,0.15);color:#60a5fa}
+.btn-sm{padding:4px 14px;font-size:.7rem;border-radius:32px}
+.btn-success{background:#10b981;color:#fff}
+.btn-success:hover{background:#059669}
+.btn-gold{background:#ffd700;color:#0b1324}
+.btn-gold:hover{background:#fbbf24}
+.btn-warning{background:#f59e0b;color:#0b1324}
+.btn-warning:hover{background:#d97706}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stats-grid-7{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:24px}
+.stat-card{background:rgba(16,28,52,0.7);backdrop-filter:blur(6px);border-radius:20px;padding:16px 12px;border:1px solid rgba(59,130,246,0.08);text-align:center;transition:all .2s}
+.stat-card:hover{border-color:rgba(59,130,246,0.25);background:rgba(16,28,52,0.85)}
+.stat-value{font-size:1.9rem;font-weight:800;color:#60a5fa;line-height:1.2;letter-spacing:-0.02em}
+.stat-value.danger{color:#ef4444}
+.stat-value.success{color:#34d399}
+.stat-value.purple{color:#a78bfa}
+.stat-value.warning{color:#f59e0b}
+.stat-value.gold{color:#ffd700}
+.stat-label{font-size:.7rem;color:#8ba0c7;text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-top:4px}
+.stat-sub{font-size:.6rem;color:#64748b;margin-top:2px}
+.tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;background:rgba(16,28,52,0.5);padding:6px;border-radius:16px;border:1px solid rgba(59,130,246,0.08)}
+.tab{background:transparent;border:none;padding:8px 20px;border-radius:12px;font-size:.85rem;font-weight:600;color:#8ba0c7;cursor:pointer;transition:all .2s;flex:1;min-width:80px;text-align:center}
+.tab:hover{color:#e8edf5;background:rgba(59,130,246,0.1)}
+.tab.active{background:#3b82f6;color:#fff;box-shadow:0 4px 12px rgba(59,130,246,0.3)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.section-card{background:rgba(16,28,52,0.6);backdrop-filter:blur(6px);border-radius:20px;padding:20px;border:1px solid rgba(59,130,246,0.08);margin-bottom:16px}
+.section-card h3{font-size:1rem;font-weight:700;color:#60a5fa;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-card h3 .count{background:rgba(59,130,246,0.15);padding:0 12px;border-radius:20px;font-size:.75rem;color:#8ba0c7}
+.ecole-item{background:rgba(0,0,0,0.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;border-left:3px solid #3b82f6;transition:all .2s}
+.ecole-item:hover{background:rgba(0,0,0,0.3)}
+.ecole-item .top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.ecole-item .nom{font-weight:700;color:#e8edf5;font-size:1rem}
+.ecole-item .id{font-size:.7rem;color:#8ba0c7;font-family:monospace;background:rgba(0,0,0,0.2);padding:0 10px;border-radius:12px}
+.ecole-item .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{background:rgba(59,130,246,0.12);padding:3px 12px;border-radius:24px;font-size:.7rem;color:#60a5fa;font-weight:500}
+.badge.green{background:rgba(16,185,129,0.12);color:#34d399}
+.badge.purple{background:rgba(167,139,250,0.12);color:#a78bfa}
+.badge.gold{background:rgba(255,215,0,0.12);color:#ffd700}
+.badge.danger{background:rgba(239,68,68,0.12);color:#ef4444}
+.prof-item,.eleve-item{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-radius:10px;margin-bottom:4px;background:rgba(0,0,0,0.15);flex-wrap:wrap;gap:4px;transition:background .15s}
+.prof-item:hover,.eleve-item:hover{background:rgba(0,0,0,0.25)}
+.prof-item .info,.eleve-item .info{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.8rem}
+.prof-item .name,.eleve-item .name{font-weight:600;color:#f1f5f9}
+.prof-item .code{color:#8ba0c7;font-size:.7rem;font-family:monospace;background:rgba(0,0,0,0.15);padding:0 8px;border-radius:12px}
+.prof-item .status{font-size:.6rem;padding:2px 10px;border-radius:20px;font-weight:500}
+.prof-item .status.active{background:rgba(16,185,129,0.15);color:#34d399}
+.prof-item .status.inactive{background:rgba(239,68,68,0.15);color:#ef4444}
+.eleve-item .classe{color:#8ba0c7;font-size:.7rem}
+.empty-state{text-align:center;padding:28px;color:#8ba0c7;font-size:.9rem}
+.loading{text-align:center;padding:28px;color:#60a5fa;font-size:.9rem}
+.loading::before{content:"";display:inline-block;width:16px;height:16px;border:2px solid rgba(59,130,246,0.15);border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite;margin-right:10px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.chart-box{background:rgba(16,28,52,0.4);border-radius:16px;padding:16px;border:1px solid rgba(59,130,246,0.08)}
+.chart-box h4{font-size:.85rem;color:#94a3b8;margin-bottom:10px;text-align:center}
+.chart-box canvas{max-height:200px;max-width:100%}
+.chart-box.full{grid-column:span 2}
+.filter-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end}
+.filter-group{flex:1;min-width:140px}
+.filter-group label{display:block;font-size:.65rem;color:#94a3b8;font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.filter-group select,.filter-group input{width:100%;padding:8px 12px;border-radius:10px;background:#1e293b;border:1px solid rgba(59,130,246,0.15);color:#e8edf5;font-size:.85rem}
+.filter-group select:focus,.filter-group input:focus{outline:none;border-color:#3b82f6}
+.log-item{background:rgba(0,0,0,0.2);border-radius:12px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;border-left:3px solid #3b82f6;transition:all .15s}
+.log-item:hover{background:rgba(0,0,0,0.35)}
+.log-item .user{font-weight:600;color:#e8edf5}
+.log-item .action{font-size:.8rem;color:#94a3b8}
+.log-item .time{font-size:.65rem;color:#64748b}
+.log-item .detail{font-size:.75rem;color:#8ba0c7}
+.log-item .badge-log{font-size:.6rem;padding:2px 10px;border-radius:20px;font-weight:600}
+.log-item .badge-log.success{background:rgba(16,185,129,0.15);color:#34d399}
+.log-item .badge-log.error{background:rgba(239,68,68,0.15);color:#ef4444}
+.log-item .badge-log.warning{background:rgba(245,158,11,0.15);color:#f59e0b}
+.log-item .badge-log.info{background:rgba(59,130,246,0.15);color:#60a5fa}
+.rank-item{display:flex;align-items:center;gap:12px;padding:8px 14px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:6px}
+.rank-item .position{font-size:20px;font-weight:800;min-width:40px;color:#ffd700}
+.rank-item .position.gold{color:#ffd700}
+.rank-item .position.silver{color:#c0c0c0}
+.rank-item .position.bronze{color:#cd7f32}
+.rank-item .name{font-weight:600;flex:1}
+.rank-item .actions{color:#94a3b8;font-size:13px}
+.rank-item .fiches{color:#60a5fa;font-size:12px}
+.toast-container{position:fixed;top:16px;right:16px;z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:380px}
+.toast{background:rgba(11,19,36,0.96);backdrop-filter:blur(6px);border-radius:14px;padding:10px 18px;display:flex;align-items:center;gap:12px;border-left:4px solid #34d399;transform:translateX(100%);transition:transform .3s cubic-bezier(0.16,1,0.3,1);pointer-events:auto;box-shadow:0 12px 32px rgba(0,0,0,0.7);font-size:.85rem}
+.toast.show{transform:translateX(0)}
+.toast.error{border-left-color:#ef4444}
+.toast .icon{font-size:1.2rem}
+.toast .content{flex:1}
+.toast .title{font-weight:600;font-size:.8rem;color:#fff}
+.toast .message{font-size:.75rem;color:#8ba0c7}
+.load-more-btn{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:#60a5fa;padding:8px 20px;border-radius:30px;cursor:pointer;font-size:.8rem;margin-top:12px;width:100%;transition:all .2s}
+.load-more-btn:hover{background:rgba(59,130,246,0.2)}
+.focus-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:20px}
+.focus-card{background:rgba(16,28,52,0.7);border-radius:20px;padding:20px;text-align:center;border:1px solid rgba(59,130,246,0.1);transition:all .3s}
+.focus-card .ecole-name{font-size:1.1rem;font-weight:700;color:#ffd700;margin-bottom:8px}
+.focus-card .total{font-size:3rem;font-weight:800;color:#60a5fa}
+.focus-card .total-label{font-size:.7rem;color:#94a3b8}
+.focus-card .today{font-size:1.2rem;font-weight:600;color:#34d399;margin-top:8px}
+.focus-card .today-label{font-size:.65rem;color:#94a3b8}
+.focus-card .flash{animation:flash .5s ease}
+@keyframes flash{0%{transform:scale(1)}50%{transform:scale(1.05);background:rgba(16,185,129,0.15)}100%{transform:scale(1)}}
+.focus-total{background:rgba(16,28,52,0.8);border-radius:16px;padding:16px 24px;text-align:center;border:1px solid rgba(255,215,0,0.2);margin:0 20px 20px 20px}
+.focus-total .total-nb{font-size:2.5rem;font-weight:800;color:#ffd700}
+.focus-total .total-label{font-size:.8rem;color:#94a3b8}
+.corbeille-item{background:rgba(0,0,0,0.2);border-radius:12px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;border-left:3px solid #ef4444}
+.corbeille-item .info{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.corbeille-item .cours{font-weight:600;color:#e8edf5}
+.corbeille-item .classe{color:#94a3b8;font-size:.8rem}
+.corbeille-item .date{color:#64748b;font-size:.7rem}
+.corbeille-item .prof{color:#8ba0c7;font-size:.75rem}
+.corbeille-item .actions{display:flex;gap:6px}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:20000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all .25s}
+.modal-overlay.show{visibility:visible;opacity:1}
+.modal-box{background:rgba(16,28,52,0.96);backdrop-filter:blur(8px);border-radius:24px;padding:28px;max-width:420px;width:92%;border:1px solid rgba(59,130,246,0.15);text-align:center;box-shadow:0 20px 48px rgba(0,0,0,0.8)}
+.modal-box .icon{font-size:2.6rem;margin-bottom:6px}
+.modal-box h3{color:#60a5fa;font-size:1.1rem;margin-bottom:6px;font-weight:700}
+.modal-box p{color:#8ba0c7;font-size:.9rem;margin-bottom:18px;line-height:1.5}
+.modal-box .buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.modal-box .btn{min-width:90px;padding:8px 20px}
+.pdf-preview{background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;margin-bottom:16px;max-height:400px;overflow:auto}
+.pdf-preview table{width:100%;border-collapse:collapse;font-size:.8rem}
+.pdf-preview th{padding:8px;text-align:left;color:#ffd700;border-bottom:1px solid rgba(255,215,0,0.2)}
+.pdf-preview td{padding:6px 8px;border-bottom:1px solid rgba(255,215,0,0.05);color:#e8edf5}
+.pdf-preview .total-row{font-weight:700;border-top:2px solid #ffd700}
+@media(max-width:640px){body{padding:10px}.stats-grid{grid-template-columns:1fr 1fr;gap:10px}.stats-grid-7{grid-template-columns:1fr 1fr}.stat-value{font-size:1.5rem}.header{padding:12px 16px}.header-text h1{font-size:1.2rem}.tabs{flex-wrap:nowrap;overflow-x:auto}.tab{flex:1;min-width:60px;padding:6px 12px;font-size:.75rem}.chart-grid{grid-template-columns:1fr}.chart-box.full{grid-column:span 1}.focus-grid{grid-template-columns:1fr 1fr}.focus-card .total{font-size:2rem}}
+</style>
 </head>
 <body>
 <div class="container">
-  <div class="header glass">
-    <div class="header-left">
-      <div class="logo-badge"><img src="https://www.netubex.com/favicon.png.png" alt="NETUBEX" onerror="this.style.display='none'"></div>
-      <div class="header-text"><h1><span>NETUBEX</span> Admin</h1><p>Gestion complète</p></div>
-    </div>
-    <div class="header-actions">
-      <button class="btn btn-danger btn-sm" onclick="window.toutSupprimer()">🗑️ TOUT</button>
-      <button class="btn btn-primary btn-sm" onclick="window.rafraichir()">🔄</button>
-    </div>
-  </div>
-
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-value" id="statEcoles">0</div><div class="stat-label">🏫 Écoles (totales)</div></div>
-    <div class="stat-card"><div class="stat-value orange" id="statEcolesAutorisees">0</div><div class="stat-label">✅ Écoles autorisées</div></div>
-    <div class="stat-card"><div class="stat-value purple" id="statProfs">0</div><div class="stat-label">👨‍🏫 Profs</div></div>
-    <div class="stat-card"><div class="stat-value success" id="statEleves">0</div><div class="stat-label">👥 Élèves</div></div>
-  </div>
-
-  <!-- ONGLETS -->
-  <div class="tabs">
-    <button class="tab active" data-tab="ecoles">🏫 Écoles</button>
-    <button class="tab" data-tab="profs">👨‍🏫 Professeurs</button>
-    <button class="tab" data-tab="eleves">👥 Élèves</button>
-  </div>
-
-  <div id="ecolesContainer" class="tab-content active"></div>
-  <div id="profsContainer" class="tab-content"></div>
-  <div id="elevesContainer" class="tab-content"></div>
+<div class="header glass">
+<div class="header-left">
+<div class="logo-badge"><img src="https://www.netubex.com/favicon.png.png" alt="NETUBEX" onerror="this.style.display='none'"></div>
+<div class="header-text"><h1><span>NETUBEX</span> Admin</h1><p>Supervision complète</p></div>
 </div>
-
+<div class="header-actions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+<select class="school-selector" id="schoolFilter"><option value="all">🌍 Toutes les écoles</option></select>
+<button class="btn btn-danger btn-sm" onclick="window.toutSupprimer()">🗑️ TOUT</button>
+</div>
+</div>
+<div class="stats-grid-7" id="mainStats">
+<div class="stat-card"><div class="stat-value" id="statEcoles">0</div><div class="stat-label">🏫 Écoles</div></div>
+<div class="stat-card"><div class="stat-value purple" id="statProfs">0</div><div class="stat-label">👨‍🏫 Profs</div></div>
+<div class="stat-card"><div class="stat-value gold" id="statFiches">0</div><div class="stat-label">📄 Fiches</div></div>
+<div class="stat-card"><div class="stat-value" id="statEleves">0</div><div class="stat-label">👥 Élèves</div></div>
+<div class="stat-card"><div class="stat-value danger" id="statAbandons">0</div><div class="stat-label">❌ Abandons</div></div>
+<div class="stat-card"><div class="stat-value success" id="statExoneres">0</div><div class="stat-label">🌟 Exonérés</div></div>
+<div class="stat-card"><div class="stat-value warning" id="statToday">0</div><div class="stat-label">📅 Inscrits aujourd'hui</div></div>
+</div>
+<div class="tabs" id="tabContainer">
+<button class="tab active" data-tab="ecoles">🏫 Écoles</button>
+<button class="tab" data-tab="profs">👨‍🏫 Professeurs</button>
+<button class="tab" data-tab="fiches">📄 Fiches</button>
+<button class="tab" data-tab="dashboard">📊 Dashboard</button>
+<button class="tab" data-tab="eleves">👥 Élèves</button>
+<button class="tab" data-tab="logs">📊 Logs</button>
+<button class="tab" data-tab="classement">🏆 Classement</button>
+<button class="tab" data-tab="pdf">📄 PDF</button>
+<button class="tab" data-tab="corbeille">🗑️ Corbeille</button>
+<button class="tab" data-tab="focus">🎯 Focus</button>
+</div>
+<div id="ecolesContainer" class="tab-content active"></div>
+<div id="profsContainer" class="tab-content"></div>
+<div id="fichesContainer" class="tab-content"></div>
+<div id="dashboardContainer" class="tab-content"></div>
+<div id="elevesContainer" class="tab-content"></div>
+<div id="logsContainer" class="tab-content"></div>
+<div id="classementContainer" class="tab-content"></div>
+<div id="pdfContainer" class="tab-content"></div>
+<div id="corbeilleContainer" class="tab-content"></div>
+<div id="focusContainer" class="tab-content"></div>
+</div>
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="confirmModal">
-  <div class="modal-box">
-    <div class="icon">⚠️</div>
-    <h3 id="confirmTitle">Confirmation</h3>
-    <p id="confirmMessage">Êtes-vous sûr ?</p>
-    <div class="buttons">
-      <button class="btn btn-danger" id="confirmYes">OUI</button>
-      <button class="btn btn-outline" id="confirmNo">ANNULER</button>
-    </div>
-  </div>
+<div class="modal-box">
+<div class="icon">⚠️</div>
+<h3 id="confirmTitle">Confirmation</h3>
+<p id="confirmMessage">Êtes-vous sûr ?</p>
+<div class="buttons">
+<button class="btn btn-danger" id="confirmYes">OUI</button>
+<button class="btn btn-outline" id="confirmNo">ANNULER</button>
 </div>
-
+</div>
+</div>
 <script type="module">
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, deleteDoc, doc, setDoc, query, where } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
-  authDomain: "netubexmoney.firebaseapp.com",
-  projectId: "netubexmoney",
-  storageBucket: "netubexmoney.firebasestorage.app",
-  messagingSenderId: "856592608176",
-  appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-let toutesEcoles = [];
-let toutesEcolesAutorisees = [];
-let toutesFiches = [];
-let tousProfs = [];
-
-function toast(m, t = 'success') {
-  const c = document.getElementById('toastContainer'); if (!c) return;
-  const ic = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-  const ti = { success: 'Succès', error: 'Erreur', warning: 'Attention', info: 'Info' };
-  const el = document.createElement('div');
-  el.className = `toast ${t}`;
-  el.innerHTML = `<div class="icon">${ic[t] || '📢'}</div><div class="content"><div class="title">${ti[t] || 'Info'}</div><div class="message">${m}</div></div>`;
-  c.appendChild(el);
-  setTimeout(() => el.classList.add('show'), 10);
-  setTimeout(() => { el.classList.remove('show'); setTimeout(() => { if (el.parentNode) el.remove(); }, 280); }, 3400);
-}
-
-function showConfirm(t, m, onConfirm) {
-  const modal = document.getElementById('confirmModal');
-  if (!modal) return;
-  document.getElementById('confirmTitle').textContent = t;
-  document.getElementById('confirmMessage').innerHTML = m;
-  modal.classList.add('show');
-  const yes = document.getElementById('confirmYes');
-  const no = document.getElementById('confirmNo');
-  const clean = () => { modal.classList.remove('show'); yes.removeEventListener('click', h); no.removeEventListener('click', clean); };
-  const h = () => { clean(); if (onConfirm) onConfirm(); };
-  yes.addEventListener('click', h);
-  no.addEventListener('click', clean);
-}
-
-// Charger les écoles depuis la collection "ecoles"
-async function chargerEcoles() {
-  try {
-    const snap = await getDocs(collection(db, "ecoles"));
-    toutesEcoles = [];
-    snap.forEach(ds => {
-      toutesEcoles.push({ id: ds.id, ...ds.data() });
-    });
-    return toutesEcoles;
-  } catch (e) {
-    toast("Erreur chargement écoles", "error");
-    return [];
-  }
-}
-
-// Charger les écoles autorisées depuis "ecoles_autorisees"
-async function chargerEcolesAutorisees() {
-  try {
-    const snap = await getDocs(collection(db, "ecoles_autorisees"));
-    toutesEcolesAutorisees = [];
-    snap.forEach(ds => {
-      toutesEcolesAutorisees.push({ id: ds.id, ...ds.data() });
-    });
-    return toutesEcolesAutorisees;
-  } catch (e) {
-    toast("Erreur chargement écoles autorisées", "error");
-    return [];
-  }
-}
-
-async function chargerProfs(e) {
-  try {
-    const snap = await getDocs(collection(db, `${e}_professeurs`));
-    const p = [];
-    snap.forEach(ds => {
-      const d = ds.data();
-      if (d._type === 'prof') {
-        p.push({ id: d.profId || ds.id, nom: d.nom || 'Inconnu', code: d.code || '0000', actif: d.actif !== false });
-      }
-    });
-    return p;
-  } catch (e) { return []; }
-}
-
-async function chargerFiches(e) {
-  try {
-    const snap = await getDocs(collection(db, `${e}_fiches`));
-    const f = [];
-    snap.forEach(ds => {
-      const d = ds.data();
-      if (!d._type) {
-        f.push({ id: ds.id, ecoleId: e, ...d });
-      }
-    });
-    return f;
-  } catch (e) { return []; }
-}
-
-async function chargerTout() {
-  document.getElementById('ecolesContainer').innerHTML = '<div class="loading">Chargement...</div>';
-  document.getElementById('profsContainer').innerHTML = '<div class="loading">Chargement...</div>';
-  document.getElementById('elevesContainer').innerHTML = '<div class="loading">Chargement...</div>';
-  
-  toutesFiches = [];
-  tousProfs = [];
-  let totalEleves = 0;
-  
-  // Combiner les deux listes d'écoles pour une vue unifiée
-  const toutesEcolesUnifiees = [...toutesEcoles, ...toutesEcolesAutorisees];
-  const ecolesUniques = new Map();
-  for (const e of toutesEcolesUnifiees) {
-    if (!ecolesUniques.has(e.id)) {
-      ecolesUniques.set(e.id, { 
-        id: e.id, 
-        nom: e.nom || e.id,
-        dansEcoles: toutesEcoles.some(ee => ee.id === e.id),
-        dansAutorisees: toutesEcolesAutorisees.some(ee => ee.id === e.id)
-      });
-    }
-  }
-  
-  for (const [id, info] of ecolesUniques) {
-    const p = await chargerProfs(id);
-    tousProfs = tousProfs.concat(p.map(p => ({ ...p, ecoleId: id, ecoleNom: info.nom })));
-    const f = await chargerFiches(id);
-    f.forEach(f => { f.ecoleNom = info.nom; });
-    toutesFiches = toutesFiches.concat(f);
-    f.forEach(f => { if (f.eleves) totalEleves += f.eleves.length; });
-  }
-  
-  return { total: totalEleves, ecolesUniques };
-}
-
-// Ajouter une école
-async function ajouterEcole(id, nom, collectionCible = 'ecoles') {
-  if (!id || id.trim() === '') { toast("Veuillez entrer un ID d'école", "error"); return false; }
-  const idClean = id.trim().toLowerCase().replace(/\s+/g, '-');
-  
-  try {
-    // Vérifier si l'école existe déjà
-    const docRef = doc(db, collectionCible, idClean);
-    await setDoc(docRef, { 
-      id: idClean, 
-      nom: nom || idClean,
-      dateCreation: new Date().toISOString()
-    });
-    toast(`École "${nom || idClean}" ajoutée à ${collectionCible}`, "success");
-    return true;
-  } catch (e) {
-    toast(`Erreur: ${e.message}`, "error");
-    return false;
-  }
-}
-
-// Supprimer une école et toutes ses données
-async function supprimerEcole(id) {
-  try {
-    // Supprimer les fiches
-    const f = await getDocs(collection(db, `${id}_fiches`));
-    for (const d of f.docs) { await deleteDoc(d.ref); }
-    
-    // Supprimer les professeurs
-    const p = await getDocs(collection(db, `${id}_professeurs`));
-    for (const d of p.docs) { await deleteDoc(d.ref); }
-    
-    // Supprimer de "ecoles"
-    try { await deleteDoc(doc(db, "ecoles", id)); } catch (e) {}
-    
-    // Supprimer de "ecoles_autorisees"
-    try { await deleteDoc(doc(db, "ecoles_autorisees", id)); } catch (e) {}
-    
-    toast(`École "${id}" supprimée avec toutes ses données`, "success");
-    return true;
-  } catch (e) {
-    toast(`Erreur: ${e.message}`, "error");
-    return false;
-  }
-}
-
-async function supprimerProf(e, id, n) {
-  try {
-    await deleteDoc(doc(db, `${e}_professeurs`, id));
-    toast(`${n} supprimé`, "success");
-    await rafraichir();
-  } catch (e) { toast(`Erreur: ${e.message}`, "error"); }
-}
-
-function afficher(totalEleves, ecolesUniques) {
-  const statsOk = document.getElementById('statEcoles') && document.getElementById('statProfs');
-  if (!statsOk) return;
-  
-  document.getElementById('statEcoles').textContent = ecolesUniques.size;
-  document.getElementById('statEcolesAutorisees').textContent = toutesEcolesAutorisees.length;
-  document.getElementById('statProfs').textContent = tousProfs.length;
-  document.getElementById('statEleves').textContent = totalEleves;
-
-  // --- ONGLET ECOLES ---
-  let htmlEcoles = '';
-  
-  // Formulaire d'ajout
-  htmlEcoles += `
-    <div class="section-card">
-      <h3>➕ Ajouter une école</h3>
-      <div class="form-add">
-        <input type="text" id="newEcoleId" placeholder="ID (ex: mon-ecole)" style="flex:1;">
-        <input type="text" id="newEcoleNom" placeholder="Nom (ex: Complexe Scolaire)" style="flex:1;">
-        <select id="newEcoleCollection">
-          <option value="ecoles">ecoles</option>
-          <option value="ecoles_autorisees">ecoles_autorisees</option>
-          <option value="both">Les deux</option>
-        </select>
-        <button class="btn btn-success" id="addEcoleBtn">✅ Ajouter</button>
-      </div>
-    </div>
-  `;
-  
-  if (!ecolesUniques.size) {
-    htmlEcoles += '<div class="empty-state">📭 Aucune école</div>';
-  } else {
-    htmlEcoles += `<div class="section-card"><h3>🏫 Écoles <span class="count">${ecolesUniques.size}</span></h3>`;
-    
-    for (const [id, info] of ecolesUniques) {
-      const profs = tousProfs.filter(p => p.ecoleId === id);
-      const fiches = toutesFiches.filter(f => f.ecoleId === id);
-      const nb = fiches.reduce((s, f) => { if (f.eleves) s += f.eleves.length; return s; }, 0);
-      
-      let badges = [];
-      if (info.dansEcoles) badges.push('<span class="badge source">📁 ecoles</span>');
-      if (info.dansAutorisees) badges.push('<span class="badge green">✅ autorisée</span>');
-      
-      htmlEcoles += `<div class="ecole-item" style="border-left-color: ${info.dansAutorisees ? '#10b981' : '#3b82f6'}">
-        <div class="top">
-          <div>
-            <span class="nom">🏫 ${info.nom}</span>
-            <span class="id">${id}</span>
-            ${badges.join(' ')}
-          </div>
-          <div class="meta">
-            <span class="badge">👨‍🏫 ${profs.length}</span>
-            <span class="badge purple">📄 ${fiches.length}</span>
-            <span class="badge green">👥 ${nb}</span>
-            <button class="btn btn-danger btn-sm" onclick="window.suppEcole('${id}')">🗑️</button>
-          </div>
-        </div>
-        <div style="font-size:.7rem;color:#64748b;margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;">
-          ${info.dansEcoles ? '<span>📁 Collection "ecoles"</span>' : ''}
-          ${info.dansAutorisees ? '<span>✅ Collection "ecoles_autorisees"</span>' : ''}
-        </div>
-      </div>`;
-    }
-    htmlEcoles += `</div>`;
-  }
-  document.getElementById('ecolesContainer').innerHTML = htmlEcoles;
-
-  // Gestionnaire du bouton Ajouter
-  document.getElementById('addEcoleBtn')?.addEventListener('click', async () => {
-    const id = document.getElementById('newEcoleId').value.trim().toLowerCase().replace(/\s+/g, '-');
-    const nom = document.getElementById('newEcoleNom').value.trim() || id;
-    const collection = document.getElementById('newEcoleCollection').value;
-    
-    if (!id) { toast("Veuillez entrer un ID d'école", "error"); return; }
-    
-    let success = 0;
-    if (collection === 'ecoles' || collection === 'both') {
-      const ok = await ajouterEcole(id, nom, 'ecoles');
-      if (ok) success++;
-    }
-    if (collection === 'ecoles_autorisees' || collection === 'both') {
-      const ok = await ajouterEcole(id, nom, 'ecoles_autorisees');
-      if (ok) success++;
-    }
-    
-    if (success > 0) {
-      document.getElementById('newEcoleId').value = '';
-      document.getElementById('newEcoleNom').value = '';
-      await rafraichir();
-    }
-  });
-
-  // --- ONGLET PROFESSEURS ---
-  let htmlProfs = '';
-  if (!tousProfs.length) {
-    htmlProfs = '<div class="empty-state">👨‍🏫 Aucun professeur</div>';
-  } else {
-    htmlProfs = `<div class="section-card"><h3>👨‍🏫 Professeurs <span class="count">${tousProfs.length}</span></h3>`;
-    for (const pr of tousProfs) {
-      const ecolenom = ecolesUniques.get(pr.ecoleId)?.nom || pr.ecoleId;
-      htmlProfs += `<div class="prof-item">
-        <div class="info">
-          <span class="name">${pr.nom}</span>
-          <span class="code">${pr.code}</span>
-          <span style="color:#8ba0c7;font-size:.7rem;">${ecolenom}</span>
-          <span class="status ${pr.actif ? 'active' : 'inactive'}">${pr.actif ? 'Actif' : 'Inactif'}</span>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="window.suppProf('${pr.ecoleId}','${pr.id}','${pr.nom}')">✕</button>
-      </div>`;
-    }
-    htmlProfs += `</div>`;
-  }
-  document.getElementById('profsContainer').innerHTML = htmlProfs;
-
-  // --- ONGLET ÉLÈVES ---
-  let htmlEleves = '';
-  const tousEleves = [];
-  toutesFiches.forEach(f => {
-    if (f.eleves) {
-      f.eleves.forEach(e => {
-        tousEleves.push({ ...e, ecoleNom: f.ecoleNom, classe: f.classe, cours: f.cours, ficheId: f.id });
-      });
-    }
-  });
-  if (!tousEleves.length) {
-    htmlEleves = '<div class="empty-state">👥 Aucun élève</div>';
-  } else {
-    htmlEleves = `<div class="section-card"><h3>👥 Élèves <span class="count">${tousEleves.length}</span></h3>`;
-    for (const el of tousEleves) {
-      htmlEleves += `<div class="eleve-item">
-        <div class="info">
-          <span class="name">${el.nom || '?'}</span>
-          <span style="color:#8ba0c7;font-size:.7rem;">${el.ecoleNom || ''}</span>
-          <span class="classe">${el.classe || ''}</span>
-        </div>
-      </div>`;
-    }
-    htmlEleves += `</div>`;
-  }
-  document.getElementById('elevesContainer').innerHTML = htmlEleves;
-
-  // Gestion des onglets
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      this.classList.add('active');
-      const target = this.dataset.tab;
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      if (target === 'ecoles') document.getElementById('ecolesContainer').classList.add('active');
-      if (target === 'profs') document.getElementById('profsContainer').classList.add('active');
-      if (target === 'eleves') document.getElementById('elevesContainer').classList.add('active');
-    });
-  });
-}
-
-// Exposer les fonctions globalement
-window.suppEcole = function(id) {
-  const e = toutesEcoles.find(e => e.id === id) || toutesEcolesAutorisees.find(e => e.id === id);
-  showConfirm("Supprimer l'école",
-    `⚠️ <strong>${e?.nom || id}</strong><br><br>Cette action supprimera :<br>• Tous les professeurs<br>• Toutes les fiches<br>• Tous les élèves<br><br><span style="color:#ef4444;">Action irréversible !</span>`,
-    () => supprimerEcole(id).then(() => rafraichir())
-  );
-};
-
-window.suppProf = function(e, id, n) {
-  showConfirm("Supprimer le professeur", `⚠️ <strong>${n}</strong><br><br>Action irréversible !`, () => supprimerProf(e, id, n));
-};
-
-window.toutSupprimer = function() {
-  const total = toutesEcoles.length + toutesEcolesAutorisees.length;
-  showConfirm("RÉINITIALISATION COMPLÈTE",
-    `⚠️ <strong>IRRÉVERSIBLE</strong><br><br>${total} école(s)<br>${tousProfs.length} professeurs<br>${toutesFiches.length} fiches<br><br><span style="color:#ef4444;">Toutes les données seront supprimées !</span>`,
-    async () => {
-      try {
-        // Supprimer toutes les écoles
-        const toutes = [...toutesEcoles, ...toutesEcolesAutorisees];
-        const uniques = new Map();
-        for (const e of toutes) uniques.set(e.id, e);
-        
-        for (const [id] of uniques) {
-          await supprimerEcole(id);
-        }
-        toast('Toutes les données ont été supprimées', 'success');
-        await rafraichir();
-      } catch (e) {
-        toast(`Erreur: ${e.message}`, 'error');
-      }
-    }
-  );
-};
-
-window.rafraichir = rafraichir;
-
-async function rafraichir() {
-  await chargerEcoles();
-  await chargerEcolesAutorisees();
-  const { total, ecolesUniques } = await chargerTout();
-  afficher(total, ecolesUniques);
-  toast('Données actualisées', 'info');
-}
-
-// Initialisation
-(async function init() {
-  try {
-    await rafraichir();
-    toast('Données chargées', 'success');
-  } catch (e) {
-    document.getElementById('ecolesContainer').innerHTML = 
-      `<div class="empty-state" style="color:#ef4444;">❌ Erreur: ${e.message}<br>
-      <button class="btn btn-primary" onclick="window.rafraichir()" style="margin-top:12px;">🔄 Réessayer</button></div>`;
-    toast('Erreur de chargement', 'error');
-  }
-})();
+import{initializeApp}from"firebase/app";
+import{getFirestore,collection,getDocs,deleteDoc,doc,onSnapshot,query,orderBy,limit,where,startAfter,getDoc,updateDoc}from"firebase/firestore";
+const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+let toutesEcoles=[],toutesFiches=[],tousProfs=[],tousEleves=[],tousLogs=[],toutesCorbeille=[];
+let focusListeners=[],focusActive=false,voiceActive=false,lastFocusCounts={},chartInstances={};
+let logsLastDoc=null,logsLoading=false,logsHasMore=true,logsLimit=20;
+let currentSchoolFilter="all";
+let currentEleveFilter={classe:"",option:"",sexe:"",statut:""};
+function toast(m,t="success"){const c=document.getElementById("toastContainer");if(!c)return;const ic={success:"✅",error:"❌",warning:"⚠️",info:"ℹ️"};const ti={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${t}`;el.innerHTML=`<div class="icon">${ic[t]||"📢"}</div><div class="content"><div class="title">${ti[t]||"Info"}</div><div class="message">${m}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>{if(el.parentNode)el.remove()},280);},3400);}
+function showConfirm(t,m,onConfirm){const modal=document.getElementById("confirmModal");if(!modal)return;document.getElementById("confirmTitle").textContent=t;document.getElementById("confirmMessage").innerHTML=m;modal.classList.add("show");const yes=document.getElementById("confirmYes");const no=document.getElementById("confirmNo");const clean=()=>{modal.classList.remove("show");yes.removeEventListener("click",h);no.removeEventListener("click",clean);};const h=()=>{clean();if(onConfirm)onConfirm();};yes.addEventListener("click",h);no.addEventListener("click",clean);}
+function formatDate(d){const dt=new Date(d);return dt.toLocaleDateString("fr-FR")+" "+dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+function formatDateShort(d){const dt=new Date(d);return dt.toLocaleDateString("fr-FR")}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function getWeekNumber(d){const date=new Date(d);date.setHours(0,0,0,0);date.setDate(date.getDate()+3-(date.getDay()+6)%7);const week1=new Date(date.getFullYear(),0,4);return 1+Math.round(((date-week1)/86400000-3+(week1.getDay()+6)%7)/7);}
+function getWeekRange(weekNum,year){const d=new Date(year,0,1);const days=(weekNum-1)*7;d.setDate(d.getDate()+days);const start=new Date(d);start.setDate(start.getDate()-start.getDay()+1);const end=new Date(start);end.setDate(end.getDate()+6);return{start:start.toISOString().slice(0,10),end:end.toISOString().slice(0,10)};}
+async function chargerEcoles(){try{const snap=await getDocs(collection(db,"ecoles_autorisees"));toutesEcoles=[];snap.forEach(ds=>{toutesEcoles.push({id:ds.id,...ds.data()});});return toutesEcoles;}catch(e){toast("Erreur chargement écoles","error");return[];}}
+async function chargerProfs(e){try{const snap=await getDocs(collection(db,`${e}_professeurs`));const p=[];snap.forEach(ds=>{const d=ds.data();if(d._type==="prof"){p.push({id:d.profId||ds.id,nom:d.nom||"Inconnu",code:d.code||"0000",actif:d.actif!==false});}});return p;}catch(e){return[];}}
+async function chargerFiches(e){try{const snap=await getDocs(collection(db,`${e}_fiches`));const f=[];snap.forEach(ds=>{const d=ds.data();if(!d._type){f.push({id:ds.id,ecoleId:e,...d});}});return f;}catch(e){return[];}}
+async function chargerCorbeille(e){try{const snap=await getDocs(collection(db,`${e}_corbeille`));const c=[];snap.forEach(ds=>{c.push({id:ds.id,ecoleId:e,...ds.data()});});return c;}catch(e){return[];}}
+async function chargerElevesCompta(e){try{const snap=await getDocs(collection(db,`${e}_compta_eleves`));const el=[];snap.forEach(ds=>{const d=ds.data();if(d._type==="compta_eleve"){el.push({id:d.eleveId||ds.id,...d});}});return el;}catch(e){return[];}}
+async function chargerLogs(e,last=null,lim=20){try{let q=query(collection(db,`${e}_logs`),orderBy("date","desc"),limit(lim));if(last){const snapLast=await getDoc(doc(db,`${e}_logs`,last));if(snapLast.exists()){q=query(collection(db,`${e}_logs`),orderBy("date","desc"),startAfter(snapLast),limit(lim));}}const snap=await getDocs(q);const l=[];snap.forEach(ds=>{l.push({id:ds.id,...ds.data()});});return l;}catch(e){return[];}}
+async function chargerTout(){toutesFiches=[];tousProfs=[];tousEleves=[];toutesCorbeille=[];let total=0,abandons=0,exoneres=0,today=0;for(const e of toutesEcoles){const p=await chargerProfs(e.id);tousProfs=tousProfs.concat(p.map(p=>({...p,ecoleId:e.id,ecoleNom:e.nom||e.id})));const f=await chargerFiches(e.id);f.forEach(f=>{f.ecoleNom=e.nom||e.id;});toutesFiches=toutesFiches.concat(f);f.forEach(f=>{if(f.eleves)total+=f.eleves.length;});const el=await chargerElevesCompta(e.id);el.forEach(el=>{el.ecoleNom=e.nom||e.id;el.ecoleId=e.id;});tousEleves=tousEleves.concat(el);el.forEach(el=>{if(el.abandon===true)abandons++;if(el.exonere===true)exoneres++;if(el.dateInscription===todayStr())today++;});const cb=await chargerCorbeille(e.id);cb.forEach(c=>{c.ecoleNom=e.nom||e.id;});toutesCorbeille=toutesCorbeille.concat(cb);}return{total,abandons,exoneres,today};}
+function updateStats(total,abandons,exoneres,today){document.getElementById("statEcoles").textContent=toutesEcoles.length;document.getElementById("statProfs").textContent=tousProfs.length;document.getElementById("statFiches").textContent=toutesFiches.length;document.getElementById("statEleves").textContent=total;document.getElementById("statAbandons").textContent=abandons;document.getElementById("statExoneres").textContent=exoneres;document.getElementById("statToday").textContent=today;}
+function getFilteredSchools(){if(currentSchoolFilter==="all")return toutesEcoles;return toutesEcoles.filter(e=>e.id===currentSchoolFilter);}
+function getFilteredEleves(){let eleves=tousEleves;if(currentSchoolFilter!=="all")eleves=eleves.filter(e=>e.ecoleId===currentSchoolFilter);if(currentEleveFilter.classe)eleves=eleves.filter(e=>e.classe===currentEleveFilter.classe);if(currentEleveFilter.option)eleves=eleves.filter(e=>e.option===currentEleveFilter.option);if(currentEleveFilter.sexe)eleves=eleves.filter(e=>e.sexe===currentEleveFilter.sexe);if(currentEleveFilter.statut==="actif")eleves=eleves.filter(e=>e.abandon!==true);else if(currentEleveFilter.statut==="abandon")eleves=eleves.filter(e=>e.abandon===true);else if(currentEleveFilter.statut==="exonere")eleves=eleves.filter(e=>e.exonere===true);return eleves;}
+function renderEcoles(){const container=document.getElementById("ecolesContainer");const schools=getFilteredSchools();if(!schools.length){container.innerHTML='<div class="empty-state">📭 Aucune école</div>';return;}let html="";for(const e of schools){const p=tousProfs.filter(p=>p.ecoleId===e.id);const f=toutesFiches.filter(f=>f.ecoleId===e.id);const el=tousEleves.filter(el=>el.ecoleId===e.id&&el.abandon!==true);const ab=tousEleves.filter(el=>el.ecoleId===e.id&&el.abandon===true);const ex=tousEleves.filter(el=>el.ecoleId===e.id&&el.exonere===true);const today=tousEleves.filter(el=>el.ecoleId===e.id&&el.dateInscription===todayStr());html+=`<div class="ecole-item"><div class="top"><div><span class="nom">🏫 ${e.nom||e.id}</span><span class="id">${e.id}</span></div><div class="meta"><span class="badge">👨‍🏫 ${p.length}</span><span class="badge green">📄 ${f.length}</span><span class="badge purple">👥 ${el.length}</span><span class="badge danger">❌ ${ab.length}</span><span class="badge gold">🌟 ${ex.length}</span><span class="badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">📅 ${today.length}</span><button class="btn btn-danger btn-sm" onclick="window.suppEcole('${e.id}')">🗑️</button></div></div></div>`;}container.innerHTML=html;}
+function renderProfs(){const container=document.getElementById("profsContainer");const profs=tousProfs;if(!profs.length){container.innerHTML='<div class="empty-state">👨‍🏫 Aucun professeur</div>';return;}let html=`<div class="section-card"><h3>👨‍🏫 Professeurs <span class="count">${profs.length}</span></h3>`;for(const pr of profs){const ecolenom=toutesEcoles.find(e=>e.id===pr.ecoleId)?.nom||pr.ecoleId;html+=`<div class="prof-item"><div class="info"><span class="name">${pr.nom}</span><span class="code">${pr.code}</span><span style="color:#8ba0c7;font-size:.7rem;">${ecolenom}</span><span class="status ${pr.actif?"active":"inactive"}">${pr.actif?"Actif":"Inactif"}</span></div><button class="btn btn-danger btn-sm" onclick="window.suppProf('${pr.ecoleId}','${pr.id}','${pr.nom}')">✕</button></div>`;}html+=`</div>`;container.innerHTML=html;}
+function renderFiches(){const container=document.getElementById("fichesContainer");let fiches=toutesFiches;if(currentSchoolFilter!=="all")fiches=fiches.filter(f=>f.ecoleId===currentSchoolFilter);if(!fiches.length){container.innerHTML='<div class="empty-state">📄 Aucune fiche</div>';return;}let html=`<div class="section-card"><h3>📄 Fiches <span class="count">${fiches.length}</span></h3>`;for(const f of fiches){const nb=f.eleves?f.eleves.length:0;html+=`<div class="ecole-item" style="border-left-color:#ffd700;"><div class="top"><div><span class="nom">${f.cours||"Sans cours"}</span><span style="color:#94a3b8;font-size:.8rem;">${f.classe||""} ${f.option?"("+f.option+")":""}</span></div><div class="meta"><span class="badge purple">👥 ${nb}</span><span style="color:#8ba0c7;font-size:.7rem;">${f.ecoleNom||""}</span></div></div></div>`;}html+=`</div>`;container.innerHTML=html;}
+function renderDashboard(){const container=document.getElementById("dashboardContainer");const eleves=tousEleves.filter(e=>e.abandon!==true);if(currentSchoolFilter!=="all")eleves=tousEleves.filter(e=>e.ecoleId===currentSchoolFilter&&e.abandon!==true);const abandons=tousEleves.filter(e=>e.abandon===true);const exoneres=tousEleves.filter(e=>e.exonere===true);const today=tousEleves.filter(e=>e.dateInscription===todayStr());const total=eleves.length;let html=`<div class="stats-grid-7" style="margin-bottom:16px;"><div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">👥 Élèves actifs</div></div><div class="stat-card"><div class="stat-value danger">${abandons.length}</div><div class="stat-label">❌ Abandons</div></div><div class="stat-card"><div class="stat-value success">${exoneres.length}</div><div class="stat-label">🌟 Exonérés</div></div><div class="stat-card"><div class="stat-value warning">${today.length}</div><div class="stat-label">📅 Inscrits aujourd'hui</div></div></div><div class="chart-grid">`;
+const days7=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days7.push(d.toISOString().slice(0,10));}
+const inscJours=days7.map(d=>tousEleves.filter(e=>e.dateInscription===d&&e.abandon!==true).length);
+const abandonJours=days7.map(d=>tousEleves.filter(e=>e.dateAbandon===d&&e.abandon===true).length);
+html+=`<div class="chart-box"><h4>📊 Inscriptions (7 derniers jours)</h4><canvas id="chartInscJours"></canvas></div><div class="chart-box"><h4>📊 Abandons (7 derniers jours)</h4><canvas id="chartAbandonJours"></canvas></div>`;
+const weeks=[];const weekLabels=[];for(let i=3;i>=0;i--){const d=new Date();d.setDate(d.getDate()-(i*7));const wn=getWeekNumber(d);const year=d.getFullYear();weeks.push(wn);weekLabels.push(`S${wn}`);}
+const inscSemaines=weeks.map((wn,idx)=>{const range=getWeekRange(wn,new Date().getFullYear());return tousEleves.filter(e=>e.dateInscription>=range.start&&e.dateInscription<=range.end&&e.abandon!==true).length;});
+const abandonSemaines=weeks.map((wn,idx)=>{const range=getWeekRange(wn,new Date().getFullYear());return tousEleves.filter(e=>e.dateAbandon>=range.start&&e.dateAbandon<=range.end&&e.abandon===true).length;});
+html+=`<div class="chart-box"><h4>📊 Inscriptions (4 dernières semaines)</h4><canvas id="chartInscSemaines"></canvas></div><div class="chart-box"><h4>📊 Abandons (4 dernières semaines)</h4><canvas id="chartAbandonSemaines"></canvas></div>`;
+const sexeCount={M:0,F:0};tousEleves.forEach(e=>{if(e.abandon!==true){if(e.sexe==="M")sexeCount.M++;else if(e.sexe==="F")sexeCount.F++;}});
+const classeCount={};tousEleves.forEach(e=>{if(e.abandon!==true){const key=e.classe||"Sans classe";classeCount[key]=(classeCount[key]||0)+1;}});
+const statutCount={actif:tousEleves.filter(e=>e.abandon!==true&&e.exonere!==true).length,exonere:tousEleves.filter(e=>e.exonere===true).length,abandon:tousEleves.filter(e=>e.abandon===true).length};
+html+=`<div class="chart-box"><h4>🧑‍🤝‍🧑 Répartition par sexe</h4><canvas id="chartSexe"></canvas></div><div class="chart-box"><h4>📚 Répartition par classe</h4><canvas id="chartClasse"></canvas></div><div class="chart-box full"><h4>📊 Statut des élèves</h4><canvas id="chartStatut"></canvas></div></div>`;
+container.innerHTML=html;
+setTimeout(()=>{
+if(document.getElementById("chartInscJours")){chartInstances.inscJours=new Chart(document.getElementById("chartInscJours"),{type:"bar",data:{labels:days7.map(d=>formatDateShort(d)),datasets:[{label:"Inscriptions",data:inscJours,backgroundColor:"#3b82f6",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});}
+if(document.getElementById("chartAbandonJours")){chartInstances.abandonJours=new Chart(document.getElementById("chartAbandonJours"),{type:"bar",data:{labels:days7.map(d=>formatDateShort(d)),datasets:[{label:"Abandons",data:abandonJours,backgroundColor:"#ef4444",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});}
+if(document.getElementById("chartInscSemaines")){chartInstances.inscSemaines=new Chart(document.getElementById("chartInscSemaines"),{type:"bar",data:{labels:weekLabels,datasets:[{label:"Inscriptions",data:inscSemaines,backgroundColor:"#10b981",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});}
+if(document.getElementById("chartAbandonSemaines")){chartInstances.abandonSemaines=new Chart(document.getElementById("chartAbandonSemaines"),{type:"bar",data:{labels:weekLabels,datasets:[{label:"Abandons",data:abandonSemaines,backgroundColor:"#f59e0b",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});}
+if(document.getElementById("chartSexe")){chartInstances.sexe=new Chart(document.getElementById("chartSexe"),{type:"doughnut",data:{labels:["Garçons","Filles"],datasets:[{data:[sexeCount.M,sexeCount.F],backgroundColor:["#3b82f6","#ec4899"]}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:"bottom"}}}});}
+if(document.getElementById("chartClasse")){const labels=Object.keys(classeCount);const data=Object.values(classeCount);chartInstances.classe=new Chart(document.getElementById("chartClasse"),{type:"bar",data:{labels,datasets:[{label:"Élèves",data,backgroundColor:"#a78bfa",borderRadius:4}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false}}}});}
+if(document.getElementById("chartStatut")){chartInstances.statut=new Chart(document.getElementById("chartStatut"),{type:"doughnut",data:{labels:["Actifs","Exonérés","Abandons"],datasets:[{data:[statutCount.actif,statutCount.exonere,statutCount.abandon],backgroundColor:["#3b82f6","#10b981","#ef4444"]}]},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{position:"bottom"}}}});}
+},200);}
+function renderEleves(){const container=document.getElementById("elevesContainer");const eleves=getFilteredEleves();let html=`<div class="section-card"><div class="filter-row"><div class="filter-group"><label>📚 Classe</label><select id="eleveFilterClasse"><option value="">Toutes</option>${[...new Set(tousEleves.map(e=>e.classe).filter(Boolean))].sort().map(c=>`<option value="${c}">${c}</option>`).join("")}</select></div><div class="filter-group"><label>🎯 Option</label><select id="eleveFilterOption"><option value="">Toutes</option>${[...new Set(tousEleves.map(e=>e.option).filter(Boolean))].sort().map(o=>`<option value="${o}">${o}</option>`).join("")}</select></div><div class="filter-group"><label>⚧ Sexe</label><select id="eleveFilterSexe"><option value="">Tous</option><option value="M">Garçon</option><option value="F">Fille</option></select></div><div class="filter-group"><label>📌 Statut</label><select id="eleveFilterStatut"><option value="">Tous</option><option value="actif">Actif</option><option value="abandon">Abandon</option><option value="exonere">Exonéré</option></select></div><div class="filter-group" style="flex:0.5;"><button class="btn btn-primary" id="applyEleveFilter" style="width:100%;">🔍 Filtrer</button></div></div>`;
+if(!eleves.length){html+=`<div class="empty-state">👥 Aucun élève</div>`;}else{html+=`<h3>👥 Élèves <span class="count">${eleves.length}</span></h3>`;for(const el of eleves){const statut=el.abandon?"❌ Abandon":(el.exonere?"🌟 Exonéré":"✅ Actif");const sexe=el.sexe==="F"?"👩":"👨";html+=`<div class="eleve-item"><div class="info"><span class="name">${sexe} ${el.nom||"?"} ${el.postnom||""} ${el.prenom||""}</span><span class="classe">📚 ${el.classe||""} ${el.option?"("+el.option+")":""}</span><span style="color:#8ba0c7;font-size:.7rem;">${el.ecoleNom||""}</span><span style="color:#94a3b8;font-size:.65rem;">📅 ${el.dateInscription||"-"}</span><span style="color:#3b82f6;font-family:monospace;font-size:.7rem;">🔑 ${el.parentCode||"-"}</span><span style="font-size:.6rem;padding:2px 10px;border-radius:20px;${el.abandon?"background:rgba(239,68,68,0.15);color:#ef4444":el.exonere?"background:rgba(16,185,129,0.15);color:#34d399":"background:rgba(59,130,246,0.15);color:#60a5fa"}">${statut}</span></div></div>`;}}html+=`</div>`;container.innerHTML=html;document.getElementById("applyEleveFilter").onclick=function(){currentEleveFilter.classe=document.getElementById("eleveFilterClasse").value;currentEleveFilter.option=document.getElementById("eleveFilterOption").value;currentEleveFilter.sexe=document.getElementById("eleveFilterSexe").value;currentEleveFilter.statut=document.getElementById("eleveFilterStatut").value;renderEleves();};}
+function renderLogs(){const container=document.getElementById("logsContainer");let logs=tousLogs;if(currentSchoolFilter!=="all")logs=logs.filter(l=>l.ecoleId===currentSchoolFilter);if(!logs.length){container.innerHTML='<div class="section-card"><h3>📊 Logs d\'activité</h3><div class="empty-state">📭 Aucun log</div></div>';return;}let html=`<div class="section-card"><h3>📊 Logs d'activité <span class="count">${logs.length}</span></h3>`;for(const log of logs){const actionMap={connexion_reussie:"🟢 Connexion",creation_fiche:"📄 Création fiche",modification_fiche:"✏️ Modification",suppression_fiche:"🗑️ Suppression",connexion:"🟢 Connexion",creation:"📄 Création",modification:"✏️ Modification",suppression:"🗑️ Suppression"};const actionLabel=actionMap[log.action]||log.action;const badgeClass=log.action==="suppression"||log.action==="suppression_fiche"?"error":(log.action==="connexion"||log.action==="connexion_reussie"?"success":(log.action==="modification"||log.action==="modification_fiche"?"warning":"info"));html+=`<div class="log-item"><div class="info"><span class="user">${log.utilisateur||"Inconnu"}</span><span class="action">${actionLabel}</span>${log.details?.cours?`<span class="detail">${log.details.cours} ${log.details.classe||""}</span>`:""}<span class="time">${formatDate(log.date)}</span></div><span class="badge-log ${badgeClass}">${log.action||"action"}</span></div>`;}if(logsHasMore){html+=`<button class="load-more-btn" id="loadMoreLogs">📥 Charger plus</button>`;}html+=`</div>`;container.innerHTML=html;document.getElementById("loadMoreLogs")?.addEventListener("click",loadMoreLogs);}
+async function loadMoreLogs(){if(logsLoading||!logsHasMore)return;logsLoading=true;const btn=document.getElementById("loadMoreLogs");if(btn)btn.textContent="⏳ Chargement...";try{let lastId=null;if(tousLogs.length>0)lastId=tousLogs[tousLogs.length-1].id;let allLogs=[];const schools=currentSchoolFilter==="all"?toutesEcoles:toutesEcoles.filter(e=>e.id===currentSchoolFilter);for(const e of schools){const l=await chargerLogs(e.id,lastId,logsLimit);l.forEach(log=>{log.ecoleId=e.id;});allLogs=allLogs.concat(l);}allLogs.sort((a,b)=>new Date(b.date)-new Date(a.date));if(allLogs.length<logsLimit){logsHasMore=false;}else{logsHasMore=true;}tousLogs=tousLogs.concat(allLogs);renderLogs();}catch(e){toast("Erreur chargement logs","error");}finally{logsLoading=false;}}
+function renderClassement(){const container=document.getElementById("classementContainer");const actionCount={};const ficheCount={};for(const log of tousLogs){const user=log.utilisateur;if(!user)continue;if(!actionCount[user])actionCount[user]=0;actionCount[user]++;if(log.action==="creation_fiche"||log.action==="creation"){if(!ficheCount[user])ficheCount[user]=0;ficheCount[user]++;}}const sorted=Object.keys(actionCount).sort((a,b)=>actionCount[b]-actionCount[a]).slice(0,10);if(!sorted.length){container.innerHTML='<div class="section-card"><h3>🏆 Classement</h3><div class="empty-state">Aucune activité enregistrée</div></div>';return;}let html=`<div class="section-card"><h3>🏆 Top 10 professeurs les plus actifs</h3>`;sorted.forEach((user,idx)=>{const pos=idx===0?"🥇":idx===1?"🥈":idx===2?"🥉":`${idx+1}.`;const posClass=idx===0?"gold":idx===1?"silver":idx===2?"bronze":"";html+=`<div class="rank-item"><span class="position ${posClass}">${pos}</span><span class="name">${user}</span><span class="actions">📊 ${actionCount[user]} actions</span><span class="fiches">📄 ${ficheCount[user]||0} fiches</span></div>`;});html+=`</div>`;container.innerHTML=html;}
+function renderPDF(){const container=document.getElementById("pdfContainer");const schools=getFilteredSchools();let html=`<div class="section-card"><h3>📄 Export effectif des élèves</h3><div style="margin-bottom:16px;"><button class="btn btn-primary" id="generatePdfBtn">📄 Générer le PDF</button></div><div id="pdfPreview" class="pdf-preview">`;
+if(!schools.length){html+=`<div class="empty-state">Aucune école</div>`;}else{let totalGlobal=0,fillesGlobal=0,garconsGlobal=0,exoneresGlobal=0,abandonsGlobal=0;for(const e of schools){const eleves=tousEleves.filter(el=>el.ecoleId===e.id);const actifs=eleves.filter(el=>el.abandon!==true);const filles=actifs.filter(el=>el.sexe==="F");const garcons=actifs.filter(el=>el.sexe==="M");const exoneres=actifs.filter(el=>el.exonere===true);const abandons=eleves.filter(el=>el.abandon===true);totalGlobal+=actifs.length;fillesGlobal+=filles.length;garconsGlobal+=garcons.length;exoneresGlobal+=exoneres.length;abandonsGlobal+=abandons.length;const classes={};actifs.forEach(el=>{const key=el.classe||"Sans classe";if(!classes[key])classes[key]={total:0,filles:0,garcons:0,exoneres:0};classes[key].total++;if(el.sexe==="F")classes[key].filles++;else classes[key].garcons++;if(el.exonere)classes[key].exoneres++;});html+=`<h4 style="color:#ffd700;margin:12px 0 8px 0;">🏫 ${e.nom||e.id}</h4><table><thead><tr><th>Classe</th><th>Option</th><th>Total</th><th>Filles</th><th>Garçons</th><th>Exonérés</th></tr></thead><tbody>`;const options={};actifs.forEach(el=>{const key=el.classe+"||"+el.option;if(!options[key])options[key]={classe:el.classe,option:el.option||"Sans",total:0,filles:0,garcons:0,exoneres:0};options[key].total++;if(el.sexe==="F")options[key].filles++;else options[key].garcons++;if(el.exonere)options[key].exoneres++;});Object.values(options).forEach(o=>{html+=`<tr><td>${o.classe}</td><td>${o.option}</td><td>${o.total}</td><td>${o.filles}</td><td>${o.garcons}</td><td>${o.exoneres}</td></tr>`;});html+=`<tr class="total-row"><td colspan="2"><strong>Total ${e.nom||e.id}</strong></td><td>${actifs.length}</td><td>${filles.length}</td><td>${garcons.length}</td><td>${exoneres.length}</td></tr></tbody></table>`;}html+=`<div style="margin-top:16px;padding:12px;background:rgba(255,215,0,0.05);border-radius:8px;border:1px solid rgba(255,215,0,0.1);"><strong style="color:#ffd700;">📊 Récapitulatif global</strong><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px;"><div>👥 Total: <strong style="color:#60a5fa;">${totalGlobal}</strong></div><div>👩 Filles: <strong style="color:#ec4899;">${fillesGlobal}</strong></div><div>👨 Garçons: <strong style="color:#3b82f6;">${garconsGlobal}</strong></div><div>🌟 Exonérés: <strong style="color:#10b981;">${exoneresGlobal}</strong></div><div>❌ Abandons: <strong style="color:#ef4444;">${abandonsGlobal}</strong></div></div></div>`;}html+=`</div></div>`;container.innerHTML=html;document.getElementById("generatePdfBtn")?.addEventListener("click",generatePDF);}
+function generatePDF(){toast("Génération du PDF...","warning");const{jsPDF}=window.jspdf;const doc=new jsPDF("p","mm","a4");const schools=getFilteredSchools();doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text("RAPPORT D'EFFECTIF DES ÉLÈVES",105,20,{align:"center"});doc.setFontSize(10);doc.setTextColor(200,200,200);doc.text(`Date: ${formatDate(new Date())}`,20,55);let y=65;let totalGlobal=0,fillesGlobal=0,garconsGlobal=0,exoneresGlobal=0,abandonsGlobal=0;for(const e of schools){const eleves=tousEleves.filter(el=>el.ecoleId===e.id);const actifs=eleves.filter(el=>el.abandon!==true);const filles=actifs.filter(el=>el.sexe==="F");const garcons=actifs.filter(el=>el.sexe==="M");const exoneres=actifs.filter(el=>el.exonere===true);const abandons=eleves.filter(el=>el.abandon===true);totalGlobal+=actifs.length;fillesGlobal+=filles.length;garconsGlobal+=garcons.length;exoneresGlobal+=exoneres.length;abandonsGlobal+=abandons.length;const options={};actifs.forEach(el=>{const key=el.classe+"||"+el.option;if(!options[key])options[key]={classe:el.classe,option:el.option||"Sans",total:0,filles:0,garcons:0,exoneres:0};options[key].total++;if(el.sexe==="F")options[key].filles++;else options[key].garcons++;if(el.exonere)options[key].exoneres++;});if(y>200){doc.addPage();y=20;}doc.setFontSize(12);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text(`🏫 ${e.nom||e.id}`,20,y);y+=6;const body=Object.values(options).map(o=>[o.classe,o.option,o.total,o.filles,o.garcons,o.exoneres]);body.push(["TOTAL","",actifs.length,filles.length,garcons.length,exoneres.length]);doc.autoTable({startY:y,head:[["Classe","Option","Total","Filles","Garçons","Exonérés"]],body:body,theme:"grid",styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[59,130,246],textColor:[255,255,255],fontStyle:"bold"},columnStyles:{0:{cellWidth:35},1:{cellWidth:30},2:{cellWidth:20,halign:"center"},3:{cellWidth:20,halign:"center"},4:{cellWidth:20,halign:"center"},5:{cellWidth:25,halign:"center"}}});y=doc.lastAutoTable.finalY+8;}doc.addPage();doc.setFillColor(15,23,42);doc.rect(0,0,210,45,"F");doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(255,215,0);doc.text("RÉCAPITULATIF GLOBAL",105,20,{align:"center"});doc.setFontSize(10);doc.setFont("helvetica","normal");doc.setTextColor(200,200,200);doc.text(`👥 Total élèves: ${totalGlobal}`,20,55);doc.text(`👩 Filles: ${fillesGlobal}`,20,62);doc.text(`👨 Garçons: ${garconsGlobal}`,20,69);doc.text(`🌟 Exonérés: ${exoneresGlobal}`,20,76);doc.text(`❌ Abandons: ${abandonsGlobal}`,20,83);doc.save(`Effectif_eleves_${todayStr()}.pdf`);toast("PDF généré avec succès","success");}
+function renderCorbeille(){const container=document.getElementById("corbeilleContainer");let corbeille=toutesCorbeille;if(currentSchoolFilter!=="all")corbeille=corbeille.filter(c=>c.ecoleId===currentSchoolFilter);if(!corbeille.length){container.innerHTML='<div class="section-card"><h3>🗑️ Corbeille</h3><div class="empty-state">📭 Aucune fiche supprimée</div></div>';return;}let html=`<div class="section-card"><h3>🗑️ Corbeille <span class="count">${corbeille.length}</span></h3>`;for(const c of corbeille){const expires=c.dateExpiration?formatDateShort(c.dateExpiration):"N/A";html+=`<div class="corbeille-item"><div class="info"><span class="cours">${c.cours||"Sans cours"}</span><span class="classe">${c.classe||""}</span><span style="color:#8ba0c7;font-size:.75rem;">${c.ecoleNom||""}</span><span class="date">🗑️ ${c.dateSuppression?formatDateShort(c.dateSuppression):"-"}</span><span class="date">⏳ Expire: ${expires}</span></div><div class="actions"><button class="btn btn-success btn-sm" onclick="window.restaurerFiche('${c.id}','${c.ecoleId}')">↩️ Restaurer</button><button class="btn btn-danger btn-sm" onclick="window.supprimerFicheDef('${c.id}','${c.ecoleId}')">🗑️ Définitif</button></div></div>`;}html+=`</div>`;container.innerHTML=html;}
+window.restaurerFiche=async function(id,ecoleId){if(!await showConfirm("Restaurer la fiche ?","Cette action remettra la fiche dans les fiches actives."))return;try{const ref=doc(db,`${ecoleId}_corbeille`,id);const snap=await getDoc(ref);if(!snap.exists()){toast("Fiche non trouvée","error");return;}const data=snap.data();await setDoc(doc(db,`${ecoleId}_fiches`,id),data);await deleteDoc(ref);toutesCorbeille=toutesCorbeille.filter(c=>c.id!==id);const f=await chargerFiches(ecoleId);f.forEach(f=>{f.ecoleNom=toutesEcoles.find(e=>e.id===ecoleId)?.nom||ecoleId;});toutesFiches=toutesFiches.concat(f);renderCorbeille();renderFiches();toast("Fiche restaurée avec succès","success");}catch(e){toast("Erreur lors de la restauration","error");}};
+window.supprimerFicheDef=function(id,ecoleId){showConfirm("Suppression définitive","⚠️ Cette action est irréversible. La fiche sera définitivement supprimée.",async()=>{try{await deleteDoc(doc(db,`${ecoleId}_corbeille`,id));toutesCorbeille=toutesCorbeille.filter(c=>c.id!==id);renderCorbeille();toast("Fiche supprimée définitivement","success");}catch(e){toast("Erreur lors de la suppression","error");}});};
+function renderFocus(){const container=document.getElementById("focusContainer");if(focusActive){focusListeners.forEach(unsub=>unsub());focusListeners=[];focusActive=false;if(voiceActive){window.speechSynthesis.cancel();voiceActive=false;}}
+let html=`<div style="padding:20px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h2 style="color:#ffd700;">🎯 Inscriptions en temps réel</h2><button class="btn btn-primary" id="focusFullscreen">⛶ Plein écran</button></div><div class="focus-grid" id="focusGrid"></div><div class="focus-total"><div class="total-nb" id="focusTotalGlobal">0</div><div class="total-label">📊 Total des inscriptions</div></div></div>`;
+container.innerHTML=html;
+focusActive=true;
+const grid=document.getElementById("focusGrid");
+const totalEl=document.getElementById("focusTotalGlobal");
+let totalGlobal=0;
+const schoolCounts={};
+const todayCounts={};
+const schoolMap={};
+toutesEcoles.forEach(e=>{schoolMap[e.id]=e.nom||e.id;schoolCounts[e.id]=0;todayCounts[e.id]=0;});
+const schools=currentSchoolFilter==="all"?toutesEcoles:toutesEcoles.filter(e=>e.id===currentSchoolFilter);
+schools.forEach(e=>{const card=document.createElement("div");card.className="focus-card";card.id=`focus-${e.id}`;card.innerHTML=`<div class="ecole-name">🏫 ${e.nom||e.id}</div><div class="total" id="focusTotal-${e.id}">0</div><div class="total-label">inscrits</div><div class="today" id="focusToday-${e.id}">⬆️ +0</div><div class="today-label">aujourd'hui</div>`;grid.appendChild(card);});
+const initCounts=async()=>{for(const e of schools){const eleves=tousEleves.filter(el=>el.ecoleId===e.id);const actifs=eleves.filter(el=>el.abandon!==true);const today=eleves.filter(el=>el.dateInscription===todayStr()&&el.abandon!==true);schoolCounts[e.id]=actifs.length;todayCounts[e.id]=today.length;totalGlobal+=actifs.length;updateFocusCard(e.id);}totalEl.textContent=totalGlobal;};
+const updateFocusCard=(schoolId)=>{const totalEl=document.getElementById(`focusTotal-${schoolId}`);const todayEl=document.getElementById(`focusToday-${schoolId}`);if(totalEl)totalEl.textContent=schoolCounts[schoolId]||0;if(todayEl)todayEl.textContent=`⬆️ +${todayCounts[schoolId]||0}`;const card=document.getElementById(`focus-${schoolId}`);if(card)card.classList.add("flash");setTimeout(()=>{if(card)card.classList.remove("flash");},500);};
+schools.forEach(e=>{const unsub=onSnapshot(collection(db,`${e.id}_compta_eleves`),(snap)=>{if(!focusActive)return;const oldCount=schoolCounts[e.id]||0;let newCount=0,newToday=0;snap.forEach(ds=>{const d=ds.data();if(d._type==="compta_eleve"&&d.abandon!==true){newCount++;if(d.dateInscription===todayStr())newToday++;}});if(newCount>oldCount&&voiceActive){const diff=newCount-oldCount;const msg=`Nouvelle inscription à l'école ${e.nom||e.id}. Total : ${newCount} inscrits.`;window.speechSynthesis.cancel();const utterance=new SpeechSynthesisUtterance(msg);utterance.lang="fr-FR";utterance.rate=0.8;window.speechSynthesis.speak(utterance);}
+schoolCounts[e.id]=newCount;todayCounts[e.id]=newToday;let newTotal=0;Object.values(schoolCounts).forEach(v=>newTotal+=v);totalGlobal=newTotal;totalEl.textContent=totalGlobal;updateFocusCard(e.id);},(error)=>{});focusListeners.push(unsub);});
+initCounts();
+voiceActive=true;
+document.getElementById("focusFullscreen")?.addEventListener("click",()=>{if(document.fullscreenElement){document.exitFullscreen();}else{document.documentElement.requestFullscreen();}});
+setTimeout(()=>{const msg=`Mode focus activé. ${schools.length} écoles en surveillance.`;const utterance=new SpeechSynthesisUtterance(msg);utterance.lang="fr-FR";utterance.rate=0.8;window.speechSynthesis.speak(utterance);},500);}
+function setupTabs(){document.querySelectorAll(".tab").forEach(tab=>{tab.addEventListener("click",function(){document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));this.classList.add("active");const target=this.dataset.tab;document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active"));const container=document.getElementById(target+"Container");if(container)container.classList.add("active");if(target==="dashboard")renderDashboard();if(target==="eleves")renderEleves();if(target==="logs")renderLogs();if(target==="classement")renderClassement();if(target==="pdf")renderPDF();if(target==="corbeille")renderCorbeille();if(target==="focus"){if(focusActive){focusListeners.forEach(unsub=>unsub());focusListeners=[];focusActive=false;if(voiceActive){window.speechSynthesis.cancel();voiceActive=false;}}renderFocus();}if(target==="ecoles")renderEcoles();if(target==="profs")renderProfs();if(target==="fiches")renderFiches();});});}
+function setupSchoolFilter(){document.getElementById("schoolFilter").addEventListener("change",function(){currentSchoolFilter=this.value;renderEcoles();renderFiches();renderLogs();renderPDF();renderCorbeille();if(document.getElementById("focusContainer").classList.contains("active")){if(focusActive){focusListeners.forEach(unsub=>unsub());focusListeners=[];focusActive=false;if(voiceActive){window.speechSynthesis.cancel();voiceActive=false;}}renderFocus();}});}
+async function initSchoolSelect(){const select=document.getElementById("schoolFilter");select.innerHTML='<option value="all">🌍 Toutes les écoles</option>';toutesEcoles.forEach(e=>{select.innerHTML+=`<option value="${e.id}">🏫 ${e.nom||e.id}</option>`;});}
+window.suppEcole=function(id){const e=toutesEcoles.find(e=>e.id===id);showConfirm("Supprimer",`⚠️ <strong>${e?.nom||id}</strong><br><br>Action irréversible !`,()=>supprimerEcole(id));};
+window.suppProf=function(e,id,n){showConfirm("Supprimer",`⚠️ <strong>${n}</strong><br><br>Action irréversible !`,()=>supprimerProf(e,id,n));};
+window.toutSupprimer=function(){showConfirm("RÉINITIALISATION",`⚠️ <strong>IRRÉVERSIBLE</strong><br><br>${toutesEcoles.length} écoles<br>${tousProfs.length} professeurs<br>${toutesFiches.length} fiches`,async()=>{try{for(const e of toutesEcoles){const f=await getDocs(collection(db,`${e.id}_fiches`));for(const d of f.docs){await deleteDoc(d.ref);}const p=await getDocs(collection(db,`${e.id}_professeurs`));for(const d of p.docs){await deleteDoc(d.ref);}try{await deleteDoc(doc(db,"ecoles_autorisees",e.id));}catch(e){}}toast("Tout supprimé","success");await rafraichir();}catch(e){toast(`Erreur: ${e.message}`,"error");}});};
+async function supprimerEcole(id){try{const f=await getDocs(collection(db,`${id}_fiches`));for(const d of f.docs){await deleteDoc(d.ref);}const p=await getDocs(collection(db,`${id}_professeurs`));for(const d of p.docs){await deleteDoc(d.ref);}try{await deleteDoc(doc(db,"ecoles_autorisees",id));}catch(e){}toast("École supprimée","success");await rafraichir();}catch(e){toast(`Erreur: ${e.message}`,"error");}}
+async function supprimerProf(e,id,n){try{await deleteDoc(doc(db,`${e}_professeurs`,id));toast(`${n} supprimé`,"success");await rafraichir();}catch(e){toast(`Erreur: ${e.message}`,"error");}}
+async function rafraichir(){await chargerEcoles();await initSchoolSelect();const {total,abandons,exoneres,today}=await chargerTout();updateStats(total,abandons,exoneres,today);renderEcoles();renderProfs();renderFiches();if(document.getElementById("dashboardContainer").classList.contains("active"))renderDashboard();if(document.getElementById("elevesContainer").classList.contains("active"))renderEleves();if(document.getElementById("logsContainer").classList.contains("active"))renderLogs();if(document.getElementById("classementContainer").classList.contains("active"))renderClassement();if(document.getElementById("pdfContainer").classList.contains("active"))renderPDF();if(document.getElementById("corbeilleContainer").classList.contains("active"))renderCorbeille();if(document.getElementById("focusContainer").classList.contains("active")){if(focusActive){focusListeners.forEach(unsub=>unsub());focusListeners=[];focusActive=false;if(voiceActive){window.speechSynthesis.cancel();voiceActive=false;}}renderFocus();}toast("Données actualisées","info");}
+(async function init(){try{await chargerEcoles();await initSchoolSelect();const {total,abandons,exoneres,today}=await chargerTout();updateStats(total,abandons,exoneres,today);renderEcoles();renderProfs();renderFiches();setupTabs();setupSchoolFilter();toast("Données chargées","success");}catch(e){document.getElementById("ecolesContainer").innerHTML=`<div class="empty-state" style="color:#ef4444;">❌ Erreur: ${e.message}<br><button class="btn btn-primary" onclick="window.rafraichir()" style="margin-top:12px;">🔄 Réessayer</button></div>`;toast("Erreur de chargement","error");}})();
+window.rafraichir=rafraichir;
 </script>
 </body>
 </html>
