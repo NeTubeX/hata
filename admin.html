@@ -687,6 +687,7 @@ text-align:center;
 <div class="nav-items">
 <button class="nav-item active" data-tab="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span class="nav-label">Dashboard</span></button>
 <button class="nav-item" data-tab="ecoles"><svg viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12 12 0 0 1 0 6.844L12 21l-6.16-3.422a12 12 0 0 1 0-6.844L12 14z"/></svg><span class="nav-label">Schools</span></button>
+<button class="nav-item" data-tab="inactive_schools"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><span class="nav-label">Inactive Schools</span></button>
 <button class="nav-item" data-tab="members"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nav-label">Active Members</span></button>
 <button class="nav-item" data-tab="profs"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5.3 18.3C6.8 16.5 9.2 15 12 15s5.2 1.5 6.7 3.3"/></svg><span class="nav-label">Teachers</span></button>
 <button class="nav-item" data-tab="fiches"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="nav-label">Sheets</span></button>
@@ -732,6 +733,7 @@ text-align:center;
 <div class="tabs-container" id="tabContainer">
 <button class="tab-btn active" data-tab="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> Dashboard</button>
 <button class="tab-btn" data-tab="ecoles"><svg viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z"/></svg> Schools</button>
+<button class="tab-btn" data-tab="inactive_schools"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Inactive Schools</button>
 <button class="tab-btn" data-tab="members"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Active Members</button>
 <button class="tab-btn" data-tab="profs"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5.3 18.3C6.8 16.5 9.2 15 12 15s5.2 1.5 6.7 3.3"/></svg> Teachers</button>
 <button class="tab-btn" data-tab="fiches"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Sheets</button>
@@ -743,6 +745,7 @@ text-align:center;
 </div>
 <div id="dashboardContainer" class="tab-content active"></div>
 <div id="ecolesContainer" class="tab-content"></div>
+<div id="inactive_schoolsContainer" class="tab-content"></div>
 <div id="membersContainer" class="tab-content"></div>
 <div id="profsContainer" class="tab-content"></div>
 <div id="fichesContainer" class="tab-content"></div>
@@ -877,23 +880,27 @@ function getFloryReadMessages() { try { return JSON.parse(localStorage.getItem(R
 function saveFloryReadMessages(list) { localStorage.setItem(READ_STATUS_KEY, JSON.stringify(list)); }
 function isFloryMessageRead(id) { return getFloryReadMessages().includes(id); }
 
-// ✅ Read ONLY from ecoles_autorisees - ALL active schools (even without students)
-async function getAllSchools() {
+// Read ALL schools from ecoles_autorisees (both active and inactive)
+async function getAllSchoolsFromFirebase() {
 const schoolsRef = collection(db, "ecoles_autorisees");
 const snap = await getDocs(schoolsRef);
 const schools = [];
 for (const docSnap of snap.docs) {
 const id = docSnap.id;
 const data = docSnap.data();
-if (data.actif !== false) {
 schools.push({
 id,
 nom: data.nom || id.replace(/_/g, ' '),
 actif: data.actif !== false
 });
 }
-}
 return schools;
+}
+
+// Get only active schools
+async function getActiveSchools() {
+const all = await getAllSchoolsFromFirebase();
+return all.filter(s => s.actif !== false);
 }
 
 async function loadSchoolStats(schoolId) {
@@ -925,7 +932,7 @@ return { total, garcons, filles, abandons, exoneres, reguliers, listenoir, eleve
 
 async function chargerEcoles() {
 try {
-const schools = await getAllSchools();
+const schools = await getActiveSchools();
 toutesEcoles = schools;
 return toutesEcoles;
 } catch(e) { toast("Error loading schools", "error"); return []; }
@@ -1063,18 +1070,81 @@ if (currentSchoolFilter === "all") return toutesEcoles;
 return toutesEcoles.filter(e => e.id === currentSchoolFilter);
 }
 
-// ✅ Percentage = (Active students in school / Total active students) × 100
+// ========== INACTIVE SCHOOLS ==========
+async function renderInactiveSchools() {
+const container = document.getElementById("inactive_schoolsContainer");
+try {
+const allSchools = await getAllSchoolsFromFirebase();
+const inactive = allSchools.filter(s => s.actif === false);
+if (inactive.length === 0) {
+container.innerHTML = '<div class="empty-state"><span class="empty-icon">✅</span>No inactive schools found</div>';
+return;
+}
+let html = `
+<div class="card">
+<div class="card-header">
+<h3>⛔ Inactive Schools <span class="count">${inactive.length}</span></h3>
+<div class="actions">
+<button class="btn green sm" id="reactivateAllBtn">▶️ Reactivate All</button>
+<button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button>
+</div>
+</div>
+<div class="table-wrapper">
+<table class="excel-table">
+<thead>
+<tr>
+<th>#</th>
+<th>School Name</th>
+<th>🆔 Firebase ID</th>
+<th>Status</th>
+<th class="col-center">Actions</th>
+</tr>
+</thead>
+<tbody>`;
+inactive.forEach((s, idx) => {
+html += `<tr>
+<td>${idx + 1}</td>
+<td><strong>${escapeHtml(s.nom || s.id)}</strong></td>
+<td><span class="id-cell">${escapeHtml(s.id)}</span></td>
+<td><span class="badge-table inactive">🔴 Inactive</span></td>
+<td class="col-center">
+<button class="btn-icon-table success" onclick="window.reactiverEcole('${s.id}','${escapeHtml(s.nom || s.id)}')" title="Reactivate">▶️</button>
+<button class="btn-icon-table danger" onclick="window.supprimerEcole('${s.id}','${escapeHtml(s.nom || s.id)}')" title="Delete Permanently">🗑️</button>
+</td>
+</tr>`;
+});
+html += `</tbody></table></div></div>`;
+container.innerHTML = html;
+document.getElementById("reactivateAllBtn")?.addEventListener("click", async () => {
+if (await showConfirm("Reactivate All", "Reactivate all inactive schools?")) {
+let count = 0;
+for (const s of inactive) {
+try {
+await reactiverEcole(s.id, s.nom || s.id);
+count++;
+} catch(e) {}
+}
+toast(`✅ ${count} school(s) reactivated`, 'success');
+renderInactiveSchools();
+renderEcoles();
+rafraichir();
+}
+});
+} catch(e) {
+container.innerHTML = `<div class="error">❌ Error: ${e.message}</div>`;
+}
+}
+
+// ========== SCHOOL COMPARISON BARS ==========
 function renderSchoolComparisonBars() {
 const container = document.getElementById("dashboardContainer");
-
-// Total active students (excluding dropouts)
-const totalActifs = tousEleves.filter(el => el.abandon !== true).length;
+const grandTotal = tousEleves.length;
 
 const schoolStats = toutesEcoles.map(e => {
 const total = tousEleves.filter(el => el.ecoleId === e.id).length;
 const actifs = tousEleves.filter(el => el.ecoleId === e.id && el.abandon !== true).length;
 const inactifs = total - actifs;
-const pourcentage = totalActifs > 0 ? Math.round((actifs / totalActifs) * 100) : 0;
+const pourcentage = grandTotal > 0 ? Math.round((total / grandTotal) * 100) : 0;
 
 return {
 id: e.id,
@@ -1088,16 +1158,16 @@ pourcentage >= 15 ? '#F59E0B' :
 '#EF4444'
 };
 });
-schoolStats.sort((a, b) => b.actifs - a.actifs);
-const maxActifs = schoolStats.length > 0 ? Math.max(...schoolStats.map(s => s.actifs)) : 1;
+schoolStats.sort((a, b) => b.total - a.total);
+const maxTotal = schoolStats.length > 0 ? Math.max(...schoolStats.map(s => s.total)) : 1;
 
 let html = `
 <div class="card" style="margin-top:16px;">
 <div class="card-header">
-<h3>📊 School Distribution (Active Students - Excluding Dropouts)</h3>
+<h3>📊 School Distribution (Percentage of Total Students)</h3>
 <div class="actions">
 <span style="font-size:12px;color:var(--text-muted);">
-${schoolStats.length} schools · ${totalActifs} active students
+${schoolStats.length} schools · ${grandTotal} total students
 </span>
 </div>
 </div>
@@ -1107,7 +1177,7 @@ if (schoolStats.length === 0) {
 html += `<div class="empty-state"><span class="empty-icon">📊</span>No schools available</div>`;
 } else {
 schoolStats.forEach((school, index) => {
-const barWidth = maxActifs > 0 ? Math.round((school.actifs / maxActifs) * 100) : 0;
+const barWidth = maxTotal > 0 ? Math.round((school.total / maxTotal) * 100) : 0;
 
 html += `
 <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:10px 14px;border-left:4px solid ${school.couleur};transition:all 0.2s;cursor:pointer;"
@@ -1120,14 +1190,14 @@ onclick="window.showSchoolEleves('${school.id}')">
 🏫 ${school.nom}
 </div>
 <div style="font-size:11px;color:var(--text-muted);">
-📚 ${school.total} total · ✅ ${school.actifs} active
-${school.inactifs > 0 ? `· ⚠️ ${school.inactifs} dropouts` : ''}
+📚 ${school.total} students · ✅ ${school.actifs} active
+${school.inactifs > 0 ? `· ⚠️ ${school.inactifs} inactive` : ''}
 </div>
 </div>
 </div>
 <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
 <span style="font-size:14px;font-weight:700;color:${school.couleur};min-width:50px;text-align:right;">${school.pourcentage}%</span>
-<span style="font-size:11px;color:var(--text-muted);min-width:60px;text-align:right;">${school.actifs} active</span>
+<span style="font-size:11px;color:var(--text-muted);min-width:60px;text-align:right;">${school.total} students</span>
 </div>
 </div>
 <div style="margin-top:6px;width:100%;height:8px;background:rgba(255,255,255,0.06);border-radius:20px;overflow:hidden;position:relative;">
@@ -1136,9 +1206,8 @@ ${school.inactifs > 0 ? `· ⚠️ ${school.inactifs} dropouts` : ''}
 </div>
 </div>
 <div style="display:flex;gap:16px;margin-top:4px;font-size:10px;color:var(--text-muted);">
-<span>📊 <span style="color:${school.couleur};font-weight:600;">${school.pourcentage}%</span> of active</span>
-<span>👥 ${school.actifs} active students</span>
-${school.inactifs > 0 ? `<span>⛔ ${school.inactifs} dropouts</span>` : ''}
+<span>📊 <span style="color:${school.couleur};font-weight:600;">${school.pourcentage}%</span> of total</span>
+<span>👥 ${school.total} students</span>
 </div>
 </div>
 `;
@@ -1398,18 +1467,30 @@ container.innerHTML = html;
 window.supprimerProfesseur = supprimerProfesseur;
 }
 
-function renderFiches() {
+function renderSheets() {
 const container = document.getElementById("fichesContainer");
 let fiches = currentSchoolFilter === "all" ? toutesFiches : toutesFiches.filter(f => f.ecoleId === currentSchoolFilter);
 if (!fiches.length) {
 container.innerHTML = '<div class="empty-state"><span class="empty-icon">📄</span>No sheets found</div>';
 return;
 }
+// Group sheets by teacher
+const fichesParProf = {};
+fiches.forEach(f => {
+const profKey = f.titulaire || 'No Teacher';
+if (!fichesParProf[profKey]) fichesParProf[profKey] = [];
+fichesParProf[profKey].push(f);
+});
 let html = `
 <div class="card">
 <div class="card-header">
-<h3>📄 Sheets <span class="count">${fiches.length}</span></h3>
+<h3>📄 Sheets by Teacher <span class="count">${fiches.length}</span></h3>
 <div class="actions"><button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button></div>
+</div>`;
+for (const [prof, sheets] of Object.entries(fichesParProf)) {
+html += `
+<div style="padding:10px 16px;background:rgba(59,130,246,0.05);border-bottom:1px solid var(--border-color);">
+<h4 style="color:var(--gold);font-size:14px;">👨‍🏫 ${escapeHtml(prof)} <span style="font-size:11px;color:var(--text-muted);">(${sheets.length} sheet${sheets.length > 1 ? 's' : ''})</span></h4>
 </div>
 <div class="table-wrapper">
 <table class="excel-table">
@@ -1426,7 +1507,7 @@ let html = `
 </tr>
 </thead>
 <tbody>`;
-fiches.forEach((f, idx) => {
+sheets.forEach((f, idx) => {
 const nb = f.eleves ? f.eleves.length : 0;
 html += `<tr>
 <td>${idx + 1}</td>
@@ -1441,7 +1522,9 @@ html += `<tr>
 </td>
 </tr>`;
 });
-html += `</tbody></table></div></div>`;
+html += `</tbody></table></div>`;
+}
+html += `</div>`;
 container.innerHTML = html;
 window.supprimerFiche = supprimerFiche;
 }
@@ -1933,6 +2016,7 @@ toast(`✅ ${ecoleNom} reactivated successfully`, 'success');
 await rafraichir();
 renderSettings();
 renderEcoles();
+renderInactiveSchools();
 } catch(e) {
 toast("❌ Error: " + e.message, "error");
 }
@@ -1974,14 +2058,13 @@ try { await deleteDoc(doc.ref); totalDeleted++; } catch(e) {}
 }
 } catch(e) {}
 }
-// Delete from "ecoles"
 try { await deleteDoc(doc(db, "ecoles", ecoleId)); totalDeleted++; } catch(e) {}
-// Delete from "ecoles_autorisees" too
 try { await deleteDoc(doc(db, "ecoles_autorisees", ecoleId)); totalDeleted++; } catch(e) {}
 toast(`✅ ${ecoleNom} deleted (${totalDeleted} documents removed)`, 'success');
 await rafraichir();
 renderSettings();
 renderEcoles();
+renderInactiveSchools();
 } catch(e) {
 toast("❌ Error: " + e.message, "error");
 }
@@ -2031,8 +2114,9 @@ else if (target === "logs") renderLogs();
 else if (target === "audit") renderAudit();
 else if (target === "flory") renderFlory();
 else if (target === "ecoles") renderEcoles();
+else if (target === "inactive_schools") renderInactiveSchools();
 else if (target === "profs") renderProfs();
-else if (target === "fiches") renderFiches();
+else if (target === "fiches") renderSheets();
 else if (target === "parental") renderParental();
 else if (target === "settings") renderSettings();
 document.getElementById("breadcrumb").textContent = this.textContent.trim();
@@ -2046,13 +2130,14 @@ document.getElementById("schoolFilter").addEventListener("change", function() {
 currentSchoolFilter = this.value;
 renderEcoles();
 renderProfs();
-renderFiches();
+renderSheets();
 renderLogs();
 renderAudit();
 renderMembers();
 renderParental();
 if (document.getElementById("dashboardContainer").classList.contains("active")) renderDashboard();
 if (document.getElementById("floryContainer").classList.contains("active")) renderFlory();
+if (document.getElementById("inactive_schoolsContainer").classList.contains("active")) renderInactiveSchools();
 });
 }
 
@@ -2074,7 +2159,7 @@ updateStats(total, garcons, filles, abandons, exoneres, reguliers, listenoir);
 auditList = await chargerAuditLogs();
 renderEcoles();
 renderProfs();
-renderFiches();
+renderSheets();
 renderMembers();
 renderLogs();
 renderAudit();
@@ -2082,6 +2167,7 @@ renderParental();
 if (document.getElementById("dashboardContainer").classList.contains("active")) renderDashboard();
 if (document.getElementById("floryContainer").classList.contains("active")) renderFlory();
 if (document.getElementById("settingsContainer").classList.contains("active")) renderSettings();
+if (document.getElementById("inactive_schoolsContainer").classList.contains("active")) renderInactiveSchools();
 btn.innerHTML = '✅ Synced';
 setTimeout(() => { btn.innerHTML = originalHtml; btn.disabled = false; }, 1000);
 toast("Data refreshed", "info");
@@ -2101,7 +2187,7 @@ currentSchoolFilter = schoolId;
 renderMembers();
 renderEcoles();
 renderProfs();
-renderFiches();
+renderSheets();
 renderLogs();
 renderAudit();
 renderParental();
@@ -2183,7 +2269,7 @@ listenToFlory();
 renderDashboard();
 renderEcoles();
 renderProfs();
-renderFiches();
+renderSheets();
 renderMembers();
 renderLogs();
 renderAudit();
