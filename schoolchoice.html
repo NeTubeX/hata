@@ -136,25 +136,7 @@ if (isPWA) {
     }
 }
 
-async function synchroniserEcole(prefixe, data) {
-    try {
-        const ecoleRef = doc(db, ECOLES, prefixe);
-        const ecoleSnap = await getDoc(ecoleRef);
-        if (!ecoleSnap.exists()) {
-            await setDoc(ecoleRef, {
-                ...data,
-                prefixe: prefixe,
-                synchroniseLe: new Date().toISOString(),
-                _source: "ecoles_autorisees"
-            });
-            return true;
-        }
-        return false;
-    } catch(e) {
-        console.error(e);
-        return false;
-    }
-}
+// ✅ SUPPRIMÉ : plus de synchronisation automatique qui recrée les écoles
 
 async function chargerEcoles() {
     const container = document.getElementById('schoolsList');
@@ -172,12 +154,21 @@ async function chargerEcoles() {
             const ecole = docSnap.data();
             const prefixe = docSnap.id;
             const estActif = ecole.actif !== false;
-            await synchroniserEcole(prefixe, ecole);
+            
+            // ✅ NE PAS synchroniser automatiquement
+            // await synchroniserEcole(prefixe, ecole);
+            
+            // ✅ Ne montrer que les écoles actives
+            if (!estActif) {
+                inactive++;
+                continue;
+            }
+            
             total++;
-            if (estActif) active++;
-            else inactive++;
+            active++;
             index++;
-            const statusHtml = estActif ? '<span class="school-status status-active">● Actif</span>' : '<span class="school-status status-inactive">⛔ Inactif</span>';
+            
+            const statusHtml = '<span class="school-status status-active">● Actif</span>';
             const nomSafe = (ecole.nom || prefixe || '').replace(/[&<>]/g, m => { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; });
             const villeSafe = (ecole.ville || '').replace(/[&<>]/g, m => { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; });
             cardsData.push({
@@ -220,7 +211,7 @@ async function chargerEcoles() {
 function renderCards(cards) {
     const container = document.getElementById('schoolsList');
     if (cards.length === 0) {
-        container.innerHTML = '<div class="no-result">🔍 Aucun établissement ne correspond à votre recherche</div>';
+        container.innerHTML = '<div class="no-result">🔍 Aucun établissement disponible</div>';
         return;
     }
     container.innerHTML = cards.map(c => c.html).join('');
