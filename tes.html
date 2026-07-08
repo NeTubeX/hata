@@ -196,6 +196,12 @@ html,body{background:var(--bg-primary);font-family:'Inter',-apple-system,BlinkMa
 .code-result-item .code-value{font-family:monospace;font-size:1rem;font-weight:700;color:var(--green);letter-spacing:1px}
 .code-result-item .code-value .code-lock{color:var(--text-muted);margin-right:4px}
 .code-search-info{font-size:0.7rem;color:var(--text-muted);margin-top:4px;text-align:center}
+.code-ecole-filter{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.code-ecole-filter select{background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text-primary);font-size:0.75rem;cursor:pointer;outline:none;min-width:180px;transition:0.2s}
+.code-ecole-filter select:focus{border-color:var(--blue)}
+.code-ecole-filter label{font-size:0.7rem;color:var(--text-secondary);font-weight:600}
+.code-stats{display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:0.75rem;color:var(--text-muted)}
+.code-stats span strong{color:var(--text-primary)}
 .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(12px);z-index:9000;align-items:center;justify-content:center;animation:fadeSlide 0.3s}
 .modal-overlay.show{display:flex}
 .modal-content{background:var(--bg-card);border-radius:var(--radius);width:92%;max-width:520px;padding:24px 28px;border:1px solid var(--border-color);box-shadow:0 24px 64px rgba(0,0,0,0.6);animation:fadeSlide 0.3s;max-height:90vh;overflow-y:auto}
@@ -439,11 +445,23 @@ html,body{background:var(--bg-primary);font-family:'Inter',-apple-system,BlinkMa
       </div>
     </div>
     <div class="card-body">
+      <!-- SÉLECTEUR D'ÉCOLE AJOUTÉ -->
+      <div class="code-ecole-filter">
+        <label>🏫 Sélectionner une école :</label>
+        <select id="codeEcoleSelect">
+          <option value="">-- Chargement des écoles --</option>
+        </select>
+        <span style="font-size:0.7rem;color:var(--text-muted);" id="codeEcoleInfo">Sélectionnez une école pour charger les codes</span>
+      </div>
+      <div class="code-stats" id="codeStats">
+        <span>📊 Total codes : <strong id="codeTotalCount">0</strong></span>
+        <span>🔍 Résultats : <strong id="codeResultCount">0</strong></span>
+      </div>
       <div class="code-search-container">
         <input type="text" id="codeSearchInput" class="search-input" placeholder="🔍 Tapez les premières lettres du nom de l'élève..." autocomplete="off">
         <div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;">💡 La recherche s'effectue en temps réel dès la première lettre</div>
         <div id="codeResultsContainer" class="code-results">
-          <div class="empty-state"><span class="empty-icon">🔑</span>Commencez à taper un nom</div>
+          <div class="empty-state"><span class="empty-icon">🏫</span>Sélectionnez une école pour charger les codes</div>
         </div>
         <div id="codeSearchInfo" class="code-search-info"></div>
       </div>
@@ -530,6 +548,7 @@ let chartInstances = {};
 let editingPrefixe = null, debounceTimer = null, generationEnCours = false;
 let currentConnexionPage = 1;
 const connexionPageSize = 10;
+let currentEcoleId = '';
 
 // ============ TOASTS EN FILE D'ATTENTE ============
 let toastQueue = [];
@@ -1158,7 +1177,6 @@ async function chargerConnexions() {
         const s = await getDocs(collection(db, `${ecoleId}_logs`));
         s.forEach(ds => {
           const data = ds.data();
-          // Ne garder que les connexions et déconnexions
           if (data.action === "connexion" || data.action === "deconnexion") {
             allConnexions.push({
               id: ds.id,
@@ -1174,7 +1192,6 @@ async function chargerConnexions() {
         });
       } catch(e) {}
     }
-    // Associer les connexions/déconnexions par session
     const sessions = {};
     allConnexions.sort((a, b) => new Date(a.date) - new Date(b.date));
     allConnexions.forEach(log => {
@@ -1182,10 +1199,8 @@ async function chargerConnexions() {
         sessions[log.utilisateurId + "_" + log.date] = { ...log, fin: null };
       }
     });
-    // Trouver les déconnexions correspondantes
     allConnexions.forEach(log => {
       if (log.action === "deconnexion") {
-        // Chercher la connexion la plus proche avant cette déconnexion
         let bestMatch = null;
         let bestDiff = Infinity;
         for (const key in sessions) {
@@ -1203,7 +1218,6 @@ async function chargerConnexions() {
         }
       }
     });
-    // Garder uniquement les connexions
     allConnexions = Object.values(sessions).filter(s => s && s.id);
     allConnexions.sort((a, b) => new Date(b.date) - new Date(a.date));
     updateConnexionStats();
@@ -1217,7 +1231,6 @@ function updateConnexionStats() {
   const mobiles = allConnexions.filter(c => c.details?.type === "mobile" || c.details?.appareil?.type === "mobile").length;
   const pcs = allConnexions.filter(c => c.details?.type === "ordinateur" || c.details?.appareil?.type === "ordinateur").length;
   
-  // Navigateur le plus utilisé
   const browsers = {};
   allConnexions.forEach(c => {
     const b = c.details?.navigateur || c.details?.appareil?.navigateur || "Inconnu";
@@ -1229,7 +1242,6 @@ function updateConnexionStats() {
     if (count > topBrowserCount) { topBrowserCount = count; topBrowser = b; }
   }
   
-  // Ville la plus fréquente
   const cities = {};
   allConnexions.forEach(c => {
     const city = c.details?.ville || c.details?.reseau?.ville || "Inconnue";
@@ -1442,34 +1454,53 @@ async function deleteAllConnexions() {
 // ============ CODES PARENTS ============
 let allElevesWithCodes = [];
 
-async function chargerCodesParents() {
+async function chargerCodesParents(ecoleId) {
+  if (!ecoleId) {
+    document.getElementById('codeResultsContainer').innerHTML = '<div class="empty-state"><span class="empty-icon">🏫</span>Sélectionnez une école</div>';
+    document.getElementById('codeTotalCount').textContent = '0';
+    document.getElementById('codeResultCount').textContent = '0';
+    document.getElementById('codeSearchInfo').textContent = '';
+    return;
+  }
+  
   try {
-    allElevesWithCodes = [];
-    const snap = await getDocs(collection(db, "ecoles_autorisees"));
-    for (const docEcole of snap.docs) {
-      const ecoleId = docEcole.id;
-      const ecoleNom = docEcole.data().nom || ecoleId.toUpperCase().replace(/-/g, ' ');
-      try {
-        const s = await getDocs(collection(db, `${ecoleId}_compta_eleves`));
-        s.forEach(ds => {
-          const data = ds.data();
-          if (data.parentCode && data.parentCode.length >= 6) {
-            allElevesWithCodes.push({
-              ecole: ecoleId,
-              ecoleNom: ecoleNom,
-              eleveId: ds.id,
-              nom: data.nom || '',
-              prenom: data.prenom || '',
-              parentCode: data.parentCode,
-              classe: data.classe || '',
-              option: data.option || ''
-            });
-          }
+    document.getElementById('codeResultsContainer').innerHTML = '<div class="loading" style="text-align:center;padding:20px;color:#94a3b8;">⏳ Chargement des codes...</div>';
+    
+    const snapshot = await getDocs(collection(db, "ecoles", ecoleId, "compta_eleves"));
+    allCodesParents = [];
+    
+    snapshot.forEach(ds => {
+      const data = ds.data();
+      if (data.parentCode && data.parentCode.length >= 6) {
+        allCodesParents.push({
+          id: ds.id,
+          ecole: ecoleId,
+          nom: data.nom || '',
+          prenom: data.prenom || '',
+          parentCode: data.parentCode,
+          classe: data.classe || '',
+          option: data.option || ''
         });
-      } catch(e) {}
+      }
+    });
+    
+    document.getElementById('codeTotalCount').textContent = allCodesParents.length;
+    document.getElementById('codeResultCount').textContent = allCodesParents.length;
+    document.getElementById('codeSearchInfo').textContent = `📊 ${allCodesParents.length} codes parents chargés`;
+    
+    if (allCodesParents.length === 0) {
+      document.getElementById('codeResultsContainer').innerHTML = '<div class="empty-state"><span class="empty-icon">📭</span>Aucun code parent trouvé pour cette école</div>';
+    } else {
+      document.getElementById('codeResultsContainer').innerHTML = `<div class="loading" style="text-align:center;padding:12px;color:#94a3b8;">🔍 ${allCodesParents.length} codes disponibles. Tapez les premières lettres du nom.</div>`;
     }
-    document.getElementById('codeSearchInfo').textContent = `📊 ${allElevesWithCodes.length} codes parents chargés`;
-  } catch(e) { toast("Erreur chargement codes parents", "error"); }
+    
+    toast(`✅ ${allCodesParents.length} codes parents chargés pour ${ecoleId}`, 'success');
+    return allCodesParents;
+  } catch (err) {
+    document.getElementById('codeResultsContainer').innerHTML = `<div class="empty-state"><span class="empty-icon">❌</span>Erreur: ${err.message}</div>`;
+    toast('Erreur chargement codes: ' + err.message, 'error');
+    return [];
+  }
 }
 
 function rechercherCodesParents(term) {
@@ -1477,35 +1508,42 @@ function rechercherCodesParents(term) {
   const info = document.getElementById('codeSearchInfo');
   const searchTerm = term.toLowerCase().trim();
   
-  if (!searchTerm || searchTerm.length === 0) {
-    container.innerHTML = `<div class="empty-state"><span class="empty-icon">🔑</span>Commencez à taper un nom</div>`;
-    info.textContent = `📊 ${allElevesWithCodes.length} codes parents disponibles`;
+  if (!allCodesParents.length) {
+    container.innerHTML = `<div class="empty-state"><span class="empty-icon">📭</span>Aucun code parent chargé</div>`;
     return;
   }
-
-  const results = allElevesWithCodes.filter(e => {
+  
+  if (!searchTerm || searchTerm.length === 0) {
+    container.innerHTML = `<div class="loading" style="text-align:center;padding:12px;color:#94a3b8;">🔍 ${allCodesParents.length} codes disponibles. Tapez les premières lettres du nom.</div>`;
+    document.getElementById('codeResultCount').textContent = allCodesParents.length;
+    info.textContent = `📊 ${allCodesParents.length} codes parents disponibles`;
+    return;
+  }
+  
+  const results = allCodesParents.filter(e => {
     const nomComplet = `${e.nom} ${e.prenom}`.toLowerCase();
     return nomComplet.includes(searchTerm);
   });
-
+  
+  document.getElementById('codeResultCount').textContent = results.length;
+  
   if (results.length === 0) {
     container.innerHTML = `<div class="empty-state"><span class="empty-icon">🔍</span>Aucun élève trouvé pour "${escapeHtml(term)}"</div>`;
-    info.textContent = `📊 ${allElevesWithCodes.length} codes parents • Aucun résultat`;
+    info.textContent = `📊 ${allCodesParents.length} codes parents • Aucun résultat pour "${escapeHtml(term)}"`;
     return;
   }
-
-  let html = '';
+  
+  let html = `<div style="font-size:11px;color:#94a3b8;padding:4px 8px;">${results.length} résultat(s) trouvé(s)</div>`;
   results.slice(0, 50).forEach(e => {
+    const nomComplet = `${e.nom} ${e.prenom}`.trim() || 'Inconnu';
     html += `<div class="code-result-item">
-      <span class="code-ecole"><span class="ecole-icon">🏫</span> ${escapeHtml(e.ecoleNom)}</span>
+      <span class="code-ecole"><span class="ecole-icon">👤</span> ${escapeHtml(nomComplet)} <span style="color:#64748b;font-size:11px;">${escapeHtml(e.classe)}</span></span>
       <span class="code-value"><span class="code-lock">🔑</span> ${escapeHtml(e.parentCode)}</span>
     </div>`;
   });
-
-  const total = results.length;
-  const displayed = Math.min(total, 50);
+  
   container.innerHTML = html;
-  info.textContent = `📊 ${allElevesWithCodes.length} codes parents • ${total} résultat(s) trouvé(s)${total > 50 ? ` (affichage des ${displayed} premiers)` : ''}`;
+  info.textContent = `📊 ${allCodesParents.length} codes parents • ${results.length} résultat(s) trouvé(s)`;
 }
 
 // ============ TABS ============
@@ -1522,7 +1560,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     if (tabId === "support") displaySupportMessages();
     if (tabId === "parental") chargerParental();
     if (tabId === "connexions") { if (!allConnexions.length) chargerConnexions(); else displayConnexions(); }
-    if (tabId === "codes") { if (!allElevesWithCodes.length) chargerCodesParents(); }
+    if (tabId === "codes") { if (!allElevesWithCodes.length) chargerCodesParents(currentEcoleId); }
   });
 });
 
@@ -1533,7 +1571,16 @@ document.getElementById("refreshStatsBtn")?.addEventListener("click", () => { ch
 document.getElementById("refreshEcolesBtn")?.addEventListener("click", () => { loadEcolesList(); toast("Écoles rafraîchies", "success"); });
 document.getElementById("refreshParentalBtn")?.addEventListener("click", () => { chargerParental(); toast("Messages parentaux rafraîchis", "success"); });
 document.getElementById("refreshConnexionsBtn")?.addEventListener("click", () => { chargerConnexions(); toast("Connexions rafraîchies", "success"); });
-document.getElementById("refreshCodesBtn")?.addEventListener("click", () => { chargerCodesParents(); toast("Codes parents rafraîchis", "success"); });
+document.getElementById("refreshCodesBtn")?.addEventListener("click", async function() {
+  if (currentEcoleId) {
+    await chargerCodesParents(currentEcoleId);
+    document.getElementById('codeSearchInput').value = '';
+    rechercherCodesParents('');
+    toast('Codes parents rafraîchis', 'success');
+  } else {
+    toast('Veuillez sélectionner une école', 'warning');
+  }
+});
 document.getElementById("showAddEcoleBtn")?.addEventListener("click", () => { resetEcoleForm(); document.getElementById('addEcoleCard').style.display = 'block'; });
 document.getElementById("saveEcoleBtn")?.addEventListener("click", saveEcole);
 document.getElementById("cancelEcoleBtn")?.addEventListener("click", resetEcoleForm);
@@ -1550,11 +1597,34 @@ document.getElementById("connexionDeviceFilter")?.addEventListener("change", () 
 document.getElementById("connexionBrowserFilter")?.addEventListener("change", () => { currentConnexionPage = 1; displayConnexions(); });
 document.getElementById("deleteAllParentalBtn")?.addEventListener("click", deleteAllParentalMessages);
 document.getElementById("deleteAllConnexionsBtn")?.addEventListener("click", deleteAllConnexions);
-document.getElementById("codeSearchInput")?.addEventListener("input", (e) => { rechercherCodesParents(e.target.value); });
+
+// ============ SÉLECTEUR D'ÉCOLE POUR CODES PARENTS ============
+document.getElementById('codeEcoleSelect').addEventListener('change', async function() {
+  const ecoleId = this.value;
+  currentEcoleId = ecoleId;
+  if (ecoleId) {
+    document.getElementById('codeEcoleInfo').textContent = `📚 Chargement des codes pour ${ecoleId}...`;
+    await chargerCodesParents(ecoleId);
+    document.getElementById('codeSearchInput').value = '';
+    rechercherCodesParents('');
+    document.getElementById('codeEcoleInfo').textContent = `✅ ${allCodesParents.length} codes chargés pour ${ecoleId}`;
+  } else {
+    document.getElementById('codeResultsContainer').innerHTML = '<div class="empty-state"><span class="empty-icon">🏫</span>Sélectionnez une école</div>';
+    document.getElementById('codeTotalCount').textContent = '0';
+    document.getElementById('codeResultCount').textContent = '0';
+    document.getElementById('codeSearchInfo').textContent = '';
+    document.getElementById('codeEcoleInfo').textContent = 'Sélectionnez une école pour charger les codes';
+  }
+});
+
+// ============ RECHERCHE CODES PARENTS ============
+document.getElementById('codeSearchInput').addEventListener('input', function() {
+  rechercherCodesParents(this.value);
+});
+
 document.getElementById("logoutBtn")?.addEventListener("click", () => { if (confirm("Voulez-vous vous déconnecter ?")) { toast("Déconnexion", "info"); } });
 
 // ============ RÉCUPÉRATION DES INFOS DE CONNEXION POUR LE PROFESSEUR ============
-// Cette fonction est appelée depuis le code professeur lors de la connexion
 window.enregistrerConnexionTechnique = async function(prof) {
   try {
     const ua = navigator.userAgent;
@@ -1652,8 +1722,28 @@ async function initApp() {
     await chargerEcolesPourFiltre();
     await chargerParental();
     await chargerConnexions();
-    await chargerCodesParents();
     await chargerStats();
+    
+    // Charger les écoles dans le sélecteur de codes parents
+    const snap = await getDocs(collection(db, "ecoles_autorisees"));
+    const select = document.getElementById('codeEcoleSelect');
+    select.innerHTML = '<option value="">-- Sélectionner une école --</option>';
+    allEcoles.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = (e.nom || e.id).toUpperCase().replace(/-/g, ' ');
+      select.appendChild(opt);
+    });
+    
+    // Charger la première école par défaut
+    if (allEcoles.length > 0) {
+      const firstEcole = allEcoles[0].id;
+      select.value = firstEcole;
+      currentEcoleId = firstEcole;
+      await chargerCodesParents(firstEcole);
+      document.getElementById('codeEcoleInfo').textContent = `✅ ${allCodesParents.length} codes chargés pour ${firstEcole}`;
+    }
+    
     toast("🚀 Dashboard prêt", "success");
   } catch(e) { console.error(e); toast("Erreur d'initialisation", "error"); }
 }
