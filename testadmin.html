@@ -334,6 +334,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 <button class="nav-item" data-tab="audit"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="nav-label">Audit</span></button>
 <button class="nav-item" data-tab="flory"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="nav-label">Communication</span></button>
 <button class="nav-item" data-tab="parental"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nav-label">Parental</span></button>
+<button class="nav-item" data-tab="moisblancs"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg><span class="nav-label">❄️ Mois Blancs</span></button>
 <button class="nav-item" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg><span class="nav-label">Settings</span></button>
 </div>
 <div class="sidebar-bottom">
@@ -384,6 +385,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 <button class="tab-btn" data-tab="audit"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Audit</button>
 <button class="tab-btn" data-tab="flory"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Communication</button>
 <button class="tab-btn" data-tab="parental"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Parental</button>
+<button class="tab-btn" data-tab="moisblancs"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> ❄️ Mois Blancs</button>
 <button class="tab-btn" data-tab="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> Settings</button>
 </div>
 <div id="dashboardContainer" class="tab-content active"></div>
@@ -397,6 +399,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 <div id="auditContainer" class="tab-content"></div>
 <div id="floryContainer" class="tab-content"></div>
 <div id="parentalContainer" class="tab-content"></div>
+<div id="moisblancsContainer" class="tab-content"></div>
 <div id="settingsContainer" class="tab-content"></div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
@@ -1741,6 +1744,215 @@ resultDiv.innerHTML = html;
 };
 }
 
+function renderMoisBlancs() {
+const container = document.getElementById("moisblancsContainer");
+if(!container) return;
+
+const ecoleFilter = document.getElementById('mbEcoleFilter')?.value || 'all';
+const searchEleve = document.getElementById('mbSearchEleve')?.value?.toLowerCase() || '';
+const moisFilter = document.getElementById('mbMoisFilter')?.value || 'all';
+
+container.innerHTML = `
+<div class="card">
+<div class="card-header">
+<h3>❄️ Gestion des Mois Blancs <span class="count" id="mbCount">0</span></h3>
+<div class="actions">
+<button class="btn primary sm" onclick="rafraichirMoisBlancs()">🔄 Rafraîchir</button>
+</div>
+</div>
+<div class="filter-row" style="padding:0 0 16px 0;border-bottom:1px solid var(--border-color);margin-bottom:16px;">
+<div class="filter-group">
+<label>🏫 École</label>
+<select id="mbEcoleFilter">
+<option value="all">Toutes</option>
+</select>
+</div>
+<div class="filter-group">
+<label>👤 Élève</label>
+<input type="text" id="mbSearchEleve" placeholder="Nom de l'élève..." style="width:100%;">
+</div>
+<div class="filter-group">
+<label>📅 Mois</label>
+<select id="mbMoisFilter">
+<option value="all">Tous</option>
+<option value="Septembre">Septembre</option>
+<option value="Octobre">Octobre</option>
+<option value="Novembre">Novembre</option>
+<option value="Decembre">Décembre</option>
+<option value="Janvier">Janvier</option>
+<option value="Fevrier">Février</option>
+<option value="Mars">Mars</option>
+<option value="Avril">Avril</option>
+<option value="Mai">Mai</option>
+<option value="Juin">Juin</option>
+</select>
+</div>
+<div class="filter-group" style="flex:0.5;">
+<button class="btn primary" id="mbApplyFilter" style="width:100%;">🔍 Filtrer</button>
+</div>
+</div>
+<div id="moisBlancsList" class="table-wrapper">
+<div class="loading">⏳ Chargement...</div>
+</div>
+</div>
+`;
+
+// Remplir le filtre écoles
+const ecoleSelect = document.getElementById('mbEcoleFilter');
+if(ecoleSelect) {
+ecoleSelect.innerHTML = '<option value="all">🌍 Toutes</option>';
+toutesEcoles.forEach(e => {
+ecoleSelect.innerHTML += `<option value="${e.id}">🏫 ${e.nom || e.id}</option>`;
+});
+}
+
+// Événements
+document.getElementById('mbApplyFilter')?.addEventListener('click', chargerMoisBlancsListe);
+document.getElementById('mbSearchEleve')?.addEventListener('input', chargerMoisBlancsListe);
+document.getElementById('mbMoisFilter')?.addEventListener('change', chargerMoisBlancsListe);
+
+chargerMoisBlancsListe();
+}
+
+async function chargerMoisBlancsListe() {
+const container = document.getElementById('moisBlancsList');
+if (!container) return;
+
+const ecoleFilter = document.getElementById('mbEcoleFilter')?.value || 'all';
+const searchEleve = document.getElementById('mbSearchEleve')?.value?.toLowerCase() || '';
+const moisFilter = document.getElementById('mbMoisFilter')?.value || 'all';
+
+container.innerHTML = '<div class="loading">⏳ Chargement...</div>';
+
+try {
+const resultats = [];
+const ecoles = ecoleFilter === 'all' ? toutesEcoles : toutesEcoles.filter(e => e.id === ecoleFilter);
+
+for (const ecole of ecoles) {
+try {
+const snap = await getDocs(query(
+collection(db, "ecoles", ecole.id, "compta_eleves"),
+where("_type", "==", "compta_eleve")
+));
+
+snap.forEach(ds => {
+const data = ds.data();
+const moisBlancs = data.moisBlancs || [];
+if (moisBlancs.length === 0) return;
+
+moisBlancs.forEach(mois => {
+if (moisFilter !== 'all' && mois !== moisFilter) return;
+const nomComplet = `${data.nom || ''} ${data.prenom || ''}`.toLowerCase();
+if (searchEleve && !nomComplet.includes(searchEleve)) return;
+
+resultats.push({
+eleveId: data.eleveId,
+nom: data.nom || 'Inconnu',
+prenom: data.prenom || '',
+classe: data.classe || '',
+option: data.option || '',
+ecoleId: ecole.id,
+ecoleNom: ecole.nom || ecole.id,
+mois: mois,
+dateInscription: data.dateInscription || 'Non renseignée'
+});
+});
+});
+} catch(e) { console.warn("Erreur chargement école:", e.id); }
+}
+
+const countEl = document.getElementById('mbCount');
+if(countEl) countEl.textContent = resultats.length;
+
+if (resultats.length === 0) {
+container.innerHTML = '<div class="empty-state">❄️ Aucun mois blanc enregistré</div>';
+return;
+}
+
+let html = `
+<table>
+<thead>
+<tr>
+<th>Élève</th>
+<th>Classe</th>
+<th>École</th>
+<th>Mois</th>
+<th>Date inscription</th>
+<th style="text-align:center;">Action</th>
+</tr>
+</thead>
+<tbody>
+`;
+
+resultats.sort((a, b) => {
+const dateA = new Date(a.dateInscription || 0);
+const dateB = new Date(b.dateInscription || 0);
+return dateB - dateA;
+});
+
+resultats.forEach(r => {
+const nomComplet = `${r.nom} ${r.prenom}`.trim();
+html += `
+<tr>
+<td><strong>${escapeHtml(nomComplet)}</strong></td>
+<td>${escapeHtml(r.classe)}${r.option ? ' ('+escapeHtml(r.option)+')' : ''}</td>
+<td>${escapeHtml(r.ecoleNom)}</td>
+<td><span style="color:#60a5fa;font-weight:600;">❄️ ${escapeHtml(r.mois)}</span></td>
+<td style="font-size:12px;color:#94a3b8;">${escapeHtml(r.dateInscription)}</td>
+<td style="text-align:center;">
+<button class="btn-icon-table danger" onclick="window.retirerMoisBlancAdmin('${r.ecoleId}','${r.eleveId}','${r.mois}','${escapeHtml(nomComplet)}')" title="Retirer le mois blanc">
+✕ Retirer
+</button>
+</td>
+</tr>
+`;
+});
+
+html += '</tbody></table>';
+container.innerHTML = html;
+
+} catch(e) {
+container.innerHTML = `<div class="error">❌ Erreur: ${e.message}</div>`;
+}
+}
+
+window.retirerMoisBlancAdmin = async function(ecoleId, eleveId, mois, nomEleve) {
+const message = `
+<div style="text-align:left;color:var(--text-secondary);">
+<p style="margin-bottom:8px;">❄️ Retirer le mois blanc pour <strong style="color:#ffd700;">${nomEleve}</strong> ?</p>
+<p style="font-size:13px;color:var(--text-muted);">Mois : <strong style="color:#60a5fa;">${mois}</strong></p>
+<p style="font-size:13px;color:var(--text-muted);">École : <strong>${ecoleId}</strong></p>
+<p style="margin-top:8px;color:var(--orange);font-size:13px;">⚠️ L'élève devra payer ce mois si c'était une erreur.</p>
+</div>
+`;
+
+showCodeModal("🔑 Access Required", "Enter the access code to remove this blanc month.", async (success) => {
+if (!success) { toast("❌ Access denied", "error"); return; }
+if (!await showConfirm('❄️ Retirer le mois blanc', message)) return;
+
+try {
+const docId = `compta_${eleveId}`;
+const ref = doc(db, "ecoles", ecoleId, "compta_eleves", docId);
+const snap = await getDoc(ref);
+if (!snap.exists()) { toast("Élève non trouvé", "error"); return; }
+
+const data = snap.data();
+let moisBlancs = data.moisBlancs || [];
+moisBlancs = moisBlancs.filter(m => m !== mois);
+
+await updateDoc(ref, { moisBlancs: moisBlancs });
+
+toast(`✅ Mois blanc ${mois} retiré pour ${nomEleve}`, 'success');
+chargerMoisBlancsListe();
+
+} catch(e) {
+toast("❌ Erreur: " + e.message, "error");
+}
+});
+};
+
+window.rafraichirMoisBlancs = chargerMoisBlancsListe;
+
 function renderSettings() {
 const container = document.getElementById("settingsContainer");
 if(!container) return;
@@ -2052,6 +2264,7 @@ else if (target === "profs") renderProfs();
 else if (target === "fiches") renderSheetsRealtime();
 else if (target === "doublons") renderDoublons();
 else if (target === "parental") renderParental();
+else if (target === "moisblancs") renderMoisBlancs();
 else if (target === "settings") renderSettings();
 const breadcrumb = document.getElementById("breadcrumb");
 const pageTitle = document.getElementById("pageTitle");
@@ -2075,6 +2288,7 @@ if (document.getElementById("dashboardContainer")?.classList.contains("active"))
 if (document.getElementById("floryContainer")?.classList.contains("active")) renderFlory();
 if (document.getElementById("inactive_schoolsContainer")?.classList.contains("active")) renderInactiveSchools();
 if (document.getElementById("doublonsContainer")?.classList.contains("active")) renderDoublons();
+if (document.getElementById("moisblancsContainer")?.classList.contains("active")) renderMoisBlancs();
 });
 }
 
@@ -2108,6 +2322,7 @@ if (document.getElementById("floryContainer")?.classList.contains("active")) ren
 if (document.getElementById("settingsContainer")?.classList.contains("active")) renderSettings();
 if (document.getElementById("inactive_schoolsContainer")?.classList.contains("active")) renderInactiveSchools();
 if (document.getElementById("doublonsContainer")?.classList.contains("active")) renderDoublons();
+if (document.getElementById("moisblancsContainer")?.classList.contains("active")) renderMoisBlancs();
 const fCount = document.getElementById('ficheCount');
 const fCountTab = document.getElementById('ficheCountTab');
 if(fCount) fCount.textContent = toutesFiches.length;
@@ -2225,6 +2440,7 @@ renderMembers();
 renderLogs();
 renderAudit();
 renderParental();
+renderMoisBlancs();
 renderSettings();
 setupTabs();
 setupSchoolFilter();
