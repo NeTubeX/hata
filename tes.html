@@ -1173,7 +1173,7 @@ async function loadEcolesList() {
         <td>${escapeHtml(e.telephone || '-')}</td>
         <td>${escapeHtml(e.directeur || '-')}</td>
         <td>
-          <button class="btn btn-sm btn-gold" onclick="window.regeneratePdf('${e.prefixe}')" style="font-size:0.65rem;padding:2px 10px;">📄 PDF</button>
+          <button class="btn btn-sm btn-gold" onclick="regeneratePdf('${e.prefixe}')" style="font-size:0.65rem;padding:2px 10px;">📄 PDF</button>
         </td>
       </tr>`;
     }
@@ -1184,14 +1184,24 @@ async function loadEcolesList() {
   }
 }
 
+// FONCTION CORRIGÉE POUR LE PDF - RENDUE GLOBALE
 window.regeneratePdf = async function(prefixe) {
   try {
+    toast("📄 Génération du PDF en cours...", "info");
+    
+    // Vérifier que jsPDF est bien chargé
+    if (typeof window.jspdf === 'undefined') {
+      toast("❌ La bibliothèque PDF n'est pas chargée. Veuillez rafraîchir la page.", "error");
+      return;
+    }
+    
     const docRef = doc(db, "ecoles_autorisees", prefixe);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) {
-      toast("École non trouvée", "error");
+      toast("❌ École non trouvée dans la base de données", "error");
       return;
     }
+    
     const e = docSnap.data();
     const pdfData = {
       etablissement: e.nom || "Non renseigné",
@@ -1203,21 +1213,22 @@ window.regeneratePdf = async function(prefixe) {
       date_enregistrement: new Date().toLocaleDateString('fr-FR')
     };
     
+    // Utilisation correcte de jsPDF
+    const { jsPDF } = window.jspdf;
     const doc = genererLettrePDF(pdfData);
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Lettre_confirmation_${prefixe}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast("📄 PDF régénéré avec succès", "success");
+    
+    // Téléchargement du PDF
+    doc.save(`Lettre_confirmation_${prefixe}.pdf`);
+    toast("📄 PDF généré et téléchargé avec succès", "success");
+    
   } catch(err) {
-    toast("❌ Erreur: " + err.message, "error");
+    console.error("Erreur PDF:", err);
+    toast("❌ Erreur lors de la génération du PDF: " + err.message, "error");
   }
 };
+
+// Créer un alias pour la fonction (sécurité)
+const regeneratePdf = window.regeneratePdf;
 
 document.getElementById('ecoleNom').addEventListener('input', function() {
   clearTimeout(debounceTimer);
@@ -1311,6 +1322,7 @@ document.getElementById('previewPdfBtn').addEventListener('click', function() {
   };
   
   try {
+    const { jsPDF } = window.jspdf;
     const doc = genererLettrePDF(pdfData);
     const pdfBlob = doc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
@@ -1346,6 +1358,7 @@ document.getElementById('downloadPdfBtn').addEventListener('click', function() {
   };
   
   try {
+    const { jsPDF } = window.jspdf;
     const doc = genererLettrePDF(pdfData);
     doc.save(`Lettre_confirmation_${prefixe}.pdf`);
     toast("📄 PDF téléchargé avec succès", "success");
