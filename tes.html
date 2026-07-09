@@ -593,7 +593,6 @@ let currentEcoleId = '';
 let toastQueue = [];
 let isToastShowing = false;
 
-// ===== TOAST =====
 function toast(message, type = "success") {
   toastQueue.push({ message, type });
   if (!isToastShowing) processToastQueue();
@@ -669,7 +668,7 @@ function normaliserNom(nom) {
   return nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 }
 
-// ===== EXTRACT DEVICE INFO =====
+// ===== EXTRACT DEVICE INFO - VERSION DU TEST A 100% =====
 function extractDeviceInfo(ua) {
   if (!ua) ua = navigator.userAgent || "";
   
@@ -680,11 +679,13 @@ function extractDeviceInfo(ua) {
   let navigateur = "Inconnu";
   let version = "Inconnue";
 
+  // Type
   if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|Windows Phone/i.test(ua)) {
     type = "Mobile";
     if (/iPad|Tablet/i.test(ua)) type = "Tablette";
   }
 
+  // Marque
   if (/Samsung/i.test(ua)) marque = "Samsung";
   else if (/iPhone|iPad|iPod|Apple/i.test(ua)) marque = "Apple";
   else if (/Xiaomi|Redmi/i.test(ua)) marque = "Xiaomi";
@@ -695,9 +696,10 @@ function extractDeviceInfo(ua) {
   else if (/Lenovo/i.test(ua)) marque = "Lenovo";
   else if (/Sony/i.test(ua)) marque = "Sony";
   else if (/Windows/i.test(ua) && !/Mobile/i.test(ua)) marque = "PC Windows";
-  else if (/Macintosh/i.test(ua)) marque = "Mac";
+  else if (/Macintosh|Mac OS X/i.test(ua)) marque = "Mac";
   else if (/Linux/i.test(ua) && !/Android/i.test(ua)) marque = "Linux";
 
+  // Modèle
   const modelMatch = ua.match(/Model\/([^;]+)/i) || ua.match(/; ([^;]+) Build/i) || ua.match(/iPhone\d+,\d+/i);
   if (modelMatch) modele = modelMatch[1] || modelMatch[0];
   else if (/Samsung/i.test(ua)) {
@@ -705,171 +707,211 @@ function extractDeviceInfo(ua) {
     if (sMatch) modele = sMatch[0];
   }
 
+  // OS
   if (/Android/i.test(ua)) {
     const osMatch = ua.match(/Android ([0-9.]+)/i);
     os = "Android " + (osMatch ? osMatch[1] : "?");
-  } else if (/iOS|iPhone|iPad|iPod/i.test(ua)) {
+  } else if (/iPhone|iPad|iPod/i.test(ua)) {
     const osMatch = ua.match(/OS ([0-9_]+)/i);
     os = "iOS " + (osMatch ? osMatch[1].replace(/_/g, '.') : "?");
   } else if (/Windows NT 10.0/i.test(ua)) os = "Windows 10";
   else if (/Windows NT 6.3/i.test(ua)) os = "Windows 8.1";
   else if (/Windows NT 6.2/i.test(ua)) os = "Windows 8";
   else if (/Windows NT 6.1/i.test(ua)) os = "Windows 7";
+  else if (/Windows NT 6.0/i.test(ua)) os = "Windows Vista";
+  else if (/Windows NT 5.1/i.test(ua)) os = "Windows XP";
   else if (/Mac OS X/i.test(ua)) {
     const osMatch = ua.match(/Mac OS X ([0-9_]+)/i);
     os = "macOS " + (osMatch ? osMatch[1].replace(/_/g, '.') : "?");
   } else if (/Linux/i.test(ua) && !/Android/i.test(ua)) os = "Linux";
   else if (/CrOS/i.test(ua)) os = "Chrome OS";
 
-  if (/Edg\//i.test(ua)) {
-    const match = ua.match(/Edg\/([0-9.]+)/i);
+  // ===== NAVIGATEUR - ORDRE CORRIGÉ POUR iPHONE =====
+  const uaLower = ua.toLowerCase();
+  
+  // 1. Edge (le plus spécifique)
+  if (uaLower.includes("edg/") || uaLower.includes("edge/")) {
+    const match = ua.match(/Edg\/([0-9.]+)/i) || ua.match(/Edge\/([0-9.]+)/i);
     navigateur = "Edge";
     version = match ? match[1] : "?";
-  } else if (/OPR\//i.test(ua) || /Opera\//i.test(ua)) {
+  }
+  // 2. Opera
+  else if (uaLower.includes("opr/") || uaLower.includes("opera")) {
     const match = ua.match(/OPR\/([0-9.]+)/i) || ua.match(/Opera\/([0-9.]+)/i);
     navigateur = "Opera";
     version = match ? match[1] : "?";
-  } else if (/Firefox\//i.test(ua)) {
-    const match = ua.match(/Firefox\/([0-9.]+)/i);
-    navigateur = "Firefox";
+  }
+  // 3. Brave
+  else if (uaLower.includes("brave/")) {
+    const match = ua.match(/Brave\/([0-9.]+)/i);
+    navigateur = "Brave";
     version = match ? match[1] : "?";
-  } else if (/Chrome\//i.test(ua) && !/Edg|OPR|Opera/i.test(ua)) {
-    const match = ua.match(/Chrome\/([0-9.]+)/i);
+  }
+  // 4. Vivaldi
+  else if (uaLower.includes("vivaldi/")) {
+    const match = ua.match(/Vivaldi\/([0-9.]+)/i);
+    navigateur = "Vivaldi";
+    version = match ? match[1] : "?";
+  }
+  // 5. Chrome sur iPhone (CriOS) ou Android
+  else if (uaLower.includes("crios/") || (uaLower.includes("chrome/") && !uaLower.includes("edg") && !uaLower.includes("opr") && !uaLower.includes("brave") && !uaLower.includes("vivaldi"))) {
+    const match = ua.match(/CriOS\/([0-9.]+)/i) || ua.match(/Chrome\/([0-9.]+)/i);
     navigateur = "Chrome";
     version = match ? match[1] : "?";
-  } else if (/Safari\//i.test(ua) && !/Chrome|Edg|OPR|Opera/i.test(ua)) {
+  }
+  // 6. Firefox sur iPhone (FxiOS) ou Android
+  else if (uaLower.includes("fxios/") || (uaLower.includes("firefox/") && !uaLower.includes("seamonkey"))) {
+    const match = ua.match(/FxiOS\/([0-9.]+)/i) || ua.match(/Firefox\/([0-9.]+)/i);
+    navigateur = "Firefox";
+    version = match ? match[1] : "?";
+  }
+  // 7. Samsung Internet
+  else if (uaLower.includes("samsungbrowser/")) {
+    const match = ua.match(/SamsungBrowser\/([0-9.]+)/i);
+    navigateur = "Samsung Internet";
+    version = match ? match[1] : "?";
+  }
+  // 8. UC Browser
+  else if (uaLower.includes("ucbrowser/")) {
+    const match = ua.match(/UCBrowser\/([0-9.]+)/i);
+    navigateur = "UC Browser";
+    version = match ? match[1] : "?";
+  }
+  // 9. Safari (seulement si aucun autre navigateur détecté)
+  else if (uaLower.includes("safari/") && !uaLower.includes("chrome") && !uaLower.includes("edg") && !uaLower.includes("opr") && !uaLower.includes("brave") && !uaLower.includes("vivaldi") && !uaLower.includes("crios") && !uaLower.includes("fxios")) {
     const match = ua.match(/Version\/([0-9.]+)/i);
     navigateur = "Safari";
     version = match ? match[1] : "?";
+  }
+  // 10. Internet Explorer
+  else if (uaLower.includes("msie") || uaLower.includes("trident/")) {
+    navigateur = "Internet Explorer";
+    version = "?";
+  }
+  // 11. Fallback
+  else {
+    if (/Chrome/i.test(ua)) navigateur = "Chrome";
+    else if (/Firefox/i.test(ua)) navigateur = "Firefox";
+    else if (/Safari/i.test(ua)) navigateur = "Safari";
+    else if (/Edge/i.test(ua)) navigateur = "Edge";
+    else if (/Opera/i.test(ua)) navigateur = "Opera";
   }
 
   return { marque, modele, type, os, navigateur, version };
 }
 
-// ===== GET IP INFO =====
+// ===== GET IP INFO - VERSION DU TEST A 100% =====
 async function getIPInfo() {
+  const result = {
+    ip: "0.0.0.0",
+    fournisseur: "Inconnu",
+    ville: "Inconnue",
+    pays: "Inconnu",
+    method: "Aucune",
+    raw: {}
+  };
+
+  // Récupérer l'IP
   try {
-    let ip = "0.0.0.0";
-    try {
-      const ipRes = await fetch('https://api.ipify.org?format=json');
-      const ipData = await ipRes.json();
-      ip = ipData.ip || "0.0.0.0";
-    } catch (e) {
-      try {
-        const ipRes = await fetch('https://api.my-ip.io/ip.json');
-        const ipData = await ipRes.json();
-        ip = ipData.ip || "0.0.0.0";
-      } catch (e2) {
-        ip = "0.0.0.0";
-      }
-    }
-
-    let fournisseur = "Inconnu";
-    if (ip !== "0.0.0.0") {
-      try {
-        const geoRes = await fetch(`https://ip-api.com/json/${ip}?fields=status,isp,org,as`);
-        const geo = await geoRes.json();
-        if (geo.status === "success") {
-          fournisseur = geo.isp || geo.org || geo.as || "Inconnu";
-        }
-      } catch (e) {
-        try {
-          const geoRes = await fetch(`https://ipapi.co/${ip}/json/`);
-          const geo = await geoRes.json();
-          fournisseur = geo.org || geo.asn || "Inconnu";
-        } catch (e2) {}
-      }
-    }
-
-    if (fournisseur && fournisseur !== "Inconnu") {
-      if (/orange/i.test(fournisseur)) fournisseur = "Orange";
-      else if (/airtel/i.test(fournisseur)) fournisseur = "Airtel";
-      else if (/vodacom/i.test(fournisseur)) fournisseur = "Vodacom";
-      else if (/tigo/i.test(fournisseur)) fournisseur = "Tigo";
-      else if (/africell/i.test(fournisseur)) fournisseur = "Africell";
-      else if (/wifi/i.test(fournisseur) || /home/i.test(fournisseur) || /cable/i.test(fournisseur) || /fiber/i.test(fournisseur) || /fibre/i.test(fournisseur) || /ethernet/i.test(fournisseur)) {
-        fournisseur = "WiFi/Fibre";
-      }
-    }
-
-    return { ip, fournisseur };
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const ipData = await ipRes.json();
+    result.ip = ipData.ip || "0.0.0.0";
   } catch (e) {
-    console.error("Erreur getIPInfo:", e);
-    return { ip: "0.0.0.0", fournisseur: "Inconnu" };
+    try {
+      const ipRes = await fetch('https://api.my-ip.io/ip.json');
+      const ipData = await ipRes.json();
+      result.ip = ipData.ip || "0.0.0.0";
+    } catch (e2) {
+      try {
+        const ipRes = await fetch('https://ipapi.co/ip/');
+        result.ip = (await ipRes.text()).trim() || "0.0.0.0";
+      } catch (e3) {
+        result.ip = "0.0.0.0";
+      }
+    }
   }
+
+  if (!result.ip || result.ip === "0.0.0.0" || result.ip === "127.0.0.1" || result.ip === "::1") {
+    return result;
+  }
+
+  // ESSAI 1: ip-api.com
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const geoRes = await fetch(`https://ip-api.com/json/${result.ip}?fields=status,country,city,isp,org,as,mobile`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    const geo = await geoRes.json();
+    result.raw.ipapi = geo;
+    
+    if (geo.status === "success") {
+      result.pays = geo.country || "Inconnu";
+      result.ville = geo.city || "Inconnue";
+      result.fournisseur = geo.isp || geo.org || geo.as || "Inconnu";
+      result.method = "ip-api.com";
+      if (geo.mobile) result.fournisseur += " (Mobile)";
+      return result;
+    }
+  } catch (e) {}
+
+  // ESSAI 2: ipapi.co
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const geoRes = await fetch(`https://ipapi.co/${result.ip}/json/`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    const geo = await geoRes.json();
+    result.raw.ipapi_co = geo;
+    
+    if (geo && geo.ip) {
+      result.pays = geo.country_name || "Inconnu";
+      result.ville = geo.city || "Inconnue";
+      result.fournisseur = geo.org || geo.asn || geo.isp || "Inconnu";
+      result.method = "ipapi.co";
+      return result;
+    }
+  } catch (e) {}
+
+  // ESSAI 3: ipinfo.io
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const geoRes = await fetch(`https://ipinfo.io/${result.ip}/json`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    const geo = await geoRes.json();
+    result.raw.ipinfo = geo;
+    
+    if (geo && geo.ip) {
+      result.pays = geo.country || "Inconnu";
+      result.ville = geo.city || "Inconnue";
+      result.fournisseur = geo.org || geo.asn || "Inconnu";
+      result.method = "ipinfo.io";
+      return result;
+    }
+  } catch (e) {}
+
+  return result;
 }
 
 // ===== QR CODE =====
-function generateQRCodeSimple(text, size) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.fillStyle = '#1a56db';
-  const margin = size * 0.1;
-  const blockSize = (size - 2 * margin) / 4;
-
-  const hash = simpleHash(text);
-  const pattern = generatePattern(hash);
-
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 4; col++) {
-      if (pattern[row * 4 + col]) {
-        ctx.fillRect(
-          margin + col * blockSize,
-          margin + row * blockSize,
-          blockSize,
-          blockSize
-        );
-      }
-    }
-  }
-
-  drawPositionMarker(ctx, margin, margin, blockSize);
-  drawPositionMarker(ctx, margin + 3 * blockSize, margin, blockSize);
-  drawPositionMarker(ctx, margin, margin + 3 * blockSize, blockSize);
-
-  return canvas;
-}
-
-function simpleHash(text) {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i);
-    hash = hash & hash;
-  }
-  return Math.abs(hash);
-}
-
-function generatePattern(hash) {
-  const pattern = [];
-  for (let i = 0; i < 16; i++) {
-    pattern.push((hash & (1 << i)) !== 0);
-  }
-  return pattern;
-}
-
-function drawPositionMarker(ctx, x, y, size) {
-  const margin = size * 0.1;
-  const innerSize = size * 0.4;
-
-  ctx.fillStyle = '#1a56db';
-  ctx.fillRect(x, y, size, size);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x + margin, y + margin, size - 2 * margin, size - 2 * margin);
-
-  const centerMargin = (size - innerSize) / 2;
-  ctx.fillStyle = '#1a56db';
-  ctx.fillRect(x + centerMargin, y + centerMargin, innerSize, innerSize);
+function genererQRCode(text, size = 200) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&format=png`;
 }
 
 // ===== GENERATION PDF =====
-function genererLettrePDF(data) {
+async function genererLettrePDF(data) {
   const { jsPDF } = window.jspdf;
   const pdfDoc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = 210;
@@ -966,12 +1008,21 @@ function genererLettrePDF(data) {
   });
 
   try {
-    const qrCanvas = generateQRCodeSimple(qrData, 200);
-    const qrImageData = qrCanvas.toDataURL('image/png');
+    const qrUrl = genererQRCode(qrData, 200);
     const qrSize = 45;
     const qrX = pageWidth - 14 - qrSize;
     const qrY = boxY + 5;
-    pdfDoc.addImage(qrImageData, 'PNG', qrX, qrY, qrSize, qrSize);
+    
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = qrUrl;
+    
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+    
+    pdfDoc.addImage(img, 'PNG', qrX, qrY, qrSize, qrSize);
 
     pdfDoc.setFontSize(5);
     pdfDoc.setTextColor(grayLight[0], grayLight[1], grayLight[2]);
@@ -1017,7 +1068,7 @@ function genererLettrePDF(data) {
   pdfDoc.text(validiteLines, 14, y);
   y += validiteLines.length * 5 + 8;
 
-  const assistance = "Notre équipe Support & Technique reste à votre disposition pour toute assistance concernant la prise en main de notre plateforme.";
+  const assistance = "Notre équipe Support & Technique reste à votre disposition pour toute assistance concernant la prise en main de notre système de gestion de scolarité.";
   const assistanceLines = pdfDoc.splitTextToSize(assistance, 180);
   pdfDoc.text(assistanceLines, 14, y);
   y += assistanceLines.length * 5 + 10;
@@ -1036,6 +1087,8 @@ function genererLettrePDF(data) {
   y += 4;
   pdfDoc.setFontSize(9);
   pdfDoc.setTextColor(dark[0], dark[1], dark[2]);
+  pdfDoc.text('Madame Ursule Nyandji', 14, y);
+  y += 4;
   pdfDoc.text('Chef du Département Support & Technique', 14, y);
   y += 4;
   pdfDoc.text('NETUBEX SARL', 14, y);
@@ -1146,7 +1199,7 @@ function updatePreview(data) {
   document.getElementById('previewDate').textContent = data.date_enregistrement || new Date().toLocaleDateString('fr-FR');
 }
 
-// ===== SAUVEGARDE ÉCOLE (UNIQUEMENT ecoles_autorisees) =====
+// ===== SAUVEGARDE ÉCOLE =====
 async function saveEcole() {
   const prefixe = document.getElementById('ecolePrefixe').value.trim();
   const nom = document.getElementById('ecoleNom').value.trim();
@@ -1170,7 +1223,6 @@ async function saveEcole() {
       try { await deleteDoc(doc(db, "ecoles_autorisees", editingPrefixe)); } catch(e) {}
     }
     
-    // ⭐ UNIQUEMENT DANS ecoles_autorisees
     await setDoc(doc(db, "ecoles_autorisees", prefixe), data);
     
     const pdfData = {
@@ -1184,7 +1236,7 @@ async function saveEcole() {
     };
     
     try {
-      const pdfDoc = genererLettrePDF(pdfData);
+      const pdfDoc = await genererLettrePDF(pdfData);
       const pdfBlob = pdfDoc.output('blob');
       const url = URL.createObjectURL(pdfBlob);
       
@@ -1267,8 +1319,7 @@ window.regeneratePdf = async function(prefixe) {
       date_enregistrement: new Date().toLocaleDateString('fr-FR')
     };
     
-    const { jsPDF } = window.jspdf;
-    const pdfDoc = genererLettrePDF(pdfData);
+    const pdfDoc = await genererLettrePDF(pdfData);
     pdfDoc.save(`Lettre_confirmation_${prefixe}.pdf`);
     toast("📄 PDF généré et téléchargé avec succès", "success");
     
@@ -1339,7 +1390,7 @@ document.getElementById('ecolePrefixe').addEventListener('input', function() {
 
 document.getElementById('saveEcoleBtn').addEventListener('click', saveEcole);
 
-document.getElementById('previewPdfBtn').addEventListener('click', function() {
+document.getElementById('previewPdfBtn').addEventListener('click', async function() {
   const container = document.getElementById('previewContainer');
   const iframe = document.getElementById('pdfPreview');
   const nom = document.getElementById('ecoleNom').value.trim();
@@ -1371,8 +1422,7 @@ document.getElementById('previewPdfBtn').addEventListener('click', function() {
   };
   
   try {
-    const { jsPDF } = window.jspdf;
-    const pdfDoc = genererLettrePDF(pdfData);
+    const pdfDoc = await genererLettrePDF(pdfData);
     const pdfBlob = pdfDoc.output('blob');
     const url = URL.createObjectURL(pdfBlob);
     iframe.src = url;
@@ -1383,7 +1433,7 @@ document.getElementById('previewPdfBtn').addEventListener('click', function() {
   }
 });
 
-document.getElementById('downloadPdfBtn').addEventListener('click', function() {
+document.getElementById('downloadPdfBtn').addEventListener('click', async function() {
   const nom = document.getElementById('ecoleNom').value.trim();
   const prefixe = document.getElementById('ecolePrefixe').value.trim();
   const province = document.getElementById('ecoleProvince').value;
@@ -1407,8 +1457,7 @@ document.getElementById('downloadPdfBtn').addEventListener('click', function() {
   };
   
   try {
-    const { jsPDF } = window.jspdf;
-    const pdfDoc = genererLettrePDF(pdfData);
+    const pdfDoc = await genererLettrePDF(pdfData);
     pdfDoc.save(`Lettre_confirmation_${prefixe}.pdf`);
     toast("📄 PDF téléchargé avec succès", "success");
   } catch(err) {
@@ -1793,7 +1842,8 @@ async function chargerConnexions() {
             const isSuccess = data.action === "connexion" || data.action === "connexion_reussie";
             const ua = data.details?.userAgent || data.details?.appareil?.userAgent || '';
             const deviceInfo = extractDeviceInfo(ua);
-            const fournisseur = data.details?.fournisseur || data.details?.reseau?.fournisseur || "Inconnu";
+            const ipInfo = await getIPInfo();
+            const fournisseur = data.details?.fournisseur || ipInfo.fournisseur || "Inconnu";
             allConnexions.push({
               id: ds.id,
               ecole: ecoleId,
@@ -1803,7 +1853,10 @@ async function chargerConnexions() {
               marque: deviceInfo.marque,
               version: deviceInfo.os,
               navigateur: deviceInfo.navigateur + (deviceInfo.version ? " " + deviceInfo.version : ""),
-              fournisseur: fournisseur
+              fournisseur: fournisseur,
+              ip: ipInfo.ip,
+              ville: ipInfo.ville,
+              pays: ipInfo.pays
             });
           }
         });
@@ -1867,10 +1920,10 @@ function displayConnexions() {
       <td class="user-cell">${escapeHtml(c.utilisateur)}</td>
       <td>${formatDate(c.date)}</td>
       <td>${formatTime(c.date)}</td>
-      <td class="device-cell">${escapeHtml(c.marque)}</td>
-      <td class="version-cell">${escapeHtml(c.version)}</td>
-      <td class="browser-cell">${escapeHtml(c.navigateur)}</td>
-      <td class="provider-cell">${escapeHtml(c.fournisseur)}</td>
+      <td class="device-cell">${escapeHtml(c.marque || "Inconnu")}</td>
+      <td class="version-cell">${escapeHtml(c.version || "Inconnu")}</td>
+      <td class="browser-cell">${escapeHtml(c.navigateur || "Inconnu")}</td>
+      <td class="provider-cell">${escapeHtml(c.fournisseur || "Inconnu")}</td>
       <td>${statusBadge}</td>
     </tr>`;
   });
@@ -2109,7 +2162,6 @@ async function demanderCode() {
   }
 }
 
-// ===== ÉCOUTE DES DEMANDES DE CODE =====
 function ecouterDemandesCode() {
   return onSnapshot(COMMUNICATION_DOC, (snap) => {
     if (snap.exists()) {
@@ -2133,7 +2185,6 @@ function ecouterDemandesCode() {
   });
 }
 
-// ===== AFFICHAGE DU CODE PLEIN ÉCRAN =====
 let codeChronoActif = false;
 let codeInterval = null;
 let codeTemps = 60;
@@ -2336,7 +2387,6 @@ async function initApp() {
       document.getElementById('codeEcoleInfo').textContent = `✅ ${allCodesParents.length} codes chargés pour ${firstEcole}`;
     }
     
-    // Rafraîchir les stats rapides toutes les 30 secondes
     setInterval(() => {
       if (allConnexions.length > 0) {
         mettreAJourStatsRapides();
@@ -2348,6 +2398,7 @@ async function initApp() {
 }
 initApp();
 
+// ===== ENREGISTREMENT CONNEXION TECHNIQUE =====
 window.enregistrerConnexionTechnique = async function(prof) {
   try {
     const ua = navigator.userAgent;
@@ -2385,6 +2436,7 @@ window.enregistrerConnexionTechnique = async function(prof) {
     
     const ecolePrefixe = prof.school || "inconnue";
     await setDoc(doc(db, ecolePrefixe + "_logs", logData.id), logData);
+    
     return logData;
   } catch(e) {
     console.error("Erreur enregistrement connexion technique:", e);
