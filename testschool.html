@@ -463,21 +463,17 @@ let optionsParClasse = {
 const toutesOptionsTitu = ["TOUTES", "LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"];
 let horaireProf = { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [] };
 let jourAffichage = null, localEleves = [], toutesFichesCompletes = [];
-const WORKER_URL = 'https://#.netube-a97.workers.dev/';
+const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
 let iaInstructions = null, dernierEleveConsulte = null, dernierEleveData = null, correctionFiche = null, correctionFicheId = null;
 let tentativeConnexion = 0, derniereTentative = 0, SEUIL_ALERTE = 3;
 let dernierCommunique = null, communiqueAffiche = false, enAttenteChoixEleve = false, listeElevesEnAttente = [];
 let reponseCache = new Map(), lastDataHash = null, currentParentCode = null, compteDesactive = false, messageDesactivation = '', sessionId = null, estEnAttenteReponse = false;
-
-// ===== TOAST (UN SEUL À LA FOIS) =====
 let toastQueue = [];
 let isToastProcessing = false;
-
 function toast(message, type = "success") {
   toastQueue.push({ message, type });
   if (!isToastProcessing) processToastQueue();
 }
-
 function processToastQueue() {
   if (toastQueue.length === 0) { isToastProcessing = false; return; }
   isToastProcessing = true;
@@ -507,8 +503,6 @@ function processToastQueue() {
     }, 400);
   }, 3500);
 }
-
-// ===== FONCTION GET IP INFO =====
 async function getIPInfo() {
     try {
         let ip = "0.0.0.0";
@@ -517,12 +511,8 @@ async function getIPInfo() {
         let pays = "Inconnu";
         let os = "Inconnu";
         let navigateur = "Inconnu";
-
-        // 1. Récupération du système d'exploitation et navigateur
         try {
             const userAgent = navigator.userAgent;
-            
-            // Détection du navigateur
             if (userAgent.includes('Chrome') && !userAgent.includes('Edg') && !userAgent.includes('OPR')) {
                 navigateur = 'Chrome';
             } else if (userAgent.includes('Firefox')) {
@@ -538,8 +528,6 @@ async function getIPInfo() {
             } else {
                 navigateur = 'Autre';
             }
-
-            // Détection de l'OS
             if (userAgent.includes('Windows')) {
                 if (userAgent.includes('Windows NT 10.0')) os = 'Windows 10/11';
                 else if (userAgent.includes('Windows NT 6.3')) os = 'Windows 8.1';
@@ -563,8 +551,6 @@ async function getIPInfo() {
         } catch (e) {
             console.error("Erreur détection OS/Navigateur:", e);
         }
-
-        // 2. Récupération de l'IP
         try {
             const ipRes = await fetch('https://api.ipify.org?format=json');
             const ipData = await ipRes.json();
@@ -583,8 +569,6 @@ async function getIPInfo() {
                 }
             }
         }
-
-        // 3. Récupération des infos avec ipinfo.io
         if (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1" && ip !== "::1") {
             try {
                 const controller = new AbortController();
@@ -594,7 +578,6 @@ async function getIPInfo() {
                 });
                 clearTimeout(timeoutId);
                 const geo = await geoRes.json();
-                
                 if (geo && geo.ip) {
                     pays = geo.country || "Inconnu";
                     ville = geo.city || "Inconnue";
@@ -603,8 +586,6 @@ async function getIPInfo() {
             } catch (e) {
                 console.error("Erreur ipinfo.io:", e);
             }
-
-            // 4. Nettoyage du fournisseur
             if (fournisseur && fournisseur !== "Inconnu") {
                 const f = fournisseur.toLowerCase();
                 if (f.includes('orange')) fournisseur = "Orange";
@@ -621,10 +602,8 @@ async function getIPInfo() {
                 }
             }
         }
-        
         console.log(`🌐 IP: ${ip} | Fournisseur: ${fournisseur} | Ville: ${ville} | Pays: ${pays} | OS: ${os} | Navigateur: ${navigateur}`);
         return { ip, fournisseur, ville, pays, os, navigateur };
-        
     } catch (e) {
         console.error("Erreur getIPInfo:", e);
         return { 
@@ -637,7 +616,6 @@ async function getIPInfo() {
         };
     }
 }
-// ===== FONCTION ENREGISTRER LOG =====
 async function enregistrerLog(action, details, statut = "info") {
     try {
         const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -648,9 +626,7 @@ async function enregistrerLog(action, details, statut = "info") {
             type: currentProf ? "professeur" : "systeme",
             ecole: SCHOOL_PREFIX
         };
-        
         const ipInfo = await getIPInfo();
-        
         const browserInfo = {
             userAgent: navigator.userAgent,
             screen: window.screen.width + "x" + window.screen.height,
@@ -661,7 +637,6 @@ async function enregistrerLog(action, details, statut = "info") {
             ville: ipInfo.ville,
             pays: ipInfo.pays
         };
-
         const logData = {
             _type: "log_activite",
             id: logId,
@@ -685,11 +660,10 @@ async function enregistrerLog(action, details, statut = "info") {
             message: details.message || action,
             lu: false
         };
-
         if (navigator.onLine) {
             try {
                 await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData);
-                console.log("✅ Log envoyé en base des données:", action);
+                console.log("✅ Log envoyé à Firebase:", action);
             } catch (error) {
                 console.error("Erreur enregistrement log:", error);
                 sauvegarderLogLocal(logData);
@@ -697,7 +671,6 @@ async function enregistrerLog(action, details, statut = "info") {
         } else {
             sauvegarderLogLocal(logData);
         }
-
         if (estActionCritique(action, statut)) alerterAdmin(logData);
         if (statut === "error" || statut === "critical") {
             if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
@@ -708,7 +681,6 @@ async function enregistrerLog(action, details, statut = "info") {
         return null;
     }
 }
-
 function sauvegarderLogLocal(logData) {
     try {
         const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
@@ -718,7 +690,6 @@ function sauvegarderLogLocal(logData) {
         console.error("Erreur sauvegarde locale:", error);
     }
 }
-
 async function synchroniserLogsLocaux() {
     if (!navigator.onLine) return;
     try {
@@ -739,7 +710,6 @@ async function synchroniserLogsLocaux() {
         console.error("Erreur synchronisation logs:", error);
     }
 }
-
 function estActionCritique(action, statut) {
     const actionsCritiques = [
         "connexion_echouee", "connexion_reussie", "deconnexion", 
@@ -751,7 +721,6 @@ function estActionCritique(action, statut) {
     ];
     return actionsCritiques.includes(action) || statut === "error" || statut === "critical";
 }
-
 async function alerterAdmin(logData) {
     try {
         const alertId = "alert_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
@@ -777,8 +746,6 @@ async function alerterAdmin(logData) {
         console.error("Erreur envoi alerte admin:", error);
     }
 }
-
-// ===== LE RESTE DU CODE (inchangé) =====
 async function rafraichirFiches() {
     const btn = document.getElementById('refreshFichesBtn');
     if (!btn) return;
@@ -836,7 +803,6 @@ async function rafraichirFiches() {
         btn.disabled = false;
     }
 }
-
 async function changerCodeAcces(ancienCode, nouveauCode) {
     if (!currentProf) {
         toast("Vous n'êtes pas connecté", "error");
@@ -886,9 +852,7 @@ async function changerCodeAcces(ancienCode, nouveauCode) {
         return false;
     }
 }
-
 document.getElementById('refreshFichesBtn').addEventListener('click', rafraichirFiches);
-
 document.getElementById('changeCodeBtn').addEventListener('click', async function() {
     const ancienCode = document.getElementById('oldCode').value;
     const nouveauCode1 = document.getElementById('newCode1').value;
@@ -922,7 +886,6 @@ document.getElementById('changeCodeBtn').addEventListener('click', async functio
         }
     );
 });
-
 function normaliserClasse(nomClasse) { if (!nomClasse) return ''; const c = {'7eme EB':'7ème EB','7ème EB':'7ème EB','7eme':'7ème EB','7ème':'7ème EB','8eme EB':'8ème EB','8ème EB':'8ème EB','8eme':'8ème EB','8ème':'8ème EB','1ere Annee':'1ère Année','1ère Année':'1ère Année','1ere':'1ère Année','1ère':'1ère Année','1ere annee':'1ère Année','1ère année':'1ère Année','2eme Annee':'2ème Année','2ème Année':'2ème Année','2eme':'2ème Année','2ème':'2ème Année','2eme annee':'2ème Année','2ème année':'2ème Année','3eme Annee':'3ème Année','3ème Année':'3ème Année','3eme':'3ème Année','3ème':'3ème Année','3eme annee':'3ème Année','3ème année':'3ème Année','4eme Annee':'4ème Année','4ème Année':'4ème Année','4eme':'4ème Année','4ème':'4ème Année','4eme annee':'4ème Année','4ème année':'4ème Année'}; const cleaned = nomClasse.trim().replace(/\s+/g, ' '); return c[cleaned] || cleaned; }
 async function canAskQuestion() { if (!currentParentCode) return true; const count = await getQuestionCountForCode(currentParentCode); return count < 10; }
 function createTypingIndicator() { const div = document.createElement('div'); div.className = 'parent-msg bot'; div.id = 'typingIndicator'; div.innerHTML = '<div class="typing-indicator"><span>en train d\'écrire</span><div class="typing-dots"><span></span><span></span><span></span></div></div>'; return div; }
@@ -953,7 +916,6 @@ async function chercherPunitionsParNom(nom) { try { const q = query(collection(d
 async function chercherPresencesParNom(nom) { try { const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences")); const presences = []; const maintenant = new Date(); const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60; const aujourdhui = maintenant.toISOString().slice(0, 10); snap.forEach(ds => { const data = ds.data(); if (!data.eleves) return; data.eleves.forEach(e => { if (e.nom === nom) { const dateStr = data.date ? data.date.slice(0, 10) : ''; if (dateStr === aujourdhui) { if (heureActuelle >= 12 && heureActuelle < 17.5) { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, enCours: true, heureActuelle: heureActuelle }); } else if (heureActuelle < 12) { presences.push({ date: data.date, present: null, classe: data.classe, option: data.option || '', estAujourdhui: true, avantCours: true, heureActuelle: heureActuelle }); } else { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, apresCours: true, heureActuelle: heureActuelle }); } } else { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: false }); } } }); }); presences.sort((a, b) => b.date.localeCompare(a.date)); return presences.slice(0, 5); } catch (e) { return []; } }
 async function getAllComptaEleves() { try { const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); const snap = await getDocs(q); localEleves = []; for (const ds of snap.docs) { const d = ds.data(); const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString() }); } return localEleves; } catch (error) { console.error("Erreur importation comptabilité:", error); try { const snap2 = await getDocs(collection(db, SCHOOL_PREFIX + "_compta_eleves")); for (const ds of snap2.docs) { const d = ds.data(); if (d._type !== "compta_eleve") continue; const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString() }); } } catch (e2) { console.error("Erreur fallback:", e2); } return localEleves; } }
 async function getAllFiches() { try { const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches")); const fiches = []; for (const ds of snap.docs) { const d = ds.data(); if (!d._type && d.eleves) { fiches.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' }); } } return fiches; } catch (e) { return []; } }
-
 function getMoisActuel() {
     const date = new Date();
     const mois = date.getMonth();
@@ -962,7 +924,6 @@ function getMoisActuel() {
     else if(mois >= 0 && mois <= 5) return moisListe[mois + 4];
     return "Septembre";
 }
-
 function getMoisFromDate(dateISO) {
     if (!dateISO) return "Septembre";
     const date = new Date(dateISO);
@@ -972,7 +933,6 @@ function getMoisFromDate(dateISO) {
     else if (mois >= 0 && mois <= 5) return moisListe[mois + 4];
     return "Septembre";
 }
-
 function estMoisDansAnnee(mois) {
     const moisActuel = getMoisActuel();
     const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
@@ -981,7 +941,6 @@ function estMoisDansAnnee(mois) {
     if(idxActuel === -1) return false;
     return idx <= idxActuel;
 }
-
 function estMoisFutur(mois, moisActuel) {
     const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
     const indexMois = moisListe.indexOf(mois);
@@ -989,7 +948,6 @@ function estMoisFutur(mois, moisActuel) {
     if(indexActuel === -1) return true;
     return indexMois > indexActuel;
 }
-
 async function chercherInfosFinancieresParCode(code) {
     try {
         let q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
@@ -1012,7 +970,6 @@ async function chercherInfosFinancieresParCode(code) {
             const moisInscription = getMoisFromDate(dateInscription);
             const indexInscription = moisListe.indexOf(moisInscription);
             const indexActuel = moisListe.indexOf(moisActuel);
-            
             for (let i = indexInscription; i < indexActuel; i++) {
                 const mois = moisListe[i];
                 if (!estMoisDansAnnee(mois)) continue;
@@ -1050,7 +1007,6 @@ async function chercherInfosFinancieresParCode(code) {
         return null;
     }
 }
-
 async function chercherNotesParNom(nom) { const fiches = await getAllFiches(); const resultats = []; const searchTerm = nom.toLowerCase().trim(); for (const fiche of fiches) { for (const eleve of (fiche.eleves || [])) { const nomEleve = (eleve.nom || '').toLowerCase(); if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) { const punitions = await chercherPunitionsParNom(eleve.nom); const presences = await chercherPresencesParNom(eleve.nom); const epreuvesList = []; if (eleve.notes) { for (let periode = 1; periode <= 4; periode++) { const epreuves = fiche.epreuvesParPeriode?.[periode] || []; const notesPeriode = eleve.notes[`p${periode}`] || []; for (let i = 0; i < epreuves.length; i++) { const nomEpreuve = epreuves[i].nom || "Epreuve"; if (!nomEpreuve.toLowerCase().includes("examen")) { let note = notesPeriode[i] || 0; let max = epreuves[i].max || 1; if (note > 0) { epreuvesList.push({ matiere: fiche.cours, epreuve: nomEpreuve, note: note, max: max, periode: periode, titulaire: fiche.titulaire || null, classe: fiche.classe, option: fiche.option || '' }); } } } } } resultats.push({ eleveNom: eleve.nom, sexe: eleve.sexe || 'M', classe: fiche.classe, option: fiche.option || '', titulaire: fiche.titulaire || null, epreuves: epreuvesList, nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0, punitions: punitions, presences: presences }); } } } return resultats; }
 async function chargerInstructionsIA() { if (iaInstructions) return iaInstructions; const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; try { const response = await fetch('https://www.netubex.com/ecole-config.txt'); if (response.ok) { iaInstructions = await response.text(); } else { iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } } catch (e) { iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } return iaInstructions; }
 function getSexePronom(sexe) { if (sexe === 'F' || sexe === 'Féminin' || sexe === 'fille') { return { genre: 'fille', pronom: 'elle', possessif: 'sa' }; } return { genre: 'garçon', pronom: 'il', possessif: 'son' }; }
@@ -1071,8 +1027,7 @@ else if (msg.includes('punition') || msg.includes('sanction')) questionType = 'p
 else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille')) questionType = 'sexe';
 else if (msg.includes('classe') || msg.includes('titulaire') || msg.includes('professeur')) questionType = 'info_generale';
 if (msg.includes('aide') || msg.includes('conseil') || msg.includes('que faire') || msg.includes('comment') || msg.includes('quoi') || msg.includes('que puis-je')) {
-const { pronom } = getSexePronom(eleveData.sexe);
-reponse = `Je suis là pour vous aider avec ${eleveData.nom} ${eleveData.prenom||''}. Voici ce que je peux vous dire : - Sa situation financière (minerval, paiements, dettes) - Ses notes et résultats - Sa présence et assiduité - Ses punitions et sanctions. Dites-moi simplement ce que vous voulez savoir. Par exemple : "Ses notes", "Les frais", "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?", "Les punitions". Je suis là pour vous guider !`;
+reponse = `Je suis là à votre service.`;
 } else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille') || msg.includes('est-ce') || msg.includes('est il') || msg.includes('est elle')) {
 const { genre } = getSexePronom(eleveData.sexe);
 reponse = `${eleveData.nom} ${eleveData.prenom||''} est un${genre==='fille'?'e':''} ${genre}.`;
@@ -1094,7 +1049,12 @@ const fraisClean = frais.split('Voulez-vous voir')[0];
 const notesClean = notes.split('Voulez-vous voir')[0];
 const presenceClean = presence.split('Voulez-vous voir')[0];
 const punitionsClean = punitions.split('Voulez-vous voir')[0];
-reponse = `RÉSUMÉ\n\n${fraisClean}\n${notesClean}\n${presenceClean}\n${punitionsClean}\nVoilà ce que je sais sur ${eleveData.nom}.`;if (!reponse) {
+reponse = `RÉSUMÉ\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''}.`;
+} else if (msg.includes('?') || msg.includes('pourquoi') || msg.includes('comment') || msg.includes('est-ce que')) {
+const { genre, pronom } = getSexePronom(eleveData.sexe);
+reponse = `Je vais essayer de vous aider. Voici ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''} : ${pronom==='il'?'Il':'Elle'} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}. Posez-moi des questions comme : - "Quelles sont ses notes ?" - "Combien doit-${pronom==='il'?'il':'elle'} payer ?" - "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?" - "A-t-${pronom==='il'?'il':'elle'} des punitions ?" Je vous répondrai avec plaisir !`;
+}
+if (!reponse) {
 const { pronom } = getSexePronom(eleveData.sexe);
 let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom||''}. `;
 const sexe = eleveData.sexe || 'M';
@@ -1139,7 +1099,7 @@ reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande
 reponse = reponse.replace(/\d+%/g, ''); reponse = reponse.replace(/\d+,\d+%/g, ''); reponse = reponse.replace(/pourcent/g, 'points'); reponse = reponse.replace(/pour cent/g, 'points'); reponse = reponse.replace(/pourcentage/g, 'points'); reponse = reponse.replace(/moyenne générale/g, ''); reponse = reponse.replace(/moyenne/g, ''); reponse = reponse.replace(/proclamation/g, '');
 if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) { reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`; }
 } catch (e) {
-reponse = `Je suis désolé, vous avez un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
+reponse = `Je suis désolé, il y a un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
 }
 }
 if (questionKey && reponse) reponseCache.set(questionKey, reponse);
@@ -1182,7 +1142,7 @@ reponse += `${totalPaye.toLocaleString()} francs ont déjà été payés.\n`;
 reponse += `Il reste ${reste.toLocaleString()} francs à payer.\n`;
 const nbImpayes = moisImpayes.length;
 if (totalPaye === 0 && nbImpayes === 0) {
-    reponse += `\nℹ️ Votre enfant n'a pas encore de mois à payer.`;
+    reponse += `\nℹ️ Pas encore de mois à payer.`;
 } else if (nbImpayes === 0) {
     reponse += `\n✅ En ordre.`;
 } else if (nbImpayes === 1) {
@@ -1311,7 +1271,6 @@ function getSalutation() {
     if (h < 18) return "Bon après-midi";
     return "Bonsoir";
 }
-
 let reponse = `${getSalutation()} cher parent,\n\n`;
 reponse += `J'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système.\n`;
 reponse += `C'est ${pronom==='il'?'un garçon':'une fille'}.\n`;
@@ -1319,6 +1278,7 @@ reponse += `${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' 
 reponse += `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions.\n`;
 reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
+}
 async function afficherInfosEleveMulti(eleve) {
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 dernierEleveConsulte = eleve.nom;
@@ -1346,8 +1306,6 @@ function getSalutation() {
     if (h < 18) return "Bon après-midi";
     return "Bonsoir";
 }
-
-// Utilisation
 let reponse = `${getSalutation()} cher parent,\n\n`;
 reponse += `J'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système.\n`;
 reponse += `C'est ${pronom==='il'?'un garçon':'une fille'}.\n`;
@@ -1355,6 +1313,7 @@ reponse += `${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' 
 reponse += `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions.\n`;
 reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
+}
 async function traiterMessage(message) {
 const msg = message.trim().toLowerCase();
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
@@ -1381,7 +1340,13 @@ default: return `Je peux vous parler de sa situation financière, de ses notes, 
 return `Vous avez vu toutes les informations sur ${dernierEleveData.nom} ${dernierEleveData.prenom||''}.\n\nSi vous avez d'autres questions, n'hésitez pas à les poser. Sinon, vous pouvez entrer un autre code parent.`;
 }
 } else {
-return `Une minute cher parent, veuillez d'abord entrer votre code parent à 6 chiffres.`;
+function getSalutation() {
+    const h = new Date().getHours();
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
+return `${getSalutation()} cher parent, veuillez d'abord entrer votre code parent à 6 chiffres.`;
 }
 }
 if (/^\d{6}$/.test(msg)) {
@@ -1451,6 +1416,7 @@ const nom = eleveData.nom || ''; const prenom = eleveData.prenom || ''; const no
 if (estBonjour) return `Je suis là à votre service.`;
 if (estMerci) return `De rien, c'est un plaisir.`;
 if (estAurevoir) return `Au revoir ! Passez une excellente journée.`;
+}
 const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
 if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
 const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
@@ -1461,7 +1427,14 @@ const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni',
 if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
 return await genererReponseNaturelle(message, eleveData);
 }
+function getSalutation() {
+    const h = new Date().getHours();
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
 return `${getSalutation()} ! Entrez votre code parent (6 chiffres) ou contactez la comptabilité de ${nomEcole}.`;
+}
 async function initIndexedDB() { return new Promise(function(res, rej) { let r = indexedDB.open('GloriaDeiDB', 1); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; r.onupgradeneeded = function(e) { let db = e.target.result; if (!db.objectStoreNames.contains('professeurs')) db.createObjectStore('professeurs', { keyPath: 'id' }); if (!db.objectStoreNames.contains('fiches')) db.createObjectStore('fiches', { keyPath: 'id' }); if (!db.objectStoreNames.contains('compteur')) db.createObjectStore('compteur', { keyPath: 'id' }); if (!db.objectStoreNames.contains('pendingSync')) db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true }); }; }); }
 async function saveToIndexedDB(store, data) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readwrite'); let so = tx.objectStore(store); let r = so.put(data); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(); }; tx.oncomplete = function() { dbc.close(); }; }); }
 async function getAllFromIndexedDB(store) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readonly'); let so = tx.objectStore(store); let r = so.getAll(); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; tx.oncomplete = function() { dbc.close(); }; }); }
