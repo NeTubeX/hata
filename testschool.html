@@ -463,7 +463,7 @@ let optionsParClasse = {
 const toutesOptionsTitu = ["TOUTES", "LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"];
 let horaireProf = { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [] };
 let jourAffichage = null, localEleves = [], toutesFichesCompletes = [];
-const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
+const WORKER_URL = 'https://#.netube-a97.workers.dev/';
 let iaInstructions = null, dernierEleveConsulte = null, dernierEleveData = null, correctionFiche = null, correctionFicheId = null;
 let tentativeConnexion = 0, derniereTentative = 0, SEUIL_ALERTE = 3;
 let dernierCommunique = null, communiqueAffiche = false, enAttenteChoixEleve = false, listeElevesEnAttente = [];
@@ -663,7 +663,7 @@ async function enregistrerLog(action, details, statut = "info") {
         if (navigator.onLine) {
             try {
                 await setDoc(doc(db, SCHOOL_PREFIX + "_logs", logId), logData);
-                console.log("✅ Log envoyé à Firebase:", action);
+                console.log("✅ Log envoyé en base des données:", action);
             } catch (error) {
                 console.error("Erreur enregistrement log:", error);
                 sauvegarderLogLocal(logData);
@@ -1099,7 +1099,7 @@ reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande
 reponse = reponse.replace(/\d+%/g, ''); reponse = reponse.replace(/\d+,\d+%/g, ''); reponse = reponse.replace(/pourcent/g, 'points'); reponse = reponse.replace(/pour cent/g, 'points'); reponse = reponse.replace(/pourcentage/g, 'points'); reponse = reponse.replace(/moyenne générale/g, ''); reponse = reponse.replace(/moyenne/g, ''); reponse = reponse.replace(/proclamation/g, '');
 if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) { reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`; }
 } catch (e) {
-reponse = `Je suis désolé, il y a un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
+reponse = `Je suis désolé, vous avez un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
 }
 }
 if (questionKey && reponse) reponseCache.set(questionKey, reponse);
@@ -1142,15 +1142,15 @@ reponse += `${totalPaye.toLocaleString()} francs ont déjà été payés.\n`;
 reponse += `Il reste ${reste.toLocaleString()} francs à payer.\n`;
 const nbImpayes = moisImpayes.length;
 if (totalPaye === 0 && nbImpayes === 0) {
-    reponse += `\nℹ️ Pas encore de mois à payer.`;
+    reponse += `\n Votre enfanta n'a pas encore de mois à payer.`;
 } else if (nbImpayes === 0) {
-    reponse += `\n✅ En ordre.`;
+    reponse += `\nVotre enfant est en ordre.`;
 } else if (nbImpayes === 1) {
-    reponse += `\n⚠️ Il manque 1 mois : ${moisImpayes[0]}.`;
+    reponse += `\nIl manque 1 mois : ${moisImpayes[0]}.`;
 } else if (nbImpayes === 2) {
-    reponse += `\n⚠️ Il manque 2 mois : ${moisImpayes.join(' et ')}.`;
+    reponse += `\nIl manque 2 mois : ${moisImpayes.join(' et ')}.`;
 } else if (nbImpayes >= 3) {
-    reponse += `\n🚨 URGENT : Il manque ${nbImpayes} mois !`;
+    reponse += `\nURGENT : Il manque ${nbImpayes} mois !`;
 }
 reponse += await genererPropositions(eleveData);
 return reponse;
@@ -1413,7 +1413,7 @@ const estMerci = motsMerci.some(m => texteComplet.includes(m));
 const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
 if (estBonjour || estMerci || estAurevoir) {
 const nom = eleveData.nom || ''; const prenom = eleveData.prenom || ''; const nomComplet = `${nom} ${prenom}`.trim();
-if (estBonjour) return `Je suis là à votre service.`;
+if (estBonjour) return `En tout cas! Je suis là à votre service.`;
 if (estMerci) return `De rien, c'est un plaisir.`;
 if (estAurevoir) return `Au revoir ! Passez une excellente journée.`;
 }
@@ -1433,7 +1433,7 @@ function getSalutation() {
     if (h < 18) return "Bon après-midi";
     return "Bonsoir";
 }
-return `${getSalutation()} ! Entrez votre code parent (6 chiffres) ou contactez la comptabilité de ${nomEcole}.`;
+return `${getSalutation()} ! Entrez votre code parent à 6 chiffres ou contactez la comptabilité de ${nomEcole}.`;
 }
 async function initIndexedDB() { return new Promise(function(res, rej) { let r = indexedDB.open('GloriaDeiDB', 1); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; r.onupgradeneeded = function(e) { let db = e.target.result; if (!db.objectStoreNames.contains('professeurs')) db.createObjectStore('professeurs', { keyPath: 'id' }); if (!db.objectStoreNames.contains('fiches')) db.createObjectStore('fiches', { keyPath: 'id' }); if (!db.objectStoreNames.contains('compteur')) db.createObjectStore('compteur', { keyPath: 'id' }); if (!db.objectStoreNames.contains('pendingSync')) db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true }); }; }); }
 async function saveToIndexedDB(store, data) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readwrite'); let so = tx.objectStore(store); let r = so.put(data); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(); }; tx.oncomplete = function() { dbc.close(); }; }); }
@@ -1662,10 +1662,10 @@ d.className = 'login-overlay';
 d.id = 'loginOverlay';
 d.innerHTML = `
     <div class="login-card">
-        <h2>${schoolId.toUpperCase().replace(/-/g, ' ')}</h2>
+        <h2>ÉCOLE ${schoolId.toUpperCase().replace(/-/g, ' ')}</h2>
         <p class="subtitle">Accès enseignant</p>
         <div class="select-wrapper">
-            <span class="select-label">👨‍🏫 Professeur</span>
+            <span class="select-label">Professeur</span>
             <select id="loginNom">
                 <option value="">-- Choisir --</option>
             </select>
@@ -2334,7 +2334,7 @@ if (closeParentModalNew) closeParentModalNew.onclick = () => { parentModalOverla
 parentModalOverlayNew.onclick = (e) => { if (e.target === parentModalOverlayNew) { parentModalOverlayNew.classList.remove('active'); document.body.style.overflow = ''; stopSpeaking(); estEnAttenteReponse = false; } };
 if (parentSendBtnNew) {
 parentSendBtnNew.onclick = async () => {
-if (estEnAttenteReponse) { toast("Veuillez patienter, je vérifie...", 'warning'); return; }
+if (estEnAttenteReponse) { toast("Veuillez patienter, je suis en train d'écrire", 'warning'); return; }
 const message = parentQuestionInputNew.value.trim();
 if (!message) return;
 const aujourdhui = new Date();
@@ -2499,14 +2499,14 @@ await enregistrerLog("creation_fiche", {
     option: fop,
     nbEleves: eleves.length
 }, "success");
-setTimeout(() => { toast("📝 Saisissez une nouvelle fiche ou modifiez celle-ci", 'info'); }, 1500);
+setTimeout(() => { toast("📝Saisissez une nouvelle fiche ou modifiez celle-ci", 'info'); }, 1500);
 document.getElementById('coursInput').focus();
 } catch (error) { toast("❌ Erreur lors de la création", 'error'); console.error(error); }
 finally {
 isCreatingFiche = false;
 this.dataset.creating = 'false';
 this.disabled = false;
-this.innerHTML = '📝 CRÉER UNE FICHE';
+this.innerHTML = '📝CRÉER UNE FICHE';
 }
 });
 document.getElementById('rechargerElevesBtn').onclick = async function() {
