@@ -642,20 +642,27 @@ return f;
 } catch(e) { return []; }
 }
 
-async function chargerLogs(e, last = null, lim = 20) {
+// ===== FONCTION CHARGER LOGS CORRIGÉE =====
+async function chargerLogs(ecoleId) {
 try {
-let q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), limit(lim));
-if (last) {
-const snapLast = await getDoc(doc(db, `${e}_logs`, last));
-if (snapLast.exists()) {
-q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), startAfter(snapLast), limit(lim));
-}
-}
+// Utiliser la bonne collection : ecoleId + "_logs"
+const logsRef = collection(db, `${ecoleId}_logs`);
+const q = query(logsRef, orderBy("date", "desc"), limit(100));
 const snap = await getDocs(q);
-const l = [];
-snap.forEach(ds => { l.push({ id: ds.id, ...ds.data() }); });
-return l;
-} catch(e) { return []; }
+const logs = [];
+snap.forEach(ds => {
+const data = ds.data();
+logs.push({
+id: ds.id,
+ecoleId: ecoleId,
+...data
+});
+});
+return logs;
+} catch(e) {
+console.warn(`Erreur chargement logs pour ${ecoleId}:`, e);
+return [];
+}
 }
 
 async function chargerAuditLogs() {
@@ -681,6 +688,7 @@ tousProfs = tousProfs.concat(p.map(p => ({ ...p, ecoleId: e.id, ecoleNom: e.nom 
 const f = await chargerFiches(e.id);
 f.forEach(f => { f.ecoleNom = e.nom || e.id; });
 toutesFiches = toutesFiches.concat(f);
+// Charger les logs pour chaque école
 const logs = await chargerLogs(e.id);
 logs.forEach(l => { l.ecoleId = e.id; l.ecoleNom = e.nom || e.id; });
 tousLogs = tousLogs.concat(logs);
@@ -1386,6 +1394,7 @@ container.innerHTML = html;
 window.supprimerFiche = supprimerFiche;
 }
 
+// ===== RENDER LOGS CORRIGÉ =====
 function renderLogs() {
 const container = document.getElementById("logsContainer");
 if(!container) return;
@@ -1422,20 +1431,24 @@ const actionMap = {
 connexion_reussie: "🟢 Login", creation_fiche: "📄 Create sheet",
 modification_fiche: "✏️ Edit", suppression_fiche: "🗑️ Delete",
 connexion: "🟢 Login", creation: "📄 Create",
-modification: "✏️ Edit", suppression: "🗑️ Delete"
+modification: "✏️ Edit", suppression: "🗑️ Delete",
+login: "🟢 Login", logout: "🔴 Logout"
 };
-const actionLabel = actionMap[log.action] || log.action;
+const actionLabel = actionMap[log.action] || log.action || "Unknown";
 const badgeClass = log.action === "suppression" || log.action === "suppression_fiche" ? "error" :
-(log.action === "connexion" || log.action === "connexion_reussie" ? "success" :
+(log.action === "connexion" || log.action === "connexion_reussie" || log.action === "login" ? "success" :
 (log.action === "modification" || log.action === "modification_fiche" ? "warning" : "info"));
-const detail = log.details?.cours ? `${log.details.cours} ${log.details.classe||""}` : (log.details?.message || '-');
+const detail = log.details?.cours ? `${log.details.cours} ${log.details.classe||""}` : 
+               (log.details?.message || log.message || '-');
+const user = log.utilisateur || log.nom || "Unknown";
+const dateStr = log.date ? formatDate(log.date) : "-";
 html += `<tr>
 <td>${idx + 1}</td>
-<td><strong>${escapeHtml(log.utilisateur||"Unknown")}</strong></td>
+<td><strong>${escapeHtml(user)}</strong></td>
 <td><span class="log-badge ${badgeClass}">${actionLabel}</span></td>
 <td style="font-size:12px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(detail)}</td>
-<td>${escapeHtml(log.ecoleNom || '-')}</td>
-<td style="font-size:11px;color:var(--text-muted);">${formatDate(log.date)}</td>
+<td>${escapeHtml(log.ecoleNom || log.ecoleId || '-')}</td>
+<td style="font-size:11px;color:var(--text-muted);">${dateStr}</td>
 <td><span class="log-id">${getLast6Chars(log.id)}</span></td>
 </tr>`;
 });
