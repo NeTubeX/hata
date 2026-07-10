@@ -512,6 +512,59 @@ function processToastQueue() {
 async function getIPInfo() {
     try {
         let ip = "0.0.0.0";
+        let fournisseur = "Inconnu";
+        let ville = "Inconnue";
+        let pays = "Inconnu";
+        let os = "Inconnu";
+        let navigateur = "Inconnu";
+
+        // 1. Récupération du système d'exploitation et navigateur
+        try {
+            const userAgent = navigator.userAgent;
+            
+            // Détection du navigateur
+            if (userAgent.includes('Chrome') && !userAgent.includes('Edg') && !userAgent.includes('OPR')) {
+                navigateur = 'Chrome';
+            } else if (userAgent.includes('Firefox')) {
+                navigateur = 'Firefox';
+            } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+                navigateur = 'Safari';
+            } else if (userAgent.includes('Edg')) {
+                navigateur = 'Edge';
+            } else if (userAgent.includes('OPR') || userAgent.includes('Opera')) {
+                navigateur = 'Opera';
+            } else if (userAgent.includes('Brave')) {
+                navigateur = 'Brave';
+            } else {
+                navigateur = 'Autre';
+            }
+
+            // Détection de l'OS
+            if (userAgent.includes('Windows')) {
+                if (userAgent.includes('Windows NT 10.0')) os = 'Windows 10/11';
+                else if (userAgent.includes('Windows NT 6.3')) os = 'Windows 8.1';
+                else if (userAgent.includes('Windows NT 6.2')) os = 'Windows 8';
+                else if (userAgent.includes('Windows NT 6.1')) os = 'Windows 7';
+                else if (userAgent.includes('Windows NT 6.0')) os = 'Windows Vista';
+                else if (userAgent.includes('Windows NT 5.1')) os = 'Windows XP';
+                else os = 'Windows';
+            } else if (userAgent.includes('Mac OS X')) {
+                os = 'macOS';
+            } else if (userAgent.includes('Linux')) {
+                if (userAgent.includes('Android')) os = 'Android';
+                else os = 'Linux';
+            } else if (userAgent.includes('iPhone') || userAgent.includes('iPad') || userAgent.includes('iPod')) {
+                os = 'iOS';
+            } else if (userAgent.includes('Android')) {
+                os = 'Android';
+            } else {
+                os = 'Autre';
+            }
+        } catch (e) {
+            console.error("Erreur détection OS/Navigateur:", e);
+        }
+
+        // 2. Récupération de l'IP
         try {
             const ipRes = await fetch('https://api.ipify.org?format=json');
             const ipData = await ipRes.json();
@@ -531,64 +584,59 @@ async function getIPInfo() {
             }
         }
 
-        let fournisseur = "Inconnu";
-        let ville = "Inconnue";
-        let pays = "Inconnu";
-
+        // 3. Récupération des infos avec ipinfo.io
         if (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1" && ip !== "::1") {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 5000);
-                const geoRes = await fetch(`https://ipinfo.io/json/${ip}?fields=status,country,city,isp,org,as,mobile`, {
+                const geoRes = await fetch(`https://ipinfo.io/${ip}/json`, {
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
                 const geo = await geoRes.json();
-                if (geo.status === "success") {
+                
+                if (geo && geo.ip) {
                     pays = geo.country || "Inconnu";
                     ville = geo.city || "Inconnue";
-                    fournisseur = geo.isp || geo.org || geo.as || "Inconnu";
+                    fournisseur = geo.org || geo.isp || geo.asn || "Inconnu";
                 }
-            } catch (e) {}
-
-            if (fournisseur === "Inconnu") {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-                    const geoRes = await fetch(`https://ipinfo.io/${ip}/json/`, {
-                        signal: controller.signal
-                    });
-                    clearTimeout(timeoutId);
-                    const geo = await geoRes.json();
-                    if (geo && geo.ip) {
-                        pays = geo.country_name || "Inconnu";
-                        ville = geo.city || "Inconnue";
-                        fournisseur = geo.org || geo.asn || geo.isp || "Inconnu";
-                    }
-                } catch (e) {}
+            } catch (e) {
+                console.error("Erreur ipinfo.io:", e);
             }
 
+            // 4. Nettoyage du fournisseur
             if (fournisseur && fournisseur !== "Inconnu") {
                 const f = fournisseur.toLowerCase();
-                if (f.includes('orange') || f.includes('orange-')) fournisseur = "Orange";
+                if (f.includes('orange')) fournisseur = "Orange";
                 else if (f.includes('airtel')) fournisseur = "Airtel";
                 else if (f.includes('vodacom')) fournisseur = "Vodacom";
                 else if (f.includes('tigo')) fournisseur = "Tigo";
                 else if (f.includes('africell')) fournisseur = "Africell";
                 else if (f.includes('mtn')) fournisseur = "MTN";
                 else if (f.includes('vodafone')) fournisseur = "Vodafone";
-                else if (f.includes('wifi') || f.includes('home') || f.includes('cable') || f.includes('fiber') || f.includes('fibre') || f.includes('ethernet')) {
+                else if (f.includes('wifi') || f.includes('home') || f.includes('cable') || f.includes('fiber') || f.includes('fibre')) {
                     fournisseur = "WiFi/Fibre";
+                } else if (f.includes('mobile') || f.includes('cellular') || f.includes('4g') || f.includes('5g')) {
+                    fournisseur = "Mobile";
                 }
             }
         }
-        return { ip, fournisseur, ville, pays };
+        
+        console.log(`🌐 IP: ${ip} | Fournisseur: ${fournisseur} | Ville: ${ville} | Pays: ${pays} | OS: ${os} | Navigateur: ${navigateur}`);
+        return { ip, fournisseur, ville, pays, os, navigateur };
+        
     } catch (e) {
         console.error("Erreur getIPInfo:", e);
-        return { ip: "0.0.0.0", fournisseur: "Inconnu", ville: "Inconnue", pays: "Inconnu" };
+        return { 
+            ip: "0.0.0.0", 
+            fournisseur: "Inconnu", 
+            ville: "Inconnue", 
+            pays: "Inconnu",
+            os: "Inconnu",
+            navigateur: "Inconnu"
+        };
     }
 }
-
 // ===== FONCTION ENREGISTRER LOG =====
 async function enregistrerLog(action, details, statut = "info") {
     try {
@@ -1257,14 +1305,20 @@ sectionsVisitees: historiqueSections[eleveId] || []
 };
 reponseCache.clear();
 lastDataHash = getDataHash(dernierEleveData);
-let reponse = `Bonjour cher parent,\n\n`;
+function getSalutation() {
+    const h = new Date().getHours();
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
+
+let reponse = `${getSalutation()} cher parent,\n\n`;
 reponse += `J'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système.\n`;
 reponse += `C'est ${pronom==='il'?'un garçon':'une fille'}.\n`;
 reponse += `${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}.\n\n`;
 reponse += `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions.\n`;
 reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
-}
 async function afficherInfosEleveMulti(eleve) {
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 dernierEleveConsulte = eleve.nom;
