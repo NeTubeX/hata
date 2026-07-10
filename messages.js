@@ -1,43 +1,37 @@
-// ============================================
-// MESSAGES - 25 VARIANTES PAR CATÉGORIE
-// ============================================
-
+export function getSalutation() {
+    const heures = new Date().getHours();
+    if (heures >= 5 && heures < 12) return "Bonjour";
+    if (heures >= 12 && heures < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
 export const MESSAGES = {
-    
-    // ==========================================
-    // 1️⃣ NOTES - 25 variantes
-    // ==========================================
     NOTES: [
-        `{eleve} a eu {note}/{max} en {matiere} ({type} - {periode}).`,
-        `La meilleure note de {eleve} est {note}/{max} en {matiere} ({type}).`,
-        `En {matiere}, {eleve} a {note}/{max} ({type} de {periode}).`,
-        `{eleve} a fait {note}/{max} en {matiere} ({periode}).`,
-        `Note de {eleve} en {matiere} : {note}/{max} ({type}).`,
-        `{eleve} a obtenu {note}/{max} en {matiere} ({periode}).`,
-        `En {matiere}, {eleve} a eu {note}/{max} ({type}).`,
-        `Résultat de {eleve} en {matiere} : {note}/{max} ({periode}).`,
-        `{eleve} a marqué {note}/{max} en {matiere} ({type} - {periode}).`,
-        `Note de {eleve} : {note}/{max} en {matiere} ({type} de {periode}).`,
-        `{eleve} a {note}/{max} en {matiere} ({periode}).`,
-        `En {matiere}, {eleve} a fait {note}/{max} ({type}).`,
+        `Meilleure note de {eleve} : {note}/{max} en {matiere}.`,
+        `{eleve} a eu {note}/{max} en {matiere}.`,
+        `La meilleure note de {eleve} est {note}/{max} en {matiere}.`,
+        `{eleve} a obtenu {note}/{max} en {matiere}.`,
+        `Note max de {eleve} : {note}/{max} en {matiere}.`,
+        `En {matiere}, {eleve} a fait {note}/{max}.`,
+        `{eleve} a eu {note} sur {max} en {matiere}.`,
+        `Résultat en {matiere} pour {eleve} : {note}/{max}.`,
+        `{eleve} a marqué {note}/{max} en {matiere}.`,
+        `Note de {eleve} : {note}/{max} en {matiere}.`,
+        `{eleve} a {note}/{max} en {matiere}.`,
+        `En {matiere}, {eleve} a eu {note}/{max}.`,
         `{eleve} a eu {note} points sur {max} en {matiere}.`,
-        `Résultat en {matiere} pour {eleve} : {note}/{max} ({periode}).`,
-        `{eleve} a obtenu {note}/{max} ({type} - {periode}) en {matiere}.`,
-        `Note de {eleve} en {matiere} ({type}) : {note}/{max}.`,
-        `En {periode}, {eleve} a eu {note}/{max} en {matiere}.`,
-        `{eleve} a fait {note}/{max} en {matiere} ({type}).`,
-        `{matiere} : {eleve} a eu {note}/{max} ({periode}).`,
-        `{eleve} a eu {note}/{max} en {matiere} ({type} de {periode}).`,
-        `Note en {matiere} de {eleve} : {note}/{max} ({type}).`,
-        `{eleve} a marqué {note}/{max} en {matiere} ({periode}).`,
-        `En {matiere}, {eleve} a obtenu {note}/{max} ({type}).`,
-        `{eleve} a fait {note}/{max} en {matiere} ({type} - {periode}).`,
-        `Résultat de {eleve} : {note}/{max} en {matiere} ({periode}).`
+        `Résultat de {eleve} en {matiere} : {note}/{max}.`,
+        `{eleve} a obtenu {note}/{max} en {matiere}.`,
+        `Note de {eleve} en {matiere} : {note}/{max}.`,
+        `{eleve} a eu {note}/{max} en {matiere}.`,
+        `{eleve} a fait {note}/{max} en {matiere}.`,
+        `{matiere} : {eleve} a eu {note}/{max}.`,
+        `{eleve} a eu {note}/{max} en {matiere}.`,
+        `Note en {matiere} de {eleve} : {note}/{max}.`,
+        `{eleve} a marqué {note}/{max} en {matiere}.`,
+        `En {matiere}, {eleve} a obtenu {note}/{max}.`,
+        `{eleve} a fait {note}/{max} en {matiere}.`,
+        `Résultat de {eleve} : {note}/{max} en {matiere}.`
     ],
-    
-    // ==========================================
-    // 2️⃣ FRAIS - 25 variantes
-    // ==========================================
     FRAIS: [
         `Frais de {eleve} : {minerval} FC/mois. Payé : {paye} FC. Reste : {reste} FC. {statut}`,
         `Pour {eleve}, minerval : {minerval} FC. Payé : {paye} FC. Solde : {reste} FC. {statut}`,
@@ -65,10 +59,6 @@ export const MESSAGES = {
         `{eleve} a réglé {paye} FC, reste {reste} FC. {statut}`,
         `Frais de {eleve} : {paye} FC, reste {reste} FC sur {minerval} FC. {statut}`
     ],
-    
-    // ==========================================
-    // 3️⃣ STATUT FRAIS - 25 variantes
-    // ==========================================
     STATUT_FRAIS: [
         `En ordre.`,
         `À jour.`,
@@ -96,10 +86,6 @@ export const MESSAGES = {
         `Tout est en ordre.`,
         `Solde OK.`
     ],
-    
-    // ==========================================
-    // 4️⃣ PRÉSENCE - 25 variantes
-    // ==========================================
     PRESENCE: [
         `Aujourd'hui, {eleve} est {statut}.`,
         `Présence de {eleve} aujourd'hui : {statut}.`,
@@ -127,10 +113,6 @@ export const MESSAGES = {
         `{eleve} est {statut} actuellement.`,
         `Aujourd'hui, {eleve} est {statut}.`
     ],
-    
-    // ==========================================
-    // 5️⃣ PUNITIONS - 25 variantes
-    // ==========================================
     PUNITIONS: [
         `{eleve} a {nb} punition(s) : {liste}`,
         `Sanctions de {eleve} : {nb} punition(s) - {liste}`,
@@ -158,10 +140,6 @@ export const MESSAGES = {
         `{eleve} : {nb} punition(s) - {liste}`,
         `Punitions en cours pour {eleve} : {nb} - {liste}`
     ],
-    
-    // ==========================================
-    // 6️⃣ SEXE - 25 variantes
-    // ==========================================
     SEXE: [
         `{eleve} est un {genre}.`,
         `C'est un {genre} : {eleve}.`,
@@ -189,10 +167,6 @@ export const MESSAGES = {
         `Sexe de {eleve} : {genre}.`,
         `{eleve} est un(e) {genre}.`
     ],
-    
-    // ==========================================
-    // 7️⃣ CLASSE - 25 variantes
-    // ==========================================
     CLASSE: [
         `{eleve} est en {classe}{option}.`,
         `{eleve} est en classe de {classe}{option}.`,
@@ -220,10 +194,63 @@ export const MESSAGES = {
         `{eleve} : {classe}{option}.`,
         `{eleve} est en {classe}{option}.`
     ],
-    
-    // ==========================================
-    // 8️⃣ FALLBACK - 25 variantes
-    // ==========================================
+    BONJOUR: [
+        `{salutation} cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité.`
+    ],
+    MERCI: [
+        `De rien, c'est un plaisir de vous aider !`,
+        `Avec plaisir, revenez quand vous voulez !`,
+        `Je suis content d'avoir pu vous aider.`,
+        `Pas de problème, à votre service !`,
+        `C'était un plaisir, bonne journée !`,
+        `Je vous en prie, revenez si besoin.`,
+        `Avec plaisir, bonne continuation !`,
+        `C'est tout naturel, bonne journée.`,
+        `Ravi d'avoir pu vous aider !`,
+        `Pas de souci, à bientôt !`,
+        `Merci à vous, bonne journée !`,
+        `C'était un plaisir, à votre service.`,
+        `Je vous en prie, revenez quand vous voulez.`,
+        `Avec joie, bonne continuation !`,
+        `Pas de problème, à bientôt !`,
+        `C'était un plaisir de vous aider.`,
+        `Je vous en prie, bonne journée !`,
+        `Avec plaisir, revenez si besoin.`,
+        `Merci à vous, à bientôt !`,
+        `C'était un plaisir, bonne continuation.`,
+        `Je vous en prie, à votre service.`,
+        `Avec joie, bonne journée !`,
+        `Pas de souci, revenez quand vous voulez.`,
+        `C'était un plaisir, à bientôt.`,
+        `Je vous en prie, bonne continuation !`
+    ],
+    AU_REVOIR: [
+        `Au revoir cher parent ! Passez une bonne journée.`,
+        `Au revoir ! À bientôt sur l'espace parental.`,
+        `Au revoir cher parent ! Revenez quand vous voulez.`,
+        `Au revoir ! Bonne journée à vous.`,
+        `Au revoir cher parent ! À la prochaine.`,
+        `Au revoir ! Prenez soin de vous.`,
+        `Au revoir cher parent ! Bonne continuation.`,
+        `Au revoir ! N'hésitez pas à revenir.`,
+        `Au revoir cher parent ! Passez une excellente journée.`,
+        `Au revoir ! Je reste à votre disposition.`,
+        `Au revoir cher parent ! Bonne soirée.`,
+        `Au revoir ! À bientôt.`,
+        `Au revoir cher parent ! Prenez soin de vous.`,
+        `Au revoir ! Bonne journée à vous et votre famille.`,
+        `Au revoir cher parent ! À la prochaine fois.`,
+        `Au revoir ! Passez un bon moment.`,
+        `Au revoir cher parent ! Revenez si besoin.`,
+        `Au revoir ! Je vous souhaite une bonne journée.`,
+        `Au revoir cher parent ! À très bientôt.`,
+        `Au revoir ! Bonne continuation à vous.`,
+        `Au revoir cher parent ! Passez une belle journée.`,
+        `Au revoir ! N'hésitez pas à revenir.`,
+        `Au revoir cher parent ! Bonne fin de journée.`,
+        `Au revoir ! À votre service quand vous voulez.`,
+        `Au revoir cher parent ! Bonne journée.`
+    ],
     FALLBACK: [
         `Posez une question précise sur {eleve} : notes, frais, présence ou punitions. Pour toute question générale, contactez la direction.`,
         `Précisez votre demande pour {eleve} : notes, frais, présence ou punitions. La direction répond aux questions générales.`,
@@ -252,21 +279,13 @@ export const MESSAGES = {
         `Pour toute question sur {eleve}, précisez : notes, frais, présence ou punitions. La direction pour les autres demandes.`
     ]
 };
-
-// ============================================
-// FONCTION POUR CHOISIR AU HASARD
-// ============================================
 export function randomMessage(category, variables = {}) {
     const messages = MESSAGES[category];
     if (!messages || messages.length === 0) return "";
-    
     const index = Math.floor(Math.random() * messages.length);
     let message = messages[index];
-    
-    // Remplacer les variables
     for (const [key, value] of Object.entries(variables)) {
         message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
     }
-    
     return message;
 }
