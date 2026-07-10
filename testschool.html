@@ -1046,12 +1046,7 @@ const fraisClean = frais.split('Voulez-vous voir')[0];
 const notesClean = notes.split('Voulez-vous voir')[0];
 const presenceClean = presence.split('Voulez-vous voir')[0];
 const punitionsClean = punitions.split('Voulez-vous voir')[0];
-reponse = `RÉSUMÉ\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''}.`;
-} else if (msg.includes('?') || msg.includes('pourquoi') || msg.includes('comment') || msg.includes('est-ce que')) {
-const { genre, pronom } = getSexePronom(eleveData.sexe);
-reponse = `Je vais essayer de vous aider. Voici ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''} : ${pronom==='il'?'Il':'Elle'} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}. Posez-moi des questions comme : - "Quelles sont ses notes ?" - "Combien doit-${pronom==='il'?'il':'elle'} payer ?" - "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?" - "A-t-${pronom==='il'?'il':'elle'} des punitions ?" Je vous répondrai avec plaisir !`;
-}
-if (!reponse) {
+reponse = `RÉSUMÉ\n\n${fraisClean}\n${notesClean}\n${presenceClean}\n${punitionsClean}\nVoilà ce que je sais sur ${eleveData.nom}.`;if (!reponse) {
 const { pronom } = getSexePronom(eleveData.sexe);
 let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom||''}. `;
 const sexe = eleveData.sexe || 'M';
@@ -1096,7 +1091,7 @@ reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande
 reponse = reponse.replace(/\d+%/g, ''); reponse = reponse.replace(/\d+,\d+%/g, ''); reponse = reponse.replace(/pourcent/g, 'points'); reponse = reponse.replace(/pour cent/g, 'points'); reponse = reponse.replace(/pourcentage/g, 'points'); reponse = reponse.replace(/moyenne générale/g, ''); reponse = reponse.replace(/moyenne/g, ''); reponse = reponse.replace(/proclamation/g, '');
 if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) { reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`; }
 } catch (e) {
-reponse = `Je suis désolé, il y a un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
+reponse = `Je suis désolé, vous avez un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
 }
 }
 if (questionKey && reponse) reponseCache.set(questionKey, reponse);
@@ -1139,7 +1134,7 @@ reponse += `${totalPaye.toLocaleString()} francs ont déjà été payés.\n`;
 reponse += `Il reste ${reste.toLocaleString()} francs à payer.\n`;
 const nbImpayes = moisImpayes.length;
 if (totalPaye === 0 && nbImpayes === 0) {
-    reponse += `\nℹ️ Pas encore de mois à payer.`;
+    reponse += `\nℹ️ Votre enfant n'a pas encore de mois à payer.`;
 } else if (nbImpayes === 0) {
     reponse += `\n✅ En ordre.`;
 } else if (nbImpayes === 1) {
@@ -1291,14 +1286,21 @@ sectionsVisitees: historiqueSections[eleveId] || []
 };
 reponseCache.clear();
 lastDataHash = getDataHash(dernierEleveData);
-let reponse = `Bonjour cher parent,\n\n`;
+function getSalutation() {
+    const h = new Date().getHours();
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
+
+// Utilisation
+let reponse = `${getSalutation()} cher parent,\n\n`;
 reponse += `J'ai trouvé ${eleve.nom} ${eleve.prenom||''} dans notre système.\n`;
 reponse += `C'est ${pronom==='il'?'un garçon':'une fille'}.\n`;
 reponse += `${pronom==='il'?'Il':'Elle'} est en ${eleve.classe}${eleve.option?' option '+eleve.option:''}.\n\n`;
 reponse += `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions.\n`;
 reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
-}
 async function traiterMessage(message) {
 const msg = message.trim().toLowerCase();
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
@@ -1325,7 +1327,7 @@ default: return `Je peux vous parler de sa situation financière, de ses notes, 
 return `Vous avez vu toutes les informations sur ${dernierEleveData.nom} ${dernierEleveData.prenom||''}.\n\nSi vous avez d'autres questions, n'hésitez pas à les poser. Sinon, vous pouvez entrer un autre code parent.`;
 }
 } else {
-return `Bonjour cher parent, veuillez d'abord entrer votre code parent à 6 chiffres.`;
+return `Une minute cher parent, veuillez d'abord entrer votre code parent à 6 chiffres.`;
 }
 }
 if (/^\d{6}$/.test(msg)) {
@@ -1392,10 +1394,9 @@ const estMerci = motsMerci.some(m => texteComplet.includes(m));
 const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
 if (estBonjour || estMerci || estAurevoir) {
 const nom = eleveData.nom || ''; const prenom = eleveData.prenom || ''; const nomComplet = `${nom} ${prenom}`.trim();
-if (estBonjour) return `Bonjour cher parent ! Je suis ravi de vous aider. Que souhaitez-vous savoir sur ${nomComplet} ?`;
-if (estMerci) return `De rien, c'est un plaisir de vous aider !`;
-if (estAurevoir) return `Au revoir cher parent ! Ce fut un plaisir de vous aider. N'hésitez pas à revenir si vous avez d'autres questions. Passez une excellente journée !`;
-}
+if (estBonjour) return `Je suis là à votre service.`;
+if (estMerci) return `De rien, c'est un plaisir.`;
+if (estAurevoir) return `Au revoir ! Passez une excellente journée.`;
 const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois'];
 if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
 const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
@@ -1406,8 +1407,7 @@ const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni',
 if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
 return await genererReponseNaturelle(message, eleveData);
 }
-return `Bonjour cher parent, veuillez entrer votre code parent à 6 chiffres. Si vous n'avez pas de code, contactez la comptabilité de l'école ${nomEcole}.`;
-}
+return `${getSalutation()} ! Entrez votre code parent (6 chiffres) ou contactez la comptabilité de ${nomEcole}.`;
 async function initIndexedDB() { return new Promise(function(res, rej) { let r = indexedDB.open('GloriaDeiDB', 1); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; r.onupgradeneeded = function(e) { let db = e.target.result; if (!db.objectStoreNames.contains('professeurs')) db.createObjectStore('professeurs', { keyPath: 'id' }); if (!db.objectStoreNames.contains('fiches')) db.createObjectStore('fiches', { keyPath: 'id' }); if (!db.objectStoreNames.contains('compteur')) db.createObjectStore('compteur', { keyPath: 'id' }); if (!db.objectStoreNames.contains('pendingSync')) db.createObjectStore('pendingSync', { keyPath: 'id', autoIncrement: true }); }; }); }
 async function saveToIndexedDB(store, data) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readwrite'); let so = tx.objectStore(store); let r = so.put(data); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(); }; tx.oncomplete = function() { dbc.close(); }; }); }
 async function getAllFromIndexedDB(store) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readonly'); let so = tx.objectStore(store); let r = so.getAll(); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; tx.oncomplete = function() { dbc.close(); }; }); }
