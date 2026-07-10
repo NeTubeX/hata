@@ -158,6 +158,15 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 .chart-box{background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:16px;transition:0.4s;box-shadow:0 4px 16px rgba(0,0,0,0.1);}
 .chart-box:hover{box-shadow:0 8px 32px rgba(0,0,0,0.2);border-color:var(--border-hover);}
 .chart-box h4{font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);}
+.pagination-container{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;flex-wrap:wrap;gap:10px;border-top:1px solid var(--border-color);background:rgba(0,0,0,0.1);border-radius:0 0 var(--radius) var(--radius);}
+.pagination-info{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.pagination-info select{padding:4px 10px;border-radius:6px;background:var(--bg-primary);border:1px solid var(--border-color);color:var(--text-primary);font-size:12px;outline:none;cursor:pointer;}
+.pagination-buttons{display:flex;gap:4px;flex-wrap:wrap;align-items:center;}
+.pagination-btn{background:rgba(59,130,246,0.08);border:1px solid var(--border-color);color:var(--text-secondary);padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;transition:all 0.2s;min-width:32px;text-align:center;}
+.pagination-btn:hover{background:var(--blue-light);color:var(--blue);border-color:var(--blue);}
+.pagination-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);box-shadow:0 2px 8px rgba(59,130,246,0.3);}
+.pagination-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.pagination-btn:disabled:hover{background:rgba(59,130,246,0.08);color:var(--text-secondary);border-color:var(--border-color);}
 @media(max-width:1200px){.stats-grid{grid-template-columns:repeat(4,1fr);}}
 @media(max-width:992px){
 .sidebar{width:var(--sidebar-collapsed);}
@@ -362,7 +371,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 </div>
 </header>
 <div class="stats-grid" id="mainStats">
-<div class="stat-card-3d"><div class="glow-edge"></div><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z"/></svg></div><div class="stat-value"><span class="gold" id="statTotalEleves">0</span></div><div class="stat-label">Total Students</div></div>
+<div class="stat-card-3d"><div class="glow-edge"></div><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z"/></svg></div><div class="stat-value"><span class="gold" id="statTotalEleves">0</span></div><div class="stat-label">Total Active Members</div></div>
 <div class="stat-card-3d"><div class="glow-edge"></div><div class="stat-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5.3 18.3C6.8 16.5 9.2 15 12 15s5.2 1.5 6.7 3.3"/></svg></div><div class="stat-value"><span class="blue" id="statGarcons">0</span></div><div class="stat-label">Boys</div></div>
 <div class="stat-card-3d"><div class="glow-edge"></div><div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="stat-value"><span class="pink" id="statFilles">0</span></div><div class="stat-label">Girls</div></div>
 <div class="stat-card-3d"><div class="glow-edge"></div><div class="stat-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></div><div class="stat-value"><span class="danger" id="statAbandons">0</span></div><div class="stat-label">Dropouts</div></div>
@@ -422,6 +431,7 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, startAfter, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 const firebaseConfig = {
 apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
 authDomain: "netubexmoney.firebaseapp.com",
@@ -432,6 +442,7 @@ appId: "1:856592608176:web:69f9df9cfd4f8c28630475"
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
 const ACCESS_CODE = "Theone12";
 let isAppUnlocked = false;
 let isExpectedUnlocked = false;
@@ -445,6 +456,7 @@ let auditList = [];
 let floryMessages = [];
 let unsubscribeFlory = null;
 let unsubscribeFichesRealtime = null;
+let unsubscribeLogs = null;
 let isRealtimeActive = false;
 let chartInstances = {};
 let currentSchoolFilter = "all";
@@ -454,6 +466,11 @@ const poleDocRef = doc(db, "communication", FLORY_DOC_ID);
 const READ_STATUS_KEY = "flory_read_messages";
 const SENDER_NAME = "M. Flory";
 const moisListe = ["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
+
+// ===== PAGINATION VARIABLES =====
+let currentLogPage = 1;
+let logsPerPage = 25;
+const logsPerPageOptions = [10, 25, 50, 100];
 
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('keydown', e => {
@@ -551,8 +568,14 @@ cancelBtn.addEventListener("click", c);
 input.addEventListener("keydown", k);
 }
 
-function formatDate(d) { const dt = new Date(d); return dt.toLocaleDateString("en-US") + " " + dt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }); }
+function formatDate(d) { 
+if (!d) return "-";
+const dt = new Date(d); 
+return dt.toLocaleDateString("en-US", { month: 'short', day: '2-digit', year: 'numeric' }) + " " + dt.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function escapeHtml(str) { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;' : m); }
+
 function getFloryReadMessages() { try { return JSON.parse(localStorage.getItem(READ_STATUS_KEY) || '[]'); } catch(e) { return []; } }
 function saveFloryReadMessages(list) { localStorage.setItem(READ_STATUS_KEY, JSON.stringify(list)); }
 function isFloryMessageRead(id) { return getFloryReadMessages().includes(id); }
@@ -642,27 +665,20 @@ return f;
 } catch(e) { return []; }
 }
 
-// ===== FONCTION CHARGER LOGS CORRIGÉE =====
-async function chargerLogs(ecoleId) {
+async function chargerLogs(e, last = null, lim = 50) {
 try {
-// Utiliser la bonne collection : ecoleId + "_logs"
-const logsRef = collection(db, `${ecoleId}_logs`);
-const q = query(logsRef, orderBy("date", "desc"), limit(100));
-const snap = await getDocs(q);
-const logs = [];
-snap.forEach(ds => {
-const data = ds.data();
-logs.push({
-id: ds.id,
-ecoleId: ecoleId,
-...data
-});
-});
-return logs;
-} catch(e) {
-console.warn(`Erreur chargement logs pour ${ecoleId}:`, e);
-return [];
+let q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), limit(lim));
+if (last) {
+const snapLast = await getDoc(doc(db, `${e}_logs`, last));
+if (snapLast.exists()) {
+q = query(collection(db, `${e}_logs`), orderBy("date", "desc"), startAfter(snapLast), limit(lim));
 }
+}
+const snap = await getDocs(q);
+const l = [];
+snap.forEach(ds => { l.push({ id: ds.id, ...ds.data() }); });
+return l;
+} catch(e) { return []; }
 }
 
 async function chargerAuditLogs() {
@@ -688,7 +704,6 @@ tousProfs = tousProfs.concat(p.map(p => ({ ...p, ecoleId: e.id, ecoleNom: e.nom 
 const f = await chargerFiches(e.id);
 f.forEach(f => { f.ecoleNom = e.nom || e.id; });
 toutesFiches = toutesFiches.concat(f);
-// Charger les logs pour chaque école
 const logs = await chargerLogs(e.id);
 logs.forEach(l => { l.ecoleId = e.id; l.ecoleNom = e.nom || e.id; });
 tousLogs = tousLogs.concat(logs);
@@ -958,9 +973,9 @@ const container = document.getElementById("dashboardContainer");
 if(!container) return;
 container.innerHTML = `
 <div class="dashboard-grid-2col">
-<div class="chart-box"><h4>📊 Students per School</h4><canvas id="chartEcoles"></canvas></div>
+<div class="chart-box"><h4>📊 Active Members per School</h4><canvas id="chartEcoles"></canvas></div>
 <div class="chart-box"><h4>📊 Gender Distribution</h4><canvas id="chartSexe"></canvas></div>
-<div class="chart-box full-width"><h4>📊 Student Status</h4><canvas id="chartStatut"></canvas></div>
+<div class="chart-box full-width"><h4>📊 Active Members Status</h4><canvas id="chartStatut"></canvas></div>
 <div class="chart-box full-width"><h4>📊 School Distribution (% of Total)</h4><div id="schoolComparisonBars"></div></div>
 <div class="chart-box full-width"><h4>📊 Sheets by School</h4><canvas id="chartSheetsBySchool"></canvas></div>
 <div class="chart-box full-width"><h4>📊 Sheets by Teacher</h4><canvas id="chartSheetsByTeacher"></canvas></div>
@@ -976,7 +991,7 @@ if (chartEcoles) {
 if(chartInstances.ecoles) chartInstances.ecoles.destroy();
 chartInstances.ecoles = new Chart(chartEcoles, {
 type: "bar",
-data: { labels: ecolesData.map(d => d.label), datasets: [{ label: "Students", data: ecolesData.map(d => d.value), backgroundColor: "#3B82F6", borderRadius: 4 }] },
+data: { labels: ecolesData.map(d => d.label), datasets: [{ label: "Active Members", data: ecolesData.map(d => d.value), backgroundColor: "#3B82F6", borderRadius: 4 }] },
 options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
 });
 }
@@ -1086,14 +1101,14 @@ onclick="window.showSchoolEleves('${school.id}')">
 🏫 ${school.nom}
 </div>
 <div style="font-size:11px;color:var(--text-muted);">
-📚 ${school.total} students · ✅ ${school.actifs} active
+📚 ${school.total} Active Members · ✅ ${school.actifs} active
 ${school.inactifs > 0 ? `· ⚠️ ${school.inactifs} inactive` : ''}
 </div>
 </div>
 </div>
 <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
 <span style="font-size:14px;font-weight:700;color:${school.couleur};min-width:50px;text-align:right;">${school.pourcentage}%</span>
-<span style="font-size:11px;color:var(--text-muted);min-width:60px;text-align:right;">${school.total} students</span>
+<span style="font-size:11px;color:var(--text-muted);min-width:60px;text-align:right;">${school.total} Active Members</span>
 </div>
 </div>
 <div style="margin-top:6px;width:100%;height:8px;background:rgba(255,255,255,0.06);border-radius:20px;overflow:hidden;position:relative;">
@@ -1130,7 +1145,7 @@ let html = `
 <th style="width:5%;">#</th>
 <th style="width:25%;">School Name</th>
 <th style="width:20%;">Database ID</th>
-<th style="width:10%;">Students</th>
+<th style="width:10%;">Active Members</th>
 <th style="width:10%;">Boys</th>
 <th style="width:10%;">Girls</th>
 <th style="width:10%;">Sheets</th>
@@ -1247,7 +1262,7 @@ if (!members.length) {
 html += `<div class="empty-state"><span class="empty-icon">👥</span>No members found</div>`;
 } else {
 html += `<div class="table-wrapper"><table><thead><tr>
-<th style="width:5%;">#</th><th style="width:15%;">Last Name</th><th style="width:12%;">First Name</th><th style="width:10%;">Class</th><th style="width:10%;">Gender</th><th style="width:15%;">School</th><th style="width:15%;">Database ID</th><th style="width:18%;" class="col-center">Status</th>
+<th style="width:6%;">#</th><th style="width:20%;">Last Name</th><th style="width:15%;">First Name</th><th style="width:12%;">Class</th><th style="width:12%;">Gender</th><th style="width:20%;">School</th><th style="width:15%;" class="col-center">Status</th>
 </tr></thead><tbody>`;
 members.forEach((el, idx) => {
 const statutLabels = { regulier: 'Regular', exonere: 'Exempted', listenoir: 'Blacklist', abandon: 'Dropout' };
@@ -1257,9 +1272,8 @@ html += `<tr>
 <td><strong>${escapeHtml(el.nom||'?')}</strong></td>
 <td>${escapeHtml(el.prenom||'')}</td>
 <td>${escapeHtml(el.classe||'-')}</td>
-<td>${el.sexe === 'F' ? '👩 Girl' : '👨 Boy'}</td>
+<td>${el.sexe === 'F' ? 'Girl' : 'Boy'}</td>
 <td>${escapeHtml(el.ecoleNom||'-')}</td>
-<td><span class="id-cell">${getLast6Chars(el.id)}</span></td>
 <td class="col-center"><span class="badge-table ${statutClass}">${statutLabels[statutClass] || statutClass}</span></td>
 </tr>`;
 });
@@ -1314,10 +1328,10 @@ let html = `
 <table>
 <thead>
 <tr>
-<th style="width:5%;">#</th>
+<th style="width:7%;">#</th>
 <th style="width:25%;">Name</th>
 <th style="width:18%;">Code</th>
-<th style="width:25%;">School</th>
+<th style="width:23%;">School</th>
 <th style="width:12%;">Sheets</th>
 <th style="width:15%;" class="col-center">Status</th>
 </tr>
@@ -1361,14 +1375,13 @@ let html = `
 <thead>
 <tr>
 <th style="width:5%;">#</th>
-<th style="width:15%;">Subject</th>
-<th style="width:12%;">Class</th>
-<th style="width:12%;">Option</th>
-<th style="width:15%;">School</th>
-<th style="width:15%;">Teacher</th>
-<th style="width:12%;">Database ID</th>
-<th style="width:8%;">Students</th>
-<th style="width:6%;" class="col-center">Actions</th>
+<th style="width:18%;">Subject</th>
+<th style="width:14%;">Class</th>
+<th style="width:14%;">Option</th>
+<th style="width:18%;">School</th>
+<th style="width:18%;">Teacher</th>
+<th style="width:8%;">Active Members</th>
+<th style="width:5%;" class="col-center">Actions</th>
 </tr>
 </thead>
 <tbody>`;
@@ -1382,7 +1395,6 @@ html += `<tr>
 <td>${escapeHtml(f.option || '-')}</td>
 <td>${escapeHtml(f.ecoleNom || '-')}</td>
 <td><span style="color:var(--blue);font-weight:500;">${escapeHtml(teacherName)}</span></td>
-<td><span class="id-cell">${getLast6Chars(f.id)}</span></td>
 <td class="col-center"><span style="color:var(--purple);font-weight:600;">${nb}</span></td>
 <td class="col-center">
 <button class="btn-icon-table danger" onclick="window.supprimerFiche('${f.ecoleId}','${f.id}','${escapeHtml(f.cours || 'No subject')}')" title="Delete">🗑️</button>
@@ -1394,74 +1406,285 @@ container.innerHTML = html;
 window.supprimerFiche = supprimerFiche;
 }
 
-// ===== RENDER LOGS CORRIGÉ =====
+// ===== RENDER LOGS AVEC PAGINATION =====
 function renderLogs() {
 const container = document.getElementById("logsContainer");
 if(!container) return;
+
 let logs = tousLogs;
-if (currentSchoolFilter !== "all") logs = logs.filter(l => l.ecoleId === currentSchoolFilter);
+if (currentSchoolFilter !== "all") {
+logs = logs.filter(l => l.ecoleId === currentSchoolFilter);
+}
+logs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+const totalLogs = logs.length;
+const totalPages = Math.ceil(totalLogs / logsPerPage) || 1;
+
+if (currentLogPage > totalPages) currentLogPage = totalPages;
+if (currentLogPage < 1) currentLogPage = 1;
+
+const start = (currentLogPage - 1) * logsPerPage;
+const end = Math.min(start + logsPerPage, totalLogs);
+const pageLogs = logs.slice(start, end);
+
 let html = `
 <div class="card">
 <div class="card-header">
-<h3>📊 Logs <span class="count">${logs.length}</span></h3>
+<h3>Logs <span class="count">${totalLogs}</span></h3>
 <div class="actions">
-<button class="btn danger sm" id="clearAllLogsBtn">🗑️ Clear All Logs</button>
-<button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button>
+<button class="btn danger sm" id="clearAllLogsBtn">Clear All Logs</button>
+<button class="btn primary sm" onclick="window.rafraichir()">Refresh</button>
 </div>
+</div>
+<div class="filter-bar" style="display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px;background:rgba(0,0,0,0.15);border-bottom:1px solid var(--border-color);align-items:center;">
+<label style="font-size:11px;color:var(--gold);font-weight:700;">User:</label>
+<input type="text" id="logUserFilter" placeholder="Search user..." style="flex:1;min-width:120px;padding:6px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;outline:none;">
+<label style="font-size:11px;color:var(--gold);font-weight:700;">Action:</label>
+<select id="logActionFilter" style="padding:6px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;outline:none;">
+<option value="all">All</option>
+<option value="connexion_reussie">Login</option>
+<option value="connexion_echouee">Login Failed</option>
+<option value="tentative_hack">Hack Attempt</option>
+<option value="changement_code">Code Changed</option>
+<option value="creation_fiche">Sheet Created</option>
+<option value="suppression_fiche">Sheet Deleted</option>
+<option value="export_pdf">PDF Export</option>
+</select>
+<span class="filter-info" id="logFilterInfo" style="font-size:12px;color:var(--orange);margin-left:auto;">${totalLogs} logs</span>
+<button id="resetLogFilters" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:4px 14px;border-radius:40px;font-size:11px;cursor:pointer;">Reset</button>
 </div>
 <div class="table-wrapper">
 <table class="log-table">
 <thead>
 <tr>
-<th style="width:5%;">#</th>
-<th style="width:15%;">User</th>
-<th style="width:15%;">Action</th>
-<th style="width:20%;">Details</th>
+<th style="width:4%;">#</th>
+<th style="width:16%;">User</th>
+<th style="width:14%;">Action</th>
+<th style="width:35%;">Details</th>
 <th style="width:15%;">School</th>
-<th style="width:18%;">Date</th>
-<th style="width:12%;">ID</th>
+<th style="width:16%;">Date</th>
 </tr>
 </thead>
 <tbody>`;
-if (!logs.length) {
-html += `<tr><td colspan="7" class="empty-state"><span class="empty-icon">📭</span>No logs found</td></tr>`;
+
+if (!pageLogs.length) {
+html += `<tr><td colspan="6" class="empty-state">No logs found</td></tr>`;
 } else {
-logs.slice(0, 100).forEach((log, idx) => {
+pageLogs.forEach((log, idx) => {
+const num = start + idx + 1;
 const actionMap = {
-connexion_reussie: "🟢 Login", creation_fiche: "📄 Create sheet",
-modification_fiche: "✏️ Edit", suppression_fiche: "🗑️ Delete",
-connexion: "🟢 Login", creation: "📄 Create",
-modification: "✏️ Edit", suppression: "🗑️ Delete",
-login: "🟢 Login", logout: "🔴 Logout"
+'connexion_reussie': { label: 'Login', class: 'success' },
+'connexion_echouee': { label: 'Login Failed', class: 'error' },
+'tentative_hack': { label: 'Hack Attempt', class: 'error' },
+'changement_code': { label: 'Code Changed', class: 'warning' },
+'creation_fiche': { label: 'Sheet Created', class: 'success' },
+'suppression_fiche': { label: 'Sheet Deleted', class: 'error' },
+'modification_fiche': { label: 'Sheet Modified', class: 'warning' },
+'export_pdf': { label: 'PDF Export', class: 'info' },
+'deconnexion': { label: 'Logout', class: 'info' }
 };
-const actionLabel = actionMap[log.action] || log.action || "Unknown";
-const badgeClass = log.action === "suppression" || log.action === "suppression_fiche" ? "error" :
-(log.action === "connexion" || log.action === "connexion_reussie" || log.action === "login" ? "success" :
-(log.action === "modification" || log.action === "modification_fiche" ? "warning" : "info"));
-const detail = log.details?.cours ? `${log.details.cours} ${log.details.classe||""}` : 
-               (log.details?.message || log.message || '-');
-const user = log.utilisateur || log.nom || "Unknown";
+const actionInfo = actionMap[log.action] || { label: log.action || 'Other', class: 'info' };
+
+let detailText = '';
+const baseMessage = log.details?.message || log.message || '-';
+
+// === FORMAT DES DÉTAILS COMME DEMANDÉ ===
+// Login: Login Success (code: 5678)
+if (log.action === 'connexion_reussie') {
+detailText = baseMessage;
+if (log.details?.code_utilise) {
+detailText += ` (code: ${log.details.code_utilise})`;
+}
+}
+// Login Failed: Code incorrect: 1234/5678
+else if (log.action === 'connexion_echouee') {
+const codeSaisi = log.details?.code_saisi;
+const codeAttendu = log.details?.code_attendu;
+if (codeSaisi && codeAttendu) {
+detailText = `${baseMessage}: ${codeSaisi}/${codeAttendu}`;
+} else {
+detailText = baseMessage;
+}
+}
+// Hack Attempt: 3 attempts: 9999/5678 · IP: 192.168.1.1
+else if (log.action === 'tentative_hack') {
+const ip = log.details?.ip || '-';
+const tentative = log.details?.tentative || '';
+const codeSaisi = log.details?.code_saisi || '-';
+const codeAttendu = log.details?.code_attendu || '-';
+detailText = `${baseMessage}: ${codeSaisi}/${codeAttendu}`;
+if (tentative) detailText += ` · ${tentative} attempts`;
+if (ip !== '-') detailText += ` · IP: ${ip}`;
+}
+// Code Changed: Code changed successfully
+else if (log.action === 'changement_code') {
+detailText = baseMessage;
+}
+// Sheet Created: Math - 3ème · 25 Active Members
+else if (log.action === 'creation_fiche' || log.action === 'modification_fiche') {
+let parts = [baseMessage];
+if (log.details?.cours) {
+parts.push(log.details.cours + (log.details.classe ? ' - ' + log.details.classe : ''));
+}
+if (log.details?.nbEleves) {
+parts.push(log.details.nbEleves + ' Active Members');
+}
+detailText = parts.join(' · ');
+}
+// Sheet Deleted: Math - 3ème
+else if (log.action === 'suppression_fiche') {
+let parts = [baseMessage];
+if (log.details?.cours) {
+parts.push(log.details.cours + (log.details.classe ? ' - ' + log.details.classe : ''));
+}
+detailText = parts.join(' · ');
+}
+// PDF Export: Math - 3ème (Fiche de cotation)
+else if (log.action === 'export_pdf') {
+let parts = [baseMessage];
+if (log.details?.cours) {
+parts.push(log.details.cours + (log.details.classe ? ' - ' + log.details.classe : ''));
+}
+if (log.details?.type) {
+parts.push('(' + log.details.type + ')');
+}
+detailText = parts.join(' · ');
+}
+// General
+else {
+detailText = baseMessage;
+}
+
+const user = log.utilisateur || 'Unknown';
 const dateStr = log.date ? formatDate(log.date) : "-";
-html += `<tr>
-<td>${idx + 1}</td>
+
+html += `
+<tr>
+<td style="text-align:center;font-size:11px;color:var(--text-muted);">${num}</td>
 <td><strong>${escapeHtml(user)}</strong></td>
-<td><span class="log-badge ${badgeClass}">${actionLabel}</span></td>
-<td style="font-size:12px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(detail)}</td>
-<td>${escapeHtml(log.ecoleNom || log.ecoleId || '-')}</td>
+<td><span class="log-badge ${actionInfo.class}">${actionInfo.label}</span></td>
+<td style="font-size:12px;color:var(--text-secondary);white-space:normal;word-wrap:break-word;max-width:350px;">${escapeHtml(detailText)}</td>
+<td style="font-size:11px;color:var(--text-secondary);">${escapeHtml(log.ecoleNom || log.ecoleId || '-')}</td>
 <td style="font-size:11px;color:var(--text-muted);">${dateStr}</td>
-<td><span class="log-id">${getLast6Chars(log.id)}</span></td>
 </tr>`;
 });
-if (logs.length > 100) html += `<tr><td colspan="7" class="text-muted" style="text-align:center;padding:8px;">+ ${logs.length - 100} more logs</td></tr>`;
 }
-html += `</tbody></table></div></div>`;
+
+html += `</tbody></table></div>
+
+<!-- PAGINATION -->
+<div class="pagination-container">
+<div class="pagination-info">
+Showing ${totalLogs > 0 ? start + 1 : 0}-${end} of ${totalLogs} logs
+<select id="logsPerPageSelect" onchange="changeLogsPerPage(this.value)">
+${logsPerPageOptions.map(opt => `<option value="${opt}" ${opt === logsPerPage ? 'selected' : ''}>${opt}</option>`).join('')}
+</select>
+</div>
+<div class="pagination-buttons">
+<button class="pagination-btn" onclick="changeLogPage(${currentLogPage - 1})" ${currentLogPage <= 1 ? 'disabled' : ''}>◀</button>
+${generateLogPaginationButtons(totalPages)}
+<button class="pagination-btn" onclick="changeLogPage(${currentLogPage + 1})" ${currentLogPage >= totalPages ? 'disabled' : ''}>▶</button>
+</div>
+</div>
+</div>`;
+
 container.innerHTML = html;
+
+// Événements de filtrage
+document.getElementById("logUserFilter")?.addEventListener("input", filterLogs);
+document.getElementById("logActionFilter")?.addEventListener("change", filterLogs);
+document.getElementById("resetLogFilters")?.addEventListener("click", function() {
+document.getElementById("logUserFilter").value = '';
+document.getElementById("logActionFilter").value = 'all';
+filterLogs();
+});
 document.getElementById("clearAllLogsBtn")?.addEventListener("click", clearAllLogs);
 }
 
+function changeLogsPerPage(value) {
+logsPerPage = parseInt(value);
+currentLogPage = 1;
+renderLogs();
+}
+
+function changeLogPage(page) {
+const totalLogs = tousLogs.filter(l => currentSchoolFilter === "all" || l.ecoleId === currentSchoolFilter).length;
+const totalPages = Math.ceil(totalLogs / logsPerPage) || 1;
+if (page < 1 || page > totalPages) return;
+currentLogPage = page;
+renderLogs();
+}
+
+function generateLogPaginationButtons(totalPages) {
+let html = '';
+const maxVisible = 5;
+let startPage = Math.max(1, currentLogPage - Math.floor(maxVisible / 2));
+let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+if (endPage - startPage < maxVisible - 1) {
+if (startPage === 1) endPage = Math.min(totalPages, maxVisible);
+else if (endPage === totalPages) startPage = Math.max(1, totalPages - maxVisible + 1);
+}
+
+if (startPage > 1) {
+html += `<button class="pagination-btn" onclick="changeLogPage(1)">1</button>`;
+if (startPage > 2) html += `<span style="color:var(--text-muted);padding:0 4px;">…</span>`;
+}
+
+for (let i = startPage; i <= endPage; i++) {
+html += `<button class="pagination-btn ${i === currentLogPage ? 'active' : ''}" onclick="changeLogPage(${i})">${i}</button>`;
+}
+
+if (endPage < totalPages) {
+if (endPage < totalPages - 1) html += `<span style="color:var(--text-muted);padding:0 4px;">…</span>`;
+html += `<button class="pagination-btn" onclick="changeLogPage(${totalPages})">${totalPages}</button>`;
+}
+return html;
+}
+
+function filterLogs() {
+const userFilter = document.getElementById("logUserFilter")?.value?.toLowerCase() || '';
+const actionFilter = document.getElementById("logActionFilter")?.value || 'all';
+const table = document.querySelector('.log-table tbody');
+if (!table) return;
+
+const rows = table.querySelectorAll('tr');
+let visible = 0;
+
+rows.forEach(row => {
+if (row.querySelector('.empty-state')) return;
+const user = row.querySelector('td:nth-child(2)')?.innerText?.toLowerCase() || '';
+const action = row.querySelector('td:nth-child(3) .log-badge')?.innerText?.toLowerCase() || '';
+
+let show = true;
+if (userFilter && !user.includes(userFilter)) show = false;
+
+if (actionFilter !== 'all') {
+const actionMap = {
+'connexion_reussie': 'login',
+'connexion_echouee': 'login failed',
+'tentative_hack': 'hack',
+'changement_code': 'code changed',
+'creation_fiche': 'sheet created',
+'suppression_fiche': 'sheet deleted',
+'export_pdf': 'pdf export'
+};
+const actionText = actionMap[actionFilter] || '';
+if (!action.includes(actionText)) show = false;
+}
+
+row.style.display = show ? '' : 'none';
+if (show) visible++;
+});
+
+const info = document.getElementById("logFilterInfo");
+if (info) info.textContent = `${visible} logs`;
+}
+
 async function clearAllLogs() {
-if (!await showConfirm("Clear All Logs", "Are you sure you want to delete ALL logs? This action is irreversible.")) return;
+if (!await showConfirm("Clear All Logs", "⚠️ This action is IRREVERSIBLE!<br><br>Are you sure you want to delete ALL logs?")) return;
 try {
+toast("⏳ Deleting all logs...", 'info');
 const snap = await getDocs(collection(db, "audit_logs"));
 let count = 0;
 for (const ds of snap.docs) {
@@ -1581,6 +1804,69 @@ tbody.appendChild(tr);
 });
 }
 
+// ===== LISTEN TO LOGS IN REALTIME =====
+function ecouterLogsEnTempsReel() {
+if (unsubscribeLogs) {
+unsubscribeLogs();
+unsubscribeLogs = null;
+}
+try {
+const logsRef = collection(db, SCHOOL_PREFIX + "_logs");
+const q = query(logsRef, orderBy("date", "desc"), limit(50));
+
+unsubscribeLogs = onSnapshot(q, (snapshot) => {
+let nouveauxLogs = 0;
+snapshot.docChanges().forEach(change => {
+if (change.type === "added") {
+const logData = change.doc.data();
+const logId = change.doc.id;
+if (!tousLogs.some(l => l.id === logId)) {
+nouveauxLogs++;
+tousLogs.unshift(logData);
+if (document.getElementById("logsContainer")?.classList.contains("active")) {
+renderLogs();
+}
+}
+}
+});
+if (nouveauxLogs > 0) {
+toast(`📊 ${nouveauxLogs} new log(s) received`, 'info');
+mettreAJourCompteurLogs();
+}
+}, (error) => {
+console.error("Erreur écoute logs:", error);
+});
+console.log("📡 Logs listening activated");
+} catch (e) {
+console.error("Erreur activation écoute logs:", e);
+}
+}
+
+function mettreAJourCompteurLogs() {
+const logTab = document.querySelector('[data-tab="logs"]');
+if (!logTab) return;
+const logsNonLus = tousLogs.filter(log => {
+return (log.statut === "error" || log.statut === "critical") &&
+(log.action === "connexion_echouee" ||
+log.action === "tentative_hack" ||
+log.action === "suppression_fiche");
+}).length;
+let badge = logTab.querySelector('.badge-nav');
+if (logsNonLus > 0) {
+if (!badge) {
+badge = document.createElement('span');
+badge.className = 'badge-nav';
+logTab.appendChild(badge);
+}
+badge.textContent = `🔴 ${logsNonLus}`;
+badge.style.color = '#ef4444';
+badge.style.fontWeight = 'bold';
+badge.style.animation = 'pulseBadge 1s infinite';
+} else {
+if (badge) badge.remove();
+}
+}
+
 function listenToFlory() {
 if (unsubscribeFlory) unsubscribeFlory();
 unsubscribeFlory = onSnapshot(poleDocRef, snap => {
@@ -1595,33 +1881,34 @@ if (document.getElementById("floryContainer")?.classList.contains("active")) ren
 function renderFlory() {
 const container = document.getElementById("floryContainer");
 if(!container) return;
+
 let html = `
 <div class="dashboard-grid-2col">
-<div class="card">
+<div class="card" style="grid-column:span 2;">
 <div class="card-header">
-<h3>📋 Communication with Ursule Nyandji (Support & Technical)</h3>
+<h3>📋 Communication with Ursule Nyandji</h3>
 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-<span style="font-size:11px;color:var(--gold);padding:4px 12px;background:rgba(251,191,36,0.1);border-radius:30px;border:1px solid rgba(251,191,36,0.2);">👤 ${SENDER_NAME}</span>
+<span style="font-size:12px;color:var(--gold);padding:4px 12px;background:rgba(251,191,36,0.1);border-radius:30px;border:1px solid rgba(251,191,36,0.2);">👤 ${SENDER_NAME}</span>
 <button class="btn outline sm" id="markAllReadFlory">✅ Mark all as read</button>
 </div>
 </div>
-<div id="floryMessagesGrid" class="messages-grid">
+<div class="messages-grid" style="max-height:400px;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
 ${floryMessages.length === 0 ? '<div class="empty-state"><span class="empty-icon">💬</span>No messages</div>' : ''}
 </div>
 </div>
-<div class="card">
-<div class="send-form" style="border:none;border-radius:0;background:transparent;margin-top:0;">
-<div class="send-header">✏️ Reply to Ursule Nyandji</div>
-<div class="send-body">
-<textarea id="floryMessage" rows="3" placeholder="Write your message for Ursule Nyandji..."></textarea>
-<button id="sendFloryBtn" class="btn-send">📤 SEND TO URSULE NYANDJI</button>
-</div>
+<div class="card" style="grid-column:span 2;">
+<div style="padding:16px;">
+<h4 style="color:var(--text-secondary);margin-bottom:12px;">✏️ Reply to Ursule Nyandji</h4>
+<textarea id="floryMessage" rows="3" placeholder="Write your message for Ursule Nyandji..." style="width:100%;padding:12px 16px;border-radius:12px;background:var(--bg-primary);border:1px solid var(--border-color);color:var(--text-primary);font-size:14px;resize:vertical;font-family:inherit;"></textarea>
+<button id="sendFloryBtn" style="width:100%;margin-top:12px;padding:10px;border-radius:40px;background:linear-gradient(135deg,var(--blue),var(--blue-dark));color:#fff;border:none;font-weight:600;font-size:14px;cursor:pointer;transition:0.3s;">📤 Send to Ursule Nyandji</button>
 </div>
 </div>
 </div>
 `;
+
 container.innerHTML = html;
-const grid = document.getElementById('floryMessagesGrid');
+
+const grid = document.querySelector('.messages-grid');
 if (floryMessages.length > 0 && grid) {
 grid.innerHTML = '';
 floryMessages.forEach(msg => {
@@ -1631,18 +1918,34 @@ const isUrsule = msg.sender === "ursule" || msg.nom === "Ursule Nyandji";
 const unread = isUrsule && !isFloryMessageRead(msg.id);
 const div = document.createElement('div');
 div.className = `msg-bubble ${isFlory ? 'msg-right' : 'msg-left'}${unread ? ' msg-unread' : ''}`;
+div.style.maxWidth = '80%';
+div.style.padding = '12px 18px';
+div.style.borderRadius = '14px';
+div.style.fontSize = '14px';
+div.style.wordWrap = 'break-word';
+div.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+if (isFlory) {
+div.style.background = 'var(--blue)';
+div.style.color = '#fff';
+div.style.alignSelf = 'flex-end';
+} else {
+div.style.background = 'var(--bg-secondary)';
+div.style.border = '1px solid var(--border-color)';
+div.style.alignSelf = 'flex-start';
+}
 div.innerHTML = `
-<span class="msg-sender">${isFlory ? '👤 M. Flory (You)' : '👩 Ursule Nyandji (Support)'}</span>
-${unread ? '<span style="font-size:10px;background:#ef4444;color:white;padding:2px 8px;border-radius:30px;margin-left:4px;">🔴 UNREAD</span>' : ''}
-<div>${escapeHtml(msg.message || '')}</div>
-<span class="msg-time">${date}</span>
-<div class="msg-actions">
-<button class="btn-copy-msg" data-msg="${escapeHtml(msg.message || '')}">📋 Copy</button>
-${isUrsule && unread ? `<button class="btn-mark-read" data-id="${msg.id}">✅ Mark as read</button>` : ''}
-<button class="btn-delete-msg" data-id="${msg.id}" data-type="flory">🗑️</button>
+<span style="font-weight:600;font-size:12px;color:${isFlory ? '#fff' : 'var(--purple)'};">${isFlory ? '👤 M. Flory' : '👩 Ursule Nyandji'}</span>
+${unread ? '<span style="font-size:10px;background:#ef4444;color:white;padding:1px 8px;border-radius:30px;margin-left:6px;">NEW</span>' : ''}
+<div style="margin-top:4px;">${escapeHtml(msg.message || '')}</div>
+<span style="font-size:10px;opacity:0.6;margin-top:4px;display:block;text-align:right;">${date}</span>
+<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+<button class="btn-copy-msg" data-msg="${escapeHtml(msg.message || '')}" style="background:rgba(74,158,255,0.1);color:var(--text-secondary);border:none;padding:2px 10px;border-radius:30px;font-size:10px;cursor:pointer;transition:0.2s;">📋 Copy</button>
+${isUrsule && unread ? `<button class="btn-mark-read" data-id="${msg.id}" style="background:rgba(16,185,129,0.15);color:var(--green);border:none;padding:2px 10px;border-radius:30px;font-size:10px;cursor:pointer;transition:0.2s;">✅ Mark as read</button>` : ''}
+<button class="btn-delete-msg" data-id="${msg.id}" data-type="flory" style="background:rgba(239,68,68,0.1);color:var(--red);border:none;padding:2px 10px;border-radius:30px;font-size:10px;cursor:pointer;transition:0.2s;">🗑️</button>
 </div>
 `;
 grid.appendChild(div);
+
 div.querySelector('.btn-copy-msg')?.addEventListener('click', () => {
 navigator.clipboard.writeText(msg.message || '');
 toast("Copied", 'success');
@@ -1665,8 +1968,9 @@ toast("Message deleted", 'success');
 }
 });
 });
-if(grid) grid.scrollTop = grid.scrollHeight;
+grid.scrollTop = grid.scrollHeight;
 }
+
 document.getElementById('markAllReadFlory')?.addEventListener('click', () => {
 const unreadIds = floryMessages.filter(m => m.sender === "ursule" && !isFloryMessageRead(m.id)).map(m => m.id);
 const list = getFloryReadMessages();
@@ -1675,6 +1979,7 @@ saveFloryReadMessages(list);
 renderFlory();
 toast("All marked as read", 'success');
 });
+
 document.getElementById('sendFloryBtn')?.addEventListener('click', async () => {
 const textarea = document.getElementById('floryMessage');
 const msg = textarea.value.trim();
@@ -1810,7 +2115,6 @@ container.innerHTML = `
 </div>
 `;
 
-// Remplir le filtre écoles
 const ecoleSelect = document.getElementById('mbEcoleFilter');
 if(ecoleSelect) {
 ecoleSelect.innerHTML = '<option value="all">🌍 Toutes</option>';
@@ -1819,7 +2123,6 @@ ecoleSelect.innerHTML += `<option value="${e.id}">🏫 ${e.nom || e.id}</option>
 });
 }
 
-// Événements
 document.getElementById('mbApplyFilter')?.addEventListener('click', chargerMoisBlancsListe);
 document.getElementById('mbSearchEleve')?.addEventListener('input', chargerMoisBlancsListe);
 document.getElementById('mbMoisFilter')?.addEventListener('change', chargerMoisBlancsListe);
@@ -1995,7 +2298,7 @@ let html = `
 <h4>📊 Statistics</h4>
 <div style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--text-secondary);">
 <div>🏫 Total schools: <strong style="color:var(--text-primary);">${toutesEcoles.length}</strong></div>
-<div>👥 Total students: <strong style="color:var(--text-primary);">${tousEleves.length}</strong></div>
+<div>👥 Total Active Members: <strong style="color:var(--text-primary);">${tousEleves.length}</strong></div>
 <div>👨‍🏫 Total teachers: <strong style="color:var(--text-primary);">${tousProfs.length}</strong></div>
 <div>📄 Total sheets: <strong style="color:var(--text-primary);">${toutesFiches.length}</strong></div>
 <div>📄 Teachers with sheets: <strong style="color:var(--text-primary);">${new Set(toutesFiches.map(f=>f.titulaire||f.profId).filter(Boolean)).size}</strong></div>
@@ -2026,8 +2329,7 @@ ${isRealtimeActive ? ' <span class="realtime-badge">● Live</span>' : ''}
 </div>
 <div style="border:1px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);border-radius:var(--radius-sm);padding:16px;margin:0 20px 20px 20px;">
 <div style="color:var(--red);font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px;">
-⚠️ Manage Schools
-</div>
+⚠️ Manage Schools</div>
 <p style="color:var(--text-secondary);font-size:13px;margin:4px 0 12px 0;">
 Deactivate (temporarily hide) or permanently delete a school.
 </p>
@@ -2044,7 +2346,7 @@ let tableHtml = `
 <div class="school-list-header">
 <span>School Name</span>
 <span>Database ID</span>
-<span>Students</span>
+<span>Active Members</span>
 <span>Teachers</span>
 <span>Sheets</span>
 <span style="text-align:center;">Actions</span>
@@ -2445,6 +2747,7 @@ const { total, garcons, filles, abandons, exoneres, reguliers, listenoir } = awa
 updateStats(total, garcons, filles, abandons, exoneres, reguliers, listenoir);
 auditList = await chargerAuditLogs();
 listenToFlory();
+ecouterLogsEnTempsReel();
 renderDashboard();
 renderEcoles();
 renderProfs();
@@ -2461,6 +2764,7 @@ const fCount = document.getElementById('ficheCount');
 const fCountTab = document.getElementById('ficheCountTab');
 if(fCount) fCount.textContent = toutesFiches.length;
 if(fCountTab) fCountTab.textContent = toutesFiches.length;
+mettreAJourCompteurLogs();
 setTimeout(() => { startRealtimeFiches(); }, 2000);
 toast("🚀 Dashboard ready - Real-time activated", 'success');
 } catch(e) {
