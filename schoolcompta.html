@@ -243,8 +243,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px}
 .loading-overlay .loading-text{color:#ffd700;font-size:16px;font-weight:600;margin-top:20px}
 .loading-overlay .loading-sub{color:#94a3b8;font-size:12px;margin-top:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes pulse-rouge{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 25px rgba(239,68,68,0.9)}50%{opacity:0.15;transform:scale(0.6);box-shadow:0 0 5px rgba(239,68,68,0.1)}}
-@keyframes pulse-vert{0%,100%{opacity:1;transform:scale(1);box-shadow:0 0 25px rgba(34,197,94,0.6)}50%{opacity:0.4;transform:scale(0.85);box-shadow:0 0 8px rgba(34,197,94,0.1)}}
 </style>
 </head>
 <body>
@@ -260,10 +258,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px}
 </div>
 <div class="container" id="mainApp" style="display:none">
 <div class="school-header"><div class="school-name" id="schoolName">🏫 CHARGEMENT...</div><div class="school-sub" id="schoolSub">GESTION DE SCOLARITÉ - COMPTABILITÉ</div><button class="logout-btn" id="logoutBtn" title="Déconnexion">✕</button></div>
-<div id="offlineIndicator" style="position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.4);backdrop-filter:blur(10px);padding:10px 14px;border-radius:25px;border:1px solid rgba(255,255,255,0.06);">
-<span id="lampRouge" style="display:none;width:14px;height:14px;border-radius:50%;background:#ef4444;box-shadow:0 0 25px rgba(239,68,68,0.9);animation:pulse-rouge 0.8s ease-in-out infinite;border:1px solid rgba(239,68,68,0.3);"></span>
-<span id="lampVerte" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#22c55e;box-shadow:0 0 25px rgba(34,197,94,0.6);animation:pulse-vert 1.5s ease-in-out infinite;border:1px solid rgba(34,197,94,0.2);"></span>
-</div>
 <div class="stat-row">
 <div class="stat-card" data-stat="total"><div class="stat-number" id="statTotal">0</div><div class="stat-label">TOTAL ÉLÈVES</div></div>
 <div class="stat-card" data-stat="filles"><div class="stat-number fille" id="statFilles">0</div><div class="stat-label">👩 FILLES</div></div>
@@ -613,77 +607,7 @@ window.voirMoisPayes=function(eleveId){afficherMoisPayes(eleveId);};
 window.demanderMarquerBlanc=function(eleveId,mois){const eleves=localEleves;const eleve=eleves.find(e=>e.id===eleveId);if(!eleve){toast('Élève non trouvé','error');return;}const moisBlancs=eleve.moisBlancs||[];const modal=document.getElementById('moisBlancModal');if(moisBlancs.includes(mois)){document.getElementById('moisBlancInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span style="color:#ffd700;font-weight:bold;">${eleve.nom} ${eleve.prenom||''}</span></div><div class="modal-info-line"><span>MOIS</span><span style="color:#60a5fa;font-weight:bold;">${mois}</span></div><div style="background:rgba(239,68,68,0.08);border-radius:12px;padding:12px;margin-top:12px;border:1px solid rgba(239,68,68,0.15);"><p style="color:#cbd5e1;font-size:13px;text-align:center;">Retirer le mois blanc pour ${mois} ?</p></div>`;document.getElementById('confirmMoisBlanc').textContent='🗑️ RETIRER';document.getElementById('confirmMoisBlanc').style.background='#ef4444';document.getElementById('confirmMoisBlanc').style.color='white';window._moisBlancAction='retirer';window._moisBlancData={eleveId,mois};modal.classList.add('show');return;}document.getElementById('moisBlancInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span style="color:#ffd700;font-weight:bold;">${eleve.nom} ${eleve.prenom||''}</span></div><div class="modal-info-line"><span>MOIS</span><span style="color:#f59e0b;font-weight:bold;">${mois}</span></div><div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:12px;margin-top:12px;border:1px solid rgba(96,165,250,0.15);"><p style="color:#cbd5e1;font-size:13px;text-align:center;">⚠️ L'élève ne paiera <strong>pas</strong> ce mois.</p></div>`;document.getElementById('confirmMoisBlanc').textContent='✅ OUI, MARQUER';document.getElementById('confirmMoisBlanc').style.background='#60a5fa';document.getElementById('confirmMoisBlanc').style.color='#0f172a';window._moisBlancAction='marquer';window._moisBlancData={eleveId,mois};modal.classList.add('show');};
 document.getElementById('confirmMoisBlanc').onclick=async function(){const action=window._moisBlancAction;const data=window._moisBlancData;if(!data){toast('Erreur','error');return;}document.getElementById('moisBlancModal').classList.remove('show');if(action==='marquer'){await marquerMoisBlanc(data.eleveId,data.mois);}else if(action==='retirer'){await enleverMoisBlanc(data.eleveId,data.mois);}await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStatsDetaillees();window._moisBlancData=null;window._moisBlancAction=null;};
 document.getElementById('cancelMoisBlanc').onclick=function(){document.getElementById('moisBlancModal').classList.remove('show');window._moisBlancData=null;window._moisBlancAction=null;};
-async function afficherReleve(eleve){
-    if(!eleve||eleve.abandon){
-        document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;
-        return;
-    }
-    
-    let eleveMaj = localEleves.find(e => e.id === eleve.id);
-    
-    if(!eleveMaj){
-        const elevesFraiches=await getAllComptaEleves(true);
-        eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);
-    }
-    
-    if(!eleveMaj) {
-        document.getElementById("releveContainer").innerHTML='<div class="empty-state">📭 Élève non trouvé</div>';
-        return;
-    }
-    
-    const moisBlancs=eleveMaj.moisBlancs||[];
-    let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''} ${eleveMaj.sexe==='F'?'<span class="badge badge-fille">👩 Fille</span>':'<span class="badge badge-garcon">👨 Garçon</span>'}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div>${eleveMaj.exonere&&eleveMaj.approbateur?`<div style="color:#ffd700;font-size:13px;margin-top:3px;">📝 Approbateur: ${eleveMaj.approbateur}</div>`:''}<div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;
-    let totalMin=0,totalPaye=0;
-    const paiements=eleveMaj.paiements||{};
-    for(let mois of moisListe){
-        const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;
-        const p=paiements[mois]||{montant:0,date:null,historique:[]};
-        const montantPaye=p.montant||0;
-        const estBlanc=moisBlancs.includes(mois);
-        const minervalAffiche=estBlanc?0:minervalMensuel;
-        const resteMois=estBlanc?0:(minervalMensuel-montantPaye);
-        const estPayeTotal=estBlanc?true:(montantPaye>=minervalMensuel);
-        let cardClass="";
-        let statut="",txt="",resteText="";
-        if(estBlanc){
-            cardClass="mois-blanc";
-            statut="blanc";
-            txt="❄️ MOIS BLANC";
-            resteText="0 FC";
-        }else if(eleveMaj.exonere){
-            statut="paye";
-            txt="EXONÉRÉ";
-            resteText="0 FC";
-        }else if(estPayeTotal){
-            statut="paye";
-            txt=`${formatNbSimple(minervalMensuel)} FC`;
-            resteText="0 FC";
-        }else if(montantPaye>0){
-            statut="partial";
-            txt=`${formatNbSimple(montantPaye)} FC`;
-            resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(resteMois)} FC</span>`;
-        }else{
-            statut="impaye";
-            txt="0 FC";
-            resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(minervalMensuel)} FC</span>`;
-        }
-        if(mois===moisCourant)cardClass+=" mois-courant";
-        if(!estBlanc&&!estPayeTotal&&!eleveMaj.exonere)cardClass+=" mois-impaye";
-        let historiqueHtml='';
-        if(p.historique&&p.historique.length>0&&!estBlanc){
-            historiqueHtml=`<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h=>`${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;
-        }
-        const showPayButton=(!estBlanc&&!eleveMaj.exonere&&!estPayeTotal);
-        const showBlancButton=(!estBlanc&&!eleveMaj.exonere&&!eleveMaj.abandon);
-        html+=`<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()} ${estBlanc?'<span class="mois-blanc-icon">❄️</span>':''}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value ${estBlanc?'blanc':''}">${formatNbSimple(minervalAffiche)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${estBlanc?`<span class="mois-blanc-badge">❄️ Nouvel élève</span>`:''}${showPayButton?`<button class="btn-pay" onclick="openPaiementMinerval('${mois}',${minervalMensuel},${montantPaye})">💰 PAYER</button>`:''}${showBlancButton?`<button class="btn-blanc ${estBlanc?'active':''}" onclick="demanderMarquerBlanc('${eleve.id}','${mois}')" title="${estBlanc?'Retirer le mois blanc':'Marquer mois blanc'}">${estBlanc?'✕':'◯'}</button>`:''}</div></div>${historiqueHtml}</div>`;
-        if(!eleveMaj.exonere&&!estBlanc){
-            totalMin+=minervalMensuel;
-            totalPaye+=montantPaye;
-        }
-    }
-    html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin-totalPaye)} FC</span></div></div>`;
-    document.getElementById("releveContainer").innerHTML=html;
-}
+async function afficherReleve(eleve){if(!eleve||eleve.abandon){document.getElementById("releveContainer").innerHTML=`<div class="empty-state">⚠️ Abandon le ${eleve?.dateAbandon||"?"}</div>`;return;}const elevesFraiches=await getAllComptaEleves(true);const eleveMaj=elevesFraiches.find(e=>e.id===eleve.id);if(!eleveMaj)return;const moisBlancs=eleveMaj.moisBlancs||[];let html=`<div style="margin-bottom:20px;"><div style="font-size:20px;font-weight:700;color:#fff;">${eleveMaj.nom} ${eleveMaj.prenom||""}</div><div style="color:#94a3b8;font-size:14px;">${eleveMaj.classe} ${eleveMaj.option?`-${eleveMaj.option}`:""} ${eleveMaj.exonere?'<span class="badge badge-exonere">EXONÉRÉ</span>':''} ${eleveMaj.sexe==='F'?'<span class="badge badge-fille">👩 Fille</span>':'<span class="badge badge-garcon">👨 Garçon</span>'}</div><div style="color:#3b82f6;font-family:monospace;font-size:14px;margin-top:5px;">🔑 Code parent: ${eleveMaj.parentCode||'Non attribué'}</div>${eleveMaj.exonere&&eleveMaj.approbateur?`<div style="color:#ffd700;font-size:13px;margin-top:3px;">📝 Approbateur: ${eleveMaj.approbateur}</div>`:''}<div style="background:#10b981;display:inline-block;padding:8px 16px;border-radius:30px;color:white;margin-top:10px;font-weight:600;">${eleveMaj.exonere?"EXONÉRATION TOTALE":formatNbSimple(eleveMaj.minerval)+" FC / MOIS"}</div></div><div class="paiement-cards">`;let totalMin=0,totalPaye=0;const paiements=eleveMaj.paiements||{};for(let mois of moisListe){const minervalMensuel=eleveMaj.exonere?0:eleveMaj.minerval;const p=paiements[mois]||{montant:0,date:null,historique:[]};const montantPaye=p.montant||0;const estBlanc=moisBlancs.includes(mois);const minervalAffiche=estBlanc?0:minervalMensuel;const resteMois=estBlanc?0:(minervalMensuel-montantPaye);const estPayeTotal=estBlanc?true:(montantPaye>=minervalMensuel);let cardClass="";let statut="",txt="",resteText="";if(estBlanc){cardClass="mois-blanc";statut="blanc";txt="❄️ MOIS BLANC";resteText="0 FC";}else if(eleveMaj.exonere){statut="paye";txt="EXONÉRÉ";resteText="0 FC";}else if(estPayeTotal){statut="paye";txt=`${formatNbSimple(minervalMensuel)} FC`;resteText="0 FC";}else if(montantPaye>0){statut="partial";txt=`${formatNbSimple(montantPaye)} FC`;resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(resteMois)} FC</span>`;}else{statut="impaye";txt="0 FC";resteText=`<span style="color:#ef4444;font-weight:bold;">${formatNbSimple(minervalMensuel)} FC</span>`;}if(mois===moisCourant)cardClass+=" mois-courant";if(!estBlanc&&!estPayeTotal&&!eleveMaj.exonere)cardClass+=" mois-impaye";let historiqueHtml='';if(p.historique&&p.historique.length>0&&!estBlanc){historiqueHtml=`<div style="font-size:10px;color:#94a3b8;margin-top:5px;">📜 ${p.historique.map(h=>`${formatNbSimple(h.montant)} FC (${h.date.split(' ')[0]})`).join(' | ')}</div>`;}const showPayButton=(!estBlanc&&!eleveMaj.exonere&&!estPayeTotal);const showBlancButton=(!estBlanc&&!eleveMaj.exonere&&!eleveMaj.abandon);html+=`<div class="paiement-card ${cardClass}"><div class="paiement-card-header"><span class="paiement-card-mois">📅 ${mois.toUpperCase()} ${estBlanc?'<span class="mois-blanc-icon">❄️</span>':''}</span></div><div class="paiement-card-details"><div class="paiement-card-infos"><span class="paiement-card-label">MINERVAL</span><span class="paiement-card-value ${estBlanc?'blanc':''}">${formatNbSimple(minervalAffiche)} FC</span></div><div class="paiement-card-infos"><span class="paiement-card-label">PAYÉ</span><span class="paiement-card-value ${statut}">${txt}</span></div><div class="paiement-card-infos"><span class="paiement-card-label">RESTE</span><span class="paiement-card-value">${resteText}</span></div><div class="paiement-card-actions">${estBlanc?`<span class="mois-blanc-badge">❄️ Nouvel élève</span>`:''}${showPayButton?`<button class="btn-pay" onclick="openPaiementMinerval('${mois}',${minervalMensuel},${montantPaye})">💰 PAYER</button>`:''}${showBlancButton?`<button class="btn-blanc ${estBlanc?'active':''}" onclick="demanderMarquerBlanc('${eleve.id}','${mois}')" title="${estBlanc?'Retirer le mois blanc':'Marquer mois blanc'}">${estBlanc?'✕':'◯'}</button>`:''}</div></div>${historiqueHtml}</div>`;if(!eleveMaj.exonere&&!estBlanc){totalMin+=minervalMensuel;totalPaye+=montantPaye;}}html+=`</div><div class="recap-stats"><div class="recap-item"><span class="recap-label">💰 TOTAL MINERVAL</span><span class="recap-value">${formatNbSimple(totalMin)} FC</span></div><div class="recap-item"><span class="recap-label">✅ TOTAL PAYÉ</span><span class="recap-value paye">${formatNbSimple(totalPaye)} FC</span></div><div class="recap-item"><span class="recap-label">⚠️ RESTE À PAYER</span><span class="recap-value reste">${formatNbSimple(totalMin-totalPaye)} FC</span></div></div>`;document.getElementById("releveContainer").innerHTML=html;}
 window.openPaiementMinerval=async function(mois,minerval,dejaPaye){if(!await verifierCode("paiement")){toast("Annulé","warning");return;}const reste=minerval-dejaPaye;document.getElementById("modalInfo").innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span>${currentEleve.nom}</span></div><div class="modal-info-line"><span>MOIS</span><span>${mois}</span></div><div class="modal-info-line"><span>MINERVAL</span><span>${formatNbSimple(minerval)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">${formatNbSimple(reste)} FC</span></div>`;document.getElementById("paymentAmount").value=reste;window.paiementData={mois,minerval,dejaPaye,reste,eleveId:currentEleve.id};document.getElementById("paymentModal").classList.add("show");};
 window.ouvrirPaiementInscription=function(eleveId,nom,reste,fraisTotal,dejaPaye){const modal=document.getElementById('inscriptionPaymentModal');document.getElementById('inscriptionModalInfo').innerHTML=`<div class="modal-info-line"><span>ÉLÈVE</span><span style="font-weight:bold;color:#ffd700;">${nom}</span></div><div class="modal-info-line"><span>FRAIS D'INSCRIPTION</span><span>${formatNbSimple(fraisTotal)} FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span style="color:#10b981;">${formatNbSimple(dejaPaye)} FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:bold;">${formatNbSimple(reste)} FC</span></div>`;document.getElementById('inscriptionPaymentAmount').value=reste;document.getElementById('inscriptionPaymentAmount').max=reste;window.inscriptionPaiementData={eleveId,reste,fraisTotal,dejaPaye};modal.classList.add('show');};
 window.confirmInscriptionPayment=async function(){const montant=parseInt(document.getElementById('inscriptionPaymentAmount').value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.inscriptionPaiementData.reste){toast("Montant supérieur au reste","error");return;}if(await showConfirm(`Confirmer le paiement de ${formatNbSimple(montant)} FC pour les frais d'inscription ?`)){await enregistrerPaiementInscription(window.inscriptionPaiementData.eleveId,montant);document.getElementById('inscriptionPaymentModal').classList.remove('show');await window.afficherFraisInscription();await afficherListeEleves();await mettreAJourStatsDetaillees();}};
