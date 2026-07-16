@@ -1051,6 +1051,32 @@ async function chercherPunitionsParNom(nom) { try { const q = query(collection(d
 async function chercherPresencesParNom(nom) { try { const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_presences")); const presences = []; const maintenant = new Date(); const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60; const aujourdhui = maintenant.toISOString().slice(0, 10); snap.forEach(ds => { const data = ds.data(); if (!data.eleves) return; data.eleves.forEach(e => { if (e.nom === nom) { const dateStr = data.date ? data.date.slice(0, 10) : ''; if (dateStr === aujourdhui) { if (heureActuelle >= 12 && heureActuelle < 17.5) { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, enCours: true, heureActuelle: heureActuelle }); } else if (heureActuelle < 12) { presences.push({ date: data.date, present: null, classe: data.classe, option: data.option || '', estAujourdhui: true, avantCours: true, heureActuelle: heureActuelle }); } else { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, apresCours: true, heureActuelle: heureActuelle }); } } else { presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: false }); } } }); }); presences.sort((a, b) => b.date.localeCompare(a.date)); return presences.slice(0, 5); } catch (e) { return []; } }
 async function getAllComptaEleves() { try { const q = query(collection(db, "ecoles", SCHOOL_PREFIX, "compta_eleves"), where("_type", "==", "compta_eleve")); const snap = await getDocs(q); localEleves = []; for (const ds of snap.docs) { const d = ds.data(); const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString() }); } return localEleves; } catch (error) { console.error("Erreur importation comptabilité:", error); try { const snap2 = await getDocs(collection(db, SCHOOL_PREFIX + "_compta_eleves")); for (const ds of snap2.docs) { const d = ds.data(); if (d._type !== "compta_eleve") continue; const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString() }); } } catch (e2) { console.error("Erreur fallback:", e2); } return localEleves; } }
 async function getAllFiches() { try { const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches")); const fiches = []; for (const ds of snap.docs) { const d = ds.data(); if (!d._type && d.eleves) { fiches.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' }); } } return fiches; } catch (e) { return []; } }
+async function getAllFichesDeLecole() {
+    try {
+        const snap = await getDocs(collection(db, SCHOOL_PREFIX + "_fiches"));
+        const fiches = [];
+        for (const ds of snap.docs) {
+            const d = ds.data();
+            if (!d._type && d.eleves) {
+                fiches.push({
+                    id: ds.id,
+                    cours: d.cours,
+                    classe: d.classe,
+                    option: d.option || '',
+                    eleves: d.eleves || [],
+                    epreuvesParPeriode: d.epreuvesParPeriode || {},
+                    p1Max: d.p1Max || 20,
+                    titulaire: d.titulaire || '',
+                    profId: d.profId || ''
+                });
+            }
+        }
+        return fiches;
+    } catch (e) {
+        console.error("Erreur getAllFichesDeLecole:", e);
+        return [];
+    }
+}
 function getMoisActuel() {
     const date = new Date();
     const mois = date.getMonth();
@@ -1146,127 +1172,143 @@ async function chercherInfosFinancieresParCode(code) {
         return null;
     }
 }
-async function chercherNotesParNom(nom) { const fiches = await getAllFiches(); const resultats = []; const searchTerm = nom.toLowerCase().trim(); for (const fiche of fiches) { for (const eleve of (fiche.eleves || [])) { const nomEleve = (eleve.nom || '').toLowerCase(); if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) { const punitions = await chercherPunitionsParNom(eleve.nom); const presences = await chercherPresencesParNom(eleve.nom); const epreuvesList = []; if (eleve.notes) { for (let periode = 1; periode <= 4; periode++) { const epreuves = fiche.epreuvesParPeriode?.[periode] || []; const notesPeriode = eleve.notes[`p${periode}`] || []; for (let i = 0; i < epreuves.length; i++) { const nomEpreuve = epreuves[i].nom || "Epreuve"; if (!nomEpreuve.toLowerCase().includes("examen")) { let note = notesPeriode[i] || 0; let max = epreuves[i].max || 1; if (note > 0) { epreuvesList.push({ matiere: fiche.cours, epreuve: nomEpreuve, note: note, max: max, periode: periode, titulaire: fiche.titulaire || null, classe: fiche.classe, option: fiche.option || '' }); } } } } } resultats.push({ eleveNom: eleve.nom, sexe: eleve.sexe || 'M', classe: fiche.classe, option: fiche.option || '', titulaire: fiche.titulaire || null, epreuves: epreuvesList, nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0, punitions: punitions, presences: presences }); } } } return resultats; }
+async function chercherNotesParNom(nom) {
+    const fiches = await getAllFichesDeLecole();
+    const resultats = [];
+    const searchTerm = nom.toLowerCase().trim();
+    for (const fiche of fiches) {
+        for (const eleve of (fiche.eleves || [])) {
+            const nomEleve = (eleve.nom || '').toLowerCase();
+            if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) {
+                const punitions = await chercherPunitionsParNom(eleve.nom);
+                const presences = await chercherPresencesParNom(eleve.nom);
+                const epreuvesList = [];
+                if (eleve.notes) {
+                    for (let periode = 1; periode <= 4; periode++) {
+                        const epreuves = fiche.epreuvesParPeriode?.[periode] || [];
+                        const notesPeriode = eleve.notes[`p${periode}`] || [];
+                        for (let i = 0; i < epreuves.length; i++) {
+                            const nomEpreuve = epreuves[i].nom || "Epreuve";
+                            if (!nomEpreuve.toLowerCase().includes("examen")) {
+                                let note = notesPeriode[i] || 0;
+                                let max = epreuves[i].max || 1;
+                                if (note > 0) {
+                                    epreuvesList.push({
+                                        matiere: fiche.cours,
+                                        epreuve: nomEpreuve,
+                                        note: note,
+                                        max: max,
+                                        periode: periode,
+                                        titulaire: fiche.titulaire || null,
+                                        classe: fiche.classe,
+                                        option: fiche.option || ''
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                resultats.push({
+                    eleveNom: eleve.nom,
+                    sexe: eleve.sexe || 'M',
+                    classe: fiche.classe,
+                    option: fiche.option || '',
+                    titulaire: fiche.titulaire || null,
+                    epreuves: epreuvesList,
+                    nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0,
+                    punitions: punitions,
+                    presences: presences
+                });
+            }
+        }
+    }
+    return resultats;
+}
 async function chargerInstructionsIA() { if (iaInstructions) return iaInstructions; const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; try { const response = await fetch('https://www.netubex.com/ecole-config.txt'); if (response.ok) { iaInstructions = await response.text(); } else { iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } } catch (e) { iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } return iaInstructions; }
 function getSexePronom(sexe) { if (sexe === 'F' || sexe === 'Féminin' || sexe === 'fille') { return { genre: 'fille', pronom: 'elle', possessif: 'sa' }; } return { genre: 'garçon', pronom: 'il', possessif: 'son' }; }
-async function genererReponseNaturelle(question, eleveData) {
-const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-const msg = question.toLowerCase();
-const questionKey = getCacheKey(question, eleveData);
-if (questionKey && reponseCache.has(questionKey) && isCacheValid(eleveData)) {
-return reponseCache.get(questionKey);
-}
-const currentHash = getDataHash(eleveData);
-if (currentHash !== lastDataHash) { reponseCache.clear(); lastDataHash = currentHash; }
-let reponse = null, questionType = 'generale';
-if (msg.includes('note') || msg.includes('résultat') || msg.includes('point')) questionType = 'notes';
-else if (msg.includes('frais') || msg.includes('argent') || msg.includes('payer') || msg.includes('minerval')) questionType = 'frais';
-else if (msg.includes('présence') || msg.includes('absent') || msg.includes('present')) questionType = 'presence';
-else if (msg.includes('punition') || msg.includes('sanction')) questionType = 'punitions';
-else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille')) questionType = 'sexe';
-else if (msg.includes('classe') || msg.includes('titulaire') || msg.includes('professeur')) questionType = 'info_generale';
-if (msg.includes('aide') || msg.includes('conseil') || msg.includes('que faire') || msg.includes('comment') || msg.includes('quoi') || msg.includes('que puis-je')) {
-reponse = `Je suis là à votre service.`;
-} else if (msg.includes('sexe') || msg.includes('garçon') || msg.includes('fille') || msg.includes('est-ce') || msg.includes('est il') || msg.includes('est elle')) {
-const { genre } = getSexePronom(eleveData.sexe);
-reponse = `${eleveData.nom} ${eleveData.prenom||''} est un${genre==='fille'?'e':''} ${genre}.`;
-} else if (msg.includes('titulaire') || msg.includes('professeur') || msg.includes('enseignant')) {
-if (eleveData.titulaire) reponse = `Le professeur titulaire de ${eleveData.nom} ${eleveData.prenom||''} est ${eleveData.titulaire}.`;
-else reponse = `Je n'ai pas d'information sur le titulaire de ${eleveData.nom} ${eleveData.prenom||''}.`;
-} else if (msg.includes('classe') || msg.includes('quelle classe') || msg.includes('en quelle')) {
-reponse = `${eleveData.nom} ${eleveData.prenom||''} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}.`;
-} else if (msg.includes('effectif') || msg.includes('combien d\'élève') || msg.includes('nombre d\'élève') || msg.includes('combien de personne')) {
-const nb = eleveData.nombreElevesClasse || 0;
-if (nb > 0) reponse = `Il y a ${nb} élèves dans la classe de ${eleveData.nom} ${eleveData.prenom||''}.`;
-else reponse = `Je n'ai pas d'information sur l'effectif de sa classe.`;
-} else if (msg.includes('résumé') || msg.includes('tout') || msg.includes('complet') || msg.includes('global') || msg.includes('info') || msg.includes('informations')) {
-const frais = await genererReponseFrais(eleveData);
-const notes = await genererReponseNotes(eleveData);
-const presence = await genererReponsePresence(eleveData);
-const punitions = await genererReponsePunitions(eleveData);
-const fraisClean = frais.split('Voulez-vous voir')[0];
-const notesClean = notes.split('Voulez-vous voir')[0];
-const presenceClean = presence.split('Voulez-vous voir')[0];
-const punitionsClean = punitions.split('Voulez-vous voir')[0];
-reponse = `RÉSUMÉ\n\n${fraisClean}\n\n${notesClean}\n\n${presenceClean}\n\n${punitionsClean}\n\nVoilà ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''}.`;
-} else if (msg.includes('?') || msg.includes('pourquoi') || msg.includes('comment') || msg.includes('est-ce que')) {
-const { genre, pronom } = getSexePronom(eleveData.sexe);
-reponse = `Je vais essayer de vous aider. Voici ce que je sais sur ${eleveData.nom} ${eleveData.prenom||''} : ${pronom==='il'?'Il':'Elle'} est en ${eleveData.classe}${eleveData.option?' option '+eleveData.option:''}. Posez-moi des questions comme : - "Quelles sont ses notes ?" - "Combien doit-${pronom==='il'?'il':'elle'} payer ?" - "${pronom==='il'?'Il':'Elle'} est présent aujourd'hui ?" - "A-t-${pronom==='il'?'il':'elle'} des punitions ?" Je vous répondrai avec plaisir !`;
-}
-if (!reponse) {
-const { pronom } = getSexePronom(eleveData.sexe);
-let contexte = `École: ${nomEcole}. L'élève s'appelle ${eleveData.nom} ${eleveData.prenom||''}. `;
-const sexe = eleveData.sexe || 'M';
-let pronom2 = "il";
-if (sexe === 'F' || sexe === 'Féminin') pronom2 = "elle";
-contexte += `Son sexe est ${sexe==='M'?'Masculin':sexe==='F'?'Féminin':'Non spécifié'}. `;
-contexte += `${pronom2==='il'?'Il':'Elle'} est en classe de ${eleveData.classe}. `;
-contexte += `Sa classe compte ${eleveData.nombreElevesClasse||0} élèves. `;
-if (eleveData.option && eleveData.option !== "TOUTES") contexte += `Option ${eleveData.option}. `;
-if (eleveData.titulaire) contexte += `Son professeur est ${eleveData.titulaire}. `;
-if (eleveData.notes && eleveData.notes.length > 0) {
-contexte += "Ses notes (en points) : ";
-const notesEnPoints = eleveData.notes.filter(ep => ep.note > 0).map(ep => `${ep.epreuve}: ${ep.note}/${ep.max}`).join(", ");
-if (notesEnPoints) contexte += notesEnPoints;
-}
-if (eleveData.frais) {
-contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval.toLocaleString()} FC/mois, `;
-contexte += `total payé ${eleveData.frais.totalPaye.toLocaleString()} FC, `;
-contexte += `reste à payer ${eleveData.frais.reste.toLocaleString()} FC. `;
-if (eleveData.frais.moisImpayes && eleveData.frais.moisImpayes.length > 0) {
-contexte += `Mois impayés : ${eleveData.frais.moisImpayes.join(", ")}. `;
-}
-}
-if (eleveData.presences && eleveData.presences.length > 0) {
-const today = eleveData.presences[0];
-if (today && today.estAujourdhui && today.present !== null) {
-contexte += `Aujourd'hui, ${pronom2==='il'?'il':'elle'} est ${today.present?'présent':'absent'}. `;
-}
-const total = eleveData.presences.filter(p => p.present !== null).length;
-const presents = eleveData.presences.filter(p => p.present === true).length;
-if (total > 0) { const taux = Math.round((presents / total) * 100); contexte += `Taux de présence : ${taux}%. `; }
-}
-if (eleveData.punitions && eleveData.punitions.length > 0) {
-contexte += `Punitions actives : ${eleveData.punitions.map(p=>p.motif).join(", ")}. `;
-}
-const instructions = await chargerInstructionsIA();
-const prompt = `${instructions} CONTEXTE DE L'ÉLÈVE : ${contexte} QUESTION DU PARENT : ${question} RAPPEL IMPORTANT : - Utilise le nom de l'école ${nomEcole} dans ta réponse - Utilise UNIQUEMENT les POINTS (ex: 15/20, 40/40), JAMAIS les pourcentages - Sois chaleureux et bienveillant - Maximum 3 phrases - Si on te demande le sexe, réponds clairement "C'est un garçon" ou "C'est une fille" - Si on te demande le nombre d'élèves, donne le nombre exact - Utilise "${pronom}" pour parler de l'élève - Utilise TOUJOURS "sa" pour parler de sa situation (le mot situation est féminin) - Si on demande des conseils, donne des encouragements - N'affiche PAS les notes à 0 (zéro)`;
-try {
-const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) });
-const data = await response.json();
-reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
-reponse = reponse.replace(/\d+%/g, ''); reponse = reponse.replace(/\d+,\d+%/g, ''); reponse = reponse.replace(/pourcent/g, 'points'); reponse = reponse.replace(/pour cent/g, 'points'); reponse = reponse.replace(/pourcentage/g, 'points'); reponse = reponse.replace(/moyenne générale/g, ''); reponse = reponse.replace(/moyenne/g, ''); reponse = reponse.replace(/proclamation/g, '');
-if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) { reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`; }
-} catch (e) {
-reponse = `Je suis désolé, vous avez un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`;
-}
-}
-if (questionKey && reponse) reponseCache.set(questionKey, reponse);
-return reponse;
-}
 async function genererReponseNotes(eleveData) {
-ajouterSectionVisitee('notes');
-const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
-const notes = eleveData.notes || [];
-const notesValides = notes.filter(n => n.note > 0);
-if (notesValides.length === 0) { return `${nomComplet} n'a pas encore de notes enregistrées.`; }
-let meilleureNote = null, meilleurScore = 0;
-notesValides.forEach(n => { if (n.note > meilleurScore) { meilleurScore = n.note; meilleureNote = n; } });
-const periodeEnLettres = { 1: 'première', 2: 'deuxième', 3: 'troisième', 4: 'quatrième' };
-const periodeTexte = meilleureNote.periode ? periodeEnLettres[meilleureNote.periode] || `période ${meilleureNote.periode}` : '';
-let reponse = `Résultat de ${nomComplet}\n\n`;
-reponse += ` Meilleure note : ${meilleureNote.note}/${meilleureNote.max}`;
-if (meilleureNote.matiere) { reponse += ` en ${meilleureNote.matiere}`; }
-if (meilleureNote.epreuve) {
-const typeEpreuve = meilleureNote.epreuve.toLowerCase();
-if (typeEpreuve.includes('interro')) { reponse += `, c'était une interrogation`; }
-else if (typeEpreuve.includes('devoir')) { reponse += `, c'était un devoir`; }
-else if (typeEpreuve.includes('examen')) { reponse += `, c'était un examen`; }
-else { reponse += `, c'était une ${meilleureNote.epreuve}`; }
-}
-if (periodeTexte) { reponse += ` en ${periodeTexte} période`; }
-reponse += `.`;
-return reponse;
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+    const toutesLesNotes = [];
+    const fiches = await getAllFichesDeLecole();
+    for (const fiche of fiches) {
+        for (const eleve of fiche.eleves || []) {
+            if (eleve.nom === eleveData.nom) {
+                const notes = eleve.notes || {};
+                for (let p = 1; p <= 4; p++) {
+                    const notesPeriode = notes[`p${p}`] || [];
+                    const epreuves = fiche.epreuvesParPeriode?.[p] || [];
+                    for (let i = 0; i < notesPeriode.length; i++) {
+                        const note = notesPeriode[i] || 0;
+                        const max = epreuves[i]?.max || 20;
+                        if (note > 0 && max > 0) {
+                            const pourcentage = Math.round((note / max) * 100);
+                            let periodeTexte = "";
+                            if (p === 1) periodeTexte = "Première période";
+                            else if (p === 2) periodeTexte = "Deuxième période";
+                            else if (p === 3) periodeTexte = "Troisième période";
+                            else if (p === 4) periodeTexte = "Quatrième période";
+                            toutesLesNotes.push({
+                                matiere: fiche.cours,
+                                epreuve: epreuves[i]?.nom || "Épreuve",
+                                note: note,
+                                max: max,
+                                pourcentage: pourcentage,
+                                periode: periodeTexte,
+                                professeur: fiche.titulaire || fiche.profId || "Inconnu",
+                                classe: fiche.classe,
+                                option: fiche.option || ""
+                            });
+                        }
+                    }
+                }
+                if (notes.exam1 > 0) {
+                    const maxExam1 = (fiche.p1Max || 20) * 2;
+                    const pourcentage = Math.round((notes.exam1 / maxExam1) * 100);
+                    toutesLesNotes.push({
+                        matiere: fiche.cours,
+                        epreuve: "Examen",
+                        note: notes.exam1,
+                        max: maxExam1,
+                        pourcentage: pourcentage,
+                        periode: "Premier semestre",
+                        professeur: fiche.titulaire || fiche.profId || "Inconnu",
+                        classe: fiche.classe,
+                        option: fiche.option || ""
+                    });
+                }
+                if (notes.exam2 > 0) {
+                    const maxExam2 = (fiche.p1Max || 20) * 2;
+                    const pourcentage = Math.round((notes.exam2 / maxExam2) * 100);
+                    toutesLesNotes.push({
+                        matiere: fiche.cours,
+                        epreuve: "Examen",
+                        note: notes.exam2,
+                        max: maxExam2,
+                        pourcentage: pourcentage,
+                        periode: "Deuxième semestre",
+                        professeur: fiche.titulaire || fiche.profId || "Inconnu",
+                        classe: fiche.classe,
+                        option: fiche.option || ""
+                    });
+                }
+            }
+        }
+    }
+    let meilleure = null;
+    for (const n of toutesLesNotes) {
+        if (!meilleure || n.pourcentage > meilleure.pourcentage) {
+            meilleure = n;
+        }
+    }
+    if (!meilleure) {
+        return `${nomComplet} n'a pas encore de notes enregistrées.`;
+    }
+    let reponse = `Résultat de ${nomComplet}\n\n`;
+    reponse += `🏆 Meilleure note : ${meilleure.note}/${meilleure.max} en ${meilleure.matiere}`;
+    reponse += `\n📝 ${meilleure.epreuve} - ${meilleure.periode}`;
+    reponse += `\n👨‍🏫 Professeur : ${meilleure.professeur}`;
+    reponse += `\n📚 Classe : ${meilleure.classe}${meilleure.option ? ' ('+meilleure.option+')' : ''}`;
+    return reponse;
 }
 async function genererReponseFrais(eleveData) {
 ajouterSectionVisitee('frais');
@@ -1564,7 +1606,7 @@ const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', '
 if (motsPresence.some(m => texteComplet.includes(m))) return await genererReponsePresence(eleveData);
 const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
 if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
-return await genererReponseNaturelle(message, eleveData);
+return await genererReponseNotes(eleveData);
 }
 function getSalutation() {
     const h = new Date().getHours();
