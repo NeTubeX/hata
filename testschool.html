@@ -49,7 +49,6 @@ html,body{height:100%;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 .form-field input:focus,.form-field select:focus{outline:none;border-color:#3b82f6;}
 .hidden-field{display:none !important;}
 .field-required label::after{content:" *";color:#ef4444;}
-.field-optional label::after{content:" (facultatif)";color:#94a3b8;font-size:10px;font-weight:normal;}
 .btn{background:#1e3a5f;color:#fff;border:none;padding:10px 20px;border-radius:40px;font-weight:500;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s;}
 .btn:hover{opacity:0.9;transform:scale(0.98);}
 .btn-sm{padding:6px 14px;font-size:12px;}
@@ -438,6 +437,22 @@ body.light-mode .modal-fullscreen .modal-content .btn-outline:hover{color:#fff !
 body.light-mode .prof-desactiver-msg p{color:var(--text-secondary) !important;}
 body.light-mode .prof-desactiver-msg .entreprise{color:#b45309 !important;}
 body.light-mode #loginError{color:#b91c1c !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn{color:var(--text-primary) !important;border-color:var(--border-color) !important;background:rgba(0,0,0,0.05) !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn:hover{background:rgba(0,0,0,0.1) !important;}
+body.light-mode .parent-modal .header-fixe div:first-child div:last-child div:first-child{color:#1a2332 !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn{color:#1a2332 !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn:hover{background:rgba(0,0,0,0.1) !important;}
+body.light-mode .parent-modal .header-fixe div:last-child span{color:#1a2332 !important;}
+body.light-mode .parent-modal .header-fixe div:last-child{background:rgba(0,0,0,0.05) !important;border-color:rgba(0,0,0,0.1) !important;}
+body.light-mode .parent-modal .header-fixe div:last-child span:first-child{color:#1a2332 !important;}
+body.light-mode #parentQuestionCounter{background:#059669 !important;color:#fff !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn{color:#1a2332 !important;}
+body.light-mode .parent-modal .header-fixe .light-mode-toggle-btn:hover{background:rgba(0,0,0,0.1) !important;}
+body.light-mode .parent-modal .header-fixe div:last-child span:first-child{color:#1a2332 !important;}
+body.light-mode .parent-modal .header-fixe div:last-child{background:rgba(0,0,0,0.05) !important;border-color:rgba(0,0,0,0.1) !important;}
+body.light-mode .parent-modal .header-fixe div:last-child span{color:#1a2332 !important;}
+body.light-mode #parentQuestionCounter{background:#059669 !important;color:#fff !important;}
+body.light-mode .parent-modal .header-fixe div:first-child div:last-child div:first-child{color:#1a2332 !important;}
 </style>
 </head>
 <body>
@@ -473,7 +488,7 @@ body.light-mode #loginError{color:#b91c1c !important;}
     <option value="TOUTES">TOUTES</option>
 </select>
 </div>
-<div class="form-field field-optional"><label>TITULAIRE</label><input type="text" id="titulaireInput" placeholder="Nom du professeur titulaire (facultatif)"></div>
+<div class="form-field"><label>Titulaire de Cours</label><input type="text" id="titulaireInput" readonly style="background:#1e293b;opacity:0.7;cursor:not-allowed;color:#60a5fa;font-weight:600;border-color:#3b82f6;"></div>
 <div class="form-field"><label>ANNEE SCOLAIRE</label><input type="text" id="anneeInput" value="2026-2027" readonly></div>
 </div>
 <div class="prof-config"><h3>CONFIGURATION</h3>
@@ -1691,7 +1706,15 @@ document.getElementById('coursInput').value = currentFiche.cours || '';
 document.getElementById('classeSelect').value = currentFiche.classe || '';
 mettreAJourSelectOptions(currentFiche.classe || '');
 document.getElementById('optionSelect').value = currentFiche.option || '';
-document.getElementById('titulaireInput').value = currentFiche.titulaire || '';
+if (currentProf && currentProf.nom) {
+document.getElementById('titulaireInput').value = currentProf.nom;
+if (!currentFiche.titulaire || currentFiche.titulaire !== currentProf.nom) {
+currentFiche.titulaire = currentProf.nom;
+saveCurrentFiche();
+}
+} else {
+document.getElementById('titulaireInput').value = '';
+}
 document.getElementById('p1MaxConfig').value = currentFiche.p1Max || 20;
 toggleOptionField();
 afficherEpreuves();
@@ -2602,7 +2625,7 @@ return;
 let cours = document.getElementById('coursInput').value.trim();
 let classe = document.getElementById('classeSelect').value;
 let option = document.getElementById('optionSelect').value;
-let titulaire = document.getElementById('titulaireInput').value.trim();
+let titulaire = currentProf?.nom || '';
 if (!cours) { toast("Veuillez renseigner le cours", 'error'); return; }
 if (!classe) { toast("Veuillez sélectionner une classe", 'error'); return; }
 if (classe !== '7ème EB' && classe !== '8ème EB' && !option) { toast("Veuillez sélectionner une option", 'error'); return; }
@@ -2676,7 +2699,7 @@ currentFicheId = nid;
 document.getElementById('coursInput').value = '';
 document.getElementById('classeSelect').value = '';
 document.getElementById('optionSelect').value = '';
-document.getElementById('titulaireInput').value = '';
+document.getElementById('titulaireInput').value = titulaire;
 document.getElementById('p1MaxConfig').value = 20;
 toggleOptionField();
 await refreshSelectors(nid);
@@ -2767,7 +2790,6 @@ toast("Erreur lors de la suppression", 'error');
 document.getElementById('coursInput').oninput = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.cours = document.getElementById('coursInput').value; saveCurrentFiche(); refreshSelectors(); } };
 document.getElementById('classeSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.classe = document.getElementById('classeSelect').value; if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) { currentFiche.option = ''; document.getElementById('optionSelect').value = ''; } saveCurrentFiche(); refreshSelectors(); } toggleOptionField(); mettreAJourSelectOptions(document.getElementById('classeSelect').value); };
 document.getElementById('optionSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.option = document.getElementById('optionSelect').value; saveCurrentFiche(); refreshSelectors(); } };
-document.getElementById('titulaireInput').oninput = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.titulaire = document.getElementById('titulaireInput').value; saveCurrentFiche(); } };
 document.getElementById('p1MaxConfig').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.p1Max = parseFloat(document.getElementById('p1MaxConfig').value) || 20; saveCurrentFiche(); afficherCotation(); toast("Note max modifiée à " + currentFiche.p1Max, 'success'); } };
 document.getElementById('exportCurrentBtn').onclick = async function() { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.eleves || currentFiche.eleves.length === 0) { toast("Aucun élève à exporter", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"), ficheId: currentFicheId, cours: currentFiche.cours, classe: currentFiche.classe, nbEleves: currentFiche.eleves.length, type: "fiche_cotation" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('landscape', 'mm', 'a4'); const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???'; pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 297, 210, 'F'); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(14); pdf.setTextColor(0, 51, 102); let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(80, 80, 80); pdf.text('GESTION SCOLAIRE', 148, 27, { align: 'center' }); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(0, 51, 102); pdf.text('FICHE DE COTATION', 148, 37, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(0, 0, 0); pdf.text("Année scolaire : " + (currentFiche.anneeScolaire || '2026-2027'), 14, 50); pdf.text("Référence : " + rn, 14, 57); pdf.text("Cours : " + (currentFiche.cours || ''), 14, 64); pdf.text("Classe : " + (currentFiche.classe || ''), 14, 71); let y = 78; if (currentFiche.option && currentFiche.option !== '') { pdf.text("Option : " + currentFiche.option, 14, y); y += 7; } pdf.text("Titulaire : " + (currentFiche.titulaire || ''), 14, y); const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] }; const p1m = getPeriodeMax(1), p2m = getPeriodeMax(2), p3m = getPeriodeMax(3), p4m = getPeriodeMax(4); const e1m = getExamMax(1), e2m = getExamMax(2); const ts1m = getTotalSemestreMax(1), ts2m = getTotalSemestreMax(2), tam = getTotalAnnuelMax(); const hd = [['N°', 'NOMS', 'SEXE', 'P1/' + p1m, 'P2/' + p2m, 'EXAM S1/' + e1m, 'TOT S1/' + ts1m, 'P3/' + p3m, 'P4/' + p4m, 'EXAM S2/' + e2m, 'TOT S2/' + ts2m, 'TOTAL/' + tam]]; const bd = []; for (let i = 0; i < currentFiche.eleves.length; i++) { const e = currentFiche.eleves[i]; const n = e.notes || {}; const p1 = calcMoy(1, n.p1), p2 = calcMoy(2, n.p2), p3 = calcMoy(3, n.p3), p4 = calcMoy(4, n.p4); const ex1 = n.exam1 || 0, ex2 = n.exam2 || 0; bd.push([(i + 1).toString(), e.nom || '', e.sexe === 'F' ? 'F' : 'M', p1, p2, ex1, p1 + p2 + ex1, p3, p4, ex2, p3 + p4 + ex2, p1 + p2 + ex1 + p3 + p4 + ex2]); } pdf.autoTable({ head: hd, body: bd, startY: y + 10, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', textColor: [0, 0, 0] }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' }, alternateRowStyles: { fillColor: [245, 245, 245] } }); pdf.save("Fiche_" + rn + "_" + (currentFiche.cours || 'cours') + ".pdf"); toast("PDF exporté", 'success'); } catch (e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); } };
 document.getElementById('exportEleveNotesBtn').onclick = async function() { let idx = document.getElementById('eleveForExportSelect').value; if (idx === "") { toast("Veuillez sélectionner un élève", 'warning'); return; } let eleve = currentFiche.eleves[parseInt(idx)]; if (!eleve) { toast("Élève non trouvé", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"), eleve: eleve.nom, ficheId: currentFicheId, type: "releve_eleve" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('portrait', 'mm', 'a4'); const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???'; pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 210, 297, 'F'); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(14); pdf.setTextColor(0, 51, 102); let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 105, 20, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(80, 80, 80); pdf.text('GESTION DE SCOLARITÉ', 105, 27, { align: 'center' }); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(0, 51, 102); pdf.text('RELEVE DES EPREUVES', 105, 37, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(0, 0, 0); pdf.text("Référence: " + rn, 150, 50); pdf.text("Élève: " + (eleve.nom || ''), 20, 50); pdf.text("Classe: " + (currentFiche.classe || '') + (currentFiche.option ? ' - ' + currentFiche.option : ''), 20, 58); pdf.text("Cours: " + (currentFiche.cours || ''), 20, 66); const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] }; const getP = function(p) { return currentFiche.p1Max || 20; }; const bd = []; for (let p = 1; p <= 4; p++) { for (let ei = 0; ei < (eps[p] || []).length; ei++) { let nt = (eleve.notes?.['p' + p] && eleve.notes['p' + p][ei]) ? eleve.notes['p' + p][ei] : 0; bd.push(["Période " + p, eps[p][ei].nom, nt + " / " + eps[p][ei].max, Math.round((nt / eps[p][ei].max) * getP(p)) + " / " + getP(p)]); } } bd.push(['', '', '', '']); bd.push(['RECAPITULATIF', '', '', '']); const p1m = getP(1), p2m = getP(2), p3m = getP(3), p4m = getP(4); const p1 = (function() { let e = eps[1] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p1?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p1m, Math.round((s / m) * p1m)) : 0; })(); const p2 = (function() { let e = eps[2] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p2?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p2m, Math.round((s / m) * p2m)) : 0; })(); const p3 = (function() { let e = eps[3] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p3?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p3m, Math.round((s / m) * p3m)) : 0; })(); const p4 = (function() { let e = eps[4] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p4?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p4m, Math.round((s / m) * p4m)) : 0; })(); const ex1 = eleve.notes?.exam1 || 0, ex2 = eleve.notes?.exam2 || 0; bd.push(['Période 1', '', p1 + " / " + p1m, '']); bd.push(['Période 2', '', p2 + " / " + p2m, '']); bd.push(['Examen Semestre 1', '', ex1 + " / " + (p1m + p2m), '']); bd.push(['Total Semestre 1', '', (p1 + p2 + ex1) + " / " + (p1m + p2m + p1m + p2m), '']); bd.push(['Période 3', '', p3 + " / " + p3m, '']); bd.push(['Période 4', '', p4 + " / " + p4m, '']); bd.push(['Examen Semestre 2', '', ex2 + " / " + (p3m + p4m), '']); bd.push(['Total Semestre 2', '', (p3 + p4 + ex2) + " / " + (p3m + p4m + p3m + p4m), '']); bd.push(['TOTAL ANNUEL', '', (p1 + p2 + ex1 + p3 + p4 + ex2) + " / " + ((p1m + p2m) * 2 + (p3m + p4m) * 2), '']); pdf.autoTable({ head: [['Période', 'Epreuve', 'Note', 'Note / max période']], body: bd, startY: 75, theme: 'grid', styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0] }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 245] } }); pdf.save("Releve_" + rn + "_" + (eleve.nom || 'eleve').replace(/\s/g, '_') + ".pdf"); toast("PDF généré pour " + eleve.nom, 'success'); } catch (e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); } };
