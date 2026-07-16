@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, minimal-ui">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0e1a">
+<title>Test Plein Écran</title>
+<link rel="manifest" href='data:application/json,{"name":"Test App","short_name":"Test","start_url":"/","display":"standalone","background_color":"#0a0e1a","theme_color":"#0a0e1a"}'>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0e1a;color:#fff;font-family:Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+.box{background:rgba(255,255,255,0.05);border-radius:20px;padding:40px;max-width:400px;width:100%;text-align:center;border:1px solid rgba(255,255,255,0.1);}
+h1{font-size:24px;margin-bottom:10px;color:#60a5fa;}
+p{color:#94a3b8;margin-bottom:20px;line-height:1.6;}
+.info{background:rgba(59,130,246,0.1);padding:15px;border-radius:12px;margin:15px 0;font-size:14px;}
+.status{display:inline-block;padding:6px 16px;border-radius:20px;font-size:12px;font-weight:bold;}
+.status.ok{background:#10b981;color:#fff;}
+.status.no{background:#ef4444;color:#fff;}
+.btn{background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;font-size:16px;cursor:pointer;margin-top:15px;}
+.btn:hover{opacity:0.9;}
+.footer{font-size:11px;color:#4a5568;margin-top:20px;}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>📱 Test Plein Écran</h1>
+<p>Vérifiez si la barre d'URL disparaît</p>
+<div class="info">
+<div style="margin-bottom:8px;">📱 Appareil : <span id="device">Détection...</span></div>
+<div>🔍 Mode : <span id="mode" class="status">Chargement...</span></div>
+</div>
+<button class="btn" id="fullscreenBtn">⛶ Plein écran</button>
+<button class="btn" id="refreshBtn" style="background:#334155;margin-top:8px;">🔄 Rafraîchir</button>
+<p style="margin-top:15px;font-size:12px;color:#64748b;">👇 Scroll vers le bas pour tester</p>
+</div>
+<div style="height:200px;"></div>
+<div class="box" style="opacity:0.5;">
+<p style="font-size:14px;">⬇️ Vous avez scrollé !<br>La barre devrait être masquée.</p>
+</div>
+<div class="footer">Test Plein Écran v1.0</div>
+<script>
+function detectDevice() {
+const ua = navigator.userAgent;
+if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) return 'iPhone/iPad';
+if (ua.includes('Android')) return 'Android';
+if (ua.includes('Windows')) return 'Windows';
+if (ua.includes('Mac OS X')) return 'Mac';
+return 'Autre';
+}
+function updateStatus() {
+const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+const modeSpan = document.getElementById('mode');
+if (isFullscreen) {
+modeSpan.textContent = 'Plein écran ✅';
+modeSpan.className = 'status ok';
+} else {
+modeSpan.textContent = 'Navigation normale';
+modeSpan.className = 'status no';
+}
+}
+document.getElementById('device').textContent = detectDevice();
+document.getElementById('fullscreenBtn').addEventListener('click', function() {
+const el = document.documentElement;
+if (el.requestFullscreen) {
+el.requestFullscreen().catch(() => {});
+} else if (el.webkitRequestFullscreen) {
+el.webkitRequestFullscreen();
+}
+setTimeout(updateStatus, 500);
+});
+document.getElementById('refreshBtn').addEventListener('click', function() {
+location.reload();
+});
+document.addEventListener('fullscreenchange', updateStatus);
+document.addEventListener('webkitfullscreenchange', updateStatus);
+// Masquer la barre d'URL sur Android
+function hideURLBar() {
+window.scrollTo(0, 1);
+}
+document.addEventListener('DOMContentLoaded', function() {
+setTimeout(hideURLBar, 300);
+});
+if (navigator.userAgent.toLowerCase().includes('android')) {
+let lastScrollY = 0;
+window.addEventListener('scroll', function() {
+if (window.scrollY > lastScrollY && window.scrollY > 30) {
+hideURLBar();
+}
+lastScrollY = window.scrollY;
+});
+}
+setTimeout(updateStatus, 500);
+</script>
+</body>
+</html>
