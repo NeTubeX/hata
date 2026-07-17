@@ -202,6 +202,7 @@ html,body{height:100%;background:#f5f6f8;font-family:'Inter',sans-serif;overflow
 <button class="tab active" data-tab="tabPunitions"><i class="fas fa-gavel"></i>Punitions</button>
 <button class="tab" data-tab="tabAdmin"><i class="fas fa-cog"></i>Administratif</button>
 <button class="tab" data-tab="tabReco"><i class="fas fa-headset"></i>Reco</button>
+<button class="tab" data-tab="tabSettings"><i class="fas fa-lock"></i>Paramètres</button>
 </div>
 </div>
 <div id="tabPunitions" class="tab-content active">
@@ -322,6 +323,51 @@ html,body{height:100%;background:#f5f6f8;font-family:'Inter',sans-serif;overflow
 </div>
 </div>
 </div>
+<div id="tabSettings" class="tab-content">
+<div class="card">
+<div class="card-header"><i class="fas fa-lock"></i> Paramètres de sécurité</div>
+<div class="card-body">
+<div style="max-width:420px;margin:0 auto;">
+<div style="background:#f8fafc;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">
+<div style="text-align:center;margin-bottom:20px;">
+<i class="fas fa-key" style="font-size:36px;color:#2563eb;"></i>
+<h4 style="color:#1a1a2e;font-size:16px;margin-top:8px;">Changer le code d'accès</h4>
+<p style="color:#6b7280;font-size:12px;">Modifiez le code à 4 chiffres pour sécuriser l'accès</p>
+</div>
+<div style="margin-bottom:14px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">
+<i class="fas fa-shield-alt" style="color:#2563eb;"></i> Code actuel
+</label>
+<input type="password" id="currentCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:14px 16px;border-radius:10px;background:#fff;border:2px solid #e5e7eb;color:#1a1a2e;font-size:22px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+</div>
+<div style="margin-bottom:14px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">
+<i class="fas fa-plus-circle" style="color:#16a34a;"></i> Nouveau code (4 chiffres)
+</label>
+<input type="password" id="newCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:14px 16px;border-radius:10px;background:#fff;border:2px solid #e5e7eb;color:#1a1a2e;font-size:22px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+</div>
+<div style="margin-bottom:18px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:4px;">
+<i class="fas fa-check-circle" style="color:#2563eb;"></i> Confirmer le nouveau code
+</label>
+<input type="password" id="confirmCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:14px 16px;border-radius:10px;background:#fff;border:2px solid #e5e7eb;color:#1a1a2e;font-size:22px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+</div>
+<div id="settingsError" style="color:#dc2626;font-size:12px;margin-bottom:12px;min-height:20px;text-align:center;"></div>
+<button class="btn btn-primary" id="changeCodeBtn" style="width:100%;justify-content:center;padding:14px;">
+<i class="fas fa-save"></i> Changer le code d'accès
+</button>
+<div style="margin-top:14px;padding:12px 16px;background:#dbeafe;border-radius:8px;border:1px solid #93c5fd;font-size:10px;color:#1e40af;">
+<i class="fas fa-cloud"></i> Le code est sauvegardé dans le cloud (Firebase) et partagé sur tous les appareils.
+</div>
+<div style="margin-top:10px;padding:12px 16px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a;font-size:11px;color:#92400e;">
+<i class="fas fa-info-circle"></i> 
+<strong>Conseils :</strong> Choisissez un code facile à retenir mais difficile à deviner. Évitez les codes comme 0000, 1111 ou 1234.
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
@@ -337,7 +383,7 @@ document.addEventListener('keydown',e=>{
 if(e.keyCode===123||e.ctrlKey&&e.shiftKey&&(e.keyCode===73||e.keyCode===74)||e.ctrlKey&&e.keyCode===85||e.ctrlKey&&e.keyCode===83||e.ctrlKey&&e.keyCode===72)e.preventDefault();
 });
 
-const ACCESS_CODE="1234";
+let ACCESS_CODE = localStorage.getItem('access_code') || "1234";
 const loginOverlay=document.getElementById("loginOverlay");
 const loginInput=document.getElementById("loginCodeInput");
 const loginBtn=document.getElementById("loginBtn");
@@ -601,7 +647,6 @@ const data={eleveNom:es.value,classe:c||'Non spécifiée',motif:motif,justificat
 try{const docId='punition_'+Date.now();await setDoc(doc(db,SCHOOL_PREFIX+"_punitions",docId),data);toast('Punition enregistrée','success');document.getElementById('punitionForm').classList.remove('show');chargerPunitions();}catch(e){toast('Erreur','error');}
 };
 
-// Fonction corrigée pour charger la liste des élèves
 async function updatePunitionEleves(){
 const c=document.getElementById('punitionClasseSelect').value;
 const es=document.getElementById('punitionEleveSelect');
@@ -609,7 +654,6 @@ if(!es)return;
 const cv=es.value;
 es.innerHTML='<option value="">Tous</option>';
 try{
-// Récupérer toutes les fiches pour extraire les élèves
 const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_fiches"));
 const elevesSet=new Set();
 snap.forEach(ds=>{
@@ -649,7 +693,6 @@ document.getElementById('punitionEleveSelect').onchange=function(){
 chargerPunitions();
 };
 
-// Chargement initial des élèves
 document.getElementById('addProfBtn').onclick=function(){
 showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{
 if(!nom||!nom.trim())return;
@@ -692,6 +735,89 @@ showConfirm('Désactiver le professeur','Voulez-vous vraiment désactiver ce pro
 try{const docRef=doc(db,SCHOOL_PREFIX+"_professeurs",id);const snap=await getDoc(docRef);const data=snap.data();await setDoc(docRef,{...data,actif:!data.actif},{merge:true});toast('Professeur '+(data.actif?'désactivé':'réactivé'),'warning');afficherProfs();}catch(e){toast('Erreur','error');}
 });
 };
+
+async function saveAccessCodeToFirebase(newCode) {
+    try {
+        const docRef = doc(db, SCHOOL_PREFIX + "_settings", "access_code");
+        await setDoc(docRef, {
+            code: newCode,
+            updatedAt: new Date().toISOString(),
+            updatedBy: "Direction"
+        });
+        return true;
+    } catch (error) {
+        console.error("Erreur sauvegarde code:", error);
+        return false;
+    }
+}
+
+async function loadAccessCodeFromFirebase() {
+    try {
+        const docRef = doc(db, SCHOOL_PREFIX + "_settings", "access_code");
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.code) {
+                ACCESS_CODE = data.code;
+                localStorage.setItem('access_code', data.code);
+                return true;
+            }
+        }
+        return false;
+    } catch (error) {
+        console.error("Erreur chargement code:", error);
+        return false;
+    }
+}
+
+document.getElementById('changeCodeBtn').addEventListener('click', function() {
+    const currentCode = document.getElementById('currentCodeInput').value;
+    const newCode = document.getElementById('newCodeInput').value;
+    const confirmCode = document.getElementById('confirmCodeInput').value;
+    const errorDiv = document.getElementById('settingsError');
+    
+    if (currentCode !== ACCESS_CODE) {
+        errorDiv.textContent = '❌ Code actuel incorrect';
+        document.getElementById('currentCodeInput').focus();
+        return;
+    }
+    
+    if (!/^\d{4}$/.test(newCode)) {
+        errorDiv.textContent = '❌ Le code doit contenir exactement 4 chiffres';
+        document.getElementById('newCodeInput').focus();
+        return;
+    }
+    
+    if (newCode !== confirmCode) {
+        errorDiv.textContent = '❌ Les codes ne correspondent pas';
+        document.getElementById('confirmCodeInput').focus();
+        return;
+    }
+    
+    if (newCode === ACCESS_CODE) {
+        errorDiv.textContent = '⚠️ Le nouveau code est identique à l\'ancien';
+        return;
+    }
+    
+    showConfirm('Changement de code', 
+        `Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`,
+        async function() {
+            const saved = await saveAccessCodeToFirebase(newCode);
+            
+            if (saved) {
+                ACCESS_CODE = newCode;
+                localStorage.setItem('access_code', newCode);
+                document.getElementById('currentCodeInput').value = '';
+                document.getElementById('newCodeInput').value = '';
+                document.getElementById('confirmCodeInput').value = '';
+                document.getElementById('settingsError').textContent = '';
+                toast('✅ Code d\'accès changé avec succès ! Sauvegardé dans le cloud.', 'success');
+            } else {
+                toast('❌ Erreur lors de la sauvegarde dans le cloud. Réessayez.', 'error');
+            }
+        }
+    );
+});
 
 const RECO_AUTO_REPLIES = {
 'amelioration_parental':'Merci pour votre suggestion concernant l\'Espace Parental. Notre équipe l\'étudiera rapidement. 📱',
@@ -835,11 +961,12 @@ container.scrollTop=container.scrollHeight;
 }
 
 async function initApp(){
-await updatePunitionEleves();
-await chargerPunitions();
-afficherProfs();
-afficherCorbeille();
-initReco();
+    await loadAccessCodeFromFirebase();
+    await updatePunitionEleves();
+    await chargerPunitions();
+    afficherProfs();
+    afficherCorbeille();
+    initReco();
 }
 setInterval(()=>{
 if(document.getElementById('tabPunitions').classList.contains('active'))chargerPunitions();
