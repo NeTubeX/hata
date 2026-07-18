@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperçu Carte Élève Scannable</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:20px;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+.page-title{color:#ffd700;font-size:24px;font-weight:700;margin-bottom:30px;text-align:center}
+.page-title span{color:#94a3b8;font-weight:400;font-size:16px;display:block;margin-top:5px}
+.carte-container{display:flex;flex-direction:column;align-items:center;gap:30px;width:100%;max-width:800px}
+.carte{background:linear-gradient(145deg,#ffffff,#f0f2f5);border-radius:24px;padding:20px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 0 2px rgba(255,215,0,0.3);position:relative;transition:transform 0.3s ease}
+.carte:hover{transform:translateY(-5px)}
+.carte::before{content:"GLORIA DEI";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:50px;font-weight:900;color:rgba(15,23,42,0.04);letter-spacing:15px;pointer-events:none;z-index:0}
+.carte-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:16px 16px 0 0;padding:14px 18px;text-align:center;position:relative;z-index:1;margin:-20px -20px 0 -20px}
+.carte-header .ecole-nom{font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:0.5px}
+.carte-header .ecole-annee{font-size:11px;color:#94a3b8;font-weight:500;display:block;margin-top:2px;letter-spacing:2px}
+.carte-body{padding:18px 0 12px 0;display:flex;gap:16px;align-items:center;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08)}
+.carte-photo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:3px solid #ffd700;box-shadow:0 4px 15px rgba(255,215,0,0.3);overflow:hidden;font-size:36px}
+.carte-photo img{width:100%;height:100%;object-fit:cover}
+.carte-identite{flex:1;min-width:0}
+.carte-identite .nom{font-size:18px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:0.5px}
+.carte-identite .nom small{font-weight:400;font-size:14px;color:#475569}
+.carte-identite .classe{font-size:13px;font-weight:600;color:#1e40af;margin-top:2px}
+.carte-identite .classe .option{color:#6b7280;font-weight:400}
+.carte-identite .matricule{font-size:11px;color:#64748b;font-weight:600;margin-top:2px;font-family:'Courier New',monospace;letter-spacing:0.5px}
+.carte-identite .matricule span{color:#0f172a;font-weight:700}
+.statut-badge{display:inline-block;padding:3px 14px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px}
+.statut-badge.actif{background:#10b981;color:white}
+.statut-badge.exonere{background:#f59e0b;color:white}
+.statut-badge.abandon{background:#ef4444;color:white}
+.carte-info{padding:12px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08)}
+.carte-info .info-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#334155}
+.carte-info .info-item .icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.carte-info .info-item .label{color:#94a3b8;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:2px}
+.carte-info .info-item .value{font-weight:600;color:#0f172a}
+.carte-info .info-item .value.code-parent{color:#2563eb;font-family:'Courier New',monospace;font-size:14px;font-weight:800;letter-spacing:2px;background:rgba(37,99,235,0.08);padding:0 8px;border-radius:4px}
+.carte-parents{padding:8px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08);font-size:11px;color:#475569}
+.carte-parents .parent-item{display:flex;align-items:center;gap:4px}
+.carte-parents .parent-item .icon{font-size:13px}
+.carte-parents .parent-item .nom{font-weight:600;color:#0f172a}
+.carte-qr{padding:12px 0 4px 0;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+.carte-qr .qr-wrapper{background:white;padding:8px;border-radius:12px;border:2px solid #e2e8f0;box-shadow:0 2px 10px rgba(0,0,0,0.05);display:inline-block}
+.carte-qr .qr-wrapper #qrcode{display:flex;align-items:center;justify-content:center}
+.carte-qr .qr-wrapper #qrcode img,.carte-qr .qr-wrapper #qrcode canvas{width:100px !important;height:100px !important;display:block}
+.carte-qr .qr-label{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-top:6px;background:#f1f5f9;padding:2px 14px;border-radius:10px}
+.carte-footer{padding-top:10px;text-align:center;position:relative;z-index:1;border-top:2px solid rgba(255,215,0,0.2);margin-top:4px}
+.carte-footer .scan-message{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+.carte-footer .scan-message .icon{font-size:12px}
+.legend{background:rgba(18,18,31,0.9);border-radius:16px;padding:20px 24px;width:100%;max-width:420px;border:1px solid rgba(255,215,0,0.15)}
+.legend h3{color:#ffd700;font-size:14px;font-weight:700;margin-bottom:12px;text-align:center}
+.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;color:#cbd5e1;padding:4px 6px;border-radius:6px;transition:background 0.2s}
+.legend-item:hover{background:rgba(255,215,0,0.05)}
+.legend-item .dot{width:12px;height:12px;border-radius:4px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1)}
+.legend-item .dot.visible{background:#10b981}
+.legend-item .dot.scannable{background:#3b82f6}
+.legend-item .dot.optionnel{background:#f59e0b}
+.legend-item .badge-label{font-size:9px;padding:1px 8px;border-radius:10px;font-weight:600;margin-left:auto}
+.badge-label.visible{background:rgba(16,185,129,0.2);color:#10b981}
+.badge-label.scannable{background:rgba(59,130,246,0.2);color:#3b82f6}
+.badge-label.optionnel{background:rgba(245,158,11,0.2);color:#f59e0b}
+.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px}
+.controls button{padding:10px 24px;border-radius:40px;font-weight:600;font-size:13px;cursor:pointer;border:none;transition:all 0.2s;background:#2d3748;color:#cbd5e1}
+.controls button:hover{transform:scale(0.98);opacity:0.9}
+.controls button.primary{background:#ffd700;color:#0f172a}
+.controls button.primary:hover{opacity:0.9}
+.controls button.danger{background:#7f1d1d;color:white}
+.controls button.danger:hover{background:#991b1b}
+.data-json{background:rgba(18,18,31,0.9);border-radius:16px;padding:16px 20px;width:100%;max-width:420px;border:1px solid rgba(255,215,0,0.15);display:none}
+.data-json.show{display:block}
+.data-json pre{color:#a5b4fc;font-size:11px;font-family:'Courier New',monospace;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
+.data-json .json-title{color:#ffd700;font-size:12px;font-weight:600;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="page-title">📇 APERÇU CARTE D'ÉLÈVE SCANNABLE<span>Carte physique avec informations visibles + QR code scannable</span></div>
+<div class="carte-container">
+<div class="carte" id="carteEleve">
+<div class="carte-header">
+<div class="ecole-nom">🏫 COMPLEXE SCOLAIRE GLORIA DEI</div>
+<span class="ecole-annee">📅 ANNÉE SCOLAIRE 2026-2027</span>
+</div>
+<div class="carte-body">
+<div class="carte-photo" id="photoContainer">👤</div>
+<div class="carte-identite">
+<div class="nom" id="nomEleve">KABEYA <small>Mbuyi</small> Jean</div>
+<div class="classe" id="classeEleve">🎓 3ème Scientifique <span class="option">| Scientifique</span></div>
+<div class="matricule" id="matriculeEleve">📌 Matricule: <span>GLD-2026-0001</span></div>
+<span class="statut-badge actif" id="statutBadge">🟢 ACTIF</span>
+</div>
+</div>
+<div class="carte-info">
+<div class="info-item"><span class="icon">📅</span><span class="label">Naissance</span><span class="value" id="dateNaiss">15/05/2010</span></div>
+<div class="info-item"><span class="icon">📍</span><span class="label">Lieu</span><span class="value" id="lieuNaiss">Kinshasa</span></div>
+<div class="info-item"><span class="icon">📞</span><span class="label">Tél</span><span class="value" id="telephone">0812345678</span></div>
+<div class="info-item"><span class="icon">🔑</span><span class="label">Code Parent</span><span class="value code-parent" id="codeParent">123456</span></div>
+</div>
+<div class="carte-parents">
+<div class="parent-item"><span class="icon">👨</span> Père: <span class="nom" id="nomPere">KABEYA Pierre</span></div>
+<div class="parent-item"><span class="icon">👩</span> Mère: <span class="nom" id="nomMere">KABEYA Marie</span></div>
+</div>
+<div class="carte-qr">
+<div class="qr-wrapper"><div id="qrcode"></div></div>
+<span class="qr-label">📱 SCANNEZ POUR LE PROFIL COMPLET</span>
+</div>
+<div class="carte-footer">
+<span class="scan-message"><span class="icon">✅</span> Présence par scan • Gardez précieusement cette carte</span>
+</div>
+</div>
+<div class="legend">
+<h3>📋 LÉGENDE DES INFORMATIONS</h3>
+<div class="legend-grid">
+<div class="legend-item"><span class="dot visible"></span> Visible sur la carte <span class="badge-label visible">VISIBLE</span></div>
+<div class="legend-item"><span class="dot scannable"></span> Visible après scan <span class="badge-label scannable">SCAN</span></div>
+<div class="legend-item"><span class="dot optionnel"></span> Optionnel <span class="badge-label optionnel">OPTIONNEL</span></div>
+</div>
+</div>
+<div class="controls">
+<button class="primary" onclick="toggleData()">📊 Voir données du QR</button>
+<button onclick="changerStatut()">🔄 Changer statut</button>
+<button onclick="imprimerCarte()">🖨️ Imprimer</button>
+</div>
+<div class="data-json" id="dataJson">
+<div class="json-title">📋 CONTENU DU QR CODE (scannable)</div>
+<pre id="jsonContent"></pre>
+</div>
+</div>
+<script>
+const eleveData = {
+matricule: "GLD-2026-0001",
+nom: "KABEYA",
+postnom: "Mbuyi",
+prenom: "Jean",
+dateNaiss: "2010-05-15",
+dateNaissAff: "15/05/2010",
+lieuNaiss: "Kinshasa",
+sexe: "M",
+classe: "3eme Annee",
+option: "Scientifique",
+telephone: "0812345678",
+adresse: "Quartier Matonge, Kinshasa",
+parentCode: "123456",
+nomPere: "KABEYA Pierre",
+nomMere: "KABEYA Marie",
+ecole: "Complexe Scolaire Gloria Dei",
+annee: "2026-2027",
+statut: "ACTIF",
+minerval: 45000,
+fraisInscription: 45000,
+fraisInscriptionPaye: 45000,
+paiementStatut: "À jour",
+presences: {total: 20, presents: 15, absents: 3, retards: 2},
+dernierePresence: "18/07/2026 08:15"
+};
+let statuts = ["ACTIF", "EXONÉRÉ", "ABANDON"];
+let statutIndex = 0;
+function genererQR() {
+const qrContainer = document.getElementById('qrcode');
+qrContainer.innerHTML = '';
+const jsonData = JSON.stringify(eleveData);
+const qr = new QRCode(qrContainer, {
+text: jsonData,
+width: 100,
+height: 100,
+colorDark: "#0f172a",
+colorLight: "#ffffff",
+correctLevel: QRCode.CorrectLevel.H
+});
+document.getElementById('jsonContent').textContent = jsonData;
+}
+function toggleData() {
+const el = document.getElementById('dataJson');
+el.classList.toggle('show');
+}
+function changerStatut() {
+statutIndex = (statutIndex + 1) % statuts.length;
+const nouveauStatut = statuts[statutIndex];
+eleveData.statut = nouveauStatut;
+const badge = document.getElementById('statutBadge');
+badge.textContent = nouveauStatut === 'ACTIF' ? '🟢 ACTIF' : nouveauStatut === 'EXONÉRÉ' ? '🌟 EXONÉRÉ' : '🔴 ABANDON';
+badge.className = 'statut-badge ' + (nouveauStatut === 'ACTIF' ? 'actif' : nouveauStatut === 'EXONÉRÉ' ? 'exonere' : 'abandon');
+eleveData.presences.presents = nouveauStatut === 'ABANDON' ? 0 : 15;
+genererQR();
+}
+function imprimerCarte() {
+const carte = document.getElementById('carteEleve');
+const win = window.open('', '_blank');
+win.document.write('<html><head><title>Carte Élève</title>');
+win.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />');
+win.document.write('<style>');
+win.document.write('*{margin:0;padding:0;box-sizing:border-box}');
+win.document.write('body{background:white;font-family:"Inter",sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}');
+win.document.write('.carte{background:linear-gradient(145deg,#ffffff,#f0f2f5);border-radius:24px;padding:20px;width:420px;box-shadow:0 4px 20px rgba(0,0,0,0.15);position:relative}');
+win.document.write('.carte::before{content:"GLORIA DEI";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:50px;font-weight:900;color:rgba(15,23,42,0.04);letter-spacing:15px;pointer-events:none;z-index:0}');
+win.document.write('.carte-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:16px 16px 0 0;padding:14px 18px;text-align:center;margin:-20px -20px 0 -20px}');
+win.document.write('.carte-header .ecole-nom{font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}');
+win.document.write('.carte-header .ecole-annee{font-size:11px;color:#94a3b8;font-weight:500;display:block;margin-top:2px;letter-spacing:2px}');
+win.document.write('.carte-body{padding:18px 0 12px 0;display:flex;gap:16px;align-items:center;border-bottom:2px dashed rgba(15,23,42,0.08)}');
+win.document.write('.carte-photo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:3px solid #ffd700;overflow:hidden;font-size:36px;color:white}');
+win.document.write('.carte-identite{flex:1;min-width:0}');
+win.document.write('.carte-identite .nom{font-size:18px;font-weight:900;color:#0f172a;line-height:1.2}');
+win.document.write('.carte-identite .nom small{font-weight:400;font-size:14px;color:#475569}');
+win.document.write('.carte-identite .classe{font-size:13px;font-weight:600;color:#1e40af;margin-top:2px}');
+win.document.write('.carte-identite .classe .option{color:#6b7280;font-weight:400}');
+win.document.write('.carte-identite .matricule{font-size:11px;color:#64748b;font-weight:600;margin-top:2px;font-family:"Courier New",monospace}');
+win.document.write('.carte-identite .matricule span{color:#0f172a;font-weight:700}');
+win.document.write('.statut-badge{display:inline-block;padding:3px 14px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px}');
+win.document.write('.statut-badge.actif{background:#10b981;color:white}');
+win.document.write('.statut-badge.exonere{background:#f59e0b;color:white}');
+win.document.write('.statut-badge.abandon{background:#ef4444;color:white}');
+win.document.write('.carte-info{padding:12px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;border-bottom:2px dashed rgba(15,23,42,0.08)}');
+win.document.write('.carte-info .info-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#334155}');
+win.document.write('.carte-info .info-item .icon{font-size:14px;width:20px;text-align:center}');
+win.document.write('.carte-info .info-item .label{color:#94a3b8;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:2px}');
+win.document.write('.carte-info .info-item .value{font-weight:600;color:#0f172a}');
+win.document.write('.carte-info .info-item .value.code-parent{color:#2563eb;font-family:"Courier New",monospace;font-size:14px;font-weight:800;letter-spacing:2px;background:rgba(37,99,235,0.08);padding:0 8px;border-radius:4px}');
+win.document.write('.carte-parents{padding:8px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;border-bottom:2px dashed rgba(15,23,42,0.08);font-size:11px;color:#475569}');
+win.document.write('.carte-parents .parent-item{display:flex;align-items:center;gap:4px}');
+win.document.write('.carte-parents .parent-item .icon{font-size:13px}');
+win.document.write('.carte-parents .parent-item .nom{font-weight:600;color:#0f172a}');
+win.document.write('.carte-qr{padding:12px 0 4px 0;display:flex;flex-direction:column;align-items:center}');
+win.document.write('.carte-qr .qr-wrapper{background:white;padding:8px;border-radius:12px;border:2px solid #e2e8f0;display:inline-block}');
+win.document.write('.carte-qr .qr-wrapper img,.carte-qr .qr-wrapper canvas{width:100px !important;height:100px !important;display:block}');
+win.document.write('.carte-qr .qr-label{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-top:6px;background:#f1f5f9;padding:2px 14px;border-radius:10px}');
+win.document.write('.carte-footer{padding-top:10px;text-align:center;border-top:2px solid rgba(255,215,0,0.2);margin-top:4px}');
+win.document.write('.carte-footer .scan-message{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase}');
+win.document.write('@media print{body{padding:0;background:white}.carte{box-shadow:none;border:1px solid #ddd}}');
+win.document.write('</style></head><body>');
+win.document.write(carte.outerHTML);
+win.document.write('</body></html>');
+win.document.close();
+setTimeout(() => { win.print(); }, 500);
+}
+document.addEventListener('DOMContentLoaded', function() {
+genererQR();
+document.getElementById('nomEleve').textContent = eleveData.nom + ' ' + eleveData.postnom + ' ' + eleveData.prenom;
+document.getElementById('classeEleve').innerHTML = '🎓 ' + eleveData.classe + ' <span class="option">| ' + eleveData.option + '</span>';
+document.getElementById('matriculeEleve').innerHTML = '📌 Matricule: <span>' + eleveData.matricule + '</span>';
+document.getElementById('dateNaiss').textContent = eleveData.dateNaissAff;
+document.getElementById('lieuNaiss').textContent = eleveData.lieuNaiss;
+document.getElementById('telephone').textContent = eleveData.telephone;
+document.getElementById('codeParent').textContent = eleveData.parentCode;
+document.getElementById('nomPere').textContent = eleveData.nomPere;
+document.getElementById('nomMere').textContent = eleveData.nomMere;
+});
+</script>
+</body>
+</html>
