@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Génération Cartes Élèves - Gloria Dei</title>
+<title>Cartes Élèves - Gloria Dei</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:20px;min-height:100vh}
@@ -19,8 +20,6 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:20px;min-height:1
 .btn-primary:hover{opacity:0.9;transform:scale(0.98)}
 .btn-success{background:#10b981;color:white}
 .btn-success:hover{opacity:0.9;transform:scale(0.98)}
-.btn-danger{background:#7f1d1d;color:white}
-.btn-danger:hover{background:#991b1b}
 .btn-outline{background:transparent;border:1.5px solid #ffd700;color:#ffd700}
 .btn-outline:hover{background:rgba(255,215,0,0.1)}
 .controls{max-width:1200px;margin:0 auto 20px;background:rgba(18,18,31,0.9);border-radius:16px;padding:16px 20px;border:1px solid rgba(255,215,0,0.15);display:flex;flex-wrap:wrap;gap:12px;align-items:center}
@@ -298,14 +297,14 @@ afficherCartes();
 window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
-function genererPDF() {
-if(typeof jspdf === 'undefined') {
-alert('La librairie jsPDF est en cours de chargement...');
-return;
-}
-
+async function genererPDF() {
 const filtered = getFiltered();
 if(filtered.length === 0) { alert('Aucun élève à exporter'); return; }
+
+const container = document.getElementById('carteContainer');
+const cartes = container.querySelectorAll('.carte');
+
+if(cartes.length === 0) { alert('Aucune carte à exporter'); return; }
 
 const { jsPDF } = window.jspdf;
 const doc = new jsPDF('p', 'mm', 'a4');
@@ -313,93 +312,47 @@ const pageWidth = 210;
 const pageHeight = 297;
 const cols = 3;
 const rows = 3;
-const cardWidth = 60;
-const cardHeight = 85;
+const cardWidth = 62;
+const cardHeight = 88;
 const marginX = 8;
 const marginY = 10;
+const gapX = 6;
+const gapY = 6;
 
 let count = 0;
-for(let e of filtered) {
-const col = count % cols;
-const row = Math.floor(count / cols) % rows;
-const x = marginX + col * (cardWidth + 6);
-const y = marginY + row * (cardHeight + 6);
+let totalCartes = 0;
 
-if(count > 0 && count % (cols*rows) === 0) {
+for(let i = 0; i < cartes.length; i++) {
+const carte = cartes[i];
+
+try {
+const canvas = await html2canvas(carte, {
+scale: 2,
+backgroundColor: '#ffffff',
+allowTaint: false,
+useCORS: true,
+logging: false
+});
+
+const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+const col = totalCartes % cols;
+const row = Math.floor(totalCartes / cols) % rows;
+
+const x = marginX + col * (cardWidth + gapX);
+const y = marginY + row * (cardHeight + gapY);
+
+if(totalCartes > 0 && totalCartes % (cols*rows) === 0) {
 doc.addPage();
 }
 
-doc.setFillColor(255,255,255);
-doc.rect(x, y, cardWidth, cardHeight, 'F');
-doc.setDrawColor(200,200,200);
-doc.rect(x, y, cardWidth, cardHeight, 'S');
+doc.addImage(imgData, 'JPEG', x, y, cardWidth, cardHeight);
 
-doc.setFillColor(15,43,68);
-doc.rect(x, y, cardWidth, 14, 'F');
-doc.setFontSize(7);
-doc.setFont('helvetica', 'bold');
-doc.setTextColor(255,215,0);
-doc.text('GLORIA DEI', x + cardWidth/2, y + 5, {align:'center'});
-doc.setFontSize(5);
-doc.setTextColor(148,163,184);
-doc.text('2026-2027', x + cardWidth/2, y + 11, {align:'center'});
+totalCartes++;
 
-doc.setFontSize(8);
-doc.setFont('helvetica', 'bold');
-doc.setTextColor(15,23,42);
-const nomLine = e.nom + ' ' + (e.postnom || '') + ' ' + e.prenom;
-const nomTrunc = nomLine.length > 22 ? nomLine.substring(0,20) + '...' : nomLine;
-doc.text(nomTrunc, x + 4, y + 23);
-
-doc.setFontSize(6);
-doc.setFont('helvetica', 'bold');
-doc.setTextColor(30,64,175);
-doc.text(e.classe + (e.option ? ' | ' + e.option : ''), x + 4, y + 30);
-
-doc.setFontSize(5);
-doc.setTextColor(148,163,184);
-doc.text('Matricule: ' + e.matricule, x + 4, y + 36);
-
-doc.setFillColor(e.statut === 'ACTIF' ? [16,185,129] : e.statut === 'EXONÉRÉ' ? [245,158,11] : [239,68,68]);
-doc.roundedRect(x + cardWidth - 32, y + 17, 28, 6, 3, 3, 'F');
-doc.setFontSize(4);
-doc.setFont('helvetica', 'bold');
-doc.setTextColor(255,255,255);
-doc.text(e.statut, x + cardWidth - 18, y + 21.5, {align:'center'});
-
-doc.setFontSize(5);
-doc.setFont('helvetica', 'normal');
-doc.setTextColor(71,85,105);
-doc.text('📅 ' + e.dateNaissAff, x + 4, y + 45);
-doc.text('📍 ' + e.lieuNaiss, x + 34, y + 45);
-doc.text('📞 ' + e.telephone, x + 4, y + 52);
-doc.text('🔑 ' + e.parentCode, x + 34, y + 52);
-
-doc.setFontSize(4.5);
-doc.text('👨 ' + e.nomPere, x + 4, y + 60);
-doc.text('👩 ' + e.nomMere, x + 34, y + 60);
-
-doc.setDrawColor(0,0,0);
-doc.rect(x + 20, y + 63, 20, 20, 'S');
-
-const qrText = JSON.stringify({
-matricule: e.matricule,
-nom: e.nom,
-prenom: e.prenom,
-classe: e.classe,
-parentCode: e.parentCode,
-statut: e.statut
-});
-
-try {
-const qrCode = new QRCode(doc, qrText, {x: x+21, y: y+64, w: 18, h: 18});
-} catch(e) {}
-
-doc.setFontSize(4);
-doc.setTextColor(148,163,184);
-doc.text('📱 Scanner pour présence', x + cardWidth/2, y + 86, {align:'center'});
-
-count++;
+} catch(err) {
+console.error('Erreur carte ' + i, err);
+}
 }
 
 doc.save('cartes_eleves_' + new Date().toISOString().slice(0,10) + '.pdf');
