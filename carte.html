@@ -1,251 +1,417 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Aperçu Carte Élève Scannable</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Génération Cartes Élèves - Gloria Dei</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:20px;display:flex;flex-direction:column;align-items:center;min-height:100vh}
-.page-title{color:#ffd700;font-size:24px;font-weight:700;margin-bottom:30px;text-align:center}
-.page-title span{color:#94a3b8;font-weight:400;font-size:16px;display:block;margin-top:5px}
-.carte-container{display:flex;flex-direction:column;align-items:center;gap:30px;width:100%;max-width:800px}
-.carte{background:linear-gradient(145deg,#ffffff,#f0f2f5);border-radius:24px;padding:20px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 0 2px rgba(255,215,0,0.3);position:relative;transition:transform 0.3s ease}
-.carte:hover{transform:translateY(-5px)}
-.carte::before{content:"GLORIA DEI";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:50px;font-weight:900;color:rgba(15,23,42,0.04);letter-spacing:15px;pointer-events:none;z-index:0}
-.carte-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:16px 16px 0 0;padding:14px 18px;text-align:center;position:relative;z-index:1;margin:-20px -20px 0 -20px}
-.carte-header .ecole-nom{font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:0.5px}
-.carte-header .ecole-annee{font-size:11px;color:#94a3b8;font-weight:500;display:block;margin-top:2px;letter-spacing:2px}
-.carte-body{padding:18px 0 12px 0;display:flex;gap:16px;align-items:center;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08)}
-.carte-photo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:3px solid #ffd700;box-shadow:0 4px 15px rgba(255,215,0,0.3);overflow:hidden;font-size:36px}
-.carte-photo img{width:100%;height:100%;object-fit:cover}
+body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:20px;min-height:100vh}
+.header{max-width:1200px;margin:0 auto 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.header h1{color:#ffd700;font-size:24px;font-weight:800}
+.header h1 span{color:#94a3b8;font-size:14px;font-weight:400;display:block}
+.header-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{padding:10px 24px;border-radius:40px;font-weight:600;font-size:13px;cursor:pointer;border:none;transition:all 0.2s}
+.btn-primary{background:#ffd700;color:#0f172a}
+.btn-primary:hover{opacity:0.9;transform:scale(0.98)}
+.btn-success{background:#10b981;color:white}
+.btn-success:hover{opacity:0.9;transform:scale(0.98)}
+.btn-danger{background:#7f1d1d;color:white}
+.btn-danger:hover{background:#991b1b}
+.btn-outline{background:transparent;border:1.5px solid #ffd700;color:#ffd700}
+.btn-outline:hover{background:rgba(255,215,0,0.1)}
+.controls{max-width:1200px;margin:0 auto 20px;background:rgba(18,18,31,0.9);border-radius:16px;padding:16px 20px;border:1px solid rgba(255,215,0,0.15);display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.controls label{color:#94a3b8;font-size:12px;font-weight:600}
+.controls select,.controls input{padding:8px 14px;border-radius:10px;background:#2d3748;border:1px solid #334155;color:#fff;font-size:13px}
+.controls .count{color:#ffd700;font-weight:700;font-size:14px;margin-left:auto}
+.carte-grid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media print{.carte-grid{grid-template-columns:repeat(3,1fr) !important;gap:12px !important}.header,.controls,.no-print{display:none !important}.carte{page-break-inside:avoid;box-shadow:none !important;border:1px solid #ddd}}
+@media(max-width:900px){.carte-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.carte-grid{grid-template-columns:1fr}}
+.carte{background:white;border-radius:12px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);border:1px solid rgba(255,215,0,0.15);position:relative;transition:transform 0.2s}
+.carte:hover{transform:translateY(-3px)}
+.carte-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:8px 8px 0 0;padding:8px 12px;text-align:center;margin:-12px -12px 0 -12px}
+.carte-header .ecole{font-size:12px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
+.carte-header .annee{font-size:8px;color:#94a3b8;display:block;letter-spacing:1px}
+.carte-body{display:flex;gap:10px;padding:10px 0 8px 0;border-bottom:1px solid #f1f5f9}
+.carte-photo{width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid #ffd700;font-size:22px;color:white}
 .carte-identite{flex:1;min-width:0}
-.carte-identite .nom{font-size:18px;font-weight:900;color:#0f172a;line-height:1.2;letter-spacing:0.5px}
-.carte-identite .nom small{font-weight:400;font-size:14px;color:#475569}
-.carte-identite .classe{font-size:13px;font-weight:600;color:#1e40af;margin-top:2px}
-.carte-identite .classe .option{color:#6b7280;font-weight:400}
-.carte-identite .matricule{font-size:11px;color:#64748b;font-weight:600;margin-top:2px;font-family:'Courier New',monospace;letter-spacing:0.5px}
-.carte-identite .matricule span{color:#0f172a;font-weight:700}
-.statut-badge{display:inline-block;padding:3px 14px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px}
+.carte-identite .nom{font-size:13px;font-weight:800;color:#0f172a;line-height:1.2}
+.carte-identite .nom small{font-weight:400;font-size:10px;color:#64748b}
+.carte-identite .classe{font-size:10px;font-weight:600;color:#1e40af}
+.carte-identite .matricule{font-size:8px;color:#94a3b8;font-family:monospace}
+.statut-badge{display:inline-block;padding:1px 10px;border-radius:12px;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
 .statut-badge.actif{background:#10b981;color:white}
 .statut-badge.exonere{background:#f59e0b;color:white}
 .statut-badge.abandon{background:#ef4444;color:white}
-.carte-info{padding:12px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08)}
-.carte-info .info-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#334155}
-.carte-info .info-item .icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
-.carte-info .info-item .label{color:#94a3b8;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:2px}
+.carte-info{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;padding:6px 0 4px 0;font-size:9px;color:#475569}
+.carte-info .info-item{display:flex;align-items:center;gap:3px}
+.carte-info .info-item .icon{font-size:10px;width:14px;text-align:center}
+.carte-info .info-item .label{color:#94a3b8;font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
 .carte-info .info-item .value{font-weight:600;color:#0f172a}
-.carte-info .info-item .value.code-parent{color:#2563eb;font-family:'Courier New',monospace;font-size:14px;font-weight:800;letter-spacing:2px;background:rgba(37,99,235,0.08);padding:0 8px;border-radius:4px}
-.carte-parents{padding:8px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;position:relative;z-index:1;border-bottom:2px dashed rgba(15,23,42,0.08);font-size:11px;color:#475569}
-.carte-parents .parent-item{display:flex;align-items:center;gap:4px}
-.carte-parents .parent-item .icon{font-size:13px}
+.carte-info .info-item .value.code{color:#2563eb;font-family:monospace;font-size:10px;font-weight:800;background:rgba(37,99,235,0.08);padding:0 4px;border-radius:3px}
+.carte-parents{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;padding:4px 0 6px 0;font-size:8px;color:#475569;border-bottom:1px solid #f1f5f9}
+.carte-parents .parent-item{display:flex;align-items:center;gap:3px}
 .carte-parents .parent-item .nom{font-weight:600;color:#0f172a}
-.carte-qr{padding:12px 0 4px 0;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
-.carte-qr .qr-wrapper{background:white;padding:8px;border-radius:12px;border:2px solid #e2e8f0;box-shadow:0 2px 10px rgba(0,0,0,0.05);display:inline-block}
-.carte-qr .qr-wrapper #qrcode{display:flex;align-items:center;justify-content:center}
-.carte-qr .qr-wrapper #qrcode img,.carte-qr .qr-wrapper #qrcode canvas{width:100px !important;height:100px !important;display:block}
-.carte-qr .qr-label{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-top:6px;background:#f1f5f9;padding:2px 14px;border-radius:10px}
-.carte-footer{padding-top:10px;text-align:center;position:relative;z-index:1;border-top:2px solid rgba(255,215,0,0.2);margin-top:4px}
-.carte-footer .scan-message{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase}
-.carte-footer .scan-message .icon{font-size:12px}
-.legend{background:rgba(18,18,31,0.9);border-radius:16px;padding:20px 24px;width:100%;max-width:420px;border:1px solid rgba(255,215,0,0.15)}
-.legend h3{color:#ffd700;font-size:14px;font-weight:700;margin-bottom:12px;text-align:center}
-.legend-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
-.legend-item{display:flex;align-items:center;gap:8px;font-size:11px;color:#cbd5e1;padding:4px 6px;border-radius:6px;transition:background 0.2s}
-.legend-item:hover{background:rgba(255,215,0,0.05)}
-.legend-item .dot{width:12px;height:12px;border-radius:4px;flex-shrink:0;border:1px solid rgba(255,255,255,0.1)}
-.legend-item .dot.visible{background:#10b981}
-.legend-item .dot.scannable{background:#3b82f6}
-.legend-item .dot.optionnel{background:#f59e0b}
-.legend-item .badge-label{font-size:9px;padding:1px 8px;border-radius:10px;font-weight:600;margin-left:auto}
-.badge-label.visible{background:rgba(16,185,129,0.2);color:#10b981}
-.badge-label.scannable{background:rgba(59,130,246,0.2);color:#3b82f6}
-.badge-label.optionnel{background:rgba(245,158,11,0.2);color:#f59e0b}
-.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:10px}
-.controls button{padding:10px 24px;border-radius:40px;font-weight:600;font-size:13px;cursor:pointer;border:none;transition:all 0.2s;background:#2d3748;color:#cbd5e1}
-.controls button:hover{transform:scale(0.98);opacity:0.9}
-.controls button.primary{background:#ffd700;color:#0f172a}
-.controls button.primary:hover{opacity:0.9}
-.controls button.danger{background:#7f1d1d;color:white}
-.controls button.danger:hover{background:#991b1b}
-.data-json{background:rgba(18,18,31,0.9);border-radius:16px;padding:16px 20px;width:100%;max-width:420px;border:1px solid rgba(255,215,0,0.15);display:none}
-.data-json.show{display:block}
-.data-json pre{color:#a5b4fc;font-size:11px;font-family:'Courier New',monospace;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto}
-.data-json .json-title{color:#ffd700;font-size:12px;font-weight:600;margin-bottom:8px}
+.carte-qr{padding:6px 0 2px 0;display:flex;flex-direction:column;align-items:center}
+.carte-qr .qr-wrapper{background:white;padding:4px;border-radius:6px;border:1px solid #e2e8f0;display:inline-block}
+.carte-qr .qr-wrapper canvas,.carte-qr .qr-wrapper img{width:48px !important;height:48px !important}
+.carte-qr .qr-label{font-size:6px;color:#94a3b8;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-top:3px}
+.carte-footer{padding-top:4px;text-align:center;font-size:6px;color:#94a3b8;font-weight:600;letter-spacing:0.5px;border-top:1px solid rgba(255,215,0,0.15)}
+.pagination{max-width:1200px;margin:20px auto;display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.pagination button{padding:8px 16px;border-radius:8px;background:#2d3748;border:1px solid #334155;color:#cbd5e1;cursor:pointer;font-weight:600;font-size:12px;transition:all 0.2s}
+.pagination button:hover{background:#ffd700;color:#0f172a}
+.pagination button.active{background:#ffd700;color:#0f172a}
+.pagination button:disabled{opacity:0.3;cursor:not-allowed}
+.loading{color:#ffd700;text-align:center;padding:40px;font-size:18px}
+.empty{color:#64748b;text-align:center;padding:60px;font-size:16px}
 </style>
 </head>
 <body>
-<div class="page-title">📇 APERÇU CARTE D'ÉLÈVE SCANNABLE<span>Carte physique avec informations visibles + QR code scannable</span></div>
-<div class="carte-container">
-<div class="carte" id="carteEleve">
+
+<div class="header">
+<div>
+<h1>🏫 GLORIA DEI SCHOOL <span>Génération de cartes d'élèves • Année 2026-2027</span></h1>
+</div>
+<div class="header-actions">
+<button class="btn btn-primary" onclick="genererPDF()">📄 Exporter PDF</button>
+<button class="btn btn-success" onclick="imprimer()">🖨️ Imprimer</button>
+</div>
+</div>
+
+<div class="controls">
+<label>📚 Classe</label>
+<select id="filterClasse" onchange="afficherCartes()">
+<option value="">Toutes</option>
+<option value="7eme EB">7eme EB</option>
+<option value="8eme EB">8eme EB</option>
+<option value="1ere Annee">1ere Annee</option>
+<option value="2eme Annee">2eme Annee</option>
+<option value="3eme Annee">3eme Annee</option>
+<option value="4eme Annee">4eme Annee</option>
+</select>
+<label>🔍 Rechercher</label>
+<input type="text" id="searchEleve" placeholder="Nom, matricule..." oninput="afficherCartes()" style="width:180px">
+<label>📋 Par page</label>
+<select id="perPage" onchange="afficherCartes()">
+<option value="9">9</option>
+<option value="18">18</option>
+<option value="27">27</option>
+<option value="36">36</option>
+</select>
+<span class="count" id="totalCount">Total: 0 élèves</span>
+</div>
+
+<div id="carteContainer" class="carte-grid"></div>
+
+<div class="pagination" id="pagination"></div>
+
+<script>
+let elevesData = [];
+let currentPage = 1;
+let perPage = 9;
+
+function genererEleves(nb) {
+const noms = ['KABEYA','LUMUMBA','TSHISEKEDI','KAMBA','MUTOMBO','KALALA','MWANZA','KIBANDA','LUKUSA','KASONGO','MUKENDI','KALONJI','TUNDA','KABILA','KATUMBA','MWEMBA','KALALA','KABEYA','LUMUMBA','TSHISEKEDI'];
+const prenoms = ['Jean','Pierre','Marie','Joseph','François','Jeanne','André','Pauline','Michel','Catherine','Daniel','Esther','David','Ruth','Emmanuel','Grace','Samuel','Sarah','Jonathan','Nathalie'];
+const classes = ['7eme EB','8eme EB','1ere Annee','2eme Annee','3eme Annee','4eme Annee'];
+const options = ['LATIN-PHILO','SCIENCES','PEDAGOGIE','COMMERCIALE','ELECTRICITE','MECANIQUE','COUPE-COUTURE',''];
+const statuts = ['ACTIF','ACTIF','ACTIF','ACTIF','ACTIF','EXONÉRÉ','ACTIF','ACTIF'];
+
+for(let i=0; i<nb; i++) {
+const nom = noms[i % noms.length];
+const prenom = prenoms[i % prenoms.length];
+const sexe = i % 2 === 0 ? 'M' : 'F';
+const classe = classes[i % classes.length];
+const opt = (classe === '7eme EB' || classe === '8eme EB') ? '' : options[i % options.length];
+const code = String(100000 + i).padStart(6, '0');
+const matricule = 'GLD-' + String(i+1).padStart(4, '0');
+
+elevesData.push({
+id: 'eleve_' + i,
+matricule: matricule,
+nom: nom,
+postnom: nom.slice(0,4) + 'a',
+prenom: prenom,
+dateNaiss: String(2005 + i%10) + '-' + String(1+i%12).padStart(2,'0') + '-' + String(1+i%28).padStart(2,'0'),
+dateNaissAff: String(1+i%28).padStart(2,'0') + '/' + String(1+i%12).padStart(2,'0') + '/' + String(2005 + i%10),
+lieuNaiss: ['Kinshasa','Lubumbashi','Mbuji-Mayi','Kananga','Kisangani','Goma','Bukavu'][i%7],
+sexe: sexe,
+classe: classe,
+option: opt,
+telephone: '081' + String(100000 + i%900000).padStart(6, '0'),
+adresse: 'Quartier ' + ['Matonge','Limete','Gombe','Kalamu','Bandalungwa','Ngaliema'][i%6] + ', Kinshasa',
+parentCode: code,
+nomPere: nom + ' ' + ['Pierre','Jean','Joseph','Michel','David','Emmanuel'][i%6],
+nomMere: nom + ' ' + ['Marie','Jeanne','Pauline','Catherine','Esther','Sarah'][i%6],
+ecole: 'Complexe Scolaire Gloria Dei',
+annee: '2026-2027',
+statut: statuts[i % statuts.length],
+minerval: classe === '7eme EB' || classe === '8eme EB' ? 35000 : 45000,
+fraisInscription: 45000,
+fraisInscriptionPaye: 45000,
+presences: {total:20, presents:15 + i%6, absents:3, retards:2},
+dernierePresence: '18/07/2026 08:15'
+});
+}
+}
+
+function getFiltered() {
+const classe = document.getElementById('filterClasse').value;
+const search = document.getElementById('searchEleve').value.toLowerCase();
+perPage = parseInt(document.getElementById('perPage').value) || 9;
+
+let result = [...elevesData];
+
+if(classe) result = result.filter(e => e.classe === classe);
+if(search) {
+result = result.filter(e => 
+e.nom.toLowerCase().includes(search) || 
+e.prenom.toLowerCase().includes(search) ||
+e.matricule.toLowerCase().includes(search) ||
+e.parentCode.includes(search)
+);
+}
+
+return result;
+}
+
+function afficherCartes() {
+const filtered = getFiltered();
+const total = filtered.length;
+document.getElementById('totalCount').textContent = 'Total: ' + total + ' élèves';
+
+if(total === 0) {
+document.getElementById('carteContainer').innerHTML = '<div class="empty">📭 Aucun élève trouvé</div>';
+document.getElementById('pagination').innerHTML = '';
+return;
+}
+
+const totalPages = Math.ceil(total / perPage);
+if(currentPage > totalPages) currentPage = totalPages;
+if(currentPage < 1) currentPage = 1;
+
+const start = (currentPage - 1) * perPage;
+const end = Math.min(start + perPage, total);
+const pageData = filtered.slice(start, end);
+
+const container = document.getElementById('carteContainer');
+container.innerHTML = '';
+
+pageData.forEach((e, idx) => {
+const div = document.createElement('div');
+div.className = 'carte';
+div.id = 'carte_' + e.id;
+div.innerHTML = `
 <div class="carte-header">
-<div class="ecole-nom">🏫 COMPLEXE SCOLAIRE GLORIA DEI</div>
-<span class="ecole-annee">📅 ANNÉE SCOLAIRE 2026-2027</span>
+<div class="ecole">🏫 GLORIA DEI SCHOOL</div>
+<span class="annee">📅 2026-2027</span>
 </div>
 <div class="carte-body">
-<div class="carte-photo" id="photoContainer">👤</div>
+<div class="carte-photo">${e.sexe === 'F' ? '👩' : '👨'}</div>
 <div class="carte-identite">
-<div class="nom" id="nomEleve">KABEYA <small>Mbuyi</small> Jean</div>
-<div class="classe" id="classeEleve">🎓 3ème Scientifique <span class="option">| Scientifique</span></div>
-<div class="matricule" id="matriculeEleve">📌 Matricule: <span>GLD-2026-0001</span></div>
-<span class="statut-badge actif" id="statutBadge">🟢 ACTIF</span>
+<div class="nom">${e.nom} <small>${e.postnom}</small> ${e.prenom}</div>
+<div class="classe">🎓 ${e.classe} ${e.option ? '| ' + e.option : ''}</div>
+<div class="matricule">📌 ${e.matricule}</div>
+<span class="statut-badge ${e.statut === 'ACTIF' ? 'actif' : e.statut === 'EXONÉRÉ' ? 'exonere' : 'abandon'}">${e.statut === 'ACTIF' ? '🟢 ACTIF' : e.statut === 'EXONÉRÉ' ? '🌟 EXONÉRÉ' : '🔴 ABANDON'}</span>
 </div>
 </div>
 <div class="carte-info">
-<div class="info-item"><span class="icon">📅</span><span class="label">Naissance</span><span class="value" id="dateNaiss">15/05/2010</span></div>
-<div class="info-item"><span class="icon">📍</span><span class="label">Lieu</span><span class="value" id="lieuNaiss">Kinshasa</span></div>
-<div class="info-item"><span class="icon">📞</span><span class="label">Tél</span><span class="value" id="telephone">0812345678</span></div>
-<div class="info-item"><span class="icon">🔑</span><span class="label">Code Parent</span><span class="value code-parent" id="codeParent">123456</span></div>
+<div class="info-item"><span class="icon">📅</span><span class="label">Né</span><span class="value">${e.dateNaissAff}</span></div>
+<div class="info-item"><span class="icon">📍</span><span class="label">Lieu</span><span class="value">${e.lieuNaiss}</span></div>
+<div class="info-item"><span class="icon">📞</span><span class="label">Tél</span><span class="value">${e.telephone}</span></div>
+<div class="info-item"><span class="icon">🔑</span><span class="label">Code</span><span class="value code">${e.parentCode}</span></div>
 </div>
 <div class="carte-parents">
-<div class="parent-item"><span class="icon">👨</span> Père: <span class="nom" id="nomPere">KABEYA Pierre</span></div>
-<div class="parent-item"><span class="icon">👩</span> Mère: <span class="nom" id="nomMere">KABEYA Marie</span></div>
+<div class="parent-item">👨 Père: <span class="nom">${e.nomPere}</span></div>
+<div class="parent-item">👩 Mère: <span class="nom">${e.nomMere}</span></div>
 </div>
 <div class="carte-qr">
-<div class="qr-wrapper"><div id="qrcode"></div></div>
-<span class="qr-label">📱 SCANNEZ POUR LE PROFIL COMPLET</span>
+<div class="qr-wrapper"><div id="qr_${e.id}"></div></div>
+<span class="qr-label">📱 Scanner pour présence</span>
 </div>
-<div class="carte-footer">
-<span class="scan-message"><span class="icon">✅</span> Présence par scan • Gardez précieusement cette carte</span>
-</div>
-</div>
-<div class="legend">
-<h3>📋 LÉGENDE DES INFORMATIONS</h3>
-<div class="legend-grid">
-<div class="legend-item"><span class="dot visible"></span> Visible sur la carte <span class="badge-label visible">VISIBLE</span></div>
-<div class="legend-item"><span class="dot scannable"></span> Visible après scan <span class="badge-label scannable">SCAN</span></div>
-<div class="legend-item"><span class="dot optionnel"></span> Optionnel <span class="badge-label optionnel">OPTIONNEL</span></div>
-</div>
-</div>
-<div class="controls">
-<button class="primary" onclick="toggleData()">📊 Voir données du QR</button>
-<button onclick="changerStatut()">🔄 Changer statut</button>
-<button onclick="imprimerCarte()">🖨️ Imprimer</button>
-</div>
-<div class="data-json" id="dataJson">
-<div class="json-title">📋 CONTENU DU QR CODE (scannable)</div>
-<pre id="jsonContent"></pre>
-</div>
-</div>
-<script>
-const eleveData = {
-matricule: "GLD-2026-0001",
-nom: "KABEYA",
-postnom: "Mbuyi",
-prenom: "Jean",
-dateNaiss: "2010-05-15",
-dateNaissAff: "15/05/2010",
-lieuNaiss: "Kinshasa",
-sexe: "M",
-classe: "3eme Annee",
-option: "Scientifique",
-telephone: "0812345678",
-adresse: "Quartier Matonge, Kinshasa",
-parentCode: "123456",
-nomPere: "KABEYA Pierre",
-nomMere: "KABEYA Marie",
-ecole: "Complexe Scolaire Gloria Dei",
-annee: "2026-2027",
-statut: "ACTIF",
-minerval: 45000,
-fraisInscription: 45000,
-fraisInscriptionPaye: 45000,
-paiementStatut: "À jour",
-presences: {total: 20, presents: 15, absents: 3, retards: 2},
-dernierePresence: "18/07/2026 08:15"
-};
-let statuts = ["ACTIF", "EXONÉRÉ", "ABANDON"];
-let statutIndex = 0;
-function genererQR() {
-const qrContainer = document.getElementById('qrcode');
-qrContainer.innerHTML = '';
-const jsonData = JSON.stringify(eleveData);
-const qr = new QRCode(qrContainer, {
+<div class="carte-footer">✅ Valide • Gardez précieusement</div>
+`;
+container.appendChild(div);
+
+setTimeout(() => {
+const qrContainer = document.getElementById('qr_' + e.id);
+if(qrContainer) {
+const jsonData = JSON.stringify({
+matricule: e.matricule,
+nom: e.nom,
+postnom: e.postnom,
+prenom: e.prenom,
+dateNaiss: e.dateNaiss,
+lieuNaiss: e.lieuNaiss,
+sexe: e.sexe,
+classe: e.classe,
+option: e.option,
+telephone: e.telephone,
+adresse: e.adresse,
+parentCode: e.parentCode,
+nomPere: e.nomPere,
+nomMere: e.nomMere,
+ecole: e.ecole,
+annee: e.annee,
+statut: e.statut
+});
+new QRCode(qrContainer, {
 text: jsonData,
-width: 100,
-height: 100,
+width: 48,
+height: 48,
 colorDark: "#0f172a",
 colorLight: "#ffffff",
 correctLevel: QRCode.CorrectLevel.H
 });
-document.getElementById('jsonContent').textContent = jsonData;
 }
-function toggleData() {
-const el = document.getElementById('dataJson');
-el.classList.toggle('show');
+}, 50);
+});
+
+const pagination = document.getElementById('pagination');
+let pagHtml = '';
+pagination.innerHTML = '';
+
+if(totalPages > 1) {
+pagHtml += `<button onclick="goToPage(1)" ${currentPage===1?'disabled':''}>⏮</button>`;
+pagHtml += `<button onclick="goToPage(${currentPage-1})" ${currentPage===1?'disabled':''}>◀</button>`;
+
+let startP = Math.max(1, currentPage - 2);
+let endP = Math.min(totalPages, currentPage + 2);
+
+for(let p = startP; p <= endP; p++) {
+pagHtml += `<button class="${p===currentPage?'active':''}" onclick="goToPage(${p})">${p}</button>`;
 }
-function changerStatut() {
-statutIndex = (statutIndex + 1) % statuts.length;
-const nouveauStatut = statuts[statutIndex];
-eleveData.statut = nouveauStatut;
-const badge = document.getElementById('statutBadge');
-badge.textContent = nouveauStatut === 'ACTIF' ? '🟢 ACTIF' : nouveauStatut === 'EXONÉRÉ' ? '🌟 EXONÉRÉ' : '🔴 ABANDON';
-badge.className = 'statut-badge ' + (nouveauStatut === 'ACTIF' ? 'actif' : nouveauStatut === 'EXONÉRÉ' ? 'exonere' : 'abandon');
-eleveData.presences.presents = nouveauStatut === 'ABANDON' ? 0 : 15;
-genererQR();
+
+pagHtml += `<button onclick="goToPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>▶</button>`;
+pagHtml += `<button onclick="goToPage(${totalPages})" ${currentPage===totalPages?'disabled':''}>⏭</button>`;
+pagination.innerHTML = pagHtml;
 }
-function imprimerCarte() {
-const carte = document.getElementById('carteEleve');
-const win = window.open('', '_blank');
-win.document.write('<html><head><title>Carte Élève</title>');
-win.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet" />');
-win.document.write('<style>');
-win.document.write('*{margin:0;padding:0;box-sizing:border-box}');
-win.document.write('body{background:white;font-family:"Inter",sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}');
-win.document.write('.carte{background:linear-gradient(145deg,#ffffff,#f0f2f5);border-radius:24px;padding:20px;width:420px;box-shadow:0 4px 20px rgba(0,0,0,0.15);position:relative}');
-win.document.write('.carte::before{content:"GLORIA DEI";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:50px;font-weight:900;color:rgba(15,23,42,0.04);letter-spacing:15px;pointer-events:none;z-index:0}');
-win.document.write('.carte-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:16px 16px 0 0;padding:14px 18px;text-align:center;margin:-20px -20px 0 -20px}');
-win.document.write('.carte-header .ecole-nom{font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}');
-win.document.write('.carte-header .ecole-annee{font-size:11px;color:#94a3b8;font-weight:500;display:block;margin-top:2px;letter-spacing:2px}');
-win.document.write('.carte-body{padding:18px 0 12px 0;display:flex;gap:16px;align-items:center;border-bottom:2px dashed rgba(15,23,42,0.08)}');
-win.document.write('.carte-photo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#1e293b,#334155);flex-shrink:0;display:flex;align-items:center;justify-content:center;border:3px solid #ffd700;overflow:hidden;font-size:36px;color:white}');
-win.document.write('.carte-identite{flex:1;min-width:0}');
-win.document.write('.carte-identite .nom{font-size:18px;font-weight:900;color:#0f172a;line-height:1.2}');
-win.document.write('.carte-identite .nom small{font-weight:400;font-size:14px;color:#475569}');
-win.document.write('.carte-identite .classe{font-size:13px;font-weight:600;color:#1e40af;margin-top:2px}');
-win.document.write('.carte-identite .classe .option{color:#6b7280;font-weight:400}');
-win.document.write('.carte-identite .matricule{font-size:11px;color:#64748b;font-weight:600;margin-top:2px;font-family:"Courier New",monospace}');
-win.document.write('.carte-identite .matricule span{color:#0f172a;font-weight:700}');
-win.document.write('.statut-badge{display:inline-block;padding:3px 14px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-top:4px}');
-win.document.write('.statut-badge.actif{background:#10b981;color:white}');
-win.document.write('.statut-badge.exonere{background:#f59e0b;color:white}');
-win.document.write('.statut-badge.abandon{background:#ef4444;color:white}');
-win.document.write('.carte-info{padding:12px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;border-bottom:2px dashed rgba(15,23,42,0.08)}');
-win.document.write('.carte-info .info-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#334155}');
-win.document.write('.carte-info .info-item .icon{font-size:14px;width:20px;text-align:center}');
-win.document.write('.carte-info .info-item .label{color:#94a3b8;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-right:2px}');
-win.document.write('.carte-info .info-item .value{font-weight:600;color:#0f172a}');
-win.document.write('.carte-info .info-item .value.code-parent{color:#2563eb;font-family:"Courier New",monospace;font-size:14px;font-weight:800;letter-spacing:2px;background:rgba(37,99,235,0.08);padding:0 8px;border-radius:4px}');
-win.document.write('.carte-parents{padding:8px 0 10px 0;display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;border-bottom:2px dashed rgba(15,23,42,0.08);font-size:11px;color:#475569}');
-win.document.write('.carte-parents .parent-item{display:flex;align-items:center;gap:4px}');
-win.document.write('.carte-parents .parent-item .icon{font-size:13px}');
-win.document.write('.carte-parents .parent-item .nom{font-weight:600;color:#0f172a}');
-win.document.write('.carte-qr{padding:12px 0 4px 0;display:flex;flex-direction:column;align-items:center}');
-win.document.write('.carte-qr .qr-wrapper{background:white;padding:8px;border-radius:12px;border:2px solid #e2e8f0;display:inline-block}');
-win.document.write('.carte-qr .qr-wrapper img,.carte-qr .qr-wrapper canvas{width:100px !important;height:100px !important;display:block}');
-win.document.write('.carte-qr .qr-label{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-top:6px;background:#f1f5f9;padding:2px 14px;border-radius:10px}');
-win.document.write('.carte-footer{padding-top:10px;text-align:center;border-top:2px solid rgba(255,215,0,0.2);margin-top:4px}');
-win.document.write('.carte-footer .scan-message{font-size:9px;color:#94a3b8;font-weight:600;letter-spacing:1px;text-transform:uppercase}');
-win.document.write('@media print{body{padding:0;background:white}.carte{box-shadow:none;border:1px solid #ddd}}');
-win.document.write('</style></head><body>');
-win.document.write(carte.outerHTML);
-win.document.write('</body></html>');
-win.document.close();
-setTimeout(() => { win.print(); }, 500);
 }
+
+function goToPage(p) {
+currentPage = p;
+afficherCartes();
+window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+function genererPDF() {
+if(typeof jspdf === 'undefined') {
+alert('La librairie jsPDF est en cours de chargement...');
+return;
+}
+
+const filtered = getFiltered();
+if(filtered.length === 0) { alert('Aucun élève à exporter'); return; }
+
+const { jsPDF } = window.jspdf;
+const doc = new jsPDF('p', 'mm', 'a4');
+const pageWidth = 210;
+const pageHeight = 297;
+const cols = 3;
+const rows = 3;
+const cardWidth = 60;
+const cardHeight = 85;
+const marginX = 8;
+const marginY = 10;
+
+let count = 0;
+for(let e of filtered) {
+const col = count % cols;
+const row = Math.floor(count / cols) % rows;
+const x = marginX + col * (cardWidth + 6);
+const y = marginY + row * (cardHeight + 6);
+
+if(count > 0 && count % (cols*rows) === 0) {
+doc.addPage();
+}
+
+doc.setFillColor(255,255,255);
+doc.rect(x, y, cardWidth, cardHeight, 'F');
+doc.setDrawColor(200,200,200);
+doc.rect(x, y, cardWidth, cardHeight, 'S');
+
+doc.setFillColor(15,43,68);
+doc.rect(x, y, cardWidth, 14, 'F');
+doc.setFontSize(7);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(255,215,0);
+doc.text('GLORIA DEI', x + cardWidth/2, y + 5, {align:'center'});
+doc.setFontSize(5);
+doc.setTextColor(148,163,184);
+doc.text('2026-2027', x + cardWidth/2, y + 11, {align:'center'});
+
+doc.setFontSize(8);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(15,23,42);
+const nomLine = e.nom + ' ' + (e.postnom || '') + ' ' + e.prenom;
+const nomTrunc = nomLine.length > 22 ? nomLine.substring(0,20) + '...' : nomLine;
+doc.text(nomTrunc, x + 4, y + 23);
+
+doc.setFontSize(6);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(30,64,175);
+doc.text(e.classe + (e.option ? ' | ' + e.option : ''), x + 4, y + 30);
+
+doc.setFontSize(5);
+doc.setTextColor(148,163,184);
+doc.text('Matricule: ' + e.matricule, x + 4, y + 36);
+
+doc.setFillColor(e.statut === 'ACTIF' ? [16,185,129] : e.statut === 'EXONÉRÉ' ? [245,158,11] : [239,68,68]);
+doc.roundedRect(x + cardWidth - 32, y + 17, 28, 6, 3, 3, 'F');
+doc.setFontSize(4);
+doc.setFont('helvetica', 'bold');
+doc.setTextColor(255,255,255);
+doc.text(e.statut, x + cardWidth - 18, y + 21.5, {align:'center'});
+
+doc.setFontSize(5);
+doc.setFont('helvetica', 'normal');
+doc.setTextColor(71,85,105);
+doc.text('📅 ' + e.dateNaissAff, x + 4, y + 45);
+doc.text('📍 ' + e.lieuNaiss, x + 34, y + 45);
+doc.text('📞 ' + e.telephone, x + 4, y + 52);
+doc.text('🔑 ' + e.parentCode, x + 34, y + 52);
+
+doc.setFontSize(4.5);
+doc.text('👨 ' + e.nomPere, x + 4, y + 60);
+doc.text('👩 ' + e.nomMere, x + 34, y + 60);
+
+doc.setDrawColor(0,0,0);
+doc.rect(x + 20, y + 63, 20, 20, 'S');
+
+const qrText = JSON.stringify({
+matricule: e.matricule,
+nom: e.nom,
+prenom: e.prenom,
+classe: e.classe,
+parentCode: e.parentCode,
+statut: e.statut
+});
+
+try {
+const qrCode = new QRCode(doc, qrText, {x: x+21, y: y+64, w: 18, h: 18});
+} catch(e) {}
+
+doc.setFontSize(4);
+doc.setTextColor(148,163,184);
+doc.text('📱 Scanner pour présence', x + cardWidth/2, y + 86, {align:'center'});
+
+count++;
+}
+
+doc.save('cartes_eleves_' + new Date().toISOString().slice(0,10) + '.pdf');
+}
+
+function imprimer() {
+window.print();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-genererQR();
-document.getElementById('nomEleve').textContent = eleveData.nom + ' ' + eleveData.postnom + ' ' + eleveData.prenom;
-document.getElementById('classeEleve').innerHTML = '🎓 ' + eleveData.classe + ' <span class="option">| ' + eleveData.option + '</span>';
-document.getElementById('matriculeEleve').innerHTML = '📌 Matricule: <span>' + eleveData.matricule + '</span>';
-document.getElementById('dateNaiss').textContent = eleveData.dateNaissAff;
-document.getElementById('lieuNaiss').textContent = eleveData.lieuNaiss;
-document.getElementById('telephone').textContent = eleveData.telephone;
-document.getElementById('codeParent').textContent = eleveData.parentCode;
-document.getElementById('nomPere').textContent = eleveData.nomPere;
-document.getElementById('nomMere').textContent = eleveData.nomMere;
+genererEleves(50);
+afficherCartes();
 });
 </script>
 </body>
