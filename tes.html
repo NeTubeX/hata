@@ -455,6 +455,15 @@ body.light-mode .modal-fullscreen .modal-content .btn-outline:hover{color:#fff !
 body.light-mode .prof-desactiver-msg p{color:var(--text-secondary) !important;}
 body.light-mode .prof-desactiver-msg .entreprise{color:#b45309 !important;}
 body.light-mode #loginError{color:#b91c1c !important;}
+body.light-mode .parent-msg.bot .bubble,body.light-mode .parent-msg.bot .bubble *{color:#1a1a2e !important;}
+body.light-mode .parent-msg.bot .bubble strong,body.light-mode .parent-msg.bot .bubble b{color:#1a365d !important;}
+body.light-mode .parent-msg.bot .bubble div[style*="color:#e2e8f0"]{color:#1a1a2e !important;}
+body.light-mode .parent-msg.bot .bubble div[style*="color:#fbbf24"]{color:#b45309 !important;}
+body.light-mode .parent-msg.bot .bubble div[style*="color:#64748b"]{color:#555555 !important;}
+body.light-mode .parent-msg.bot .bubble div[style*="color:#94a3b8"]{color:#555555 !important;}
+body.light-mode .parent-msg.bot .bubble div[style*="color:#cbd5e1"]{color:#555555 !important;}
+body.light-mode .parent-msg.bot .bubble span{color:#1a1a2e !important;}
+body.light-mode .parent-messages{background:var(--bg-primary) !important;}
 </style>
 </head>
 <body>
@@ -466,7 +475,7 @@ body.light-mode #loginError{color:#b91c1c !important;}
 <div class="tabs-container"><div class="tabs" id="tabsProfesseur">
 <button class="tab active" data-tab="tabProf">ESPACE PROFESSEUR</button>
 <button class="tab" data-tab="tabEpreuves">EPREUVES</button>
-<button class="tab" data-tab="tabCorrection">CORRECTION</button>
+<button class="tab" data-tab="tabCorrection">CORRECTION ET COTATION</button>
 <button class="tab" data-tab="tabCotation">FICHES DE COTATION</button>
 <button class="tab" data-tab="tabExports">EXPORTS</button>
 <button class="tab" data-tab="tabHoraire">MON HORAIRE</button>
@@ -2229,6 +2238,40 @@ let p4 = calcMoyTitu(4, eleve.notes?.p4 || [], fiche.epreuvesParPeriode, fiche.p
 let exam1 = eleve.notes?.exam1 || 0, exam2 = eleve.notes?.exam2 || 0;
 return { p1, p2, exam1, totalS1: p1 + p2 + exam1, p3, p4, exam2, totalS2: p3 + p4 + exam2, total: p1 + p2 + exam1 + p3 + p4 + exam2, pMax: fiche.p1Max };
 }
+function rechercherEleveTitu(nom) {
+    const nomLower = nom.toLowerCase().trim();
+    if (!nomLower) return [];
+    const resultats = [];
+    for (const f of toutesFichesCompletTitu) {
+        for (const e of f.eleves) {
+            if ((e.nom || "").toLowerCase().includes(nomLower)) {
+                const notes = getNotesForEleveTitu(e, f);
+                const eps = f.epreuvesParPeriode || {1:[],2:[],3:[],4:[]};
+                const maxP1 = eps[1]?.reduce((sum, ep) => sum + (ep.max || 0), 0) || 0;
+                const maxP2 = eps[2]?.reduce((sum, ep) => sum + (ep.max || 0), 0) || 0;
+                const maxP3 = eps[3]?.reduce((sum, ep) => sum + (ep.max || 0), 0) || 0;
+                const maxP4 = eps[4]?.reduce((sum, ep) => sum + (ep.max || 0), 0) || 0;
+                const maxExam1 = maxP1 + maxP2;
+                const maxExam2 = maxP3 + maxP4;
+                const maxTotalS1 = maxP1 + maxP2 + maxExam1;
+                const maxTotalS2 = maxP3 + maxP4 + maxExam2;
+                const maxTotal = maxTotalS1 + maxTotalS2;
+                const maxima = {p1:maxP1,p2:maxP2,p3:maxP3,p4:maxP4,exam1:maxExam1,exam2:maxExam2,totalS1:maxTotalS1,totalS2:maxTotalS2,total:maxTotal};
+                resultats.push({
+                    cours: f.cours, classe: f.classe, option: f.option || '',
+                    nomEleve: e.nom, sexe: e.sexe,
+                    p1: notes.p1, p2: notes.p2, p3: notes.p3, p4: notes.p4,
+                    exam1: notes.exam1, exam2: notes.exam2,
+                    totalS1: notes.totalS1, totalS2: notes.totalS2,
+                    total: notes.total,
+                    pMax: f.p1Max || 20,
+                    maxima: maxima
+                });
+            }
+        }
+    }
+    return resultats;
+}
 async function loadAllFichesFromFirebaseTitu() {
 try {
 let collectionName = (SCHOOL_PREFIX === 'gloria_dei') ? "gloria_dei_fiches" : SCHOOL_PREFIX + "_fiches";
@@ -2414,8 +2457,16 @@ pdf.text('Titulaire: ' + titulaireNom, 14, 78);
 const headers = [['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
 const body = [];
 function calcMoyPdf(periode, notes, eps, pM) { let e = eps[periode] || []; if (!e.length || !notes || !notes.length) return 0; let sn = 0, sm = 0; for (let i = 0; i < e.length; i++) { sn += (notes[i] || 0); sm += (e[i].max || 1); } return sm ? Math.min(pM, Math.round((sn / sm) * pM)) : 0; }
-const maxRow = ['MAXIMA', '', '', pMax, pMax, pMax*2, pMax*3, pMax, pMax, pMax*2, pMax*3, pMax*6];
-body.push(maxRow);
+const maxP1 = epreuves[1]?.reduce((s, ep) => s + (ep.max || 0), 0) || 0;
+const maxP2 = epreuves[2]?.reduce((s, ep) => s + (ep.max || 0), 0) || 0;
+const maxP3 = epreuves[3]?.reduce((s, ep) => s + (ep.max || 0), 0) || 0;
+const maxP4 = epreuves[4]?.reduce((s, ep) => s + (ep.max || 0), 0) || 0;
+const maxExam1 = maxP1 + maxP2;
+const maxExam2 = maxP3 + maxP4;
+const maxTotalS1 = maxP1 + maxP2 + maxExam1;
+const maxTotalS2 = maxP3 + maxP4 + maxExam2;
+const maxTotal = maxTotalS1 + maxTotalS2;
+body.push(['MAXIMA', '', '', maxP1, maxP2, maxExam1, maxTotalS1, maxP3, maxP4, maxExam2, maxTotalS2, maxTotal]);
 for (let i = 0; i < eleves.length; i++) {
 let e = eleves[i];
 let p1 = calcMoyPdf(1, e.notes?.p1 || [], epreuves, pMax);
@@ -2428,6 +2479,88 @@ body.push([(i + 1).toString().padStart(2, '0'), e.nom || '', e.sexe || '', p1, p
 if (body.length === 1) body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
 pdf.autoTable({ head: headers, body: body, startY: 85, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 245] } });
 return pdf;
+}
+function calculerStatsTitu() {
+    const statsParClasse = new Map();
+    const elevesUniques = new Set();
+    for (const f of fichesTitulaire) {
+        const key = `${f.classe}${f.option ? ` (${f.option})` : ''}`;
+        if (!statsParClasse.has(key)) statsParClasse.set(key, 0);
+        const nbEleves = f.eleves?.length || 0;
+        statsParClasse.set(key, statsParClasse.get(key) + nbEleves);
+        if (f.eleves) {
+            for (const e of f.eleves) {
+                const id = `${e.nom}|${f.classe}|${f.option}`;
+                elevesUniques.add(id);
+            }
+        }
+    }
+    const totalEleves = elevesUniques.size;
+    return { statsParClasse, totalEleves, nbFiches: fichesTitulaire.length };
+}
+function afficherStatsTitu() {
+    const { statsParClasse, totalEleves, nbFiches } = calculerStatsTitu();
+    const container = document.getElementById('titulaireStatsContainer');
+    if (!container) return;
+    const totalClasses = statsParClasse.size;
+    let html = `
+    <div style="grid-column:span 3;background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:16px;padding:20px 24px;text-align:center;border:1px solid rgba(59,130,246,0.15);margin-bottom:4px;">
+        <div style="font-size:15px;font-weight:700;color:#60a5fa;letter-spacing:1px;">📊 STATISTIQUES GLOBALES</div>
+        <div style="font-size:12px;color:#94a3b8;margin-top:4px;">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    </div>
+    <div style="grid-column:span 3;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:4px 0;">
+        <div style="background:rgba(15,23,42,0.7);border-radius:16px;padding:18px 20px;text-align:center;border:1px solid rgba(59,130,246,0.1);backdrop-filter:blur(4px);">
+            <div style="font-size:28px;font-weight:800;color:#60a5fa;">${totalEleves}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">👥 Total élèves</div>
+            <div style="font-size:10px;color:#10b981;margin-top:2px;">UNIQUES</div>
+        </div>
+        <div style="background:rgba(15,23,42,0.7);border-radius:16px;padding:18px 20px;text-align:center;border:1px solid rgba(59,130,246,0.1);backdrop-filter:blur(4px);">
+            <div style="font-size:28px;font-weight:800;color:#f59e0b;">${nbFiches}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">📚 Fiches actives</div>
+        </div>
+        <div style="background:rgba(15,23,42,0.7);border-radius:16px;padding:18px 20px;text-align:center;border:1px solid rgba(59,130,246,0.1);backdrop-filter:blur(4px);">
+            <div style="font-size:28px;font-weight:800;color:#a78bfa;">${totalClasses}</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:4px;">📌 Classes</div>
+        </div>
+    </div>
+    <div style="grid-column:span 3;background:rgba(15,23,42,0.5);border-radius:16px;padding:16px 20px;border:1px solid rgba(59,130,246,0.08);margin-top:4px;">
+        <div style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:12px;letter-spacing:0.5px;">📋 DÉTAIL PAR CLASSE</div>
+        <div style="overflow-x:auto;">`;
+    let maxEleves = 0;
+    const entries = Array.from(statsParClasse.entries());
+    for (const [, nb] of entries) if (nb > maxEleves) maxEleves = nb;
+    html += `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+            <tr style="border-bottom:2px solid rgba(59,130,246,0.12);">
+                <th style="text-align:left;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">CLASSE</th>
+                <th style="text-align:left;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">OPTION(S)</th>
+                <th style="text-align:center;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">EFFECTIF</th>
+                <th style="text-align:center;padding:8px 10px;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">%</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    for (const [classe, nb] of entries) {
+        const pct = maxEleves > 0 ? Math.round((nb / maxEleves) * 100) : 0;
+        const optionMatch = classe.match(/\((.+)\)/);
+        const optionDisplay = optionMatch ? optionMatch[1] : 'Toutes options';
+        const classeName = classe.replace(/\(.+\)/, '').trim();
+        const barWidth = Math.min(pct, 100);
+        html += `<tr style="border-bottom:1px solid rgba(59,130,246,0.04);">
+            <td style="padding:8px 10px;font-weight:600;color:#e2e8f0;font-size:13px;">${classeName}</td>
+            <td style="padding:8px 10px;color:#94a3b8;font-size:12px;">${optionDisplay}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:700;color:#60a5fa;font-size:14px;">${nb}</td>
+            <td style="padding:8px 10px;text-align:center;">
+                <div style="display:flex;align-items:center;gap:10px;justify-content:center;">
+                    <div style="flex:1;max-width:120px;height:6px;background:#1e293b;border-radius:20px;overflow:hidden;">
+                        <div style="width:${barWidth}%;height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:20px;transition:width 0.5s ease;"></div>
+                    </div>
+                    <span style="font-size:12px;color:#94a3b8;min-width:38px;font-weight:500;">${pct}%</span>
+                </div>
+            </td>
+        </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
 }
 async function chargerFichesTitulaireTitu() {
 if (!titulaireConfig) return;
@@ -2480,43 +2613,6 @@ if (classeSelect) {
 classeSelect.innerHTML = '<option value="">-- Toutes les classes --</option>';
 Array.from(classeSet).sort().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; classeSelect.appendChild(o); });
 }
-}
-function calculerStatsTitu() {
-const statsParClasse = new Map();
-for (const f of fichesTitulaire) { const key = `${f.classe}${f.option ? ` (${f.option})` : ''}`; if (!statsParClasse.has(key)) statsParClasse.set(key, 0); statsParClasse.set(key, statsParClasse.get(key) + (f.eleves?.length || 0)); }
-let totalEleves = 0;
-for (const v of statsParClasse.values()) totalEleves += v;
-return { statsParClasse, totalEleves, nbFiches: fichesTitulaire.length };
-}
-function afficherStatsTitu() {
-const { statsParClasse, totalEleves, nbFiches } = calculerStatsTitu();
-const container = document.getElementById('titulaireStatsContainer');
-if (!container) return;
-let html = `<div class="stat-card"><div class="value">${totalEleves}</div><div class="label">👥 Total élèves</div></div><div class="stat-card"><div class="value">${nbFiches}</div><div class="label">📚 Fiches actives</div></div><div class="stat-card"><div class="value">${titulaireConfig?.classesOptions.length||0}</div><div class="label">📌 Classes responsables</div></div><div class="stat-card" style="grid-column:span 2"><div class="value" style="font-size:18px">📊 Détail par classe</div><div style="margin-top:12px">`;
-for (const [classe, nb] of statsParClasse) html += `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(59,130,246,0.1)"><span>${classe}</span><span style="font-weight:700;color:#60a5fa">${nb} élèves</span></div>`;
-html += `</div></div>`;
-container.innerHTML = html;
-}
-function rechercherEleveTitu(nom) {
-const nomLower = nom.toLowerCase().trim();
-if (!nomLower) return [];
-const resultats = [];
-for (const f of toutesFichesCompletTitu) {
-for (const e of f.eleves) {
-if ((e.nom || "").toLowerCase().includes(nomLower)) {
-const notes = getNotesForEleveTitu(e, f);
-resultats.push({
-cours: f.cours, classe: f.classe, option: f.option || '',
-nomEleve: e.nom, sexe: e.sexe,
-p1: notes.p1, p2: notes.p2, p3: notes.p3, p4: notes.p4,
-exam1: notes.exam1, exam2: notes.exam2,
-totalS1: notes.totalS1, totalS2: notes.totalS2,
-total: notes.total, pMax: notes.pMax
-});
-}
-}
-}
-return resultats;
 }
 document.querySelectorAll('.tab-btn-titu').forEach(btn => {
 btn.onclick = function() {
@@ -2584,7 +2680,43 @@ const classesUniques = [...new Set(resultats.map(r => `${r.classe}${r.option?` (
 document.getElementById('titulaireEleveInfo').innerHTML = `<div><span>👤 Élève:</span><span>${premier.nomEleve}</span></div><div><span>⚧ Sexe:</span><span>${premier.sexe==='M'?'Masculin':'Féminin'}</span></div><div><span>📚 Classe(s):</span><span>${classesUniques}</span></div>`;
 let tableHTML = '';
 for (const r of resultats) {
-tableHTML += `<tr><td style="text-align:left;font-weight:600">${r.cours}</td><td style="text-align:center">${r.classe}${r.option?` (${r.option})`:''}</td><td class="${r.p1<(r.pMax/2)?'failed':'passed'}">${r.p1}</td><td class="${r.p2<(r.pMax/2)?'failed':'passed'}">${r.p2}</td><td class="${r.exam1<(r.pMax/2)?'failed':'passed'}">${r.exam1}</td><td class="${r.totalS1<60?'failed':'passed'}">${r.totalS1}</td><td class="${r.p3<(r.pMax/2)?'failed':'passed'}">${r.p3}</td><td class="${r.p4<(r.pMax/2)?'failed':'passed'}">${r.p4}</td><td class="${r.exam2<(r.pMax/2)?'failed':'passed'}">${r.exam2}</td><td class="${r.totalS2<60?'failed':'passed'}">${r.totalS2}</td><td class="${r.total<120?'failed':'passed'}">${r.total}</td></tr>`;
+    const m = r.maxima;
+    tableHTML += `<tr style="background:linear-gradient(135deg,#0f2b44,#071a2c);border-bottom:3px solid #22c55e;border-top:1px solid #22c55e;">
+        <td style="text-align:left;font-weight:700;color:#22c55e;font-size:14px;padding:10px 12px;letter-spacing:0.5px;">📈 MAXIMA</td>
+        <td style="text-align:center;color:#22c55e;font-size:12px;padding:10px 12px;">${r.classe}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.p1}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.p2}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.exam1}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.totalS1}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.p3}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.p4}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.exam2}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.totalS2}</td>
+        <td style="text-align:center;font-weight:700;color:#22c55e;font-size:16px;padding:10px 12px;">${m.total}</td>
+    </tr>`;
+    const pMax = r.pMax || 20;
+    const rouge1 = r.p1 < (m.p1/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rouge2 = r.p2 < (m.p2/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rouge3 = r.p3 < (m.p3/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rouge4 = r.p4 < (m.p4/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rougeExam1 = r.exam1 < (m.exam1/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rougeExam2 = r.exam2 < (m.exam2/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rougeTotalS1 = r.totalS1 < (m.totalS1/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rougeTotalS2 = r.totalS2 < (m.totalS2/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    const rougeTotal = r.total < (m.total/2) ? 'color:#ef4444;font-weight:700;' : 'color:#22c55e;font-weight:600;';
+    tableHTML += `<tr style="border-bottom:1px solid rgba(59,130,246,0.08);">
+        <td style="text-align:left;font-weight:600;padding:10px 12px;color:#e2e8f0;">${r.cours}</td>
+        <td style="text-align:center;padding:10px 12px;color:#94a3b8;font-size:12px;">${r.classe}${r.option?` (${r.option})`:''}</td>
+        <td style="text-align:center;padding:10px 12px;${rouge1}">${r.p1}</td>
+        <td style="text-align:center;padding:10px 12px;${rouge2}">${r.p2}</td>
+        <td style="text-align:center;padding:10px 12px;${rougeExam1}">${r.exam1}</td>
+        <td style="text-align:center;padding:10px 12px;${rougeTotalS1}">${r.totalS1}</td>
+        <td style="text-align:center;padding:10px 12px;${rouge3}">${r.p3}</td>
+        <td style="text-align:center;padding:10px 12px;${rouge4}">${r.p4}</td>
+        <td style="text-align:center;padding:10px 12px;${rougeExam2}">${r.exam2}</td>
+        <td style="text-align:center;padding:10px 12px;${rougeTotalS2}">${r.totalS2}</td>
+        <td style="text-align:center;padding:10px 12px;${rougeTotal}">${r.total}</td>
+    </tr>`;
 }
 document.getElementById('titulaireReleveBody').innerHTML = tableHTML;
 resultCard.classList.add('show');
@@ -2618,8 +2750,12 @@ pdf.setTextColor(0, 0, 0);
 pdf.text('Élève: ' + window.nomEleveRechercheTitu, 20, 55);
 pdf.text('Sexe: ' + (window.sexeEleveTitu === 'M' ? 'Masculin' : 'Féminin'), 20, 63);
 pdf.text('Classe(s): ' + window.classesEleveTitu, 20, 71);
+const premierR = window.derniersResultatsTitu[0];
+const m = premierR.maxima;
+const maxRow = ['MAXIMA', '', m.p1, m.p2, m.exam1, m.totalS1, m.p3, m.p4, m.exam2, m.totalS2, m.total];
 const headers = [['MATIÈRE', 'CLASSE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
 const body = window.derniersResultatsTitu.map(r => [r.cours, `${r.classe}`, r.p1, r.p2, r.exam1, r.totalS1, r.p3, r.p4, r.exam2, r.totalS2, r.total]);
+body.unshift(maxRow);
 pdf.autoTable({ head: headers, body: body, startY: 80, theme: 'grid', styles: { fontSize: 9, cellPadding: 3, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' } });
 pdf.save('Releve_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
 toast("PDF exporté avec succès");
@@ -2647,7 +2783,7 @@ pdf.text('STATISTIQUES GLOBALES', 105, 38, { align: 'center' });
 pdf.setFont('helvetica', 'normal');
 pdf.setFontSize(9);
 pdf.setTextColor(0, 0, 0);
-const body = [['Total élèves', totalEleves], ['Nombre de fiches', nbFiches], ['Classes responsables', titulaireConfig?.classesOptions.length || 0]];
+const body = [['Total élèves (UNIQUES)', totalEleves], ['Nombre de fiches', nbFiches], ['Classes responsables', titulaireConfig?.classesOptions.length || 0]];
 for (const [classe, nb] of statsParClasse) body.push([classe, `${nb} élèves`]);
 pdf.autoTable({ head: [['Indicateur', 'Valeur']], body: body, startY: 50, theme: 'grid', styles: { fontSize: 10, cellPadding: 5 }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' } });
 pdf.save('Statistiques_' + new Date().toISOString().slice(0, 10) + '.pdf');
