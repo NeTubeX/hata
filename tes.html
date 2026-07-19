@@ -2321,7 +2321,16 @@ const classesUniques = [...new Set(resultats.map(r => `${r.classe}${r.option?` (
 document.getElementById('titulaireEleveInfo').innerHTML = `<div><span>👤 Élève:</span><span>${premier.nomEleve}</span></div><div><span>⚧ Sexe:</span><span>${premier.sexe==='M'?'Masculin':'Féminin'}</span></div><div><span>📚 Classe(s):</span><span>${classesUniques}</span></div>`;
 let tableHTML = '';
 for (const r of resultats) {
-tableHTML += `<tr><td style="text-align:left;font-weight:600">${r.cours}</td><td style="text-align:center">${r.classe}${r.option?` (${r.option})`:''}</td><td class="${r.p1<(r.pMax/2)?'failed':'passed'}">${r.p1}</td><td class="${r.p2<(r.pMax/2)?'failed':'passed'}">${r.p2}</td><td class="${r.exam1<(r.pMax/2)?'failed':'passed'}">${r.exam1}</td><td class="${r.totalS1<60?'failed':'passed'}">${r.totalS1}</td><td class="${r.p3<(r.pMax/2)?'failed':'passed'}">${r.p3}</td><td class="${r.p4<(r.pMax/2)?'failed':'passed'}">${r.p4}</td><td class="${r.exam2<(r.pMax/2)?'failed':'passed'}">${r.exam2}</td><td class="${r.totalS2<60?'failed':'passed'}">${r.totalS2}</td><td class="${r.total<120?'failed':'passed'}">${r.total}</td></tr>`;
+const p1Color = r.p1 < r.pMax/2 ? '#dc2626' : '#1e40af';
+const p2Color = r.p2 < r.pMax/2 ? '#dc2626' : '#1e40af';
+const p3Color = r.p3 < r.pMax/2 ? '#dc2626' : '#1e40af';
+const p4Color = r.p4 < r.pMax/2 ? '#dc2626' : '#1e40af';
+const exam1Color = r.exam1 < r.pMax ? '#dc2626' : '#1e40af';
+const exam2Color = r.exam2 < r.pMax ? '#dc2626' : '#1e40af';
+const totalS1Color = r.totalS1 < (r.pMax/2)*3 ? '#dc2626' : '#1e40af';
+const totalS2Color = r.totalS2 < (r.pMax/2)*3 ? '#dc2626' : '#1e40af';
+const totalColor = r.total < r.totalMax/2 ? '#dc2626' : '#1e40af';
+tableHTML += `<tr><td style="text-align:left;font-weight:600;color:#60a5fa;">${r.cours}</td><td style="text-align:center;color:${p1Color};">${r.p1}</td><td style="text-align:center;color:${p2Color};">${r.p2}</td><td style="text-align:center;color:${exam1Color};">${r.exam1}</td><td style="text-align:center;color:${totalS1Color};">${r.totalS1}</td><td style="text-align:center;color:${p3Color};">${r.p3}</td><td style="text-align:center;color:${p4Color};">${r.p4}</td><td style="text-align:center;color:${exam2Color};">${r.exam2}</td><td style="text-align:center;color:${totalS2Color};">${r.totalS2}</td><td style="text-align:center;color:${totalColor};font-weight:700;">${r.total}</td></tr>`;
 }
 document.getElementById('titulaireReleveBody').innerHTML = tableHTML;
 resultCard.classList.add('show');
@@ -2348,17 +2357,20 @@ pdf.text('GESTION SCOLAIRE', 148, 28, { align: 'center' });
 pdf.setFont('helvetica', 'bold');
 pdf.setFontSize(12);
 pdf.setTextColor(0, 51, 102);
-pdf.text('RELEVÉ DE NOTES INDIVIDUEL', 148, 38, { align: 'center' });
+pdf.text('EXTRAIT DU BULLETIN INDIVIDUEL', 148, 38, { align: 'center' });
 pdf.setFont('helvetica', 'normal');
 pdf.setFontSize(9);
 pdf.setTextColor(0, 0, 0);
 pdf.text('Élève: ' + window.nomEleveRechercheTitu, 20, 55);
 pdf.text('Sexe: ' + (window.sexeEleveTitu === 'M' ? 'Masculin' : 'Féminin'), 20, 63);
 pdf.text('Classe(s): ' + window.classesEleveTitu, 20, 71);
-const headers = [['MATIÈRE', 'CLASSE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
-const body = window.derniersResultatsTitu.map(r => [r.cours, `${r.classe}`, r.p1, r.p2, r.exam1, r.totalS1, r.p3, r.p4, r.exam2, r.totalS2, r.total]);
-pdf.autoTable({ head: headers, body: body, startY: 80, theme: 'grid', styles: { fontSize: 9, cellPadding: 3, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' } });
-pdf.save('Releve_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
+const headers = [['N°', 'MATIÈRE', 'P1/50', 'P2/50', 'EXAM S1/100', 'TOT S1/200', 'P3/50', 'P4/50', 'EXAM S2/100', 'TOT S2/200', 'TOTAL/400']];
+const body = [];
+window.derniersResultatsTitu.forEach((r, idx) => {
+body.push([String(idx+1).padStart(2,'0'), r.cours, r.p1, r.p2, r.exam1, r.totalS1, r.p3, r.p4, r.exam2, r.totalS2, r.total]);
+});
+pdf.autoTable({head: headers, body: body, startY: 80, theme: 'grid', styles: {fontSize: 8, cellPadding: 2, halign: 'center'}, headStyles: {fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold'}});
+pdf.save('Extrait_Bulletin_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
 toast("PDF exporté avec succès");
 } else toast("Aucun résultat à exporter", 'error');
 });
