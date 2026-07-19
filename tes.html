@@ -2078,6 +2078,110 @@ if (body.length === 1) body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '
 pdf.autoTable({ head: headers, body: body, startY: 85, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 245] } });
 return pdf;
 }
+async function loadAllFichesFromFirebaseTitu() {
+try {
+let collectionName = (SCHOOL_PREFIX === 'gloria_dei') ? "gloria_dei_fiches" : SCHOOL_PREFIX + "_fiches";
+const snap = await getDocs(collection(db, collectionName));
+const fiches = [];
+for (const doc of snap.docs) {
+const data = doc.data();
+if (data._type === "prof") continue;
+if (!data.classe || !data.cours) continue;
+fiches.push({
+id: doc.id, cours: data.cours, classe: data.classe, option: data.option || '',
+eleves: data.eleves || [], p1Max: data.p1Max || 20,
+epreuvesParPeriode: data.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] },
+numeroRef: data.numeroRef || 0, titulaire: data.titulaire || '',
+profId: data.profId,
+lastModified: data.lastModified || data.updatedAt || data.dateCreation || new Date(),
+dateCreation: data.dateCreation
+});
+}
+return fiches;
+} catch (e) { console.error(e); return []; }
+}
+async function loadAllClassesFromFichesTitu() {
+const fiches = await loadAllFichesFromFirebaseTitu();
+const classesMap = new Map();
+fiches.forEach(fiche => {
+if (!classesMap.has(fiche.classe)) classesMap.set(fiche.classe, new Set());
+if (fiche.option && fiche.option.trim()) classesMap.get(fiche.classe).add(fiche.option);
+});
+if (classesMap.size === 0) return [];
+return Array.from(classesMap.keys()).sort().map(classe => ({
+nom: classe,
+options: Array.from(classesMap.get(classe)).sort(),
+hasOptions: !classesSansOptionsTitu.includes(classe)
+}));
+}
+function renderClassesChecklistTitu(classes, selectedClassesOptions) {
+const c = document.getElementById('titulaireClassesChecklist');
+if (!c) return;
+if (classes.length === 0) {
+c.innerHTML = '<div class="empty-state"><h3>📭 Aucune classe trouvée</h3><button class="btn-outline" id="reloadClassesBtnTitu" style="margin-top:12px">🔄 Recharger</button></div>';
+const rb = document.getElementById('reloadClassesBtnTitu');
+if (rb) rb.onclick = async () => { c.innerHTML = 'Chargement...'; const nc = await loadAllClassesFromFichesTitu(); renderClassesChecklistTitu(nc, titulaireConfig?.classesOptions || []); };
+return;
+}
+c.innerHTML = '';
+classes.forEach(cls => {
+const savedForClass = selectedClassesOptions?.find(c => c.classe === cls.nom);
+const isClassChecked = !!savedForClass;
+const selectedOptions = savedForClass?.options || [];
+const div = document.createElement('div');
+div.className = 'class-item';
+if (cls.hasOptions) {
+div.innerHTML = `<div class="class-header"><input type="checkbox" class="class-checkbox" data-classe="${cls.nom.replace(/"/g,'&quot;')}" ${isClassChecked?'checked':''}><label>📚 ${cls.nom}</label><span style="font-size:10px;color:#60a5fa;margin-left:auto">▼</span></div><div class="options-list" style="display:${isClassChecked?'flex':'none'}">${toutesOptionsTitu.map(opt=>`<div class="option-item ${opt==='TOUTES'?'option-toutes':''}"><input type="checkbox" class="option-checkbox" data-classe="${cls.nom.replace(/"/g,'&quot;')}" data-option="${opt}" ${selectedOptions.includes(opt)?'checked':''} ${!isClassChecked?'disabled':''}><label>${opt}</label></div>`).join('')}</div>`;
+} else {
+div.innerHTML = `<div class="class-header"><input type="checkbox" class="class-checkbox" data-classe="${cls.nom.replace(/"/g,'&quot;')}" ${isClassChecked?'checked':''}><label>📚 ${cls.nom}</label></div><div class="no-options-msg">📌 Cours général (sans options)</div>`;
+}
+c.appendChild(div);
+if (cls.hasOptions) {
+const headerCheckbox = div.querySelector('.class-checkbox');
+const optionsDiv = div.querySelector('.options-list');
+const optionCheckboxes = div.querySelectorAll('.option-checkbox');
+headerCheckbox.addEventListener('change', function() {
+const isChecked = this.checked;
+optionsDiv.style.display = isChecked ? 'flex' : 'none';
+optionCheckboxes.forEach(cb => { cb.disabled = !isChecked; if (!isChecked) cb.checked = false; });
+});
+const headerDiv = div.querySelector('.class-header');
+headerDiv.addEventListener('click', (e) => {
+if (e.target.type !== 'checkbox') {
+const isExpanded = optionsDiv.style.display === 'flex';
+optionsDiv.style.display = isExpanded ? 'none' : 'flex';
+}
+});
+}
+});
+}
+function getSelectedClassesOptionsTitu() {
+const selected = [];
+document.querySelectorAll('.class-item').forEach(div => {
+const classCheckbox = div.querySelector('.class-checkbox');
+if (classCheckbox && classCheckbox.checked) {
+const classe = classCheckbox.dataset.classe;
+const options = [];
+if (classesSansOptionsTitu.includes(classe)) options.push("AUCUNE");
+else {
+div.querySelectorAll('.option-checkbox:checked').forEach(cb => options.push(cb.dataset.option));
+if (options.length === 0) options.push("TOUTES");
+}
+selected.push({ classe: classe, options: options });
+}
+});
+return selected;
+}
+function updateClasseFilterOptionsTitu() {
+const select = document.getElementById('titulaireClasseFilterSelect');
+if (!select) return;
+const classesSet = new Set();
+fichesTitulaire.forEach(fiche => classesSet.add(fiche.classe));
+const classesTriees = Array.from(classesSet).sort();
+let options = '<option value="all">🌍 Toutes les classes</option>';
+classesTriees.forEach(classe => { const selected = currentClasseFilterTitu === classe ? 'selected' : ''; options += `<option value="${classe}" ${selected}>📚 ${classe}</option>`; });
+select.innerHTML = options;
+}
 async function chargerFichesTitulaireTitu() {
 if (!titulaireConfig) return;
 toutesFichesTitu = await loadAllFichesFromFirebaseTitu();
