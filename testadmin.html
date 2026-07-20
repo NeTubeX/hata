@@ -514,6 +514,31 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 </div>
 </div>
 </div>
+
+<div class="modal-overlay" id="syncCodeModal">
+    <div class="modal-box" style="max-width: 440px;">
+        <div class="icon">🔐</div>
+        <h3 style="color: var(--text-primary); font-size: 20px; margin-bottom: 4px;">Validation du code</h3>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">Entrez le code à 8 chiffres reçu sur WhatsApp</p>
+        <div style="display: flex; gap: 8px; justify-content: center; margin: 12px 0; flex-wrap: wrap;">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]" autofocus>
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+            <input type="text" class="sync-code-digit" maxlength="1" style="width:42px;height:54px;text-align:center;font-size:24px;font-weight:700;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:10px;color:var(--text-primary);outline:none;transition:border-color 0.3s;" inputmode="numeric" pattern="[0-9]">
+        </div>
+        <div class="code-timer-sync" style="margin:4px 0 8px 0;">⏱ Temps restant : <span class="time" id="syncCodeTimerValue">60</span> secondes</div>
+        <div class="code-error" id="syncCodeError" style="display:none;color:#ef4444;font-size:13px;margin-top:4px;">❌ Code invalide ou expiré</div>
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
+            <button class="btn-outline" id="syncCodeCancelBtn" style="padding:10px 24px;border-radius:30px;cursor:pointer;">❌ Annuler</button>
+            <button class="btn-danger" id="syncCodeConfirmBtn" style="padding:10px 24px;background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:30px;color:white;font-weight:600;cursor:pointer;">✅ Valider</button>
+        </div>
+    </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, getDocs, deleteDoc, doc, onSnapshot, query, orderBy, limit, where, startAfter, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -540,6 +565,7 @@ let auditList = [];
 let floryMessages = [];
 let unsubscribeFlory = null;
 let unsubscribeFichesRealtime = null;
+let unsubscribeProfsRealtime = null;
 let unsubscribeLogs = null;
 let isRealtimeActive = false;
 let chartInstances = {};
@@ -817,7 +843,8 @@ statsMap[e.id] = stats;
 stats.eleves.forEach(el => { el.ecoleNom = e.nom || e.id; el.ecoleId = e.id; });
 tousEleves = tousEleves.concat(stats.eleves);
 const p = await chargerProfs(e.id);
-tousProfs = tousProfs.concat(p.map(p => ({ ...p, ecoleId: e.id, ecoleNom: e.nom || e.id })));
+p.forEach(p => { p.ecoleId = e.id; p.ecoleNom = e.nom || e.id; });
+tousProfs = tousProfs.concat(p);
 const f = await chargerFiches(e.id);
 f.forEach(f => { f.ecoleNom = e.nom || e.id; });
 toutesFiches = toutesFiches.concat(f);
@@ -1332,51 +1359,181 @@ else if (currentEleveFilter.statut === "abandon") members = members.filter(e => 
 else if (currentEleveFilter.statut === "exonere") members = members.filter(e => e.exonere === true);
 return members;
 }
+
+// ============ FONCTION PROFESSEURS AVEC ÉCOUTE EN TEMPS RÉEL ============
+function startRealtimeProfs() {
+    if (unsubscribeProfsRealtime) {
+        unsubscribeProfsRealtime();
+        unsubscribeProfsRealtime = null;
+    }
+    
+    // Écouter tous les professeurs de toutes les écoles
+    const unsubscribes = [];
+    for (const e of toutesEcoles) {
+        const profsRef = collection(db, `${e.id}_professeurs`);
+        const unsubscribe = onSnapshot(profsRef, (snapshot) => {
+            const profs = [];
+            snapshot.forEach(ds => {
+                const data = ds.data();
+                if (data._type === "prof" && data.nom) {
+                    profs.push({ 
+                        id: ds.id, 
+                        ...data, 
+                        ecoleId: e.id, 
+                        ecoleNom: e.nom || e.id 
+                    });
+                }
+            });
+            
+            // Mettre à jour tousProfs
+            const existingIndexes = [];
+            profs.forEach(p => {
+                const idx = tousProfs.findIndex(tp => tp.id === p.id && tp.ecoleId === e.id);
+                if (idx !== -1) {
+                    tousProfs[idx] = p;
+                    existingIndexes.push(idx);
+                } else {
+                    tousProfs.push(p);
+                }
+            });
+            
+            // Supprimer ceux qui n'existent plus
+            tousProfs = tousProfs.filter(tp => {
+                if (tp.ecoleId === e.id) {
+                    return profs.some(p => p.id === tp.id);
+                }
+                return true;
+            });
+            
+            // Mettre à jour l'affichage si l'onglet Teachers est actif
+            if (document.getElementById("profsContainer")?.classList.contains("active")) {
+                renderProfs();
+            }
+            
+            // Mettre à jour le compteur
+            const profsWithSheets = new Set(toutesFiches.map(f => f.titulaire || f.profId).filter(Boolean));
+            const elTotalProfs = document.getElementById("statTotalProfs");
+            if (elTotalProfs) elTotalProfs.textContent = profsWithSheets.size;
+            
+        }, (error) => {
+            console.error(`Erreur écoute profs ${e.id}:`, error);
+        });
+        unsubscribes.push(unsubscribe);
+    }
+    
+    unsubscribeProfsRealtime = () => {
+        unsubscribes.forEach(u => u());
+    };
+}
+
 function renderProfs() {
-const container = document.getElementById("profsContainer");
-if(!container) return;
-const profs = currentSchoolFilter === "all" ? tousProfs : tousProfs.filter(p => p.ecoleId === currentSchoolFilter);
-if (!profs.length) {
-container.innerHTML = '<div class="empty-state"><span class="empty-icon">👨‍🏫</span>No teachers found</div>';
-return;
+    const container = document.getElementById("profsContainer");
+    if(!container) return;
+    
+    let profs = [];
+    if (currentSchoolFilter === "all") {
+        profs = tousProfs;
+    } else {
+        profs = tousProfs.filter(p => p.ecoleId === currentSchoolFilter);
+    }
+    
+    if (!profs.length) {
+        container.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3>👨‍🏫 Teachers <span class="count">0</span></h3>
+                <div class="actions">
+                    <button class="btn purple sm" onclick="window.rafraichirProfs()">🔄 Refresh</button>
+                    <button class="btn primary sm" onclick="window.rafraichir()">🔄 Sync</button>
+                </div>
+            </div>
+            <div class="empty-state"><span class="empty-icon">👨‍🏫</span>No teachers found</div>
+        </div>`;
+        return;
+    }
+    
+    profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    
+    let html = `
+    <div class="card">
+    <div class="card-header">
+    <h3>👨‍🏫 Teachers <span class="count">${profs.length}</span></h3>
+    <div class="actions">
+        <button class="btn purple sm" onclick="window.rafraichirProfs()">🔄 Refresh Teachers</button>
+        <button class="btn primary sm" onclick="window.rafraichir()">🔄 Sync</button>
+    </div>
+    </div>
+    <div class="table-wrapper">
+    <table>
+    <thead>
+    <tr>
+    <th style="width:5%;">#</th>
+    <th style="width:25%;">Name</th>
+    <th style="width:12%;">Code</th>
+    <th style="width:20%;">School</th>
+    <th style="width:10%;">Sheets</th>
+    <th style="width:10%;" class="col-center">Status</th>
+    <th style="width:10%;" class="col-center">Actions</th>
+    </tr>
+    </thead>
+    <tbody>`;
+    profs.forEach((pr, idx) => {
+        const sheetsCount = toutesFiches.filter(f => f.titulaire === pr.nom || f.profId === pr.id || f.profId === pr.profId).length;
+        const statusClass = pr.actif !== false ? 'active' : 'inactive';
+        const statusLabel = pr.actif !== false ? '🟢 Active' : '🔴 Inactive';
+        html += `<tr>
+        <td>${idx + 1}</td>
+        <td><strong>${escapeHtml(pr.nom)}</strong></td>
+        <td><code class="code-cell">${pr.code || '----'}</code></td>
+        <td>${escapeHtml(pr.ecoleNom || pr.ecoleId || '-')}</td>
+        <td class="col-center">${sheetsCount}</td>
+        <td class="col-center"><span class="badge-table ${statusClass}">${statusLabel}</span></td>
+        <td class="col-center">
+            <button class="btn-icon-table danger" onclick="window.supprimerProfesseur('${pr.ecoleId}','${pr.id}','${escapeHtml(pr.nom)}')" title="Delete">🗑️</button>
+        </td>
+        </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
 }
-let html = `
-<div class="card">
-<div class="card-header">
-<h3>👨‍🏫 Teachers <span class="count">${profs.length}</span></h3>
-<div class="actions"><button class="btn primary sm" onclick="window.rafraichir()">🔄 Refresh</button></div>
-</div>
-<div class="table-wrapper">
-<table>
-<thead>
-<tr>
-<th style="width:6%;">#</th>
-<th style="width:22%;">Name</th>
-<th style="width:14%;">Code</th>
-<th style="width:20%;">School</th>
-<th style="width:10%;">Sheets</th>
-<th style="width:10%;" class="col-center">Status</th>
-<th style="width:10%;" class="col-center">Actions</th>
-</tr>
-</thead>
-<tbody>`;
-profs.forEach((pr, idx) => {
-const sheetsCount = toutesFiches.filter(f => f.titulaire === pr.nom || f.profId === pr.id).length;
-html += `<tr>
-<td>${idx + 1}</td>
-<td><strong>${escapeHtml(pr.nom)}</strong></td>
-<td><code class="code-cell">${pr.code}</code></td>
-<td>${escapeHtml(pr.ecoleNom || pr.ecoleId)}</td>
-<td class="col-center">${sheetsCount}</td>
-<td class="col-center"><span class="badge-table ${pr.actif ? 'active' : 'inactive'}">${pr.actif ? '🟢 Active' : '🔴 Inactive'}</span></td>
-<td class="col-center">
-<button class="btn-icon-table danger" onclick="window.supprimerProfesseur('${pr.ecoleId}','${pr.id}','${escapeHtml(pr.nom)}')" title="Delete">🗑️</button>
-</td>
-</tr>`;
-});
-html += `</tbody></table></div></div>`;
-container.innerHTML = html;
-}
+
+window.rafraichirProfs = async function() {
+    toast("🔄 Refreshing teachers...", 'info');
+    try {
+        if (unsubscribeProfsRealtime) {
+            unsubscribeProfsRealtime();
+            unsubscribeProfsRealtime = null;
+        }
+        tousProfs = [];
+        for (const e of toutesEcoles) {
+            const p = await chargerProfs(e.id);
+            p.forEach(p => { p.ecoleId = e.id; p.ecoleNom = e.nom || e.id; });
+            tousProfs = tousProfs.concat(p);
+        }
+        renderProfs();
+        toast(`✅ ${tousProfs.length} teacher(s) loaded`, 'success');
+        // Redémarrer l'écoute
+        setTimeout(() => startRealtimeProfs(), 500);
+    } catch(e) {
+        toast(`❌ Error: ${e.message}`, 'error');
+    }
+};
+
+window.supprimerProfesseur = async function(ecoleId, profId, profNom) {
+    showCodeModal("🔑 Access Required", "Enter the access code to delete this teacher.", async (success) => {
+        if (!success) { toast("❌ Access denied", "error"); return; }
+        if (!await showConfirm("🗑️ Delete Teacher", `Delete ${profNom}?`)) return;
+        try {
+            await deleteDoc(doc(db, `${ecoleId}_professeurs`, profId));
+            toast(`✅ ${profNom} deleted`, "success");
+            // Rafraîchir la liste
+            await window.rafraichirProfs();
+        } catch(e) { toast("❌ Error: " + e.message, "error"); }
+    });
+};
+
+// ============ FIN FONCTIONS PROFESSEURS ============
+
 function renderSheetsRealtime() {
 const container = document.getElementById("fichesContainer");
 if(!container) return;
@@ -1528,11 +1685,12 @@ document.getElementById('exportAllFichesBtn')?.addEventListener('click', exportA
 function filterFichesTable() {
 const search = document.getElementById('ficheSearchInput')?.value?.toLowerCase() || '';
 const classFilter = document.getElementById('ficheClassFilter')?.value || 'all';
-const rows = document.querySelectorAll('#fichesTableBody tr');
+const rows = document.querySelectorAll('#fichesContainer .table-wrapper tbody tr, #fichesContainer table tbody tr');
 let visible = 0;
 rows.forEach(row => {
+if (row.querySelector('th')) return;
 const text = row.innerText.toLowerCase();
-const classText = row.querySelector('td:nth-child(4)')?.innerText || '';
+const classText = row.querySelector('td:nth-child(3)')?.innerText || '';
 let show = true;
 if (search && !text.includes(search)) show = false;
 if (classFilter !== 'all' && !classText.includes(classFilter)) show = false;
@@ -2297,7 +2455,15 @@ const codes = data.sync_codes || [];
 for (const c of codes) {
 if (c.code === codeSaisi && c.statut === "en_attente") {
 const expire = new Date(c.expireAt);
-if (expire > new Date()) { return { valide: true, message: "Code validé" }; }
+if (expire > new Date()) { 
+await updateDoc(poleDocRef, { 
+sync_codes: codes.map(cc => {
+if (cc.code === codeSaisi) { return { ...cc, statut: "utilise" }; }
+return cc;
+})
+});
+return { valide: true, message: "Code validé" }; 
+}
 }
 }
 return { valide: false, message: "Code invalide ou expiré" };
@@ -2377,18 +2543,6 @@ await deleteDoc(doc(db, "ecoles", ecoleId, "compta_eleves", `compta_${eleveId}`)
 toast(`✅ ${nomEleve} deleted`, "success");
 await rafraichir();
 renderMembers();
-} catch(e) { toast("❌ Error: " + e.message, "error"); }
-});
-};
-window.supprimerProfesseur = async function(ecoleId, profId, profNom) {
-showCodeModal("🔑 Access Required", "Enter the access code to delete this teacher.", async (success) => {
-if (!success) { toast("❌ Access denied", "error"); return; }
-if (!await showConfirm("🗑️ Delete Teacher", `Delete ${profNom}?`)) return;
-try {
-await deleteDoc(doc(db, `${ecoleId}_professeurs`, profId));
-toast(`✅ ${profNom} deleted`, "success");
-await rafraichir();
-renderProfs();
 } catch(e) { toast("❌ Error: " + e.message, "error"); }
 });
 };
@@ -2527,19 +2681,60 @@ if (!success) { toast("❌ Access denied", "error"); return; }
 if (!await showConfirm('🗑️ Delete Permanently', `Delete ${ecoleNom} permanently?`)) return;
 try {
 toast(`🔄 Deleting ${ecoleNom}...`, 'info');
-const collections = [`${ecoleId}_compta_eleves`, `${ecoleId}_professeurs`, `${ecoleId}_fiches`, `${ecoleId}_logs`, `${ecoleId}_parent_messages`];
+const collections = [
+`${ecoleId}_compta_eleves`, 
+`${ecoleId}_professeurs`, 
+`${ecoleId}_fiches`, 
+`${ecoleId}_logs`, 
+`${ecoleId}_parent_messages`,
+`${ecoleId}_eleves`
+];
 let totalDeleted = 0;
 for (const col of collections) {
-try { const snap = await getDocs(collection(db, col)); for (const doc of snap.docs) { try { await deleteDoc(doc.ref); totalDeleted++; } catch(e) {} } } catch(e) {}
+try { 
+const snap = await getDocs(collection(db, col)); 
+for (const docSnap of snap.docs) { 
+try { await deleteDoc(docSnap.ref); totalDeleted++; } catch(e) {} 
+} 
+} catch(e) {}
 }
 try { await deleteDoc(doc(db, "ecoles", ecoleId)); totalDeleted++; } catch(e) {}
 try { await deleteDoc(doc(db, "ecoles_autorisees", ecoleId)); totalDeleted++; } catch(e) {}
-toast(`✅ ${ecoleNom} deleted (${totalDeleted} documents)`, 'success');
-await rafraichir();
-renderSettings();
+try { 
+const snap = await getDocs(query(collection(db, "ecoles"), where("id", "==", ecoleId)));
+for (const d of snap.docs) { await deleteDoc(d.ref); totalDeleted++; }
+} catch(e) {}
+toast(`✅ ${ecoleNom} supprimée (${totalDeleted} documents)`, 'success');
+await chargerEcoles();
+await chargerTout();
 renderEcoles();
 renderInactiveSchools();
-} catch(e) { toast("❌ Error: " + e.message, "error"); }
+renderSettings();
+renderDashboard();
+renderMembers();
+renderProfs();
+renderSheetsRealtime();
+renderLogs();
+renderAudit();
+renderParental();
+renderMoisBlancs();
+renderSync();
+updateStats(
+tousEleves.filter(e => e.abandon !== true).length,
+tousEleves.filter(e => e.sexe === 'M').length,
+tousEleves.filter(e => e.sexe === 'F').length,
+tousEleves.filter(e => e.abandon === true).length,
+tousEleves.filter(e => e.exonere === true).length,
+tousEleves.filter(e => e.statut === 'regulier').length,
+tousEleves.filter(e => e.statut === 'listenoir').length
+);
+const fCount = document.getElementById('ficheCount');
+const fCountTab = document.getElementById('ficheCountTab');
+if(fCount) fCount.textContent = toutesFiches.length;
+if(fCountTab) fCountTab.textContent = toutesFiches.length;
+} catch(e) { 
+toast("❌ Error: " + e.message, "error"); 
+}
 });
 }
 window.supprimerFiche = async function(ecoleId, ficheId, ficheNom) {
@@ -2571,7 +2766,7 @@ else if (target === "audit") renderAudit();
 else if (target === "flory") { renderFlory(); }
 else if (target === "ecoles") renderEcoles();
 else if (target === "inactive_schools") renderInactiveSchools();
-else if (target === "profs") renderProfs();
+else if (target === "profs") { startRealtimeProfs(); renderProfs(); }
 else if (target === "fiches") renderSheetsRealtime();
 else if (target === "parental") renderParental();
 else if (target === "moisblancs") renderMoisBlancs();
@@ -2822,6 +3017,7 @@ if(fCount) fCount.textContent = toutesFiches.length;
 if(fCountTab) fCountTab.textContent = toutesFiches.length;
 mettreAJourCompteurLogs();
 setTimeout(() => { startRealtimeFiches(); }, 2000);
+setTimeout(() => { startRealtimeProfs(); }, 3000);
 toast("🚀 Dashboard ready - Real-time activated", 'success');
 } catch(e) {
 const dashboard = document.getElementById("dashboardContainer");
