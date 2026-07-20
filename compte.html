@@ -348,8 +348,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px}
 <div class="modal-buttons">
 <button class="btn btn-outline" id="cancelMoisBlanc">ANNULER</button>
 <button class="btn btn-success" id="confirmMoisBlanc" style="background:#60a5fa;color:#0f172a;">✅ OUI, MARQUER</button>
-</div>
-</div></div>
+</div></div></div>
 <div class="modal-overlay" id="addEleveModal"><div class="modal-card"><h3>➕ NOUVELLE INSCRIPTION</h3><div class="confirm-preview" id="previewInscription" style="display:none;"></div><div class="form-row"><div class="form-group"><label>NOM *</label><input type="text" id="newEleveNom" placeholder="Nom"></div><div class="form-group"><label>POST-NOM</label><input type="text" id="newElevePostnom" placeholder="Post-nom"></div></div><div class="form-row"><div class="form-group"><label>PRÉNOM *</label><input type="text" id="newElevePrenom" placeholder="Prénom"></div><div class="form-group"><label>SEXE *</label><select id="newEleveSexe"><option value="">Sélectionner</option><option value="M">Masculin</option><option value="F">Féminin</option></select></div></div><div class="form-row"><div class="form-group"><label>DATE NAISSANCE *</label><input type="date" id="newEleveDateNaiss"></div><div class="form-group"><label>LIEU NAISSANCE *</label><input type="text" id="newEleveLieuNaiss" placeholder="Ex: Kinshasa"></div></div><div class="form-row"><div class="form-group"><label>NOM DU PÈRE</label><input type="text" id="newEleveNomPere" placeholder="Nom complet du père"></div><div class="form-group"><label>NOM DE LA MÈRE</label><input type="text" id="newEleveNomMere" placeholder="Nom complet de la mère"></div></div><div class="form-row"><div class="form-group"><label>TÉLÉPHONE *</label><input type="tel" id="newElevePhone" placeholder="0812345678"></div><div class="form-group"><label>ADRESSE *</label><input type="text" id="newEleveAdresse" placeholder="Adresse"></div></div><div class="form-row"><div class="form-group"><label>CLASSE *</label><select id="newEleveClasse"><option value="">Sélectionner</option><option value="7eme EB">7eme EB</option><option value="8eme EB">8eme EB</option><option value="1ere Annee">1ere Annee</option><option value="2eme Annee">2eme Annee</option><option value="3eme Annee">3eme Annee</option><option value="4eme Annee">4eme Annee</option></select></div><div class="form-group"><label>OPTION</label><select id="newEleveOption"><option value="">Sans option</option></select></div></div><div class="form-row"><div class="form-group"><label>EXONÉRATION</label><select id="newEleveExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div><div class="form-group" id="motifExonerationGroup" style="display:none;"><label>MOTIF EXONÉRATION</label><select id="newEleveMotifExon"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option><option value="Gratuité">Gratuité</option></select></div></div><div class="form-group" id="approbateurGroup" style="display:none;">
 <label>APPROBATEUR</label>
 <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -499,12 +498,8 @@ document.getElementById('newEleveMontantInscription').oninput=updatePreview;
 </script>
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,query,where}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,doc,getDoc,getDocs,setDoc,updateDoc,query,where,addDoc}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// ============================================
-// NOUVEAU PROJET FIREBASE - GESCO-67C43
-// Structure: ecoles/{ecoleId}/{sousCollection}
-// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
   authDomain: "gesco-67c43.firebaseapp.com",
@@ -522,7 +517,6 @@ const urlParams=new URLSearchParams(window.location.search);
 let schoolId=urlParams.get('ecole');
 if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';throw new Error('Redirection');}
 
-// Nettoyer l'ID de l'école pour l'utiliser comme nom de document
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME = schoolId;
 
@@ -532,11 +526,6 @@ document.getElementById("ecoleNom").value='COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NA
 document.getElementById("schoolSub").innerHTML='GESTION DE SCOLARITÉ - COMPTABILITÉ | Année 2026-2027';
 document.getElementById("loginSchoolSub").innerHTML="GESTION DE SCOLARITÉ";
 
-// ============================================
-// FONCTIONS D'ACCÈS À LA NOUVELLE STRUCTURE
-// ============================================
-
-// RÉFÉRENCES
 function getEcoleRef(sousCollection, docId = null) {
   if (docId) {
     return doc(db, "ecoles", ECOLET_ID, sousCollection, docId);
@@ -544,7 +533,6 @@ function getEcoleRef(sousCollection, docId = null) {
   return collection(db, "ecoles", ECOLET_ID, sousCollection);
 }
 
-// SOUS-COLLECTIONS
 const SC = {
   COMPTA_ELEVES: 'compta_eleves',
   FICHES: 'fiches',
@@ -552,12 +540,9 @@ const SC = {
   SETTINGS: 'settings',
   TARIFS: 'tarifs',
   FRAIS_INSCRIPTION: 'frais_inscription',
-  OPTIONS: 'options'
+  OPTIONS: 'options',
+  LOGS: 'logs'
 };
-
-// ============================================
-// FIN DES FONCTIONS D'ACCÈS
-// ============================================
 
 let currentSchoolConfig=null;
 let currentEleve=null;
@@ -572,6 +557,9 @@ let isAppInitialized=false;
 let localEleves=[];
 let filteredEleves=[];
 let isFilterActive=false;
+let dernierMouvement=Date.now();
+let directionActifLogSent=false;
+let surveillanceInterval=null;
 
 const classesListe=["7eme EB","8eme EB","1ere Annee","2eme Annee","3eme Annee","4eme Annee"];
 const optionsParDefaut={"7eme EB":[],"8eme EB":[],"1ere Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"2eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"3eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"4eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"]};
@@ -598,6 +586,13 @@ function formatDateYMD(date=new Date()){return date.toISOString().split('T')[0];
 function formatDateFr(date){const d=new Date(date);return d.getDate().toString().padStart(2,"0")+'/'+(d.getMonth()+1).toString().padStart(2,"0")+'/'+d.getFullYear();}
 function getMoisActuel(){return moisCourant;}
 function getMoisFromDate(dateISO){if(!dateISO)return"Septembre";const date=new Date(dateISO);const mois=date.getMonth();if(mois>=8)return moisListe[mois-8];else if(mois>=0&&mois<=5)return moisListe[mois+4];return"Septembre";}
+
+async function logComptaActif(action){try{const logData={action:"compta_actif",service:"Comptabilité de l'école "+SCHOOL_DISPLAY_NAME,ecoleId:ECOLET_ID,ecoleNom:SCHOOL_DISPLAY_NAME,date:new Date().toISOString(),details:{action:action||"interaction"}};const logsRef=collection(db,"ecoles",ECOLET_ID,SC.LOGS);await addDoc(logsRef,logData);}catch(error){console.error("Erreur log:",error);}}
+async function logComptaInactif(tempsInactif){try{const logData={action:"compta_inactif",service:"Comptabilité de l'école "+SCHOOL_DISPLAY_NAME,ecoleId:ECOLET_ID,ecoleNom:SCHOOL_DISPLAY_NAME,date:new Date().toISOString(),details:{temps_inactif:tempsInactif+" secondes"}};const logsRef=collection(db,"ecoles",ECOLET_ID,SC.LOGS);await addDoc(logsRef,logData);}catch(error){console.error("Erreur log:",error);}}
+async function logComptaRetour(tempsInactivite){try{const logData={action:"compta_retour",service:"Comptabilité de l'école "+SCHOOL_DISPLAY_NAME,ecoleId:ECOLET_ID,ecoleNom:SCHOOL_DISPLAY_NAME,date:new Date().toISOString(),details:{temps_inactivite:tempsInactivite+" secondes"}};const logsRef=collection(db,"ecoles",ECOLET_ID,SC.LOGS);await addDoc(logsRef,logData);}catch(error){console.error("Erreur log:",error);}}
+async function logPageFermeeCompta(){try{const logData={action:"page_fermee_compta",service:"Comptabilité de l'école "+SCHOOL_DISPLAY_NAME,ecoleId:ECOLET_ID,ecoleNom:SCHOOL_DISPLAY_NAME,date:new Date().toISOString(),details:{}};const logsRef=collection(db,"ecoles",ECOLET_ID,SC.LOGS);await addDoc(logsRef,logData);}catch(error){console.error("Erreur log:",error);}}
+
+function demarrerSurveillanceInactivite(){dernierMouvement=Date.now();directionActifLogSent=false;if(surveillanceInterval){clearInterval(surveillanceInterval);surveillanceInterval=null;}surveillanceInterval=setInterval(()=>{const ecart=(Date.now()-dernierMouvement)/1000;if(ecart>300){if(!directionActifLogSent){logComptaInactif(Math.floor(ecart));directionActifLogSent=true;}}else{directionActifLogSent=false;}},30000);document.addEventListener('click',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvement)/1000;if(ecart>60&&ecart<300){logComptaRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab-btn.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tab1':'liste_eleves','tab2':'paiements','tab3':'abandons','tab4':'cartes','tab5':'codes_parents','tab6':'rapports','tab7':'configuration','tab8':'inscription'};logComptaActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvement=maintenant;});document.addEventListener('keydown',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvement)/1000;if(ecart>60&&ecart<300){logComptaRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab-btn.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tab1':'liste_eleves','tab2':'paiements','tab3':'abandons','tab4':'cartes','tab5':'codes_parents','tab6':'rapports','tab7':'configuration','tab8':'inscription'};logComptaActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvement=maintenant;});document.addEventListener('scroll',()=>{dernierMouvement=Date.now();});document.addEventListener('visibilitychange',()=>{if(document.hidden){logComptaInactif(0);}else{logComptaRetour(0);}dernierMouvement=Date.now();});window.addEventListener('beforeunload',()=>{logPageFermeeCompta();});}
 
 async function chargerOptions(){
   try{
@@ -967,7 +962,7 @@ function verifierCodeAccesConfig(){return new Promise((resolve)=>{pendingAction=
 
 function initFilterEvents(){document.querySelectorAll(".filter-btn").forEach(btn=>{btn.onclick=()=>{document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");currentFilter=btn.dataset.filter;afficherListeEleves();};});}
 
-document.getElementById("loginBtn").onclick=async()=>{const btn=document.getElementById("loginBtn");const codeInput=document.getElementById("loginCode");const code=codeInput.value.trim();const errorDiv=document.getElementById("loginError");btn.disabled=true;btn.textContent="⏳ VÉRIFICATION...";try{await chargerConfigEcole();await openDB();if(currentSchoolConfig&&code===currentSchoolConfig.codeAcces){errorDiv.innerHTML="";document.getElementById("loginOverlay").style.display="none";document.getElementById("mainApp").style.display="block";document.getElementById('loadingOverlay').classList.add('show');await initApp();toast('Bienvenue à '+currentSchoolConfig.nom,"success");}else{errorDiv.innerHTML="❌ Code d'accès incorrect";toast("Code d'accès incorrect","error");codeInput.value="";codeInput.focus();}}catch(error){errorDiv.innerHTML="❌ Erreur de connexion";toast("Erreur de connexion","error");console.error(error);}finally{btn.disabled=false;btn.textContent="🔐 SE CONNECTER";}};
+document.getElementById("loginBtn").onclick=async()=>{const btn=document.getElementById("loginBtn");const codeInput=document.getElementById("loginCode");const code=codeInput.value.trim();const errorDiv=document.getElementById("loginError");btn.disabled=true;btn.textContent="⏳ VÉRIFICATION...";try{await chargerConfigEcole();await openDB();if(currentSchoolConfig&&code===currentSchoolConfig.codeAcces){errorDiv.innerHTML="";document.getElementById("loginOverlay").style.display="none";document.getElementById("mainApp").style.display="block";document.getElementById('loadingOverlay').classList.add('show');await initApp();demarrerSurveillanceInactivite();toast('Bienvenue à '+currentSchoolConfig.nom,"success");}else{errorDiv.innerHTML="❌ Code d'accès incorrect";toast("Code d'accès incorrect","error");codeInput.value="";codeInput.focus();}}catch(error){errorDiv.innerHTML="❌ Erreur de connexion";toast("Erreur de connexion","error");console.error(error);}finally{btn.disabled=false;btn.textContent="🔐 SE CONNECTER";}};
 
 document.getElementById("loginCode").onkeypress=(e)=>{if(e.key==="Enter")document.getElementById("loginBtn").click();};
 document.getElementById("searchCarte").oninput=()=>afficherCartesIdentite();
