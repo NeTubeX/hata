@@ -356,13 +356,6 @@ body{background:var(--bg-primary);font-family:'Inter',-apple-system,sans-serif;c
 .sync-log-item .log-count{color:var(--gold);font-weight:600}
 .sync-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media(max-width:768px){.sync-grid{grid-template-columns:1fr}}
-.code-input-group-sync{display:flex;gap:8px;margin-bottom:12px;justify-content:center;flex-wrap:wrap}
-.code-input-group-sync input{width:50px;height:60px;text-align:center;font-size:24px;font-weight:700;font-family:'Courier New',monospace;background:var(--bg-primary);border:2px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);outline:none;transition:0.2s}
-.code-input-group-sync input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,0.1)}
-.code-input-group-sync input:disabled{opacity:0.4;cursor:not-allowed}
-.code-timer-sync{font-size:12px;color:var(--text-muted);margin-top:8px}
-.code-timer-sync .time{color:var(--gold);font-weight:600}
-.code-timer-sync .time.danger{color:var(--red)}
 .flory-fullscreen-active .sidebar,
 .flory-fullscreen-active .topbar,
 .flory-fullscreen-active .tabs-container,
@@ -2247,14 +2240,14 @@ container.innerHTML = `
 </div>
 </div>
 <div class="card">
-<div class="card-header"><h3>🔐 Synchronisation avec confirmation</h3></div>
+<div class="card-header"><h3>🔐 Synchronisation</h3></div>
 <div class="card-body">
 <button class="sync-btn" id="syncAllBtn" style="width:100%;justify-content:center;">
-<span class="icon">🔑</span>
-<span class="text">Demander un code et synchroniser</span>
+<span class="icon">🔄</span>
+<span class="text">Synchroniser maintenant</span>
 <span class="spinner"></span>
 </button>
-<p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center;">Un code sera envoyé à Ursule Nyandji</p>
+<p style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center;">Cliquez pour synchroniser directement toutes les écoles</p>
 </div>
 </div>
 </div>
@@ -2273,100 +2266,9 @@ await chargerEcolesAutorisees();
 await chargerEcolesSync();
 const pending = ecolesAutorisees.filter(e => !ecolesSync.some(s => s.id === e.id));
 if (pending.length === 0) { toast("✅ Toutes les écoles sont déjà synchronisées", "info"); return; }
-const code = await demanderCodeSync();
-if (code) { toast(`🔑 Code généré : ${code} - Envoyé à Ursule Nyandji`, "info"); ouvrirModalCodeSync(); } else { toast("❌ Erreur lors de la génération du code", "error"); }
+await synchroniserTout();
 });
 rafraichirSync();
-}
-async function demanderCodeSync() {
-try {
-const code = String(Math.floor(10000000 + Math.random() * 90000000));
-const now = new Date();
-const expireAt = new Date(now.getTime() + 60000);
-const codeData = { code: code, demandeur: "M. Flory", date: now.toISOString(), statut: "en_attente", expireAt: expireAt.toISOString(), id: Date.now().toString() + Math.random().toString(36).substr(2, 4) };
-await updateDoc(poleDocRef, { sync_codes: arrayUnion(codeData) });
-return code;
-} catch(e) { console.error(e); return null; }
-}
-async function verifierCodeSync(codeSaisi) {
-try {
-const snap = await getDoc(poleDocRef);
-if (!snap.exists()) return { valide: false, message: "Aucune demande" };
-const data = snap.data();
-const codes = data.sync_codes || [];
-for (const c of codes) {
-if (c.code === codeSaisi && c.statut === "en_attente") {
-const expire = new Date(c.expireAt);
-if (expire > new Date()) { return { valide: true, message: "Code validé" }; }
-}
-}
-return { valide: false, message: "Code invalide ou expiré" };
-} catch(e) { return { valide: false, message: "Erreur technique" }; }
-}
-function ouvrirModalCodeSync() {
-const modal = document.getElementById("syncCodeModal");
-const inputs = document.querySelectorAll(".sync-code-digit");
-const errorEl = document.getElementById("syncCodeError");
-const timerEl = document.getElementById("syncCodeTimerValue");
-if(!modal) return;
-inputs.forEach(inp => { inp.value = ""; inp.disabled = false; });
-if(errorEl) errorEl.style.display = "none";
-if(timerEl) { timerEl.textContent = "60"; timerEl.className = "time"; }
-modal.classList.add("show");
-codeModalActive = true;
-inputs[0]?.focus();
-let temps = 60;
-const interval = setInterval(() => {
-temps--;
-if(timerEl) timerEl.textContent = temps;
-if (temps <= 10 && timerEl) timerEl.className = "time danger";
-if (temps <= 0) {
-clearInterval(interval);
-if(timerEl) timerEl.textContent = "0";
-inputs.forEach(inp => inp.disabled = true);
-if(errorEl) { errorEl.textContent = "⏰ Le code a expiré"; errorEl.style.display = "block"; }
-document.getElementById("syncCodeConfirmBtn").disabled = true;
-}
-}, 1000);
-modal._timerInterval = interval;
-inputs.forEach((inp, idx) => {
-inp.addEventListener("input", function(e) {
-this.value = this.value.replace(/[^0-9]/g, "");
-if (this.value.length === 1 && idx < 7) { inputs[idx + 1].focus(); }
-});
-inp.addEventListener("keydown", function(e) {
-if (e.key === "Backspace" && this.value === "" && idx > 0) { inputs[idx - 1].focus(); }
-if (e.key === "Enter") { document.getElementById("syncCodeConfirmBtn")?.click(); }
-});
-});
-document.getElementById("syncCodeCancelBtn").onclick = function() {
-clearInterval(modal._timerInterval);
-modal.classList.remove("show");
-codeModalActive = false;
-toast("❌ Synchronisation annulée", "warning");
-};
-document.getElementById("syncCodeConfirmBtn").onclick = async function() {
-const code = Array.from(inputs).map(inp => inp.value).join("");
-if (code.length !== 8) {
-if(errorEl) { errorEl.textContent = "❌ Veuillez entrer les 8 chiffres"; errorEl.style.display = "block"; }
-return;
-}
-this.disabled = true;
-if(errorEl) errorEl.style.display = "none";
-const resultat = await verifierCodeSync(code);
-if (resultat.valide) {
-clearInterval(modal._timerInterval);
-modal.classList.remove("show");
-codeModalActive = false;
-toast("✅ Code validé, synchronisation en cours...", "success");
-await synchroniserTout();
-} else {
-if(errorEl) { errorEl.textContent = "❌ " + resultat.message; errorEl.style.display = "block"; }
-this.disabled = false;
-inputs.forEach(inp => { inp.value = ""; });
-inputs[0]?.focus();
-}
-};
 }
 window.supprimerEleve = async function(ecoleId, eleveId, nomEleve) {
 showCodeModal("🔑 Access Required", "Enter the access code to delete this student.", async (success) => {
