@@ -10,7 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
-html,body{height:100%;background:#f5f6f8;font-family:'Inter',sans-serif;overflow:hidden;color:#1a1a2e;position:fixed;top:0;left:0;right:0;bottom:0;width:100%;}
+html{height:100%;background:#f5f6f8}
+body{min-height:100vh;background:#f5f6f8;font-family:'Inter',sans-serif;overflow-y:auto !important;overflow-x:hidden;-webkit-overflow-scrolling:touch;color:#1a1a2e;margin:0;padding:0;position:relative;width:100%}
 body.reco-fullscreen .container{padding:0;max-width:100%}
 body.reco-fullscreen .school-header,body.reco-fullscreen .tabs-container,body.reco-fullscreen #tabPunitions,body.reco-fullscreen #tabAdmin,body.reco-fullscreen #tabSettings{display:none!important}
 body.reco-fullscreen #tabReco{display:block!important;height:100vh;padding:0;margin:0;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#ece5dd}
@@ -24,7 +25,7 @@ body.reco-fullscreen .reco-body::-webkit-scrollbar-track{background:#e5e7eb;bord
 body.reco-fullscreen .reco-body::-webkit-scrollbar-thumb{background:#075e54;border-radius:3px}
 body.reco-fullscreen .reco-footer-card{flex-shrink:0;height:150px;background:transparent;padding:0;border-top:none;text-align:center;color:transparent;font-size:0;font-weight:0;letter-spacing:0;line-height:0;z-index:10;display:flex;align-items:center;justify-content:center;box-shadow:none}
 body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;padding-bottom:4px}
-.container{max-width:1400px;margin:0 auto;padding:14px;min-height:100vh}
+.container{max-width:1400px;margin:0 auto;padding:14px;min-height:calc(100vh - 60px)}
 .school-header{background:#fff;border-radius:16px;padding:18px 24px;text-align:center;margin-bottom:18px;box-shadow:0 2px 12px rgba(0,0,0,0.04);border:1px solid #e8ecf0;position:relative}
 .school-name{font-size:20px;font-weight:800;color:#1a1a2e;letter-spacing:.5px}
 .school-name span{color:#2563eb}
@@ -420,7 +421,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </script>
 <script type="module">
 import{initializeApp}from"firebase/app";
-import{getFirestore,collection,doc,getDoc,getDocs,setDoc,query,where,onSnapshot,addDoc,deleteDoc}from"firebase/firestore";
+import{getFirestore,collection,doc,getDoc,getDocs,setDoc,query,where,onSnapshot,addDoc,deleteDoc,updateDoc}from"firebase/firestore";
 
 document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{if(e.keyCode===123||e.ctrlKey&&e.shiftKey&&(e.keyCode===73||e.keyCode===74)||e.ctrlKey&&e.keyCode===85||e.ctrlKey&&e.keyCode===83||e.ctrlKey&&e.keyCode===72)e.preventDefault()});
@@ -453,7 +454,6 @@ let directionActifLogSent=false;
 let surveillanceIntervalDirection=null;
 let profsUnsubscribe=null;
 
-// ============ TOAST ============
 function toast(message,type='success'){const c=document.getElementById('toastContainer');if(!c)return;const icons={success:'fas fa-check-circle',error:'fas fa-exclamation-circle',warning:'fas fa-exclamation-triangle'};const colors={success:'#16a34a',error:'#dc2626',warning:'#d97706'};const e=document.createElement('div');e.className='toast '+(type||'');e.innerHTML='<div class="toast-icon" style="color:'+colors[type]+'"><i class="'+icons[type]+'"></i></div><div class="toast-content"><div class="toast-title">'+{success:'Succès',error:'Erreur',warning:'Attention'}[type]+'</div><div class="toast-message">'+message+'</div></div>';c.appendChild(e);setTimeout(()=>e.classList.add('show'),10);setTimeout(()=>{e.classList.remove('show');setTimeout(()=>{if(e.parentNode)e.remove()},400)},3500);}
 
 function escapeHtml(s){if(!s)return'';return s.replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
@@ -464,62 +464,99 @@ function showPrompt(title,message,placeholder,onConfirm){const m=showModal(title
 
 function showConfirm(title,message,onConfirm){const m=showModal(title,'<p>'+message+'</p>','<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');m.querySelector('#confirmCancel').onclick=()=>m.remove();m.querySelector('#confirmOk').onclick=()=>{m.remove();if(onConfirm)onConfirm()};}
 
-// ============ ÉCOUTE EN TEMPS RÉEL DES PROFESSEURS ============
-function ecouterProfsEnTempsReel() {
-    if (profsUnsubscribe) {
-        profsUnsubscribe();
-        profsUnsubscribe = null;
-    }
-    
-    const q = query(
-        collection(db, SCHOOL_PREFIX + "_professeurs"),
-        where("_type", "==", "prof")
-    );
-    
-    profsUnsubscribe = onSnapshot(q, (snapshot) => {
+async function chargerProfs() {
+    try {
+        const q = query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof"));
+        const snap = await getDocs(q);
         const profs = [];
-        snapshot.forEach(ds => {
+        snap.forEach(ds => {
             const data = ds.data();
-            profs.push({ id: ds.id, ...data });
+            if (data.nom) profs.push({ id: ds.id, ...data });
         });
-        afficherProfsRealtime(profs);
-    }, (error) => {
-        console.error("Erreur écoute professeurs:", error);
-    });
+        profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        return profs;
+    } catch(e) { return []; }
 }
 
-function afficherProfsRealtime(profs) {
+function afficherProfs(profs) {
     const c = document.getElementById('profsListContainer');
     if (!c) return;
-    
-    if (profs.length === 0) {
-        c.innerHTML = '<div style="text-align:center;padding:10px;color:#9ca3af;font-size:12px;">Aucun professeur</div>';
+    if (!profs || profs.length === 0) {
+        c.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;"><i class="fas fa-chalkboard-teacher" style="font-size:28px;display:block;margin-bottom:8px;color:#e5e7eb;"></i><p>Aucun professeur</p></div>';
         return;
     }
-    
-    profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    c.innerHTML = '';
-    
+    let html = '';
     profs.forEach(p => {
-        const d = document.createElement('div');
-        d.className = 'prof-item';
         const estActif = p.actif !== false;
-        d.innerHTML = `
+        html += `<div class="prof-item">
             <span class="name">${escapeHtml(p.nom)}</span>
             <span class="code">${p.actif===false?'DESACTIVE':'• • • •'}</span>
-            <span class="status-badge ${estActif?'active':'inactive'}">
-                ${estActif?'Actif':'Inactif'}
-            </span>
-            <button onclick="window.desactiverProf('${p.id}')" 
-                style="background:${estActif?'#fee2e2':'#dcfce7'};color:${estActif?'#dc2626':'#16a34a'};border:1px solid ${estActif?'#fecaca':'#bbf7d0'};padding:2px 12px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;transition:all .2s;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
-                ${estActif?'Désactiver':'Réactiver'}
-            </button>
-        `;
-        c.appendChild(d);
+            <span class="status-badge ${estActif?'active':'inactive'}">${estActif?'Actif':'Inactif'}</span>
+            <button onclick="window.desactiverProf('${p.id}')" style="background:${estActif?'#fee2e2':'#dcfce7'};color:${estActif?'#dc2626':'#16a34a'};border:1px solid ${estActif?'#fecaca':'#bbf7d0'};padding:2px 12px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">${estActif?'Désactiver':'Réactiver'}</button>
+            <button onclick="window.supprimerProf('${p.id}','${escapeHtml(p.nom)}')" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;padding:2px 10px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">🗑️</button>
+        </div>`;
     });
+    c.innerHTML = html;
 }
 
-// ============ LOGS ============
+function ecouterProfs() {
+    if (profsUnsubscribe) { profsUnsubscribe(); profsUnsubscribe = null; }
+    try {
+        const q = query(collection(db, SCHOOL_PREFIX + "_professeurs"), where("_type", "==", "prof"));
+        profsUnsubscribe = onSnapshot(q, (snapshot) => {
+            const profs = [];
+            snapshot.forEach(ds => {
+                const data = ds.data();
+                if (data.nom) profs.push({ id: ds.id, ...data });
+            });
+            profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            afficherProfs(profs);
+        }, (error) => console.error("Erreur écoute profs:", error));
+    } catch(e) { console.error("Erreur activation écoute:", e); }
+}
+
+async function rafraichirProfs() {
+    toast('🔄 Chargement des professeurs...', 'info');
+    const profs = await chargerProfs();
+    afficherProfs(profs);
+    toast(`✅ ${profs.length} professeur(s)`, 'success');
+}
+
+window.desactiverProf = async function(id) {
+    showConfirm('Désactiver le professeur', 'Voulez-vous vraiment désactiver ce professeur ?', async() => {
+        try {
+            const docRef = doc(db, SCHOOL_PREFIX + "_professeurs", id);
+            const snap = await getDoc(docRef);
+            const data = snap.data();
+            await updateDoc(docRef, { actif: !data.actif });
+            toast(`✅ Professeur ${data.actif ? 'désactivé' : 'réactivé'}`, 'success');
+        } catch(e) { toast('❌ Erreur: ' + e.message, 'error'); }
+    });
+};
+
+window.supprimerProf = async function(id, nom) {
+    showConfirm('Supprimer le professeur', `Voulez-vous vraiment supprimer ${nom} ?`, async() => {
+        try {
+            await deleteDoc(doc(db, SCHOOL_PREFIX + "_professeurs", id));
+            toast(`✅ ${nom} supprimé`, 'success');
+        } catch(e) { toast('❌ Erreur: ' + e.message, 'error'); }
+    });
+};
+
+document.getElementById('addProfBtn').onclick = function() {
+    showPrompt('Ajouter un professeur', 'Entrez le nom complet du professeur', 'Nom complet', async(nom) => {
+        if (!nom || !nom.trim()) { toast('❌ Veuillez entrer un nom', 'error'); return; }
+        const code = Math.floor(1000 + Math.random() * 9000).toString();
+        const pid = 'prof_' + Date.now();
+        const data = { _type: "prof", id: pid, profId: pid, nom: nom.trim(), code: code, createdAt: Date.now(), actif: true, school: SCHOOL_PREFIX };
+        try {
+            await setDoc(doc(db, SCHOOL_PREFIX + "_professeurs", pid), data);
+            toast(`✅ ${nom.trim()} ajouté`, 'success');
+            showModal('Code du professeur', `<div style="text-align:center;"><p style="font-weight:600;font-size:16px;">${escapeHtml(nom.trim())}</p><div style="background:#f8fafc;border-radius:12px;padding:16px;border:2px dashed #2563eb;"><div style="font-size:28px;font-weight:800;letter-spacing:5px;color:#2563eb;">${code}</div></div></div>`, '<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');
+        } catch(e) { toast('❌ Erreur: ' + e.message, 'error'); }
+    });
+};
+
 function getIP(){return new Promise((resolve)=>{try{fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>resolve(d.ip)).catch(()=>resolve('inconnu'));}catch(e){resolve('inconnu');}});}
 
 async function envoyerLog(action,details={}){try{const logData={action:action,service:SERVICE_NAME,ecoleId:SCHOOL_PREFIX,ecoleNom:schoolNameDisplay,date:new Date().toISOString(),details:details};const logsRef=collection(db,SCHOOL_PREFIX+'_logs');await addDoc(logsRef,logData);const auditRef=collection(db,"audit_logs");await addDoc(auditRef,{...logData,type:"direction_log"});return true;}catch(error){return false;}}
@@ -554,7 +591,6 @@ loginInput.addEventListener("input",()=>{loginError.textContent="";if(loginInput
 
 document.getElementById("logoutBtn").addEventListener("click",function(){logDeconnexion();loginOverlay.style.display="flex";mainContent.classList.remove("visible");loginInput.value="";loginError.textContent="";loginInput.focus();});
 
-// ============ PUNITIONS ============
 document.querySelectorAll('.tab').forEach(btn=>{btn.onclick=function(){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));this.classList.add('active');document.getElementById(this.dataset.tab).classList.add('active');if(this.dataset.tab==='tabReco'){initReco();document.body.classList.add('reco-fullscreen');}else{document.body.classList.remove('reco-fullscreen');}if(this.dataset.tab==='tabAdmin')afficherCorbeille();}});
 
 document.getElementById('recoBackBtn').addEventListener('click',function(){document.body.classList.remove('reco-fullscreen');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.querySelector('.tab[data-tab="tabPunitions"]').classList.add('active');document.getElementById('tabPunitions').classList.add('active');});
@@ -574,121 +610,30 @@ async function updatePunitionEleves(){const c=document.getElementById('punitionC
 document.getElementById('punitionClasseSelect').onchange=function(){updatePunitionEleves();chargerPunitions();};
 document.getElementById('punitionEleveSelect').onchange=function(){chargerPunitions();};
 
-// ============ AJOUT PROFESSEUR ============
-document.getElementById('addProfBtn').onclick=function(){showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{if(!nom||!nom.trim())return;const code=Math.floor(1000+Math.random()*9000).toString();const pid='prof_'+Date.now();const data={_type:"prof",id:pid,profId:pid,nom:nom.trim(),code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",pid),data);await logAjoutProfesseur(nom.trim(),code);showModal('Code du professeur',`<div style="text-align:center;padding:8px 0;"><p style="font-weight:600;font-size:16px;color:#1a1a2e;">${escapeHtml(nom.trim())}</p><p style="color:#6b7280;margin-bottom:10px;font-size:12px;">Code d\'accès unique :</p><div style="background:#f8fafc;border-radius:12px;padding:16px;border:2px dashed #2563eb;"><div style="font-size:28px;font-weight:800;letter-spacing:5px;color:#2563eb;font-family:monospace;">${code}</div><div style="font-size:10px;color:#9ca3af;margin-top:3px;">Ce code ne sera plus jamais affiché</div></div></div>`,'<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');}catch(e){}});};
-
-// ============ DÉSACTIVER PROFESSEUR ============
-window.desactiverProf=async function(id){showConfirm('Désactiver le professeur','Voulez-vous vraiment désactiver ce professeur ?',async()=>{try{const docRef=doc(db,SCHOOL_PREFIX+"_professeurs",id);const snap=await getDoc(docRef);const data=snap.data();const action=data.actif?'desactivation':'activation';await setDoc(docRef,{...data,actif:!data.actif},{merge:true});await logModificationProfesseur(data.nom,action);}catch(e){}});};
-
-// ============ CORBEILLE ============
 function afficherCorbeille(){const c=document.getElementById('corbeilleList');if(!c)return;let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');const maintenant=new Date();corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=maintenant)return false;if(f.school&&f.school!==SCHOOL_PREFIX)return false;return true;});localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(corbeille.length===0){c.innerHTML='<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;"><i class="fas fa-trash-alt" style="font-size:24px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Corbeille vide</p></div>';return;}c.innerHTML='';corbeille.forEach(f=>{let joursRestants=Math.ceil((new Date(f.dateExpiration)-new Date())/(1000*60*60*24));let couleurCls=joursRestants<=7?'urgent':(joursRestants<=15?'moyen':'ok');let d=document.createElement('div');d.className='corbeille-item';d.innerHTML=`<div class="header"><span class="ref">${f.numeroRef?'F'+String(f.numeroRef).padStart(3,'0'):'???'}</span><span class="jours ${couleurCls}">${joursRestants} jour(s) restant(s)</span></div><div class="info"><span class="cours">${escapeHtml(f.cours||'?')}</span> - <span class="classe">${escapeHtml(f.classe||'?')}</span>${f.option?`(${escapeHtml(f.option)})`:''}</div><div class="prof">Professeur: ${escapeHtml(f.professeurNom||f.profId||'?')}</div><div class="actions"><select id="restaureProf_${f.ficheId}" style="padding:4px 10px;border-radius:30px;background:#ffffff;color:#1a1a2e;border:1px solid #e5e7eb;font-size:11px;"><option value="${f.profId}">Restaurer chez ${escapeHtml(f.professeurNom||'ancien')}</option><option value="autre">Restaurer chez autre prof</option><option value="nouveau">Créer nouveau professeur</option></select><button class="btn btn-sm btn-success" onclick="window.restaurerFicheCorbeille('${f.ficheId}')">RESTAURER</button><button class="btn btn-sm btn-danger" onclick="window.supprimerFicheCorbeille('${f.ficheId}')">SUPPRIMER</button></div></div>`;c.appendChild(d);});}
 
 window.restaurerFicheCorbeille=async function(ficheId){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);if(!fiche){return;}let select=document.getElementById('restaureProf_'+ficheId);let choix=select?select.value:fiche.profId;let nouveauProfId=fiche.profId,nouveauProfNom=fiche.professeurNom;if(choix==="nouveau"){showPrompt("Nom du nouveau professeur","Nom complet du professeur","Nom",async function(nouveauNom){if(nouveauNom&&nouveauNom.trim()){let code=Math.floor(1000+Math.random()*9000).toString();nouveauProfId='prof_'+Date.now();nouveauProfNom=nouveauNom.trim();let data={_type:"prof",id:nouveauProfId,profId:nouveauProfId,nom:nouveauProfNom,code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",nouveauProfId),data);logAjoutProfesseur(nouveauProfNom,code);}catch(e){}}else{}});return;}else if(choix==="autre"){let profs=[];try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_professeurs"));snap.forEach(ds=>{const d=ds.data();if(d._type==='prof')profs.push(d);});}catch(e){return;}if(profs.length===0){return;}let profList=profs.map(p=>p.nom).join(', ');showPrompt("Nom du professeur","Entrez le nom du professeur",profList,async function(reponse){if(reponse&&reponse.trim()){let profTrouve=profs.find(p=>p.nom===reponse.trim()||p.id===reponse.trim());if(profTrouve){nouveauProfId=profTrouve.id;nouveauProfNom=profTrouve.nom;}else{}}});if(!nouveauProfId)return;}try{delete fiche.dateSuppression;delete fiche.supprimee;delete fiche.professeurNom;delete fiche.dateExpiration;fiche.profId=nouveauProfId;fiche.school=SCHOOL_PREFIX;await setDoc(doc(db,SCHOOL_PREFIX+"_fiches",fiche.ficheId),{...fiche,id:fiche.ficheId});let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();await logRestaurationFiche(ficheId,fiche.cours,fiche.classe);}catch(e){}};
 
 window.supprimerFicheCorbeille=function(ficheId){showConfirm("SUPPRESSION DEFINITIVE","Cette action est IRREVERSIBLE. Confirmer ?",async function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);await logSuppressionFiche(ficheId,fiche?.cours,fiche?.classe);let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();});};
 
-// ============ CODE D'ACCÈS ============
 async function saveAccessCodeToFirebase(newCode){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");await setDoc(docRef,{code:newCode,updatedAt:new Date().toISOString(),updatedBy:"Direction"});return true;}catch(error){return false;}}
 
 async function loadAccessCodeFromFirebase(){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");const docSnap=await getDoc(docRef);if(docSnap.exists()){const data=docSnap.data();if(data.code){ACCESS_CODE=data.code;localStorage.setItem('access_code_direction',data.code);return true;}}return false;}catch(error){return false;}}
 
 document.getElementById('changeCodeBtn').addEventListener('click',function(){const currentCode=document.getElementById('currentCodeInput').value;const newCode=document.getElementById('newCodeInput').value;const confirmCode=document.getElementById('confirmCodeInput').value;const errorDiv=document.getElementById('settingsError');if(currentCode!==ACCESS_CODE){errorDiv.textContent='❌ Code actuel incorrect';document.getElementById('currentCodeInput').focus();return;}if(!/^\d{4}$/.test(newCode)){errorDiv.textContent='❌ Le code doit contenir exactement 4 chiffres';document.getElementById('newCodeInput').focus();return;}if(newCode!==confirmCode){errorDiv.textContent='❌ Les codes ne correspondent pas';document.getElementById('confirmCodeInput').focus();return;}if(newCode===ACCESS_CODE){errorDiv.textContent='⚠️ Le nouveau code est identique à l\'ancien';return;}showConfirm('Changement de code',`Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`,async function(){const saved=await saveAccessCodeToFirebase(newCode);if(saved){ACCESS_CODE=newCode;localStorage.setItem('access_code_direction',newCode);document.getElementById('currentCodeInput').value='';document.getElementById('newCodeInput').value='';document.getElementById('confirmCodeInput').value='';document.getElementById('settingsError').textContent='';await logChangementCodeAccesDirection();}else{}});});
 
-// ============ RECO BOT ============
-const RECO_GREETINGS = {
-  'bonjour': 'Bonjour cher directeur ! 👋 Comment puis-je vous aider aujourd\'hui ? N\'hésitez pas à sélectionner un sujet dans la liste ci-dessus et à détailler votre demande. 📝',
-  'salut': 'Salut ! 👋 Content de vous voir. Pour que je puisse vous aider efficacement, choisissez un sujet (Amélioration, Correction, Suppression ou Nouveauté) et écrivez votre message. 💡',
-  'bonsoir': 'Bonsoir cher directeur ! 🌙 Je suis là pour vous assister. Pour toute demande, sélectionnez le sujet approprié et décrivez votre besoin. Je vous répondrai rapidement. ✨',
-  'hello': 'Hello ! 👋 Comment puis-je vous être utile aujourd\'hui ? Pensez à choisir le sujet qui correspond à votre demande. 😊',
-  'coucou': 'Coucou ! 👋 Ravie de vous voir. Si vous avez une suggestion, un problème à signaler ou une nouveauté à proposer, sélectionnez le bon sujet et je vous écoute. 🎯',
-  'merci': 'Avec plaisir ! 🙏 N\'hésitez pas si vous avez d\'autres questions ou besoins. Je suis là pour vous aider. 🌟',
-  'merci beaucoup': 'Merci à vous ! 😊 C\'est un réel plaisir de vous assister. N\'oubliez pas, je suis disponible pour toute demande. 💪',
-  'thanks': 'You\'re welcome ! 😊 Je suis ravi de pouvoir vous aider. N\'hésitez pas à me contacter pour toute autre question. 🌟'
-};
+const RECO_GREETINGS={'bonjour':'Bonjour cher directeur ! 👋 Comment puis-je vous aider aujourd\'hui ?','salut':'Salut ! 👋 Content de vous voir.','bonsoir':'Bonsoir cher directeur ! 🌙','hello':'Hello ! 👋 Comment puis-je vous être utile ?','coucou':'Coucou ! 👋 Ravie de vous voir.','merci':'Avec plaisir ! 🙏','merci beaucoup':'Merci à vous ! 😊','thanks':'You\'re welcome ! 😊'};
+const SHORT_MESSAGE_REPLIES=['😊 Merci pour votre message, mais pourriez-vous être plus précis ?','🙂 Je ne comprends pas bien votre demande. Pouvez-vous détailler ?','😄 Pour que je puisse vous aider, j\'aurais besoin de plus de détails.','👋 Votre message est un peu court. N\'hésitez pas à développer.','😅 Oups ! Je pense que vous avez oublié d\'écrire votre demande.'];
 
-const SHORT_MESSAGE_REPLIES = [
-  '😊 Merci pour votre message, mais pourriez-vous être plus précis ? Décrivez ce que vous souhaitez, je vous aiderai mieux ! 📝',
-  '🙂 Je vois que vous avez écrit quelque chose, mais je ne comprends pas bien votre demande. Pouvez-vous détailler un peu plus ? 💡',
-  '😄 C\'est un bon début ! Mais pour que je puisse vous aider, j\'aurais besoin d\'un peu plus de détails. Qu\'est-ce que vous aimeriez faire ? 🤔',
-  '👋 Je vous ai bien entendu ! Mais votre message est un peu court. N\'hésitez pas à développer, je suis là pour vous écouter. 🎯',
-  '😅 Oups ! Je pense que vous avez oublié d\'écrire votre demande. Rédigez quelques phrases pour que je puisse vous aider efficacement. ✍️'
-];
+function getNaturalReply(subject,message){const replies={'amelioration':['Excellente suggestion ! 💡 Je transmets à l\'équipe.','Ah, c\'est une super idée ! 😍','Wouah ! 🤩 Votre suggestion est géniale !','👍 J\'adore cette idée !'],'correction':['Oups ! 🐛 Je note ce bug. L\'équipe va le corriger.','Merci pour ce signalement ! 🙏','Bien vu ! 👀 Ce problème est corrigé.','😮 Ah, effectivement, c\'est un problème !'],'suppression':['Votre demande de suppression a été prise en compte. 🗑️','C\'est noté ! 📝','Parfait ! 👍','✅ Demande de suppression validée.'],'nouveaute':['Oh, quelle excellente idée ! ✨','C\'est une très belle proposition ! 🎨','Impressionnant ! 🚀','😲 Waouh ! Super idée !'],'autre':['Merci pour votre message ! 📝 Je le transmets à l\'équipe.','J\'ai bien reçu votre demande. 🤗','Parfait ! ✅ J\'ai enregistré votre demande.','😊 Votre message a bien été reçu.']};let type='autre';if(subject.includes('amelioration'))type='amelioration';else if(subject.includes('correction'))type='correction';else if(subject.includes('suppression'))type='suppression';else if(subject.includes('nouveaute'))type='nouveaute';const possibleReplies=replies[type]||replies['autre'];const index=Math.floor(Math.random()*possibleReplies.length);return possibleReplies[index];}
 
-function getNaturalReply(subject, message) {
-  const replies = {
-    'amelioration': [
-      'Excellente suggestion ! 💡 Je transmets immédiatement à l\'équipe technique. Votre idée est très pertinente. 🚀',
-      'Ah, c\'est une super idée ! 😍 Merci pour cette proposition d\'amélioration. L\'équipe va l\'étudier avec attention. 👨‍💻',
-      'Wouah ! 🤩 Votre suggestion est géniale ! Elle sera ajoutée à notre liste de priorités. Restez connecté ! 📢',
-      '👍 J\'adore cette idée ! Je vais la partager avec l\'équipe dès maintenant. Merci pour votre contribution ! 🌟'
-    ],
-    'correction': [
-      'Oups ! 🐛 Je note ce bug. L\'équipe technique va le corriger dans les plus brefs délais. Merci de nous avoir alertés ! 🔧',
-      'Merci pour ce signalement ! 🙏 Je transmets immédiatement à nos développeurs. Une correction sera faite sous 48h. ⚡',
-      'Bien vu ! 👀 Ce problème est maintenant dans notre pipeline de correction. Merci pour votre vigilance ! 🛠️',
-      '😮 Ah, effectivement, c\'est un problème ! Je le signale en urgence. Merci de nous avoir prévenus ! 🚨'
-    ],
-    'suppression': [
-      'Votre demande de suppression a bien été prise en compte. 🗑️ Je vous confirme que nous allons procéder rapidement. ⏳',
-      'C\'est noté ! 📝 La suppression sera effectuée dans les meilleurs délais. Merci pour votre confiance. 🤝',
-      'Parfait ! 👍 Votre demande de suppression est enregistrée. Vous serez informé dès que ce sera fait. 📨',
-      '✅ Demande de suppression validée. Nous traitons cela avec la plus grande attention. 🔒'
-    ],
-    'nouveaute': [
-      'Oh, quelle excellente idée ! ✨ Je la partage immédiatement avec l\'équipe. Vous êtes plein de bonnes idées ! 💡',
-      'C\'est une très belle proposition ! 🎨 Nous allons l\'étudier avec soin. Merci pour votre créativité ! 🌈',
-      'Impressionnant ! 🚀 Cette nouveauté pourrait vraiment améliorer l\'expérience. On vous tient au courant ! 📣',
-      '😲 Waouh ! Je n\'y avais pas pensé ! Super idée, je la transmets à l\'équipe R&D. 🔬'
-    ],
-    'autre': [
-      'Merci pour votre message ! 📝 Je vais le transmettre à l\'équipe compétente. Une réponse vous sera apportée sous 48h. ⏰',
-      'J\'ai bien reçu votre demande. 🤗 Je fais le nécessaire pour qu\'elle soit traitée rapidement. N\'hésitez pas à me relancer si besoin. 💪',
-      'Parfait ! ✅ J\'ai enregistré votre demande. L\'équipe va l\'analyser et vous répondre dans les plus brefs délais. 📨',
-      '😊 Votre message a bien été reçu. Je le transfère à l\'équipe concernée. À très bientôt ! 🌟'
-    ]
-  };
+function detectGreeting(message){const lowerMsg=message.toLowerCase().trim();for(const[key,value]of Object.entries(RECO_GREETINGS)){if(lowerMsg===key)return value;}if(lowerMsg.includes('bonjour')||lowerMsg.includes('bjr'))return RECO_GREETINGS['bonjour'];if(lowerMsg.includes('salut')||lowerMsg.includes('slt'))return RECO_GREETINGS['salut'];if(lowerMsg.includes('bonsoir')||lowerMsg.includes('bsr'))return RECO_GREETINGS['bonsoir'];if(lowerMsg.includes('merci'))return RECO_GREETINGS['merci'];if(lowerMsg.includes('hello')||lowerMsg.includes('hi'))return RECO_GREETINGS['hello'];return null;}
 
-  let type = 'autre';
-  if (subject.includes('amelioration')) type = 'amelioration';
-  else if (subject.includes('correction')) type = 'correction';
-  else if (subject.includes('suppression')) type = 'suppression';
-  else if (subject.includes('nouveaute')) type = 'nouveaute';
+function isMessageInsufficient(message){const msg=message.trim();if(msg.length<3)return true;const simpleWords=['ok','okay','oui','non','bon','bien','cool','super','top','nice','hey','yo'];if(simpleWords.includes(msg.toLowerCase()))return true;return false;}
 
-  const possibleReplies = replies[type] || replies['autre'];
-  const index = Math.floor(Math.random() * possibleReplies.length);
-  return possibleReplies[index];
-}
+function getShortMessageReply(){const index=Math.floor(Math.random()*SHORT_MESSAGE_REPLIES.length);return SHORT_MESSAGE_REPLIES[index];}
 
-function detectGreeting(message) {
-  const lowerMsg = message.toLowerCase().trim();
-  for (const [key, value] of Object.entries(RECO_GREETINGS)) {
-    if (lowerMsg === key) {
-      return value;
-    }
-  }
-  if (lowerMsg.includes('bonjour') || lowerMsg.includes('bjr')) return RECO_GREETINGS['bonjour'];
-  if (lowerMsg.includes('salut') || lowerMsg.includes('slt')) return RECO_GREETINGS['salut'];
-  if (lowerMsg.includes('bonsoir') || lowerMsg.includes('bsr')) return RECO_GREETINGS['bonsoir'];
-  if (lowerMsg.includes('merci')) return RECO_GREETINGS['merci'];
-  if (lowerMsg.includes('hello') || lowerMsg.includes('hi')) return RECO_GREETINGS['hello'];
-  return null;
-}
-
-function isMessageInsufficient(message) {
-  const msg = message.trim();
-  if (msg.length < 3) return true;
-  const simpleWords = ['ok', 'okay', 'oui', 'non', 'bon', 'bien', 'cool', 'super', 'top', 'nice', 'hey', 'yo'];
-  if (simpleWords.includes(msg.toLowerCase())) return true;
-  return false;
-}
-
-function getShortMessageReply() {
-  const index = Math.floor(Math.random() * SHORT_MESSAGE_REPLIES.length);
-  return SHORT_MESSAGE_REPLIES[index];
-}
-
-function getSubjectGuidance() {
-  return `📋 Choisissez un sujet pour votre demande :
+function getSubjectGuidance(){return`📋 Choisissez un sujet pour votre demande :
 
 📈 Amélioration → Suggérer des améliorations
 🐛 Correction → Signaler un bug ou erreur
@@ -696,86 +641,19 @@ function getSubjectGuidance() {
 ✨ Nouveauté → Proposer une nouveauté
 ❓ Autre → Toute autre demande
 
-✅ Sélectionnez le sujet ci-dessus, puis écrivez votre message. 😊`;
-}
+✅ Sélectionnez le sujet ci-dessus, puis écrivez votre message. 😊`;}
 
-function scrollRecoToBottom() {
-  const recoBody = document.getElementById('recoBody');
-  if (recoBody) {
-    requestAnimationFrame(() => {
-      recoBody.scrollTop = recoBody.scrollHeight;
-    });
-    setTimeout(() => {
-      recoBody.scrollTop = recoBody.scrollHeight;
-    }, 100);
-    setTimeout(() => {
-      recoBody.scrollTop = recoBody.scrollHeight;
-    }, 300);
-  }
-}
+function scrollRecoToBottom(){const recoBody=document.getElementById('recoBody');if(recoBody){requestAnimationFrame(()=>{recoBody.scrollTop=recoBody.scrollHeight;});setTimeout(()=>{recoBody.scrollTop=recoBody.scrollHeight;},100);setTimeout(()=>{recoBody.scrollTop=recoBody.scrollHeight;},300);}}
 
-function addRecoMessage(sender, nom, message) {
-  const container = document.getElementById('recoMessagesContainer');
-  if (!container) return;
-  const empty = container.querySelector('.reco-empty');
-  if (empty) empty.remove();
-  const div = document.createElement('div');
-  div.className = `reco-message ${sender}`;
-  const time = new Date().toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
-  div.innerHTML = `<div class="bubble"><div class="sender">${nom}</div><div class="text">${escapeHtml(message)}</div><div class="time">${time}</div></div>`;
-  container.appendChild(div);
-  setTimeout(scrollRecoToBottom, 50);
-}
+function addRecoMessage(sender,nom,message){const container=document.getElementById('recoMessagesContainer');if(!container)return;const empty=container.querySelector('.reco-empty');if(empty)empty.remove();const div=document.createElement('div');div.className=`reco-message ${sender}`;const time=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});div.innerHTML=`<div class="bubble"><div class="sender">${nom}</div><div class="text">${escapeHtml(message)}</div><div class="time">${time}</div></div>`;container.appendChild(div);setTimeout(scrollRecoToBottom,50);}
 
-function addTypingIndicator() {
-  const container = document.getElementById('recoMessagesContainer');
-  if (!container) return;
-  removeTypingIndicator();
-  const div = document.createElement('div');
-  div.className = 'typing-indicator';
-  div.id = 'typingIndicator';
-  div.innerHTML = `<div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><span class="typing-text">L'assistant support écrit...</span>`;
-  container.appendChild(div);
-  setTimeout(scrollRecoToBottom, 50);
-}
+function addTypingIndicator(){const container=document.getElementById('recoMessagesContainer');if(!container)return;removeTypingIndicator();const div=document.createElement('div');div.className='typing-indicator';div.id='typingIndicator';div.innerHTML=`<div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><span class="typing-text">L'assistant support écrit...</span>`;container.appendChild(div);setTimeout(scrollRecoToBottom,50);}
 
-function removeTypingIndicator() {
-  const el = document.getElementById('typingIndicator');
-  if (el) el.remove();
-}
+function removeTypingIndicator(){const el=document.getElementById('typingIndicator');if(el)el.remove();}
 
-function showTypingAndAutoReplyWithCustomReply(subject, customReply) {
-  if (pendingReply) {
-    clearTimeout(pendingReply);
-    removeTypingIndicator();
-  }
-  botWaitingMessageSent = false;
-  addTypingIndicator();
-  const delay = 1500 + Math.random() * 2000;
-  pendingReply = setTimeout(() => {
-    removeTypingIndicator();
-    addRecoMessage('support', 'Support NeTubeX', customReply);
-    if (!botWaitingMessageSent) {
-      const secondDelay = 2000 + Math.random() * 1500;
-      setTimeout(() => {
-        if (!botWaitingMessageSent) {
-          addRecoMessage('support', 'Support NeTubeX', 'Merci, veuillez patienter le message du support dans moins de quelques heures. ⏳');
-          botWaitingMessageSent = true;
-        }
-      }, secondDelay);
-    }
-    pendingReply = null;
-  }, delay);
-}
+function showTypingAndAutoReplyWithCustomReply(subject,customReply){if(pendingReply){clearTimeout(pendingReply);removeTypingIndicator();}botWaitingMessageSent=false;addTypingIndicator();const delay=1500+Math.random()*2000;pendingReply=setTimeout(()=>{removeTypingIndicator();addRecoMessage('support','Support NeTubeX',customReply);if(!botWaitingMessageSent){const secondDelay=2000+Math.random()*1500;setTimeout(()=>{if(!botWaitingMessageSent){addRecoMessage('support','Support NeTubeX','Merci, veuillez patienter le message du support dans moins de quelques heures. ⏳');botWaitingMessageSent=true;}},secondDelay);}pendingReply=null;},delay);}
 
-function updateRecoUI() {
-  const container = document.getElementById('recoMessagesContainer');
-  if (!container) return;
-  const empty = container.querySelector('.reco-empty');
-  if (empty) empty.remove();
-  
-  if (recoMessages.length === 0) {
-    const welcome = `👋 Bienvenue dans l'espace support !
+function updateRecoUI(){const container=document.getElementById('recoMessagesContainer');if(!container)return;const empty=container.querySelector('.reco-empty');if(empty)empty.remove();if(recoMessages.length===0){const welcome=`👋 Bienvenue dans l'espace support !
 
 Je suis votre assistant pour toutes vos demandes concernant NeTubeX.
 
@@ -785,154 +663,36 @@ Voici comment je peux vous aider :
 🗑️ Demander des suppressions
 ✨ Suggérer des nouveautés
 
-Pour commencer, choisissez un sujet dans la liste déroulante ci-dessus, puis écrivez votre message. Je vous répondrai rapidement ! 😊
+Pour commencer, choisissez un sujet dans la liste déroulante ci-dessus, puis écrivez votre message. 😊`;
 
-💡 Astuce : Vous pouvez aussi me dire bonjour, me remercier, ou me poser une question simple.`;
-    
-    container.innerHTML = `<div class="reco-message support"><div class="bubble"><div class="sender">Support NeTubeX</div><div class="text">${welcome.replace(/\n/g, '<br>')}</div><div class="time">${new Date().toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</div></div></div>`;
-    setTimeout(scrollRecoToBottom, 150);
-    return;
-  }
-  
-  const items = container.querySelectorAll('.reco-message, .typing-indicator');
-  items.forEach(el => el.remove());
-  const sorted = [...recoMessages].sort((a, b) => (a.number || 0) - (b.number || 0));
-  sorted.forEach(msg => {
-    const sender = msg.sender === 'direction' ? 'direction' : 'support';
-    const nom = msg.sender === 'direction' ? 'DIRECTION' : 'Support NeTubeX';
-    const div = document.createElement('div');
-    div.className = `reco-message ${sender}`;
-    const time = new Date(msg.date).toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
-    div.innerHTML = `<div class="bubble"><div class="sender">${nom}</div>${msg.subject ? `<div class="subject-tag">${escapeHtml(msg.subject)}</div>` : ''}<div class="text">${escapeHtml(msg.message)}</div><div class="time">${time}</div></div>`;
-    container.appendChild(div);
-  });
-  setTimeout(scrollRecoToBottom, 150);
+container.innerHTML=`<div class="reco-message support"><div class="bubble"><div class="sender">Support NeTubeX</div><div class="text">${welcome.replace(/\n/g,'<br>')}</div><div class="time">${new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</div></div></div>`;
+setTimeout(scrollRecoToBottom,150);
+return;}
+const items=container.querySelectorAll('.reco-message, .typing-indicator');
+items.forEach(el=>el.remove());
+const sorted=[...recoMessages].sort((a,b)=>(a.number||0)-(b.number||0));
+sorted.forEach(msg=>{const sender=msg.sender==='direction'?'direction':'support';const nom=msg.sender==='direction'?'DIRECTION':'Support NeTubeX';const div=document.createElement('div');div.className=`reco-message ${sender}`;const time=new Date(msg.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});div.innerHTML=`<div class="bubble"><div class="sender">${nom}</div>${msg.subject?`<div class="subject-tag">${escapeHtml(msg.subject)}</div>`:''}<div class="text">${escapeHtml(msg.message)}</div><div class="time">${time}</div></div>`;container.appendChild(div);});
+setTimeout(scrollRecoToBottom,150);}
+
+async function sendRecoMessage(){const input=document.getElementById('recoInput');const subjectSelect=document.getElementById('recoSubjectSelect');const msg=input.value.trim();const subject=subjectSelect.value;if(!msg)return;const btn=document.getElementById('recoSendBtn');btn.disabled=true;try{const greetingReply=detectGreeting(msg);if(greetingReply){addRecoMessage('direction','DIRECTION',msg);addRecoMessage('support','Support NeTubeX',greetingReply);input.value='';btn.disabled=false;return;}if(!subject||subject===''){const guidance=getSubjectGuidance();addRecoMessage('direction','DIRECTION',msg);addRecoMessage('support','Support NeTubeX',guidance);input.value='';btn.disabled=false;subjectSelect.classList.add('error');subjectSelect.focus();setTimeout(()=>{subjectSelect.classList.remove('error');},3000);return;}if(isMessageInsufficient(msg)){const shortReply=getShortMessageReply();addRecoMessage('direction','DIRECTION',msg);addRecoMessage('support','Support NeTubeX',shortReply);input.value='';btn.disabled=false;input.focus();return;}const docRef=doc(db,"communication","support_netubex_board");const snap=await getDoc(docRef);let current=snap.exists()?snap.data().messages||[]:[];let nextNumber=current.length+1;const data={id:Date.now().toString()+Math.random().toString(36).substr(2,6),number:nextNumber,sender:"direction",nom:"DIRECTION",message:msg,subject:subject,date:new Date().toISOString(),read:false,createdAt:new Date(),ecole:schoolId};await setDoc(docRef,{messages:[...current,data],lastUpdated:new Date().toISOString()});input.value='';btn.disabled=false;await logMessageSupport(subject,msg);const reply=getNaturalReply(subject,msg);showTypingAndAutoReplyWithCustomReply(subject,reply);}catch(e){btn.disabled=false;}}
+
+function initReco(){if(recoUnsubscribe)return;const docRef=doc(db,"communication","support_netubex_board");recoUnsubscribe=onSnapshot(docRef,(snap)=>{if(snap.exists()){const data=snap.data();let all=data.messages||[];let filtered=all.filter(m=>m.ecole===schoolId);filtered.sort((a,b)=>(a.number||0)-(b.number||0));recoMessages=filtered;updateRecoUI();setTimeout(scrollRecoToBottom,200);}},(e)=>console.error(e));document.getElementById('recoSendBtn').addEventListener('click',sendRecoMessage);document.getElementById('recoInput').addEventListener('keypress',function(e){if(e.key==='Enter')sendRecoMessage();});document.getElementById('recoSubjectSelect').addEventListener('change',function(){this.classList.remove('error');});}
+
+async function initApp(){
+    await loadAccessCodeFromFirebase();
+    await updatePunitionEleves();
+    await chargerPunitions();
+    ecouterProfs();
+    afficherCorbeille();
+    initReco();
+    setTimeout(scrollRecoToBottom,800);
 }
 
-async function sendRecoMessage() {
-  const input = document.getElementById('recoInput');
-  const subjectSelect = document.getElementById('recoSubjectSelect');
-  const msg = input.value.trim();
-  const subject = subjectSelect.value;
-  
-  if (!msg) return;
+setInterval(()=>{
+    if(document.getElementById('tabPunitions').classList.contains('active')) chargerPunitions();
+    if(document.getElementById('tabAdmin').classList.contains('active')) afficherCorbeille();
+},300000);
 
-  const btn = document.getElementById('recoSendBtn');
-  btn.disabled = true;
-
-  try {
-    const greetingReply = detectGreeting(msg);
-    if (greetingReply) {
-      addRecoMessage('direction', 'DIRECTION', msg);
-      addRecoMessage('support', 'Support NeTubeX', greetingReply);
-      input.value = '';
-      btn.disabled = false;
-      return;
-    }
-
-    if (!subject || subject === '') {
-      const guidance = getSubjectGuidance();
-      addRecoMessage('direction', 'DIRECTION', msg);
-      addRecoMessage('support', 'Support NeTubeX', guidance);
-      input.value = '';
-      btn.disabled = false;
-      subjectSelect.classList.add('error');
-      subjectSelect.focus();
-      setTimeout(() => {
-        subjectSelect.classList.remove('error');
-      }, 3000);
-      return;
-    }
-
-    if (isMessageInsufficient(msg)) {
-      const shortReply = getShortMessageReply();
-      addRecoMessage('direction', 'DIRECTION', msg);
-      addRecoMessage('support', 'Support NeTubeX', shortReply);
-      input.value = '';
-      btn.disabled = false;
-      input.focus();
-      return;
-    }
-
-    const docRef = doc(db, "communication", "support_netubex_board");
-    const snap = await getDoc(docRef);
-    let current = snap.exists() ? snap.data().messages || [] : [];
-    let nextNumber = current.length + 1;
-    
-    const data = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
-      number: nextNumber,
-      sender: "direction",
-      nom: "DIRECTION",
-      message: msg,
-      subject: subject,
-      date: new Date().toISOString(),
-      read: false,
-      createdAt: new Date(),
-      ecole: schoolId
-    };
-
-    await setDoc(docRef, {
-      messages: [...current, data],
-      lastUpdated: new Date().toISOString()
-    });
-
-    input.value = '';
-    btn.disabled = false;
-    await logMessageSupport(subject, msg);
-    
-    const reply = getNaturalReply(subject, msg);
-    showTypingAndAutoReplyWithCustomReply(subject, reply);
-
-  } catch (e) {
-    btn.disabled = false;
-  }
-}
-
-function initReco() {
-  if (recoUnsubscribe) return;
-  
-  const docRef = doc(db, "communication", "support_netubex_board");
-  recoUnsubscribe = onSnapshot(docRef, (snap) => {
-    if (snap.exists()) {
-      const data = snap.data();
-      let all = data.messages || [];
-      let filtered = all.filter(m => m.ecole === schoolId);
-      filtered.sort((a, b) => (a.number || 0) - (b.number || 0));
-      recoMessages = filtered;
-      updateRecoUI();
-      setTimeout(scrollRecoToBottom, 200);
-    }
-  }, (e) => console.error(e));
-
-  document.getElementById('recoSendBtn').addEventListener('click', sendRecoMessage);
-  document.getElementById('recoInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') sendRecoMessage();
-  });
-  
-  document.getElementById('recoSubjectSelect').addEventListener('change', function() {
-    this.classList.remove('error');
-  });
-}
-
-// ============ INIT ============
-async function initApp() {
-  await loadAccessCodeFromFirebase();
-  await updatePunitionEleves();
-  await chargerPunitions();
-  ecouterProfsEnTempsReel();
-  afficherCorbeille();
-  initReco();
-  setTimeout(scrollRecoToBottom, 800);
-}
-
-// ============ RAFRAÎCHISSEMENT AUTO ============
-setInterval(() => {
-  if (document.getElementById('tabPunitions').classList.contains('active')) chargerPunitions();
-  if (document.getElementById('tabAdmin').classList.contains('active')) afficherCorbeille();
-}, 300000);
-
-// ============ DÉMARRAGE ============
 document.getElementById("accessOverlay").style.display = 'flex';
 document.getElementById("accessCode")?.focus();
 </script>
