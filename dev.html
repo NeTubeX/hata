@@ -1574,8 +1574,8 @@ async function deleteFromIndexedDB(store, key) { let dbc = await initIndexedDB()
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
 async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); await chargerSelecteursDynamiques(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } catch (e) { console.log(e); } } return false; }
 async function chargerSelecteursDynamiques() { const toutes = await getAllFromIndexedDB('fiches'); const matieresSet = new Set(); const classesSet = new Set(); for (const f of toutes) { if (f.cours && f.cours.trim()) matieresSet.add(f.cours); if (f.classe && f.classe.trim()) classesSet.add(f.classe); } }
-async function loadAllFiches() { if (!currentProf) return []; let all = await getAllFromIndexedDB('fiches'); let pf = all.filter(function(f) { return f.profId === currentProf.id && !f._type && f.school === ECOLET_ID; }); pf.sort(function(a, b) { return (a.numeroRef || 999) - (b.numeroRef || 999); }); return pf.map(function(f) { return { id: f.ficheId, cours: f.cours || '', classe: f.classe || '', option: f.option || '', numeroRef: f.numeroRef || null }; }); }
-async function getNextFicheNumero() { let compteurKey = 'global_' + ECOLET_ID; let c = await getFromIndexedDB('compteur', compteurKey); let cv = c?.valeur || 0; let nv = cv + 1; await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv }); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"), { valeur: nv }); } catch (e) { } } return nv; }
+async function loadAllFiches() { if (!currentProf) return []; let all = []; if (navigator.onLine) { try { const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.FICHES)); for (const ds of snap.docs) { const data = ds.data(); if (!data._type && data.profId === currentProf.id) { all.push({ id: ds.id, cours: data.cours || '', classe: data.classe || '', option: data.option || '', numeroRef: data.numeroRef || null }); } } } catch (e) { console.error(e); } } return all.sort((a, b) => (a.numeroRef || 999) - (b.numeroRef || 999)); }
+async function getNextFicheNumero() { let compteurKey = 'global_' + ECOLET_ID; let nv = 1; if (navigator.onLine) { try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"); const docSnap = await getDoc(docRef); if (docSnap.exists()) { nv = (docSnap.data().valeur || 0) + 1; } await setDoc(docRef, { valeur: nv }); } catch (e) { console.error("Erreur incrément compteur:", e); nv = Date.now(); } } else { nv = Date.now(); } return nv; }
 async function saveCurrentFiche() { if (!currentProf || !currentFicheId || !currentFiche) return; currentFiche.lastModified = new Date(); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId), currentFiche); } catch (e) { console.error("Erreur sauvegarde fiche:", e); } } }
 function debounceSave() { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(function() { saveCurrentFiche(); }, 500); }
 async function refreshSelectors(selectedId = null) {
@@ -2652,12 +2652,10 @@ let ficheData = currentFiche;
 let nbEleves = ficheData?.eleves?.length || 0;
 await enregistrerLog("suppression_fiche", { message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"), ficheId: currentFicheId, cours: ficheData?.cours, classe: ficheData?.classe, option: ficheData?.option || "aucune", numeroRef: ficheData?.numeroRef, nbEleves: nbEleves, action_par: currentProf?.nom }, "warning");
 if (ficheData) {
-let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]');
 let dateExpiration = new Date();
 dateExpiration.setDate(dateExpiration.getDate() + 30);
-corbeille.push({ ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), supprimee: true, enAttenteSuppression: false, professeurId: currentProf.id, professeurNom: currentProf.nom, school: ECOLET_ID });
-localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
-if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), { ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), professeurNom: currentProf.nom }); } catch (e) {} }
+let corbeilleData = { ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), professeurNom: currentProf.nom };
+if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), corbeilleData); } catch (e) { console.error("Erreur sauvegarde corbeille:", e); } }
 }
 if (navigator.onLine) { try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId)); } catch (e) { toast("Erreur suppression", 'error'); } } else { toast("Pas de connexion", 'error'); }
 toutesFiches = await loadAllFiches();
@@ -2796,21 +2794,8 @@ setTimeout(() => { speak('Mode gestuel activé. Élève actuel: ' + (eleves[0]?.
 document.getElementById('closeSaisieModal')?.addEventListener('click', () => { document.getElementById('saisieModal').classList.remove('show'); if (window.correctionMode?.hammer) window.correctionMode.hammer.destroy(); window.correctionMode = null; stopSpeaking(); });
 window.speechSynthesis.onvoiceschanged = () => { const voices = window.speechSynthesis.getVoices(); };
 document.getElementById('changeSchoolBtn')?.addEventListener('click', () => { showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => { window.location.href = 'https://www.netubex.com/schoolchoice'; }); });
-let compteurKey = 'global_' + ECOLET_ID;
-let ce = await getFromIndexedDB('compteur', compteurKey);
-if (!ce) await saveToIndexedDB('compteur', { id: compteurKey, valeur: 0 });
 await initIndexedDB();
 await chargerOptionsParClasse();
-if (navigator.onLine) {
-try {
-let fp = await getDocs(query(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS), where("_type", "==", "prof")));
-for (let ds of fp.docs) { let pd = ds.data(); await saveToIndexedDB('professeurs', { ...pd, id: pd.profId }); }
-let allDocs = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.FICHES));
-for (let ds of allDocs.docs) { let data = ds.data(); if (!data._type && data.profId && data.ficheId) await saveToIndexedDB('fiches', { ...data, id: data.ficheId }); }
-let cs = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"));
-if (cs.exists()) await saveToIndexedDB('compteur', { id: compteurKey, valeur: cs.data().valeur || 0 });
-} catch (e) { console.log(e); }
-}
 let sessionRestored = await restaurerSession();
 if (!sessionRestored) showLogin();
 else { if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove(); }
