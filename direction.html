@@ -292,7 +292,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <div class="admin-card">
 <h4><i class="fas fa-chalkboard-teacher"></i> Professeurs</h4>
 <button class="btn btn-sm btn-success" id="addProfBtn" style="width:100%;margin-bottom:12px;"><i class="fas fa-plus"></i> Ajouter un professeur</button>
-<div id="profsListContainer"><div style="text-align:center;padding:12px;color:#9ca3af;font-size:12px;">Aucun professeur</div></div>
+<div id="profsListContainer"><div style="text-align:center;padding:12px;color:#9ca3af;font-size:12px;">Chargement...</div></div>
 </div>
 <div class="admin-card">
 <h4><i class="fas fa-trash-alt" style="color:#dc2626;"></i> Corbeille</h4>
@@ -362,7 +362,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </div>
 </div>
 </div>
-<!-- Carte footer vide - 150px -->
 <div class="reco-footer-card"></div>
 </div>
 </div>
@@ -423,58 +422,9 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 import{initializeApp}from"firebase/app";
 import{getFirestore,collection,doc,getDoc,getDocs,setDoc,query,where,onSnapshot,addDoc,deleteDoc}from"firebase/firestore";
 
-// ============ BLOCAGE DU RAFRAÎCHISSEMENT PAR BALAYAGE ============
-document.addEventListener('touchmove', function(e) {
-  if (document.body.classList.contains('reco-fullscreen')) {
-    const recoBody = document.getElementById('recoBody');
-    if (recoBody && recoBody.contains(e.target)) {
-      return;
-    }
-    e.preventDefault();
-  }
-}, { passive: false });
-
-document.addEventListener('touchstart', function(e) {
-  if (document.body.classList.contains('reco-fullscreen')) {
-    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-    if (scrollTop <= 0) {
-      const recoBody = document.getElementById('recoBody');
-      if (recoBody && recoBody.contains(e.target)) {
-        return;
-      }
-    }
-  }
-}, { passive: true });
-
-document.addEventListener('gesturestart', function(e) {
-  if (document.body.classList.contains('reco-fullscreen')) {
-    e.preventDefault();
-  }
-});
-
-let startY = 0;
-document.addEventListener('touchstart', function(e) {
-  startY = e.touches[0].pageY;
-}, { passive: true });
-
-document.addEventListener('touchmove', function(e) {
-  if (document.body.classList.contains('reco-fullscreen')) {
-    const currentY = e.touches[0].pageY;
-    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-    if (currentY > startY && scrollTop <= 0) {
-      const recoBody = document.getElementById('recoBody');
-      if (recoBody && recoBody.contains(e.target)) {
-        return;
-      }
-      e.preventDefault();
-    }
-  }
-}, { passive: false });
-
-// ============ FIN BLOCAGE RAFRAÎCHISSEMENT ============
-
 document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{if(e.keyCode===123||e.ctrlKey&&e.shiftKey&&(e.keyCode===73||e.keyCode===74)||e.ctrlKey&&e.keyCode===85||e.ctrlKey&&e.keyCode===83||e.ctrlKey&&e.keyCode===72)e.preventDefault()});
+
 let ACCESS_CODE=localStorage.getItem('access_code_direction')||"1234";
 const loginOverlay=document.getElementById("loginOverlay");
 const loginInput=document.getElementById("loginCodeInput");
@@ -482,25 +432,169 @@ const loginBtn=document.getElementById("loginBtn");
 const loginError=document.getElementById("loginError");
 const mainContent=document.getElementById("mainContent");
 let loginClickCount=0,loginClickTimeout=null;
+
 const firebaseConfig={apiKey:"AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",authDomain:"netubexmoney.firebaseapp.com",projectId:"netubexmoney",storageBucket:"netubexmoney.firebasestorage.app",messagingSenderId:"856592608176",appId:"1:856592608176:web:69f9df9cfd4f8c28630475"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
+
 const urlParams=new URLSearchParams(window.location.search);
 const schoolId=urlParams.get('ecole');
 if(!schoolId){document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#f5f6f8;color:#1a1a2e;flex-direction:column;padding:20px;text-align:center;"><i class="fas fa-exclamation-circle" style="font-size:48px;color:#dc2626;margin-bottom:16px;"></i><h1 style="color:#dc2626;">Paramètre manquant</h1><p style="color:#6b7280;">Veuillez spécifier l\'école dans l\'URL : ?ecole=nom</p></div>';throw new Error('Parametre ecole manquant');}
+
 const SCHOOL_PREFIX=schoolId.replace(/-/g,'_');
 const schoolNameDisplay=schoolId.toUpperCase().replace(/-/g,' ');
 document.getElementById('schoolNameSpan').textContent=schoolNameDisplay;
 const SERVICE_NAME='Direction de l\'école '+schoolNameDisplay;
-let directriceCode="1111";
+
 let recoMessages=[],recoUnsubscribe=null,pendingReply=null;
-let botWaitingMessageSent = false; // Pour éviter la boucle infinie
+let botWaitingMessageSent=false;
 let dernierMouvementDirection=Date.now();
 let directionActifLogSent=false;
 let surveillanceIntervalDirection=null;
+let profsUnsubscribe=null;
 
-// ============ RECO BOT CONFIGURATION ============
+// ============ TOAST ============
+function toast(message,type='success'){const c=document.getElementById('toastContainer');if(!c)return;const icons={success:'fas fa-check-circle',error:'fas fa-exclamation-circle',warning:'fas fa-exclamation-triangle'};const colors={success:'#16a34a',error:'#dc2626',warning:'#d97706'};const e=document.createElement('div');e.className='toast '+(type||'');e.innerHTML='<div class="toast-icon" style="color:'+colors[type]+'"><i class="'+icons[type]+'"></i></div><div class="toast-content"><div class="toast-title">'+{success:'Succès',error:'Erreur',warning:'Attention'}[type]+'</div><div class="toast-message">'+message+'</div></div>';c.appendChild(e);setTimeout(()=>e.classList.add('show'),10);setTimeout(()=>{e.classList.remove('show');setTimeout(()=>{if(e.parentNode)e.remove()},400)},3500);}
 
+function escapeHtml(s){if(!s)return'';return s.replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+
+function showModal(title,bodyHTML,footerHTML){const overlay=document.createElement('div');overlay.className='modal-fullscreen';overlay.innerHTML='<div class="modal-content"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3>'+title+'</h3><span style="font-size:24px;cursor:pointer;color:#9ca3af;" onclick="this.closest(\'.modal-fullscreen\').remove()">&times;</span></div>'+bodyHTML+'<div class="modal-footer">'+footerHTML+'</div></div>';document.body.appendChild(overlay);setTimeout(()=>overlay.classList.add('show'),10);return overlay;}
+
+function showPrompt(title,message,placeholder,onConfirm){const m=showModal(title,'<p>'+message+'</p><input type="text" id="modalInput" placeholder="'+placeholder+'" style="width:100%;padding:12px 16px;border-radius:12px;background:#f8fafc;border:2px solid #e5e7eb;color:#1a1a2e;font-size:13px;outline:none;">','<button class="btn btn-sm btn-outline" id="promptCancel">Annuler</button><button class="btn btn-sm btn-success" id="promptConfirm">Confirmer</button>');m.querySelector('#promptCancel').onclick=()=>m.remove();m.querySelector('#promptConfirm').onclick=()=>{const val=m.querySelector('#modalInput').value;m.remove();if(onConfirm)onConfirm(val)};setTimeout(()=>{const inp=m.querySelector('#modalInput');if(inp)inp.focus()},100);}
+
+function showConfirm(title,message,onConfirm){const m=showModal(title,'<p>'+message+'</p>','<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');m.querySelector('#confirmCancel').onclick=()=>m.remove();m.querySelector('#confirmOk').onclick=()=>{m.remove();if(onConfirm)onConfirm()};}
+
+// ============ ÉCOUTE EN TEMPS RÉEL DES PROFESSEURS ============
+function ecouterProfsEnTempsReel() {
+    if (profsUnsubscribe) {
+        profsUnsubscribe();
+        profsUnsubscribe = null;
+    }
+    
+    const q = query(
+        collection(db, SCHOOL_PREFIX + "_professeurs"),
+        where("_type", "==", "prof")
+    );
+    
+    profsUnsubscribe = onSnapshot(q, (snapshot) => {
+        const profs = [];
+        snapshot.forEach(ds => {
+            const data = ds.data();
+            profs.push({ id: ds.id, ...data });
+        });
+        afficherProfsRealtime(profs);
+    }, (error) => {
+        console.error("Erreur écoute professeurs:", error);
+    });
+}
+
+function afficherProfsRealtime(profs) {
+    const c = document.getElementById('profsListContainer');
+    if (!c) return;
+    
+    if (profs.length === 0) {
+        c.innerHTML = '<div style="text-align:center;padding:10px;color:#9ca3af;font-size:12px;">Aucun professeur</div>';
+        return;
+    }
+    
+    profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    c.innerHTML = '';
+    
+    profs.forEach(p => {
+        const d = document.createElement('div');
+        d.className = 'prof-item';
+        const estActif = p.actif !== false;
+        d.innerHTML = `
+            <span class="name">${escapeHtml(p.nom)}</span>
+            <span class="code">${p.actif===false?'DESACTIVE':'• • • •'}</span>
+            <span class="status-badge ${estActif?'active':'inactive'}">
+                ${estActif?'Actif':'Inactif'}
+            </span>
+            <button onclick="window.desactiverProf('${p.id}')" 
+                style="background:${estActif?'#fee2e2':'#dcfce7'};color:${estActif?'#dc2626':'#16a34a'};border:1px solid ${estActif?'#fecaca':'#bbf7d0'};padding:2px 12px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;transition:all .2s;box-shadow:0 2px 4px rgba(0,0,0,0.04);">
+                ${estActif?'Désactiver':'Réactiver'}
+            </button>
+        `;
+        c.appendChild(d);
+    });
+}
+
+// ============ LOGS ============
+function getIP(){return new Promise((resolve)=>{try{fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>resolve(d.ip)).catch(()=>resolve('inconnu'));}catch(e){resolve('inconnu');}});}
+
+async function envoyerLog(action,details={}){try{const logData={action:action,service:SERVICE_NAME,ecoleId:SCHOOL_PREFIX,ecoleNom:schoolNameDisplay,date:new Date().toISOString(),details:details};const logsRef=collection(db,SCHOOL_PREFIX+'_logs');await addDoc(logsRef,logData);const auditRef=collection(db,"audit_logs");await addDoc(auditRef,{...logData,type:"direction_log"});return true;}catch(error){return false;}}
+
+async function logConnexionReussie(ip){await envoyerLog("connexion_reussie",{ip:ip});}
+async function logConnexionEchouee(codeSaisi,ip){await envoyerLog("connexion_echouee",{code_saisi:codeSaisi,ip:ip});}
+async function logDeconnexion(){await envoyerLog("deconnexion",{});}
+async function logAjoutPunition(eleveNom,motif,gravite){await envoyerLog("ajout_punition",{eleve_nom:eleveNom,motif:motif,gravite:gravite});}
+async function logAnnulationPunition(eleveNom,motif){await envoyerLog("annulation_punition",{eleve_nom:eleveNom,motif:motif});}
+async function logAjoutProfesseur(profNom,code){await envoyerLog("ajout_professeur",{professeur_nom:profNom,code:code});}
+async function logModificationProfesseur(profNom,action){await envoyerLog("modification_professeur",{professeur_nom:profNom,action:action});}
+async function logRestaurationFiche(ficheId,cours,classe){await envoyerLog("restauration_fiche",{fiche_id:ficheId,cours:cours,classe:classe});}
+async function logSuppressionFiche(ficheId,cours,classe){await envoyerLog("suppression_fiche_definitive",{fiche_id:ficheId,cours:cours,classe:classe});}
+async function logMessageSupport(sujet,message){await envoyerLog("message_support",{sujet:sujet,message:message});}
+async function logChangementCodeAccesDirection(){await envoyerLog("changement_code_acces_direction",{});}
+async function logDirectionActif(action){await envoyerLog("direction_actif",{action:action||"interaction"});}
+async function logDirectionInactif(tempsInactif){await envoyerLog("direction_inactif",{temps_inactif:tempsInactif+" secondes"});}
+async function logDirectionRetour(tempsInactivite){await envoyerLog("direction_retour",{temps_inactivite:tempsInactivite+" secondes"});}
+async function logPageFermeeDirection(){await envoyerLog("page_fermee_direction",{});}
+
+function demarrerSurveillanceInactiviteDirection(){dernierMouvementDirection=Date.now();directionActifLogSent=false;if(surveillanceIntervalDirection){clearInterval(surveillanceIntervalDirection);surveillanceIntervalDirection=null;}surveillanceIntervalDirection=setInterval(()=>{const ecart=(Date.now()-dernierMouvementDirection)/1000;if(ecart>300){if(!directionActifLogSent){logDirectionInactif(Math.floor(ecart));directionActifLogSent=true;}}else{directionActifLogSent=false;}},30000);document.addEventListener('click',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvementDirection)/1000;if(ecart>60&&ecart<300){logDirectionRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tabPunitions':'gestion_punitions','tabAdmin':'gestion_administrative','tabReco':'support','tabSettings':'parametres'};logDirectionActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvementDirection=maintenant;});document.addEventListener('keydown',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvementDirection)/1000;if(ecart>60&&ecart<300){logDirectionRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tabPunitions':'gestion_punitions','tabAdmin':'gestion_administrative','tabReco':'support','tabSettings':'parametres'};logDirectionActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvementDirection=maintenant;});document.addEventListener('scroll',()=>{dernierMouvementDirection=Date.now();});document.addEventListener('visibilitychange',()=>{if(document.hidden){logDirectionInactif(0);}else{logDirectionRetour(0);}dernierMouvementDirection=Date.now();});window.addEventListener('beforeunload',()=>{logPageFermeeDirection();});}
+
+function redirigerVersSchoolCompta(){const ecoleParam=new URL(window.location.href).searchParams.get('ecole')||'';window.location.href=`https://www.netubex.com/schoolcompta?ecole=${encodeURIComponent(ecoleParam)}`;}
+
+loginOverlay.querySelector('.login-card').addEventListener('click',function(e){if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;loginClickCount++;if(loginClickTimeout)clearTimeout(loginClickTimeout);loginClickTimeout=setTimeout(()=>{loginClickCount=0;},1000);if(loginClickCount===3){loginClickCount=0;if(loginClickTimeout)clearTimeout(loginClickTimeout);redirigerVersSchoolCompta();}});
+
+async function checkLogin(){const val=loginInput.value;if(val===ACCESS_CODE){loginOverlay.style.display="none";mainContent.classList.add("visible");const ip=await getIP();logConnexionReussie(ip);initApp();demarrerSurveillanceInactiviteDirection();}else{loginError.textContent="Code incorrect";loginInput.value="";loginInput.focus();const ip=await getIP();logConnexionEchouee(val,ip);}}
+
+loginBtn.addEventListener("click",checkLogin);
+loginInput.addEventListener("keypress",e=>{if(e.key==="Enter")checkLogin()});
+loginInput.addEventListener("input",()=>{loginError.textContent="";if(loginInput.value.length===4)checkLogin()});
+
+document.getElementById("logoutBtn").addEventListener("click",function(){logDeconnexion();loginOverlay.style.display="flex";mainContent.classList.remove("visible");loginInput.value="";loginError.textContent="";loginInput.focus();});
+
+// ============ PUNITIONS ============
+document.querySelectorAll('.tab').forEach(btn=>{btn.onclick=function(){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));this.classList.add('active');document.getElementById(this.dataset.tab).classList.add('active');if(this.dataset.tab==='tabReco'){initReco();document.body.classList.add('reco-fullscreen');}else{document.body.classList.remove('reco-fullscreen');}if(this.dataset.tab==='tabAdmin')afficherCorbeille();}});
+
+document.getElementById('recoBackBtn').addEventListener('click',function(){document.body.classList.remove('reco-fullscreen');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.querySelector('.tab[data-tab="tabPunitions"]').classList.add('active');document.getElementById('tabPunitions').classList.add('active');});
+
+async function chargerPunitions(){const c=document.getElementById('punitionClasseSelect').value;const en=document.getElementById('punitionEleveSelect').value;const container=document.getElementById('punitionsListContainer');if(!container)return;container.innerHTML='<div style="text-align:center;padding:16px;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>';try{let constraints=[];if(c)constraints.push(where("classe","==",c));if(en)constraints.push(where("eleveNom","==",en));constraints.push(where("statut","==","active"));let q=collection(db,SCHOOL_PREFIX+"_punitions");let queryRef=constraints.length>0?query(q,...constraints):q;const snap=await getDocs(queryRef);const punitions=[];snap.forEach(ds=>{punitions.push({id:ds.id,...ds.data()})});if(punitions.length===0){container.innerHTML='<div style="text-align:center;padding:24px;color:#6b7280;"><i class="fas fa-check-circle" style="font-size:28px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Aucune punition active</p></div>';return;}let html='';punitions.sort((a,b)=>new Date(b.date)-new Date(a.date));punitions.forEach(p=>{const df=new Date(p.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});const gc=p.gravite==='grave'?'grave':p.gravite==='moyenne'?'moyenne':'legere';html+=`<div class="punition-item"><div class="info"><span class="nom">${escapeHtml(p.eleveNom)}</span><span class="classe-tag">${escapeHtml(p.classe||'')}</span><span class="motif">${escapeHtml(p.motif)}</span><span class="date"><i class="far fa-calendar-alt"></i> ${df}</span><span class="gravite ${gc}">${p.gravite==='grave'?'Grave':p.gravite==='moyenne'?'Moyenne':'Légère'}</span></div><div class="punition-actions"><button onclick="window.annulerPunition('${p.id}')"><i class="fas fa-times"></i> Annuler</button></div></div>`;});container.innerHTML=html;}catch(e){container.innerHTML='<div style="text-align:center;padding:20px;color:#dc2626;"><i class="fas fa-exclamation-circle" style="font-size:28px;display:block;margin-bottom:6px;"></i><p>Erreur de chargement</p></div>';console.error(e);}}
+
+window.annulerPunition=async function(id){showConfirm('Annuler la punition','Voulez-vous vraiment annuler cette punition ?',async()=>{try{const snap=await getDoc(doc(db,SCHOOL_PREFIX+"_punitions",id));const data=snap.data();await setDoc(doc(db,SCHOOL_PREFIX+"_punitions",id),{statut:"annulee"},{merge:true});await logAnnulationPunition(data.eleveNom,data.motif);chargerPunitions();}catch(e){}});};
+
+document.getElementById('addPunitionBtn').onclick=function(){const form=document.getElementById('punitionForm');const es=document.getElementById('punitionEleveSelect');if(form.classList.contains('show')){form.classList.remove('show');return;}if(!es.value){return;}document.getElementById('punitionMotif').value='';document.getElementById('punitionJustification').value='';form.classList.add('show');document.getElementById('punitionMotif').focus();};
+
+document.getElementById('cancelPunitionBtn').onclick=function(){document.getElementById('punitionForm').classList.remove('show');};
+
+document.getElementById('savePunitionBtn').onclick=async function(){const es=document.getElementById('punitionEleveSelect');const c=document.getElementById('punitionClasseSelect').value;const motif=document.getElementById('punitionMotif').value.trim();const just=document.getElementById('punitionJustification').value.trim();if(!es.value){return;}if(!motif){return;}if(!just){return;}const data={eleveNom:es.value,classe:c||'Non spécifiée',motif:motif,justification:just,date:new Date().toISOString(),enregistrePar:'Direction',gravite:'moyenne',statut:'active'};try{const docId='punition_'+Date.now();await setDoc(doc(db,SCHOOL_PREFIX+"_punitions",docId),data);await logAjoutPunition(es.value,motif,'moyenne');document.getElementById('punitionForm').classList.remove('show');chargerPunitions();}catch(e){}};
+
+async function updatePunitionEleves(){const c=document.getElementById('punitionClasseSelect').value;const es=document.getElementById('punitionEleveSelect');if(!es)return;const cv=es.value;es.innerHTML='<option value="">Tous</option>';try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_fiches"));const elevesSet=new Set();snap.forEach(ds=>{const d=ds.data();if(d._type)return;if(d.school!==SCHOOL_PREFIX)return;if(c&&d.classe!==c)return;if(d.eleves&&Array.isArray(d.eleves)){d.eleves.forEach(e=>{if(e.nom)elevesSet.add(e.nom);});}});const elevesTries=Array.from(elevesSet).sort((a,b)=>a.localeCompare(b));if(elevesTries.length===0){es.innerHTML='<option value="">Aucun élève trouvé</option>';return;}elevesTries.forEach(n=>{const opt=document.createElement('option');opt.value=n;opt.textContent=n;if(n===cv)opt.selected=true;es.appendChild(opt);});}catch(e){console.error("Erreur chargement élèves:",e);es.innerHTML='<option value="">Erreur de chargement</option>';}}
+
+document.getElementById('punitionClasseSelect').onchange=function(){updatePunitionEleves();chargerPunitions();};
+document.getElementById('punitionEleveSelect').onchange=function(){chargerPunitions();};
+
+// ============ AJOUT PROFESSEUR ============
+document.getElementById('addProfBtn').onclick=function(){showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{if(!nom||!nom.trim())return;const code=Math.floor(1000+Math.random()*9000).toString();const pid='prof_'+Date.now();const data={_type:"prof",id:pid,profId:pid,nom:nom.trim(),code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",pid),data);await logAjoutProfesseur(nom.trim(),code);showModal('Code du professeur',`<div style="text-align:center;padding:8px 0;"><p style="font-weight:600;font-size:16px;color:#1a1a2e;">${escapeHtml(nom.trim())}</p><p style="color:#6b7280;margin-bottom:10px;font-size:12px;">Code d\'accès unique :</p><div style="background:#f8fafc;border-radius:12px;padding:16px;border:2px dashed #2563eb;"><div style="font-size:28px;font-weight:800;letter-spacing:5px;color:#2563eb;font-family:monospace;">${code}</div><div style="font-size:10px;color:#9ca3af;margin-top:3px;">Ce code ne sera plus jamais affiché</div></div></div>`,'<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');}catch(e){}});};
+
+// ============ DÉSACTIVER PROFESSEUR ============
+window.desactiverProf=async function(id){showConfirm('Désactiver le professeur','Voulez-vous vraiment désactiver ce professeur ?',async()=>{try{const docRef=doc(db,SCHOOL_PREFIX+"_professeurs",id);const snap=await getDoc(docRef);const data=snap.data();const action=data.actif?'desactivation':'activation';await setDoc(docRef,{...data,actif:!data.actif},{merge:true});await logModificationProfesseur(data.nom,action);}catch(e){}});};
+
+// ============ CORBEILLE ============
+function afficherCorbeille(){const c=document.getElementById('corbeilleList');if(!c)return;let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');const maintenant=new Date();corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=maintenant)return false;if(f.school&&f.school!==SCHOOL_PREFIX)return false;return true;});localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(corbeille.length===0){c.innerHTML='<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;"><i class="fas fa-trash-alt" style="font-size:24px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Corbeille vide</p></div>';return;}c.innerHTML='';corbeille.forEach(f=>{let joursRestants=Math.ceil((new Date(f.dateExpiration)-new Date())/(1000*60*60*24));let couleurCls=joursRestants<=7?'urgent':(joursRestants<=15?'moyen':'ok');let d=document.createElement('div');d.className='corbeille-item';d.innerHTML=`<div class="header"><span class="ref">${f.numeroRef?'F'+String(f.numeroRef).padStart(3,'0'):'???'}</span><span class="jours ${couleurCls}">${joursRestants} jour(s) restant(s)</span></div><div class="info"><span class="cours">${escapeHtml(f.cours||'?')}</span> - <span class="classe">${escapeHtml(f.classe||'?')}</span>${f.option?`(${escapeHtml(f.option)})`:''}</div><div class="prof">Professeur: ${escapeHtml(f.professeurNom||f.profId||'?')}</div><div class="actions"><select id="restaureProf_${f.ficheId}" style="padding:4px 10px;border-radius:30px;background:#ffffff;color:#1a1a2e;border:1px solid #e5e7eb;font-size:11px;"><option value="${f.profId}">Restaurer chez ${escapeHtml(f.professeurNom||'ancien')}</option><option value="autre">Restaurer chez autre prof</option><option value="nouveau">Créer nouveau professeur</option></select><button class="btn btn-sm btn-success" onclick="window.restaurerFicheCorbeille('${f.ficheId}')">RESTAURER</button><button class="btn btn-sm btn-danger" onclick="window.supprimerFicheCorbeille('${f.ficheId}')">SUPPRIMER</button></div></div>`;c.appendChild(d);});}
+
+window.restaurerFicheCorbeille=async function(ficheId){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);if(!fiche){return;}let select=document.getElementById('restaureProf_'+ficheId);let choix=select?select.value:fiche.profId;let nouveauProfId=fiche.profId,nouveauProfNom=fiche.professeurNom;if(choix==="nouveau"){showPrompt("Nom du nouveau professeur","Nom complet du professeur","Nom",async function(nouveauNom){if(nouveauNom&&nouveauNom.trim()){let code=Math.floor(1000+Math.random()*9000).toString();nouveauProfId='prof_'+Date.now();nouveauProfNom=nouveauNom.trim();let data={_type:"prof",id:nouveauProfId,profId:nouveauProfId,nom:nouveauProfNom,code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",nouveauProfId),data);logAjoutProfesseur(nouveauProfNom,code);}catch(e){}}else{}});return;}else if(choix==="autre"){let profs=[];try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_professeurs"));snap.forEach(ds=>{const d=ds.data();if(d._type==='prof')profs.push(d);});}catch(e){return;}if(profs.length===0){return;}let profList=profs.map(p=>p.nom).join(', ');showPrompt("Nom du professeur","Entrez le nom du professeur",profList,async function(reponse){if(reponse&&reponse.trim()){let profTrouve=profs.find(p=>p.nom===reponse.trim()||p.id===reponse.trim());if(profTrouve){nouveauProfId=profTrouve.id;nouveauProfNom=profTrouve.nom;}else{}}});if(!nouveauProfId)return;}try{delete fiche.dateSuppression;delete fiche.supprimee;delete fiche.professeurNom;delete fiche.dateExpiration;fiche.profId=nouveauProfId;fiche.school=SCHOOL_PREFIX;await setDoc(doc(db,SCHOOL_PREFIX+"_fiches",fiche.ficheId),{...fiche,id:fiche.ficheId});let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();await logRestaurationFiche(ficheId,fiche.cours,fiche.classe);}catch(e){}};
+
+window.supprimerFicheCorbeille=function(ficheId){showConfirm("SUPPRESSION DEFINITIVE","Cette action est IRREVERSIBLE. Confirmer ?",async function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);await logSuppressionFiche(ficheId,fiche?.cours,fiche?.classe);let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();});};
+
+// ============ CODE D'ACCÈS ============
+async function saveAccessCodeToFirebase(newCode){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");await setDoc(docRef,{code:newCode,updatedAt:new Date().toISOString(),updatedBy:"Direction"});return true;}catch(error){return false;}}
+
+async function loadAccessCodeFromFirebase(){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");const docSnap=await getDoc(docRef);if(docSnap.exists()){const data=docSnap.data();if(data.code){ACCESS_CODE=data.code;localStorage.setItem('access_code_direction',data.code);return true;}}return false;}catch(error){return false;}}
+
+document.getElementById('changeCodeBtn').addEventListener('click',function(){const currentCode=document.getElementById('currentCodeInput').value;const newCode=document.getElementById('newCodeInput').value;const confirmCode=document.getElementById('confirmCodeInput').value;const errorDiv=document.getElementById('settingsError');if(currentCode!==ACCESS_CODE){errorDiv.textContent='❌ Code actuel incorrect';document.getElementById('currentCodeInput').focus();return;}if(!/^\d{4}$/.test(newCode)){errorDiv.textContent='❌ Le code doit contenir exactement 4 chiffres';document.getElementById('newCodeInput').focus();return;}if(newCode!==confirmCode){errorDiv.textContent='❌ Les codes ne correspondent pas';document.getElementById('confirmCodeInput').focus();return;}if(newCode===ACCESS_CODE){errorDiv.textContent='⚠️ Le nouveau code est identique à l\'ancien';return;}showConfirm('Changement de code',`Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`,async function(){const saved=await saveAccessCodeToFirebase(newCode);if(saved){ACCESS_CODE=newCode;localStorage.setItem('access_code_direction',newCode);document.getElementById('currentCodeInput').value='';document.getElementById('newCodeInput').value='';document.getElementById('confirmCodeInput').value='';document.getElementById('settingsError').textContent='';await logChangementCodeAccesDirection();}else{}});});
+
+// ============ RECO BOT ============
 const RECO_GREETINGS = {
   'bonjour': 'Bonjour cher directeur ! 👋 Comment puis-je vous aider aujourd\'hui ? N\'hésitez pas à sélectionner un sujet dans la liste ci-dessus et à détailler votre demande. 📝',
   'salut': 'Salut ! 👋 Content de vous voir. Pour que je puisse vous aider efficacement, choisissez un sujet (Amélioration, Correction, Suppression ou Nouveauté) et écrivez votre message. 💡',
@@ -605,61 +699,6 @@ function getSubjectGuidance() {
 ✅ Sélectionnez le sujet ci-dessus, puis écrivez votre message. 😊`;
 }
 
-// ============ FIN RECO BOT CONFIGURATION ============
-
-function getIP(){return new Promise((resolve)=>{try{fetch('https://api.ipify.org?format=json').then(r=>r.json()).then(d=>resolve(d.ip)).catch(()=>resolve('inconnu'));}catch(e){resolve('inconnu');}});}
-async function envoyerLog(action,details={}){try{const logData={action:action,service:SERVICE_NAME,ecoleId:SCHOOL_PREFIX,ecoleNom:schoolNameDisplay,date:new Date().toISOString(),details:details};const logsRef=collection(db,SCHOOL_PREFIX+'_logs');await addDoc(logsRef,logData);const auditRef=collection(db,"audit_logs");await addDoc(auditRef,{...logData,type:"direction_log"});return true;}catch(error){return false;}}
-async function logConnexionReussie(ip){await envoyerLog("connexion_reussie",{ip:ip});}
-async function logConnexionEchouee(codeSaisi,ip){await envoyerLog("connexion_echouee",{code_saisi:codeSaisi,ip:ip});}
-async function logTentativeHack(tentative,ip){await envoyerLog("tentative_hack",{tentative:tentative,ip:ip});}
-async function logDeconnexion(){await envoyerLog("deconnexion",{});}
-async function logAjoutPunition(eleveNom,motif,gravite){await envoyerLog("ajout_punition",{eleve_nom:eleveNom,motif:motif,gravite:gravite});}
-async function logAnnulationPunition(eleveNom,motif){await envoyerLog("annulation_punition",{eleve_nom:eleveNom,motif:motif});}
-async function logAjoutProfesseur(profNom,code){await envoyerLog("ajout_professeur",{professeur_nom:profNom,code:code});}
-async function logModificationProfesseur(profNom,action){await envoyerLog("modification_professeur",{professeur_nom:profNom,action:action});}
-async function logRestaurationFiche(ficheId,cours,classe){await envoyerLog("restauration_fiche",{fiche_id:ficheId,cours:cours,classe:classe});}
-async function logSuppressionFiche(ficheId,cours,classe){await envoyerLog("suppression_fiche_definitive",{fiche_id:ficheId,cours:cours,classe:classe});}
-async function logMessageSupport(sujet,message){await envoyerLog("message_support",{sujet:sujet,message:message});}
-async function logChangementCodeAccesDirection(){await envoyerLog("changement_code_acces_direction",{});}
-async function logDirectionActif(action){await envoyerLog("direction_actif",{action:action||"interaction"});}
-async function logDirectionInactif(tempsInactif){await envoyerLog("direction_inactif",{temps_inactif:tempsInactif+" secondes"});}
-async function logDirectionRetour(tempsInactivite){await envoyerLog("direction_retour",{temps_inactivite:tempsInactivite+" secondes"});}
-async function logPageFermeeDirection(){await envoyerLog("page_fermee_direction",{});}
-function demarrerSurveillanceInactiviteDirection(){dernierMouvementDirection=Date.now();directionActifLogSent=false;if(surveillanceIntervalDirection){clearInterval(surveillanceIntervalDirection);surveillanceIntervalDirection=null;}surveillanceIntervalDirection=setInterval(()=>{const ecart=(Date.now()-dernierMouvementDirection)/1000;if(ecart>300){if(!directionActifLogSent){logDirectionInactif(Math.floor(ecart));directionActifLogSent=true;}}else{directionActifLogSent=false;}},30000);document.addEventListener('click',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvementDirection)/1000;if(ecart>60&&ecart<300){logDirectionRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tabPunitions':'gestion_punitions','tabAdmin':'gestion_administrative','tabReco':'support','tabSettings':'parametres'};logDirectionActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvementDirection=maintenant;});document.addEventListener('keydown',()=>{const maintenant=Date.now();const ecart=(maintenant-dernierMouvementDirection)/1000;if(ecart>60&&ecart<300){logDirectionRetour(Math.floor(ecart));}if(!directionActifLogSent||ecart>60){const activeTab=document.querySelector('.tab.active');const tabId=activeTab?activeTab.dataset.tab:'inconnu';const actions={'tabPunitions':'gestion_punitions','tabAdmin':'gestion_administrative','tabReco':'support','tabSettings':'parametres'};logDirectionActif(actions[tabId]||'navigation');directionActifLogSent=false;}dernierMouvementDirection=maintenant;});document.addEventListener('scroll',()=>{dernierMouvementDirection=Date.now();});document.addEventListener('visibilitychange',()=>{if(document.hidden){logDirectionInactif(0);}else{logDirectionRetour(0);}dernierMouvementDirection=Date.now();});window.addEventListener('beforeunload',()=>{logPageFermeeDirection();});}
-function redirigerVersSchoolCompta(){const ecoleParam=new URL(window.location.href).searchParams.get('ecole')||'';window.location.href=`https://www.netubex.com/schoolcompta?ecole=${encodeURIComponent(ecoleParam)}`;}
-loginOverlay.querySelector('.login-card').addEventListener('click',function(e){if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;loginClickCount++;if(loginClickTimeout)clearTimeout(loginClickTimeout);loginClickTimeout=setTimeout(()=>{loginClickCount=0;},1000);if(loginClickCount===3){loginClickCount=0;if(loginClickTimeout)clearTimeout(loginClickTimeout);redirigerVersSchoolCompta();}});
-async function checkLogin(){const val=loginInput.value;if(val===ACCESS_CODE){loginOverlay.style.display="none";mainContent.classList.add("visible");const ip=await getIP();logConnexionReussie(ip);initApp();demarrerSurveillanceInactiviteDirection();}else{loginError.textContent="Code incorrect";loginInput.value="";loginInput.focus();const ip=await getIP();logConnexionEchouee(val,ip);}}
-loginBtn.addEventListener("click",checkLogin);
-loginInput.addEventListener("keypress",e=>{if(e.key==="Enter")checkLogin()});
-loginInput.addEventListener("input",()=>{loginError.textContent="";if(loginInput.value.length===4)checkLogin()});
-document.getElementById("logoutBtn").addEventListener("click",function(){logDeconnexion();loginOverlay.style.display="flex";mainContent.classList.remove("visible");loginInput.value="";loginError.textContent="";loginInput.focus();});
-function toast(message,type='success'){const c=document.getElementById('toastContainer');if(!c)return;const icons={success:'fas fa-check-circle',error:'fas fa-exclamation-circle',warning:'fas fa-exclamation-triangle'};const colors={success:'#16a34a',error:'#dc2626',warning:'#d97706'};const e=document.createElement('div');e.className='toast '+(type||'');e.innerHTML='<div class="toast-icon" style="color:'+colors[type]+'"><i class="'+icons[type]+'"></i></div><div class="toast-content"><div class="toast-title">'+{success:'Succès',error:'Erreur',warning:'Attention'}[type]+'</div><div class="toast-message">'+message+'</div></div>';c.appendChild(e);setTimeout(()=>e.classList.add('show'),10);setTimeout(()=>{e.classList.remove('show');setTimeout(()=>{if(e.parentNode)e.remove()},400)},3500);}
-function escapeHtml(s){if(!s)return'';return s.replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
-function showModal(title,bodyHTML,footerHTML){const overlay=document.createElement('div');overlay.className='modal-fullscreen';overlay.innerHTML='<div class="modal-content"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;"><h3>'+title+'</h3><span style="font-size:24px;cursor:pointer;color:#9ca3af;" onclick="this.closest(\'.modal-fullscreen\').remove()">&times;</span></div>'+bodyHTML+'<div class="modal-footer">'+footerHTML+'</div></div>';document.body.appendChild(overlay);setTimeout(()=>overlay.classList.add('show'),10);return overlay;}
-function showPrompt(title,message,placeholder,onConfirm){const m=showModal(title,'<p>'+message+'</p><input type="text" id="modalInput" placeholder="'+placeholder+'" style="width:100%;padding:12px 16px;border-radius:12px;background:#f8fafc;border:2px solid #e5e7eb;color:#1a1a2e;font-size:13px;outline:none;">','<button class="btn btn-sm btn-outline" id="promptCancel">Annuler</button><button class="btn btn-sm btn-success" id="promptConfirm">Confirmer</button>');m.querySelector('#promptCancel').onclick=()=>m.remove();m.querySelector('#promptConfirm').onclick=()=>{const val=m.querySelector('#modalInput').value;m.remove();if(onConfirm)onConfirm(val)};setTimeout(()=>{const inp=m.querySelector('#modalInput');if(inp)inp.focus()},100);}
-function showConfirm(title,message,onConfirm){const m=showModal(title,'<p>'+message+'</p>','<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');m.querySelector('#confirmCancel').onclick=()=>m.remove();m.querySelector('#confirmOk').onclick=()=>{m.remove();if(onConfirm)onConfirm()};}
-document.querySelectorAll('.tab').forEach(btn=>{btn.onclick=function(){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));this.classList.add('active');document.getElementById(this.dataset.tab).classList.add('active');if(this.dataset.tab==='tabReco'){initReco();document.body.classList.add('reco-fullscreen');}else{document.body.classList.remove('reco-fullscreen');}if(this.dataset.tab==='tabAdmin')afficherCorbeille();}});
-document.getElementById('recoBackBtn').addEventListener('click',function(){document.body.classList.remove('reco-fullscreen');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.querySelector('.tab[data-tab="tabPunitions"]').classList.add('active');document.getElementById('tabPunitions').classList.add('active');});
-function afficherCorbeille(){const c=document.getElementById('corbeilleList');if(!c)return;let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');const maintenant=new Date();corbeille=corbeille.filter(f=>{if(f.dateExpiration&&new Date(f.dateExpiration)<=maintenant)return false;if(f.school&&f.school!==SCHOOL_PREFIX)return false;return true;});localStorage.setItem('gloria_corbeille',JSON.stringify(corbeille));if(corbeille.length===0){c.innerHTML='<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;"><i class="fas fa-trash-alt" style="font-size:24px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Corbeille vide</p></div>';return;}c.innerHTML='';corbeille.forEach(f=>{let joursRestants=Math.ceil((new Date(f.dateExpiration)-new Date())/(1000*60*60*24));let couleurCls=joursRestants<=7?'urgent':(joursRestants<=15?'moyen':'ok');let d=document.createElement('div');d.className='corbeille-item';d.innerHTML=`<div class="header"><span class="ref">${f.numeroRef?'F'+String(f.numeroRef).padStart(3,'0'):'???'}</span><span class="jours ${couleurCls}">${joursRestants} jour(s) restant(s)</span></div><div class="info"><span class="cours">${escapeHtml(f.cours||'?')}</span> - <span class="classe">${escapeHtml(f.classe||'?')}</span>${f.option?`(${escapeHtml(f.option)})`:''}</div><div class="prof">Professeur: ${escapeHtml(f.professeurNom||f.profId||'?')}</div><div class="actions"><select id="restaureProf_${f.ficheId}" style="padding:4px 10px;border-radius:30px;background:#ffffff;color:#1a1a2e;border:1px solid #e5e7eb;font-size:11px;"><option value="${f.profId}">Restaurer chez ${escapeHtml(f.professeurNom||'ancien')}</option><option value="autre">Restaurer chez autre prof</option><option value="nouveau">Créer nouveau professeur</option></select><button class="btn btn-sm btn-success" onclick="window.restaurerFicheCorbeille('${f.ficheId}')">RESTAURER</button><button class="btn btn-sm btn-danger" onclick="window.supprimerFicheCorbeille('${f.ficheId}')">SUPPRIMER</button></div></div>`;c.appendChild(d);});}
-window.restaurerFicheCorbeille=async function(ficheId){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);if(!fiche){return;}let select=document.getElementById('restaureProf_'+ficheId);let choix=select?select.value:fiche.profId;let nouveauProfId=fiche.profId,nouveauProfNom=fiche.professeurNom;if(choix==="nouveau"){showPrompt("Nom du nouveau professeur","Nom complet du professeur","Nom",async function(nouveauNom){if(nouveauNom&&nouveauNom.trim()){let code=Math.floor(1000+Math.random()*9000).toString();nouveauProfId='prof_'+Date.now();nouveauProfNom=nouveauNom.trim();let data={_type:"prof",id:nouveauProfId,profId:nouveauProfId,nom:nouveauProfNom,code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",nouveauProfId),data);logAjoutProfesseur(nouveauProfNom,code);}catch(e){}}else{}});return;}else if(choix==="autre"){let profs=[];try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_professeurs"));snap.forEach(ds=>{const d=ds.data();if(d._type==='prof')profs.push(d);});}catch(e){return;}if(profs.length===0){return;}let profList=profs.map(p=>p.nom).join(', ');showPrompt("Nom du professeur","Entrez le nom du professeur",profList,async function(reponse){if(reponse&&reponse.trim()){let profTrouve=profs.find(p=>p.nom===reponse.trim()||p.id===reponse.trim());if(profTrouve){nouveauProfId=profTrouve.id;nouveauProfNom=profTrouve.nom;}else{}}});if(!nouveauProfId)return;}try{delete fiche.dateSuppression;delete fiche.supprimee;delete fiche.professeurNom;delete fiche.dateExpiration;fiche.profId=nouveauProfId;fiche.school=SCHOOL_PREFIX;await setDoc(doc(db,SCHOOL_PREFIX+"_fiches",fiche.ficheId),{...fiche,id:fiche.ficheId});let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();await logRestaurationFiche(ficheId,fiche.cours,fiche.classe);}catch(e){}};
-window.supprimerFicheCorbeille=function(ficheId){showConfirm("SUPPRESSION DEFINITIVE","Cette action est IRREVERSIBLE. Confirmer ?",async function(){let corbeille=JSON.parse(localStorage.getItem('gloria_corbeille')||'[]');let fiche=corbeille.find(f=>f.ficheId===ficheId);await logSuppressionFiche(ficheId,fiche?.cours,fiche?.classe);let nouvelleCorbeille=corbeille.filter(f=>f.ficheId!==ficheId);localStorage.setItem('gloria_corbeille',JSON.stringify(nouvelleCorbeille));afficherCorbeille();});};
-async function chargerPunitions(){const c=document.getElementById('punitionClasseSelect').value;const en=document.getElementById('punitionEleveSelect').value;const container=document.getElementById('punitionsListContainer');if(!container)return;container.innerHTML='<div style="text-align:center;padding:16px;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>';try{let constraints=[];if(c)constraints.push(where("classe","==",c));if(en)constraints.push(where("eleveNom","==",en));constraints.push(where("statut","==","active"));let q=collection(db,SCHOOL_PREFIX+"_punitions");let queryRef=constraints.length>0?query(q,...constraints):q;const snap=await getDocs(queryRef);const punitions=[];snap.forEach(ds=>{punitions.push({id:ds.id,...ds.data()})});if(punitions.length===0){container.innerHTML='<div style="text-align:center;padding:24px;color:#6b7280;"><i class="fas fa-check-circle" style="font-size:28px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Aucune punition active</p></div>';return;}let html='';punitions.sort((a,b)=>new Date(b.date)-new Date(a.date));punitions.forEach(p=>{const df=new Date(p.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});const gc=p.gravite==='grave'?'grave':p.gravite==='moyenne'?'moyenne':'legere';html+=`<div class="punition-item"><div class="info"><span class="nom">${escapeHtml(p.eleveNom)}</span><span class="classe-tag">${escapeHtml(p.classe||'')}</span><span class="motif">${escapeHtml(p.motif)}</span><span class="date"><i class="far fa-calendar-alt"></i> ${df}</span><span class="gravite ${gc}">${p.gravite==='grave'?'Grave':p.gravite==='moyenne'?'Moyenne':'Légère'}</span></div><div class="punition-actions"><button onclick="window.annulerPunition('${p.id}')"><i class="fas fa-times"></i> Annuler</button></div></div>`;});container.innerHTML=html;}catch(e){container.innerHTML='<div style="text-align:center;padding:20px;color:#dc2626;"><i class="fas fa-exclamation-circle" style="font-size:28px;display:block;margin-bottom:6px;"></i><p>Erreur de chargement</p></div>';console.error(e);}}
-window.annulerPunition=async function(id){showConfirm('Annuler la punition','Voulez-vous vraiment annuler cette punition ?',async()=>{try{const snap=await getDoc(doc(db,SCHOOL_PREFIX+"_punitions",id));const data=snap.data();await setDoc(doc(db,SCHOOL_PREFIX+"_punitions",id),{statut:"annulee"},{merge:true});await logAnnulationPunition(data.eleveNom,data.motif);chargerPunitions();}catch(e){}});};
-document.getElementById('addPunitionBtn').onclick=function(){const form=document.getElementById('punitionForm');const es=document.getElementById('punitionEleveSelect');if(form.classList.contains('show')){form.classList.remove('show');return;}if(!es.value){return;}document.getElementById('punitionMotif').value='';document.getElementById('punitionJustification').value='';form.classList.add('show');document.getElementById('punitionMotif').focus();};
-document.getElementById('cancelPunitionBtn').onclick=function(){document.getElementById('punitionForm').classList.remove('show');};
-document.getElementById('savePunitionBtn').onclick=async function(){const es=document.getElementById('punitionEleveSelect');const c=document.getElementById('punitionClasseSelect').value;const motif=document.getElementById('punitionMotif').value.trim();const just=document.getElementById('punitionJustification').value.trim();if(!es.value){return;}if(!motif){return;}if(!just){return;}const data={eleveNom:es.value,classe:c||'Non spécifiée',motif:motif,justification:just,date:new Date().toISOString(),enregistrePar:'Direction',gravite:'moyenne',statut:'active'};try{const docId='punition_'+Date.now();await setDoc(doc(db,SCHOOL_PREFIX+"_punitions",docId),data);await logAjoutPunition(es.value,motif,'moyenne');document.getElementById('punitionForm').classList.remove('show');chargerPunitions();}catch(e){}};
-async function updatePunitionEleves(){const c=document.getElementById('punitionClasseSelect').value;const es=document.getElementById('punitionEleveSelect');if(!es)return;const cv=es.value;es.innerHTML='<option value="">Tous</option>';try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_fiches"));const elevesSet=new Set();snap.forEach(ds=>{const d=ds.data();if(d._type)return;if(d.school!==SCHOOL_PREFIX)return;if(c&&d.classe!==c)return;if(d.eleves&&Array.isArray(d.eleves)){d.eleves.forEach(e=>{if(e.nom)elevesSet.add(e.nom);});}});const elevesTries=Array.from(elevesSet).sort((a,b)=>a.localeCompare(b));if(elevesTries.length===0){es.innerHTML='<option value="">Aucun élève trouvé</option>';return;}elevesTries.forEach(n=>{const opt=document.createElement('option');opt.value=n;opt.textContent=n;if(n===cv)opt.selected=true;es.appendChild(opt);});}catch(e){console.error("Erreur chargement élèves:",e);es.innerHTML='<option value="">Erreur de chargement</option>';}}
-document.getElementById('punitionClasseSelect').onchange=function(){updatePunitionEleves();chargerPunitions();};
-document.getElementById('punitionEleveSelect').onchange=function(){chargerPunitions();};
-document.getElementById('addProfBtn').onclick=function(){showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{if(!nom||!nom.trim())return;const code=Math.floor(1000+Math.random()*9000).toString();const pid='prof_'+Date.now();const data={_type:"prof",id:pid,profId:pid,nom:nom.trim(),code:code,createdAt:Date.now(),actif:true,school:SCHOOL_PREFIX};try{await setDoc(doc(db,SCHOOL_PREFIX+"_professeurs",pid),data);await logAjoutProfesseur(nom.trim(),code);showModal('Code du professeur',`<div style="text-align:center;padding:8px 0;"><p style="font-weight:600;font-size:16px;color:#1a1a2e;">${escapeHtml(nom.trim())}</p><p style="color:#6b7280;margin-bottom:10px;font-size:12px;">Code d'accès unique :</p><div style="background:#f8fafc;border-radius:12px;padding:16px;border:2px dashed #2563eb;"><div style="font-size:28px;font-weight:800;letter-spacing:5px;color:#2563eb;font-family:monospace;">${code}</div><div style="font-size:10px;color:#9ca3af;margin-top:3px;">Ce code ne sera plus jamais affiché</div></div></div>`,'<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');afficherProfs();}catch(e){}});};
-async function afficherProfs(){const c=document.getElementById('profsListContainer');if(!c)return;try{const snap=await getDocs(collection(db,SCHOOL_PREFIX+"_professeurs"));const profs=[];snap.forEach(ds=>{const d=ds.data();if(d._type==='prof')profs.push(d)});if(profs.length===0){c.innerHTML='<div style="text-align:center;padding:10px;color:#9ca3af;font-size:12px;">Aucun professeur</div>';return;}profs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));c.innerHTML='';profs.forEach(p=>{const d=document.createElement('div');d.className='prof-item';d.innerHTML=`<span class="name">${escapeHtml(p.nom)}</span><span class="code">${p.actif===false?'DESACTIVE':'• • • •'}</span><span class="status-badge ${p.actif!==false?'active':'inactive'}">${p.actif!==false?'Actif':'Inactif'}</span><button onclick="window.desactiverProf('${p.id}')" style="background:${p.actif!==false?'#fee2e2':'#dcfce7'};color:${p.actif!==false?'#dc2626':'#16a34a'};border:1px solid ${p.actif!==false?'#fecaca':'#bbf7d0'};padding:2px 12px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;transition:all .2s;box-shadow:0 2px 4px rgba(0,0,0,0.04);">${p.actif!==false?'Désactiver':'Réactiver'}</button>`;c.appendChild(d);});}catch(e){console.error(e);}}
-window.desactiverProf=async function(id){showConfirm('Désactiver le professeur','Voulez-vous vraiment désactiver ce professeur ?',async()=>{try{const docRef=doc(db,SCHOOL_PREFIX+"_professeurs",id);const snap=await getDoc(docRef);const data=snap.data();const action=data.actif?'desactivation':'activation';await setDoc(docRef,{...data,actif:!data.actif},{merge:true});await logModificationProfesseur(data.nom,action);afficherProfs();}catch(e){}});};
-async function saveAccessCodeToFirebase(newCode){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");await setDoc(docRef,{code:newCode,updatedAt:new Date().toISOString(),updatedBy:"Direction"});return true;}catch(error){return false;}}
-async function loadAccessCodeFromFirebase(){try{const docRef=doc(db,SCHOOL_PREFIX+"_settings","access_code");const docSnap=await getDoc(docRef);if(docSnap.exists()){const data=docSnap.data();if(data.code){ACCESS_CODE=data.code;localStorage.setItem('access_code_direction',data.code);return true;}}return false;}catch(error){return false;}}
-document.getElementById('changeCodeBtn').addEventListener('click',function(){const currentCode=document.getElementById('currentCodeInput').value;const newCode=document.getElementById('newCodeInput').value;const confirmCode=document.getElementById('confirmCodeInput').value;const errorDiv=document.getElementById('settingsError');if(currentCode!==ACCESS_CODE){errorDiv.textContent='❌ Code actuel incorrect';document.getElementById('currentCodeInput').focus();return;}if(!/^\d{4}$/.test(newCode)){errorDiv.textContent='❌ Le code doit contenir exactement 4 chiffres';document.getElementById('newCodeInput').focus();return;}if(newCode!==confirmCode){errorDiv.textContent='❌ Les codes ne correspondent pas';document.getElementById('confirmCodeInput').focus();return;}if(newCode===ACCESS_CODE){errorDiv.textContent='⚠️ Le nouveau code est identique à l\'ancien';return;}showConfirm('Changement de code',`Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`,async function(){const saved=await saveAccessCodeToFirebase(newCode);if(saved){ACCESS_CODE=newCode;localStorage.setItem('access_code_direction',newCode);document.getElementById('currentCodeInput').value='';document.getElementById('newCodeInput').value='';document.getElementById('confirmCodeInput').value='';document.getElementById('settingsError').textContent='';await logChangementCodeAccesDirection();}else{}});});
-
-// ============ RECO BOT FUNCTIONS ============
-
 function scrollRecoToBottom() {
   const recoBody = document.getElementById('recoBody');
   if (recoBody) {
@@ -710,20 +749,12 @@ function showTypingAndAutoReplyWithCustomReply(subject, customReply) {
     clearTimeout(pendingReply);
     removeTypingIndicator();
   }
-  
-  // Réinitialiser le flag pour ce nouveau message
   botWaitingMessageSent = false;
-  
   addTypingIndicator();
-  
   const delay = 1500 + Math.random() * 2000;
   pendingReply = setTimeout(() => {
     removeTypingIndicator();
-    
-    // 1. Ajouter la réponse naturelle du bot
     addRecoMessage('support', 'Support NeTubeX', customReply);
-    
-    // 2. Ajouter le message d'attente après un délai (uniquement si pas déjà envoyé)
     if (!botWaitingMessageSent) {
       const secondDelay = 2000 + Math.random() * 1500;
       setTimeout(() => {
@@ -733,7 +764,6 @@ function showTypingAndAutoReplyWithCustomReply(subject, customReply) {
         }
       }, secondDelay);
     }
-    
     pendingReply = null;
   }, delay);
 }
@@ -885,22 +915,26 @@ function initReco() {
   });
 }
 
-// ============ FIN RECO BOT FUNCTIONS ============
-
+// ============ INIT ============
 async function initApp() {
   await loadAccessCodeFromFirebase();
   await updatePunitionEleves();
   await chargerPunitions();
-  afficherProfs();
+  ecouterProfsEnTempsReel();
   afficherCorbeille();
   initReco();
   setTimeout(scrollRecoToBottom, 800);
 }
 
+// ============ RAFRAÎCHISSEMENT AUTO ============
 setInterval(() => {
   if (document.getElementById('tabPunitions').classList.contains('active')) chargerPunitions();
   if (document.getElementById('tabAdmin').classList.contains('active')) afficherCorbeille();
 }, 300000);
+
+// ============ DÉMARRAGE ============
+document.getElementById("accessOverlay").style.display = 'flex';
+document.getElementById("accessCode")?.focus();
 </script>
 </body>
 </html>
