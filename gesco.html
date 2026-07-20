@@ -603,12 +603,8 @@ if (parentBtn) parentBtn.textContent = '🌙';
 </script>
 <script type="module">
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, orderBy, updateDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, orderBy, updateDoc } from "firebase/firestore";
 
-// ============================================
-// NOUVEAU PROJET FIREBASE - GESCO-67C43
-// Structure: ecoles/{ecoleId}/{sousCollection}
-// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
   authDomain: "gesco-67c43.firebaseapp.com",
@@ -626,13 +622,8 @@ const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 if (!schoolId) { window.location.href = '/schoolchoice'; throw new Error('Redirection'); }
 
-// Nettoyer l'ID de l'école pour l'utiliser comme nom de document
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME = schoolId;
-
-// ============================================
-// FONCTIONS D'ACCÈS À LA NOUVELLE STRUCTURE
-// ============================================
 
 function getEcoleRef(sousCollection, docId = null) {
   if (docId) {
@@ -641,7 +632,6 @@ function getEcoleRef(sousCollection, docId = null) {
   return collection(db, "ecoles", ECOLET_ID, sousCollection);
 }
 
-// SOUS-COLLECTIONS
 const SC = {
   PROFESSEURS: 'professeurs',
   FICHES: 'fiches',
@@ -657,10 +647,6 @@ const SC = {
   COMPTA_ELEVES: 'compta_eleves',
   SETTINGS: 'settings'
 };
-
-// ============================================
-// FIN DES FONCTIONS D'ACCÈS
-// ============================================
 
 async function verifierEcoleAutorisee(ecoleId) { try { const docRef = doc(db, "ecoles", ECOLET_ID); const docSnap = await getDoc(docRef); return docSnap.exists(); } catch (error) { console.error("Erreur de vérification:", error); return false; } }
 const estAutorisee = await verifierEcoleAutorisee(schoolId);
@@ -774,9 +760,7 @@ const aujourdhui = new Date().toISOString().slice(0, 10);
 localStorage.setItem('gloria_code_gen_date_' + currentProf?.id, aujourdhui);
 }
 async function genererCodeProfesseurUnique() {
-let ap = await getAllFromIndexedDB('professeurs');
 let codesExistants = new Set();
-ap.forEach(p => { if (p.code) codesExistants.add(p.code); });
 if (navigator.onLine) {
 try {
 const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
@@ -794,9 +778,6 @@ tentative++;
 return code;
 }
 async function verifierCodeExistant(code) {
-let ap = await getAllFromIndexedDB('professeurs');
-const existeLocal = ap.some(p => p.code === code && p.profId !== currentProf?.id);
-if (existeLocal) return true;
 if (navigator.onLine) {
 try {
 const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
@@ -819,8 +800,7 @@ if (!currentProf) {
 toast("Vous n'êtes pas connecté", "error");
 return;
 }
-let ap = await getAllFromIndexedDB('professeurs');
-let fp = ap.find(p => p.profId === currentProf.id && p.school === ECOLET_ID);
+let fp = { code: currentProf.code };
 if (!fp || fp.code !== ancienCode) {
 toast("❌ Ancien code incorrect !", "error");
 document.getElementById('oldCode').value = '';
@@ -991,37 +971,14 @@ const browserInfo = { userAgent: navigator.userAgent, screen: window.screen.widt
 const logData = { _type: "log_activite", id: logId, action: action, utilisateur: userInfo.nom, utilisateurId: userInfo.id, utilisateurType: userInfo.type, ecole: userInfo.ecole, date: now.toISOString(), dateTimestamp: now.getTime(), details: { ...details, browser: browserInfo, ip: ipInfo.ip, fournisseur: ipInfo.fournisseur, ville: ipInfo.ville, pays: ipInfo.pays, url: window.location.href }, statut: statut, message: details.message || action, lu: false };
 if (navigator.onLine) {
 try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, logId), logData); }
-catch (error) { sauvegarderLogLocal(logData); }
-} else sauvegarderLogLocal(logData);
+catch (error) { }
+} 
 if (estActionCritique(action, statut)) alerterAdmin(logData);
 if (statut === "error" || statut === "critical") {
 if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
 }
 return logData;
 } catch (error) { console.error("Erreur enregistrement log:", error); return null; }
-}
-function sauvegarderLogLocal(logData) {
-try {
-const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
-logsLocaux.push(logData);
-localStorage.setItem('logs_locaux', JSON.stringify(logsLocaux));
-} catch (error) { console.error("Erreur sauvegarde locale:", error); }
-}
-async function synchroniserLogsLocaux() {
-if (!navigator.onLine) return;
-try {
-const logsLocaux = JSON.parse(localStorage.getItem('logs_locaux') || '[]');
-if (logsLocaux.length === 0) return;
-let compteur = 0;
-for (const log of logsLocaux) {
-try {
-await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, log.id), log);
-compteur++;
-} catch (error) { console.error("Erreur synchro log:", error); }
-}
-localStorage.removeItem('logs_locaux');
-if (compteur > 0) console.log(`✅ ${compteur} logs synchronisés`);
-} catch (error) { console.error("Erreur synchronisation logs:", error); }
 }
 function estActionCritique(action, statut) {
 const actionsCritiques = ["connexion_echouee", "connexion_reussie", "deconnexion", "suppression_fiche", "modification_code", "creation_professeur", "suppression_professeur", "modification_options", "erreur_systeme", "tentative_hack", "creation_fiche", "suppression_eleve", "modification_code_acces", "export_pdf", "correction_masse", "connexion_technique", "deconnexion_technique"];
@@ -1048,7 +1005,6 @@ for (const ds of snap.docs) {
 const data = ds.data();
 if (!data._type && data.profId === currentProf.id) {
 toutesFiches.push({ id: ds.id, cours: data.cours || '', classe: data.classe || '', option: data.option || '', numeroRef: data.numeroRef || null });
-await saveToIndexedDB('fiches', { ...data, id: ds.id });
 }
 }
 toutesFiches.sort((a, b) => (a.numeroRef || 999) - (b.numeroRef || 999));
@@ -1066,22 +1022,16 @@ finally { btn.classList.remove('spinning'); btn.disabled = false; }
 async function changerCodeAcces(ancienCode, nouveauCode) {
 if (!currentProf) { toast("Vous n'êtes pas connecté", "error"); return false; }
 try {
-const professeurs = await getAllFromIndexedDB('professeurs');
-const profIndex = professeurs.findIndex(p => p.profId === currentProf.id && p.school === ECOLET_ID);
-if (profIndex === -1) { toast("Professeur non trouvé", "error"); return false; }
-if (professeurs[profIndex].code !== ancienCode) {
+if (currentProf.code !== ancienCode) {
 await enregistrerLog("tentative_code_incorrect", { message: 'Tentative de changement de code avec ancien code incorrect', utilisateur: currentProf.nom }, "error");
 toast("❌ Ancien code incorrect", "error");
 return false;
 }
-professeurs[profIndex].code = nouveauCode;
-await saveToIndexedDB('professeurs', professeurs[profIndex]);
 currentProf.code = nouveauCode;
-sauvegarderSession(currentProf);
 if (navigator.onLine) {
-try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), professeurs[profIndex]); }
-catch (e) { await addPendingSync('saveProf', professeurs[profIndex]); }
-} else await addPendingSync('saveProf', professeurs[profIndex]);
+try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), { profId: currentProf.id, nom: currentProf.nom, code: nouveauCode, school: ECOLET_ID }); }
+catch (e) { console.error("Erreur sauvegarde code:", e); }
+}
 await enregistrerLog("changement_code", { message: 'Changement de code pour ' + currentProf.nom, utilisateur: currentProf.nom }, "success");
 toast("✅ Code changé avec succès", "success");
 return true;
@@ -1108,8 +1058,7 @@ function isCacheValid(eleveData) { const currentHash = getDataHash(eleveData); i
 async function verifierCompteActif(profId) { try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, profId); const docSnap = await getDoc(docRef); if (docSnap.exists()) { const data = docSnap.data(); if (data.actif === false) { compteDesactive = true; messageDesactivation = data.messageDesactivation || 'Votre compte a été désactivé par l\'entreprise NeTubeX SARL parce que vous avez enfreint les règles de la plateforme.'; return false; } return true; } return true; } catch (e) { console.error("Erreur vérification compte:", e); return true; } }
 function getWeekNumber(date) { const d = new Date(date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7); const week1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7); }
 function getSessionId() { if (!sessionId) { sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); sessionStorage.setItem('parental_session_id', sessionId); } return sessionId; }
-async function logParentalActivity(type, code, data = {}) { try { const now = new Date(); const logData = { _type: "parental_analytics", timestamp: now.toISOString(), date: now.toISOString().slice(0, 10), hour: now.getHours(), week: getWeekNumber(now), month: now.getMonth() + 1, year: now.getFullYear(), type: type, parentCode: code || 'unknown', ecole: ECOLET_ID, sessionId: getSessionId(), details: data, count: 1 }; if (navigator.onLine) { try { await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData); } catch (e) { saveAnalyticsLocal(logData); } } else saveAnalyticsLocal(logData); return true; } catch (e) { return false; } }
-function saveAnalyticsLocal(logData) { try { const analytics = JSON.parse(localStorage.getItem('parental_analytics_cache') || '[]'); analytics.push(logData); localStorage.setItem('parental_analytics_cache', JSON.stringify(analytics)); } catch (e) {} }
+async function logParentalActivity(type, code, data = {}) { try { const now = new Date(); const logData = { _type: "parental_analytics", timestamp: now.toISOString(), date: now.toISOString().slice(0, 10), hour: now.getHours(), week: getWeekNumber(now), month: now.getMonth() + 1, year: now.getFullYear(), type: type, parentCode: code || 'unknown', ecole: ECOLET_ID, sessionId: getSessionId(), details: data, count: 1 }; if (navigator.onLine) { try { await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData); } catch (e) { } } return true; } catch (e) { return false; } }
 function convertirNombreEnFrancais(n) { if (n === 0) return 'zéro'; if (n < 0) return 'moins ' + convertirNombreEnFrancais(-n); const unite = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf']; const dizaine = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix']; if (n < 20) return unite[n]; if (n < 100) { const d = Math.floor(n / 10); const u = n % 10; if (d === 7 || d === 9) { const base = (d === 7) ? 'soixante' : 'quatre-vingt'; const reste = (d === 7) ? n - 60 : n - 80; return base + '-' + convertirNombreEnFrancais(reste); } if (u === 0) { if (d === 8) return 'quatre-vingts'; return dizaine[d]; } if (d === 8) return 'quatre-vingt-' + unite[u]; return dizaine[d] + '-' + unite[u]; } if (n < 1000) { const c = Math.floor(n / 100); const r = n % 100; if (c === 1) { if (r === 0) return 'cent'; return 'cent ' + convertirNombreEnFrancais(r); } if (r === 0) return unite[c] + ' cents'; return unite[c] + ' cent ' + convertirNombreEnFrancais(r); } if (n < 1000000) { const m = Math.floor(n / 1000); const r = n % 1000; if (m === 1) { if (r === 0) return 'mille'; return 'mille ' + convertirNombreEnFrancais(r); } if (r === 0) return convertirNombreEnFrancais(m) + ' mille'; return convertirNombreEnFrancais(m) + ' mille ' + convertirNombreEnFrancais(r); } if (n < 1000000000) { const m = Math.floor(n / 1000000); const r = n % 1000000; if (m === 1) { if (r === 0) return 'un million'; return 'un million ' + convertirNombreEnFrancais(r); } if (r === 0) return convertirNombreEnFrancais(m) + ' millions'; return convertirNombreEnFrancais(m) + ' millions ' + convertirNombreEnFrancais(r); } return n.toString(); }
 function voixParentale(texte) { if (!texte) return; if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); let texteParle = texte; texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, ''); texteParle = texteParle.replace(/\*\*/g, ''); texteParle = texteParle.replace(/[\(\)]/g, ''); texteParle = texteParle.replace(/[|]/g, ''); texteParle = texteParle.replace(/\n/g, '. '); texteParle = texteParle.replace(/\.\./g, '.'); texteParle = texteParle.replace(/\./g, '. '); texteParle = texteParle.replace(/\?/g, '? '); texteParle = texteParle.replace(/\!/g, '! '); texteParle = texteParle.replace(/:/g, ': '); texteParle = texteParle.replace(/-\s/g, '. '); texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); }); texteParle = texteParle.replace(/,/g, ', '); texteParle = texteParle.replace(/\s+/g, ' '); texteParle = texteParle.replace(/\.\s+\./g, '. '); texteParle = texteParle.replace(/\?\s+\?/g, '? '); texteParle = texteParle.replace(/\!\s+\!/g, '! '); texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => { const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => { const num = parseInt(p1); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => { if (match.includes('FC') || match.includes('/')) return match; const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num); return convertirNombreEnFrancais(num); }); texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => { return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2)); }); texteParle = texteParle.replace(/\s+/g, ' '); const utterance = new SpeechSynthesisUtterance(texteParle); utterance.lang = 'fr-FR'; utterance.rate = 0.65; utterance.pitch = 1; const voices = window.speechSynthesis.getVoices(); const voixFR = voices.find(v => v.lang.startsWith('fr')); if (voixFR) utterance.voice = voixFR; window.speechSynthesis.speak(utterance); }
 function speak(text, onEnd) { if (!text) return; if (window.speechSynthesis) window.speechSynthesis.cancel(); let texteParle = text; texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, ''); texteParle = texteParle.replace(/\*\*/g, ''); texteParle = texteParle.replace(/[\(\)]/g, ''); texteParle = texteParle.replace(/[|]/g, ''); texteParle = texteParle.replace(/\n/g, '. '); texteParle = texteParle.replace(/\.\./g, '.'); texteParle = texteParle.replace(/\./g, '. '); texteParle = texteParle.replace(/\?/g, '? '); texteParle = texteParle.replace(/\!/g, '! '); texteParle = texteParle.replace(/:/g, ': '); texteParle = texteParle.replace(/-\s/g, '. '); texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); }); texteParle = texteParle.replace(/,/g, ', '); texteParle = texteParle.replace(/\s+/g, ' '); texteParle = texteParle.replace(/\.\s+\./g, '. '); texteParle = texteParle.replace(/\?\s+\?/g, '? '); texteParle = texteParle.replace(/\!\s+\!/g, '! '); texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => { const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => { const num = parseInt(p1); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => { if (match.includes('FC') || match.includes('/')) return match; const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num); return convertirNombreEnFrancais(num); }); texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => { return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2)); }); texteParle = texteParle.replace(/\s+/g, ' '); const utterance = new SpeechSynthesisUtterance(texteParle); utterance.lang = 'fr-FR'; utterance.rate = 0.65; utterance.pitch = 1; const voices = window.speechSynthesis.getVoices(); const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr')); if (frenchVoice) utterance.voice = frenchVoice; utterance.onend = () => { if (onEnd) onEnd(); }; utterance.onerror = () => { if (onEnd) onEnd(); }; window.speechSynthesis.speak(utterance); }
@@ -1622,15 +1571,12 @@ async function saveToIndexedDB(store, data) { let dbc = await initIndexedDB(); r
 async function getAllFromIndexedDB(store) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readonly'); let so = tx.objectStore(store); let r = so.getAll(); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; tx.oncomplete = function() { dbc.close(); }; }); }
 async function getFromIndexedDB(store, key) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readonly'); let so = tx.objectStore(store); let r = so.get(key); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(r.result); }; tx.oncomplete = function() { dbc.close(); }; }); }
 async function deleteFromIndexedDB(store, key) { let dbc = await initIndexedDB(); return new Promise(function(res, rej) { let tx = dbc.transaction(store, 'readwrite'); let so = tx.objectStore(store); let r = so.delete(key); r.onerror = function() { rej(r.error); }; r.onsuccess = function() { res(); }; tx.oncomplete = function() { dbc.close(); }; }); }
-async function addPendingSync(a, d) { await saveToIndexedDB('pendingSync', { id: Date.now(), action: a, data: d, timestamp: Date.now() }); }
-async function syncToFirebase() { if (!navigator.onLine) return; let p = await getAllFromIndexedDB('pendingSync'); for (let i of p) { try { if (i.action === 'saveFiche') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, i.data.ficheId), i.data); else if (i.action === 'deleteFiche') await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, i.data)); else if (i.action === 'saveProf') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, i.data.id), i.data); else if (i.action === 'deleteProf') await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, i.data)); else if (i.action === 'updateCompteur') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"), { valeur: i.data }); else if (i.action === 'saveHoraire') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.HORAIRES, "horaire_" + i.data.profId), { profId: i.data.profId, horaire: i.data.horaire, lastUpdated: new Date() }); else if (i.action === 'saveLog') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, i.data.id), i.data); else if (i.action === 'saveAlerte') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.ALERTES_ADMIN, i.data.id), i.data); else if (i.action === 'saveParentMessage') await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PARENT_MESSAGES, i.data.id), i.data); await deleteFromIndexedDB('pendingSync', i.id); } catch (e) { console.error('Sync failed', e); } } }
-window.addEventListener('online', function() { syncToFirebase(); synchroniserLogsLocaux(); });
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
-async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } let ap = await getAllFromIndexedDB('professeurs'); let fp = ap.find(function(p) { return p.id === prof.id && p.school === ECOLET_ID; }); if (fp && fp.actif !== false) { currentProf = { id: fp.profId, nom: fp.nom, code: fp.code, createdAt: fp.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); await chargerSelecteursDynamiques(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } } catch (e) { console.log(e); } } return false; }
+async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); await chargerSelecteursDynamiques(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } catch (e) { console.log(e); } } return false; }
 async function chargerSelecteursDynamiques() { const toutes = await getAllFromIndexedDB('fiches'); const matieresSet = new Set(); const classesSet = new Set(); for (const f of toutes) { if (f.cours && f.cours.trim()) matieresSet.add(f.cours); if (f.classe && f.classe.trim()) classesSet.add(f.classe); } }
 async function loadAllFiches() { if (!currentProf) return []; let all = await getAllFromIndexedDB('fiches'); let pf = all.filter(function(f) { return f.profId === currentProf.id && !f._type && f.school === ECOLET_ID; }); pf.sort(function(a, b) { return (a.numeroRef || 999) - (b.numeroRef || 999); }); return pf.map(function(f) { return { id: f.ficheId, cours: f.cours || '', classe: f.classe || '', option: f.option || '', numeroRef: f.numeroRef || null }; }); }
-async function getNextFicheNumero() { let compteurKey = 'global_' + ECOLET_ID; let c = await getFromIndexedDB('compteur', compteurKey); let cv = c?.valeur || 0; let nv = cv + 1; await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv }); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"), { valeur: nv }); } catch (e) { await addPendingSync('updateCompteur', nv); } } else await addPendingSync('updateCompteur', nv); return nv; }
-async function saveCurrentFiche() { if (!currentProf || !currentFicheId || !currentFiche) return; currentFiche.lastModified = new Date(); let ft = { ...currentFiche, id: currentFicheId, school: ECOLET_ID }; await saveToIndexedDB('fiches', ft); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId), currentFiche); } catch (e) { await addPendingSync('saveFiche', currentFiche); } } else await addPendingSync('saveFiche', currentFiche); }
+async function getNextFicheNumero() { let compteurKey = 'global_' + ECOLET_ID; let c = await getFromIndexedDB('compteur', compteurKey); let cv = c?.valeur || 0; let nv = cv + 1; await saveToIndexedDB('compteur', { id: compteurKey, valeur: nv }); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.COMPTEUR, "global"), { valeur: nv }); } catch (e) { } } return nv; }
+async function saveCurrentFiche() { if (!currentProf || !currentFicheId || !currentFiche) return; currentFiche.lastModified = new Date(); if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId), currentFiche); } catch (e) { console.error("Erreur sauvegarde fiche:", e); } } }
 function debounceSave() { if (saveTimeout) clearTimeout(saveTimeout); saveTimeout = setTimeout(function() { saveCurrentFiche(); }, 500); }
 async function refreshSelectors(selectedId = null) {
 if (isCreatingFiche) return;
@@ -1675,9 +1621,14 @@ isUpdatingSelectors = false;
 async function selectFiche(id) {
 if (!id || isCreatingFiche) return;
 currentFicheId = id;
-let st = await getFromIndexedDB('fiches', id);
-if (st && !st._type) {
-currentFiche = st;
+if (navigator.onLine) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.FICHES, id);
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+if (!data._type) {
+currentFiche = data;
 if (currentProf) currentFiche.titulaire = currentProf.nom;
 document.getElementById('coursInput').value = currentFiche.cours || '';
 document.getElementById('classeSelect').value = currentFiche.classe || '';
@@ -1696,9 +1647,12 @@ mettreAJourEpreuvesSelect();
 correctionUpdateEpreuveList();
 mettreAJourCompteurEleves();
 mettreAJourStatsFiche();
+} else { toast("Fiche invalide", 'error'); }
+}
+} catch (e) { console.error("Erreur chargement fiche:", e); toast("Erreur chargement fiche", 'error'); }
 }
 }
-async function selectFicheForCorrection(id) { if (!id) return; let st = await getFromIndexedDB('fiches', id); if (st && !st._type) { correctionFiche = st; correctionFicheId = id; correctionUpdateEpreuveList(); document.getElementById('correctionFicheSelector').value = id; toast("Fiche chargée pour la correction : " + (st.cours || '') + ' - ' + (st.classe || ''), 'success'); } }
+async function selectFicheForCorrection(id) { if (!id) return; if (navigator.onLine) { try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.FICHES, id); const docSnap = await getDoc(docRef); if (docSnap.exists()) { const data = docSnap.data(); if (!data._type) { correctionFiche = data; correctionFicheId = id; correctionUpdateEpreuveList(); document.getElementById('correctionFicheSelector').value = id; toast("Fiche chargée pour la correction : " + (data.cours || '') + ' - ' + (data.classe || ''), 'success'); } } } catch (e) { toast("Erreur chargement fiche", 'error'); } } }
 function toggleOptionField() { let c = document.getElementById('classeSelect').value; let o = document.getElementById('optionField'); if (c === '7ème EB' || c === '8ème EB') { o.classList.add('hidden-field'); document.getElementById('optionSelect').value = ''; } else if (c && c !== '') o.classList.remove('hidden-field'); else o.classList.add('hidden-field'); }
 function mettreAJourSelectOptions(c) { let s = document.getElementById('optionSelect'); if (!s) return; let opts = optionsParClasse[c] || []; if (opts.length === 0) { s.value = ''; return; } if (currentFiche && currentFiche.option && opts.includes(currentFiche.option)) s.value = currentFiche.option; else if (opts.includes("TOUTES") && s.value === '') s.value = "TOUTES"; else if (opts.length > 0 && s.value === '') s.value = opts[0]; }
 function mettreAJourCompteurEleves() { const countSpan = document.getElementById('eleveCount'); if (countSpan && currentFiche) { const nb = currentFiche.eleves?.length || 0; countSpan.textContent = nb; } }
@@ -1796,15 +1750,15 @@ function allerHier() { const o = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendre
 function allerDemain() { const o = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']; let a = jourAffichage || getJourReel().code; if (a === 'weekend') a = 'lundi'; let i = o.indexOf(a); if (i < 4) setJourAffichage(o[i + 1]); else toast("Fin de semaine", 'warning'); }
 function revenirAujourdhui() { setJourAffichage(null); toast("Affichage jour réel", 'success'); }
 function afficherModalCours(p) { let m = document.createElement('div'); m.className = 'modal-fullscreen'; m.innerHTML = '<div class="modal-content" style="max-width:400px;text-align:center"><div style="font-size:48px;margin-bottom:16px;">📘</div><h3>' + p.libelle + '</h3><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">CLASSE</p><h4 style="color:#fff;">' + p.classe + '</h4></div><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">OPTION</p><h4 style="color:#fff;">' + (p.option || '-') + '</h4></div><div style="margin:16px 0;padding:12px;background:#0f172a;border-radius:16px"><p style="color:#94a3b8;font-size:12px;">COURS</p><h4 style="color:#60a5fa;">' + p.cours + '</h4></div><button class="btn btn-outline" onclick="this.closest(\'.modal-fullscreen\').classList.remove(\'show\');setTimeout(()=>this.closest(\'.modal-fullscreen\').remove(),300)">FERMER</button></div>'; document.body.appendChild(m); setTimeout(() => m.classList.add('show'), 10); }
-async function sauvegarderHoraireFirebase() { if (!currentProf) return; try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.HORAIRES, "horaire_" + currentProf.id), { profId: currentProf.id, horaire: horaireProf, lastUpdated: new Date() }); toast("Horaire sauvegardé", 'success'); } catch (e) { console.error(e); await addPendingSync('saveHoraire', { profId: currentProf.id, horaire: horaireProf }); toast("Sauvegarde en attente", 'warning'); } }
-async function chargerHoraireFirebase() { if (!currentProf) return; try { const docRef = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.HORAIRES, "horaire_" + currentProf.id)); if (docRef.exists()) { const data = docRef.data(); horaireProf = data.horaire || horaireProf; } else if (localStorage.getItem('gloria_horaire_' + currentProf.id)) { let s = localStorage.getItem('gloria_horaire_' + currentProf.id); horaireProf = JSON.parse(s); await sauvegarderHoraireFirebase(); } } catch (e) { console.error(e); if (localStorage.getItem('gloria_horaire_' + currentProf.id)) horaireProf = JSON.parse(localStorage.getItem('gloria_horaire_' + currentProf.id)); } afficherHoraire(); afficherConfigHoraire(); }
+async function sauvegarderHoraireFirebase() { if (!currentProf) return; try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.HORAIRES, "horaire_" + currentProf.id), { profId: currentProf.id, horaire: horaireProf, lastUpdated: new Date() }); toast("Horaire sauvegardé", 'success'); } catch (e) { console.error(e); toast("Erreur sauvegarde horaire", 'error'); } }
+async function chargerHoraireFirebase() { if (!currentProf) return; try { const docRef = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.HORAIRES, "horaire_" + currentProf.id)); if (docRef.exists()) { const data = docRef.data(); horaireProf = data.horaire || horaireProf; } } catch (e) { console.error(e); } afficherHoraire(); afficherConfigHoraire(); }
 function afficherHoraire() { let c = document.getElementById('horaireContainer'); if (!c) return; let j = getJourActuel(); if (j.estWeekend) { c.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:64px;margin-bottom:16px;">🎉</div><div style="font-size:24px;font-weight:bold;color:#60a5fa;">WEEK-END</div><div style="color:#cbd5e1;margin-top:8px;">Aucun cours</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>'; return; } let h = horaireProf[j.code] || []; if (h.length === 0) { c.innerHTML = '<div class="empty-state">Aucun horaire configuré<br><small>Allez dans Paramètres</small><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>'; return; } let html = '<div class="horaire-list-container">'; h.forEach(p => { let ht = { 1: "1ère", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème", 6: "6ème", 7: "7ème", 8: "8ème" }[p.heure] || p.heure + "ème"; if (p.pause) html += '<div class="horaire-item horaire-pause"><div class="horaire-numero">' + ht + ' HEURE</div><div class="horaire-info-hidden">PAUSE</div></div>';
 else { let classeAffichee = p.classe || "Non définie"; let optionAffichee = p.option || "-"; let coursAffiche = p.cours || "Non défini"; html += '<div class="horaire-item" onclick=\'window.afficherModalCours(' + JSON.stringify({ libelle: ht + " HEURE", classe: classeAffichee, option: optionAffichee, cours: coursAffiche }) + ')\'><div class="horaire-numero">' + ht + ' HEURE</div><div class="horaire-info-hidden">' + classeAffichee + ' | ' + optionAffichee + ' | ' + coursAffiche + '</div></div>'; } }); html += '</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div>'; c.innerHTML = html; }
 function afficherConfigHoraire() { let c = document.getElementById('configHoraireList'); if (!c) return; let jour = document.getElementById('configJourSelect').value; let h = horaireProf[jour] || []; c.innerHTML = ''; h.sort((a, b) => a.heure - b.heure); h.forEach((p, idx) => { let div = document.createElement('div'); div.className = 'horaire-config-item'; let ht = { 1: "1ère", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème", 6: "6ème", 7: "7ème", 8: "8ème" }[p.heure] || p.heure + "ème"; if (p.pause) div.innerHTML = '<strong style="min-width:70px;color:#60a5fa;">' + ht + '</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="' + idx + '">X</button>';
 else { div.innerHTML = '<strong style="min-width:70px;color:#60a5fa;">' + ht + '</strong><select id="conf_classe_' + idx + '" style="width:110px;"><option value="">Classe</option>' + document.getElementById('classeSelect').innerHTML + '</select><select id="conf_option_' + idx + '" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_' + idx + '" placeholder="Cours" value="' + escapeHtml(p.cours || '') + '" style="width:120px;"><button class="btn-sm btn-danger" data-idx="' + idx + '">X</button>'; let clsSel = div.querySelector('#conf_classe_' + idx); if (clsSel && p.classe) clsSel.value = p.classe; let optSel = div.querySelector('#conf_option_' + idx); if (optSel) { let opts = optionsParClasse[p.classe] || []; optSel.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optSel.innerHTML += '<option value="' + escapeHtml(o) + '" ' + (p.option === o ? 'selected' : '') + '>' + escapeHtml(o) + '</option>'; }); } } c.appendChild(div); div.querySelector('.btn-danger')?.addEventListener('click', () => { horaireProf[jour].splice(idx, 1); horaireProf[jour].forEach((h2, i2) => h2.heure = i2 + 1); afficherConfigHoraire(); }); let cls = div.querySelector('#conf_classe_' + idx); if (cls) cls.onchange = function() { let optDiv = div.querySelector('#conf_option_' + idx); if (optDiv) { let opts = optionsParClasse[this.value] || []; optDiv.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optDiv.innerHTML += '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>'; }); } }; }); }
-function sauvegarderHoraireAuto() { let jour = document.getElementById('configJourSelect').value; let h = horaireProf[jour] || []; for (let i = 0; i < h.length; i++) { if (!h[i].pause) { let cls = document.getElementById('conf_classe_' + i); let opt = document.getElementById('conf_option_' + i); let crs = document.getElementById('conf_cours_' + i); if (cls) h[i].classe = cls.value; if (opt) h[i].option = opt.value; if (crs) h[i].cours = crs.value; } } if (currentProf) { localStorage.setItem('gloria_horaire_' + currentProf.id, JSON.stringify(horaireProf)); sauvegarderHoraireFirebase(); } afficherHoraire(); toast("Horaire mis à jour", 'success'); }
+function sauvegarderHoraireAuto() { let jour = document.getElementById('configJourSelect').value; let h = horaireProf[jour] || []; for (let i = 0; i < h.length; i++) { if (!h[i].pause) { let cls = document.getElementById('conf_classe_' + i); let opt = document.getElementById('conf_option_' + i); let crs = document.getElementById('conf_cours_' + i); if (cls) h[i].classe = cls.value; if (opt) h[i].option = opt.value; if (crs) h[i].cours = crs.value; } } if (currentProf) { sauvegarderHoraireFirebase(); } afficherHoraire(); toast("Horaire mis à jour", 'success'); }
 function ajouterHeure() { let jour = document.getElementById('configJourSelect').value; let nh = (horaireProf[jour]?.length || 0) + 1; horaireProf[jour].push({ heure: nh, classe: "", option: "", cours: "", pause: false }); afficherConfigHoraire(); }
-function chargerHoraireProf() { if (currentProf) { let s = localStorage.getItem('gloria_horaire_' + currentProf.id); if (s) { try { Object.assign(horaireProf, JSON.parse(s)); } catch (e) {} } } if (horaireProf.lundi.length === 0) { horaireProf = { lundi: [{ heure: 1, classe: "4ème Année", option: "CG", cours: "Mathématiques", pause: false }, { heure: 2, classe: "3ème Année", option: "HP", cours: "Français", pause: false }, { heure: 3, pause: true }, { heure: 4, classe: "2ème Année", option: "Sciences", cours: "Physique", pause: false }, { heure: 5, classe: "1ère Année", option: "TCC", cours: "Anglais", pause: false }], mardi: [], mercredi: [], jeudi: [], vendredi: [] }; } afficherHoraire(); afficherConfigHoraire(); }
+function chargerHoraireProf() { if (currentProf) { } if (horaireProf.lundi.length === 0) { horaireProf = { lundi: [{ heure: 1, classe: "4ème Année", option: "CG", cours: "Mathématiques", pause: false }, { heure: 2, classe: "3ème Année", option: "HP", cours: "Français", pause: false }, { heure: 3, pause: true }, { heure: 4, classe: "2ème Année", option: "Sciences", cours: "Physique", pause: false }, { heure: 5, classe: "1ère Année", option: "TCC", cours: "Anglais", pause: false }], mardi: [], mercredi: [], jeudi: [], vendredi: [] }; } afficherHoraire(); afficherConfigHoraire(); }
 window.afficherModalCours = afficherModalCours;
 window.allerHier = allerHier;
 window.allerDemain = allerDemain;
@@ -1852,8 +1806,16 @@ const maintenant = Date.now();
 if (maintenant - derniereTentative > 60000) tentativeConnexion = 0;
 tentativeConnexion++;
 derniereTentative = maintenant;
-let ap = await getAllFromIndexedDB('professeurs');
-let fp = ap.find(function(p) { return p.nom === n && p.school === ECOLET_ID; });
+let fp = null;
+if (navigator.onLine) {
+try {
+const snap = await getDocs(query(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS), where("nom", "==", n)));
+snap.forEach(ds => {
+const data = ds.data();
+if (data.school === ECOLET_ID) fp = { id: data.profId, nom: data.nom, code: data.code, profId: data.profId };
+});
+} catch (e) { console.error("Erreur recherche professeur:", e); }
+}
 if (!fp) {
 if (tentativeConnexion >= SEUIL_ALERTE) await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"', ip: "client", tentative: tentativeConnexion, userAgent: navigator.userAgent, raison: "Compte non trouvé" }, "critical");
 else await enregistrerLog("connexion_echouee", { message: 'Tentative de connexion échouée pour "' + n + '"', raison: "Compte non trouvé", tentative: tentativeConnexion }, "error");
@@ -1864,7 +1826,7 @@ btn.innerHTML = 'Se connecter';
 btn.style.opacity = '1';
 return;
 }
-const actif = await verifierCompteActif(fp.profId);
+const actif = await verifierCompteActif(fp.id);
 if (!actif) {
 document.getElementById('loginOverlay').innerHTML = '<div class="prof-desactiver-msg"><div class="icon">🚫</div><h2>COMPTE DÉSACTIVÉ</h2><p>' + messageDesactivation + '</p><p style="margin-top:16px;font-size:12px;color:#94a3b8;">Contactez la Direction de votre école pour plus d\'informations.</p><div style="margin-top:20px;"><button onclick="window.location.reload()" style="background:#3b82f6;color:#fff;border:none;padding:10px 30px;border-radius:40px;cursor:pointer;font-size:14px;">Réessayer</button></div></div>';
 btn.disabled = false;
@@ -1875,7 +1837,7 @@ return;
 tentativeConnexion = 0;
 if (c === fp.code) {
 await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n, code_utilise: c }, "success");
-currentProf = { id: fp.profId, nom: n, code: fp.code, createdAt: fp.createdAt || Date.now() };
+currentProf = { id: fp.id, nom: n, code: fp.code, createdAt: Date.now() };
 sauvegarderSession(currentProf);
 await signalerConnexionProf(currentProf);
 document.getElementById('loginOverlay').remove();
@@ -1889,7 +1851,6 @@ await chargerHoraireFirebase();
 await chargerSelecteursDynamiques();
 await getAllComptaEleves();
 await getAllFiches();
-syncToFirebase();
 toast("Bienvenue " + currentProf.nom, 'success');
 btn.disabled = false;
 btn.innerHTML = 'Se connecter';
@@ -1905,7 +1866,21 @@ btn.style.opacity = '1';
 }
 };
 }
-async function refreshTeachersList() { let ap = await getAllFromIndexedDB('professeurs'); let apFiltres = ap.filter(p => p.school === ECOLET_ID); apFiltres.sort((a, b) => a.nom.localeCompare(b.nom)); let lo = document.getElementById('loginOverlay'); if (lo) { let se = lo.querySelector('#loginNom'); if (se) { se.innerHTML = '<option value="">-- Choisir --</option>'; let numero = 1; apFiltres.forEach(function(p) { let o = document.createElement('option'); o.value = p.nom; o.dataset.id = p.id; let numeroStr = String(numero).padStart(2, '0'); o.textContent = numeroStr + '. ' + p.nom; se.appendChild(o); numero++; }); } } }
+async function refreshTeachersList() {
+let professeurs = [];
+if (navigator.onLine) {
+try {
+const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
+snap.forEach(ds => {
+const data = ds.data();
+if (data.school === ECOLET_ID) professeurs.push({ id: data.profId, nom: data.nom, code: data.code });
+});
+} catch (e) { console.error("Erreur chargement professeurs:", e); }
+}
+professeurs.sort((a, b) => a.nom.localeCompare(b.nom));
+let lo = document.getElementById('loginOverlay');
+if (lo) { let se = lo.querySelector('#loginNom'); if (se) { se.innerHTML = '<option value="">-- Choisir --</option>'; let numero = 1; professeurs.forEach(function(p) { let o = document.createElement('option'); o.value = p.nom; let numeroStr = String(numero).padStart(2, '0'); o.textContent = numeroStr + '. ' + p.nom; se.appendChild(o); numero++; }); } }
+}
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 async function chargerOptionsParClasse() { try { let od = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe")); if (od.exists()) optionsParClasse = od.data(); else await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe"), optionsParClasse); } catch (e) { console.error(e); } toggleOptionField(); }
 function correctionUpdateEpreuveList() {
@@ -2620,11 +2595,10 @@ eleves: eleves,
 school: ECOLET_ID,
 importAuto: { date: now.toISOString(), nbEleves: eleves.length, classe: classe, option: fop, auto: true }
 };
-await saveToIndexedDB('fiches', { ...nouvelleFiche, id: nid });
 if (navigator.onLine) {
 try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, nid), nouvelleFiche); }
-catch (e) { await addPendingSync('saveFiche', nouvelleFiche); }
-} else await addPendingSync('saveFiche', nouvelleFiche);
+catch (e) { toast("❌ Erreur enregistrement Firebase", 'error'); console.error(e); }
+} else { toast("❌ Pas de connexion Internet", 'error'); }
 currentFiche = nouvelleFiche;
 currentFicheId = nid;
 document.getElementById('coursInput').value = '';
@@ -2674,7 +2648,7 @@ document.getElementById('deleteFicheBtn').onclick = async function() {
 if (!currentFicheId) { toast("Aucune fiche sélectionnée", 'error'); return; }
 showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function() {
 try {
-let ficheData = await getFromIndexedDB('fiches', currentFicheId);
+let ficheData = currentFiche;
 let nbEleves = ficheData?.eleves?.length || 0;
 await enregistrerLog("suppression_fiche", { message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"), ficheId: currentFicheId, cours: ficheData?.cours, classe: ficheData?.classe, option: ficheData?.option || "aucune", numeroRef: ficheData?.numeroRef, nbEleves: nbEleves, action_par: currentProf?.nom }, "warning");
 if (ficheData) {
@@ -2685,8 +2659,7 @@ corbeille.push({ ...ficheData, dateSuppression: new Date().toISOString(), dateEx
 localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille));
 if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), { ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), professeurNom: currentProf.nom }); } catch (e) {} }
 }
-await deleteFromIndexedDB('fiches', currentFicheId);
-if (navigator.onLine) { try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId)); } catch (e) { await addPendingSync('deleteFiche', currentFicheId); } } else await addPendingSync('deleteFiche', currentFicheId);
+if (navigator.onLine) { try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId)); } catch (e) { toast("Erreur suppression", 'error'); } } else { toast("Pas de connexion", 'error'); }
 toutesFiches = await loadAllFiches();
 if (toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
 else { currentFiche = null; currentFicheId = null; document.getElementById('coursInput').value = ''; document.getElementById('classeSelect').value = ''; document.getElementById('optionSelect').value = ''; afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshSelectors(); }
@@ -2843,8 +2816,8 @@ if (!sessionRestored) showLogin();
 else { if (document.getElementById('loginOverlay')) document.getElementById('loginOverlay').remove(); }
 initTitulaire();
 setInterval(function() { let corbeille = JSON.parse(localStorage.getItem('gloria_corbeille') || '[]'); let modifie = false; corbeille = corbeille.filter(f => { if (f.dateExpiration && new Date(f.dateExpiration) <= new Date()) { modifie = true; return false; } if (f.school && f.school !== ECOLET_ID) return false; return true; }); if (modifie) localStorage.setItem('gloria_corbeille', JSON.stringify(corbeille)); }, 24 * 60 * 60 * 1000);
-window.addEventListener('online', function() { syncToFirebase(); synchroniserLogsLocaux(); });
-setInterval(function() { syncToFirebase(); synchroniserLogsLocaux(); }, 30000);
+window.addEventListener('online', function() { });
+setInterval(function() { }, 30000);
 function initOnglets() { const tabs = document.querySelectorAll('.tab'); const contents = document.querySelectorAll('.tab-content'); tabs.forEach(tab => { tab.addEventListener('click', function() { tabs.forEach(t => t.classList.remove('active')); this.classList.add('active'); contents.forEach(c => c.classList.remove('active')); const target = document.getElementById(this.dataset.tab); if (target) target.classList.add('active'); }); }); }
 document.addEventListener('DOMContentLoaded', function() { initOnglets(); });
 initOnglets();
