@@ -1847,6 +1847,10 @@ window.afficherModalCours = afficherModalCours;
 window.allerHier = allerHier;
 window.allerDemain = allerDemain;
 window.revenirAujourdhui = revenirAujourdhui;
+
+// ============================================================
+// FONCTION DE CONNEXION AMÉLIORÉE AVEC FILTRE _type
+// ============================================================
 async function showLogin() {
 let d = document.createElement('div');
 d.className = 'login-overlay';
@@ -1864,10 +1868,33 @@ d.innerHTML = `
 <input type="password" id="loginCode" placeholder="🔑 Code d'accès">
 <button id="loginBtn" class="login-btn-with-loader">Se connecter</button>
 <div id="loginError" style="margin-top:12px;font-size:13px;color:#ef4444"></div>
+<!-- BOUTON RAFRAÎCHIR AJOUTÉ -->
+<div style="margin-top:14px;">
+<button id="refreshProfsBtn" style="background:rgba(255,255,255,0.05);border:1px solid #334155;border-radius:40px;padding:6px 18px;color:#94a3b8;cursor:pointer;font-size:11px;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px;width:auto;">
+🔄 Rafraîchir la liste
+</button>
+</div>
 </div>
 `;
 document.body.appendChild(d);
 await refreshTeachersList();
+
+// Événement du bouton Rafraîchir
+document.getElementById('refreshProfsBtn')?.addEventListener('click', async function() {
+const btn = this;
+btn.disabled = true;
+btn.innerHTML = '⏳ Chargement...';
+try {
+await refreshTeachersList();
+toast('✅ Liste des professeurs actualisée', 'success');
+} catch(e) {
+toast('❌ Erreur lors du rafraîchissement', 'error');
+} finally {
+btn.disabled = false;
+btn.innerHTML = '🔄 Rafraîchir la liste';
+}
+});
+
 let clickCount = 0, clickTimeout = null;
 const loginCard = d.querySelector('.login-card');
 if (loginCard) {
@@ -1949,21 +1976,76 @@ btn.style.opacity = '1';
 }
 };
 }
+
+// ============================================================
+// FONCTION RAFRAÎCHIR LA LISTE DES PROFESSEURS AVEC FILTRE _type
+// ============================================================
 async function refreshTeachersList() {
 let professeurs = [];
 if (navigator.onLine) {
 try {
-const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
+// ✅ FILTRE _type AJOUTÉ (comme dans la direction)
+const q = query(
+collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS),
+where("_type", "==", "prof")
+);
+const snap = await getDocs(q);
 snap.forEach(ds => {
 const data = ds.data();
-if (data.school === ECOLET_ID) professeurs.push({ id: data.profId, nom: data.nom, code: data.code });
+if (data.nom) {
+professeurs.push({ 
+id: data.profId || data.id || ds.id, 
+nom: data.nom, 
+code: data.code 
 });
-} catch (e) { console.error("Erreur chargement professeurs:", e); }
+}
+});
+} catch (e) { 
+console.error("Erreur chargement professeurs:", e);
+// Fallback sans filtre
+try {
+const snap2 = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
+snap2.forEach(ds => {
+const data = ds.data();
+if (data.nom) {
+professeurs.push({ 
+id: data.profId || data.id || ds.id, 
+nom: data.nom, 
+code: data.code 
+});
+}
+});
+} catch(e2) { console.error(e2); }
+}
 }
 professeurs.sort((a, b) => a.nom.localeCompare(b.nom));
 let lo = document.getElementById('loginOverlay');
-if (lo) { let se = lo.querySelector('#loginNom'); if (se) { se.innerHTML = '<option value="">-- Choisir --</option>'; let numero = 1; professeurs.forEach(function(p) { let o = document.createElement('option'); o.value = p.nom; let numeroStr = String(numero).padStart(2, '0'); o.textContent = numeroStr + '. ' + p.nom; se.appendChild(o); numero++; }); } }
+if (lo) { 
+let se = lo.querySelector('#loginNom'); 
+if (se) { 
+se.innerHTML = '<option value="">-- Choisir --</option>'; 
+let numero = 1;
+professeurs.forEach(function(p) {
+let o = document.createElement('option');
+o.value = p.nom;
+let numeroStr = String(numero).padStart(2, '0');
+o.textContent = numeroStr + '. ' + p.nom;
+se.appendChild(o);
+numero++;
+});
+// Message si aucun professeur
+if (professeurs.length === 0) {
+let opt = document.createElement('option');
+opt.value = "";
+opt.textContent = "⚠️ Aucun professeur trouvé";
+opt.disabled = true;
+opt.style.color = '#ef4444';
+se.appendChild(opt);
 }
+} 
+}
+}
+
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 async function chargerOptionsParClasse() { try { let od = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe")); if (od.exists()) optionsParClasse = od.data(); else await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe"), optionsParClasse); } catch (e) { console.error(e); } toggleOptionField(); }
 function correctionUpdateEpreuveList() {
