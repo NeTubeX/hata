@@ -627,24 +627,32 @@ let schoolId = urlParams.get('ecole');
 if (!schoolId) { window.location.href = '/schoolchoice'; throw new Error('Redirection'); }
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME = schoolId;
-async function verifierEcoleExistante(ecoleId) {
-    try {
-        const docRef = doc(db, "ecoles", ecoleId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            return data.actif !== false;
-        }
-        return false;
-    } catch (error) {
-        console.error("Erreur de vérification:", error);
-        return false;
-    }
+function getEcoleRef(sousCollection, docId = null) {
+  if (docId) {
+    return doc(db, "ecoles", ECOLET_ID, sousCollection, docId);
+  }
+  return collection(db, "ecoles", ECOLET_ID, sousCollection);
 }
-const estActive = await verifierEcoleExistante(schoolId);
-if (!estActive) {
-document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" est inactif ou n'existe pas.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
-throw new Error('École inactive ou non trouvée: ' + schoolId);
+const SC = {
+  PROFESSEURS: 'professeurs',
+  FICHES: 'fiches',
+  LOGS: 'logs',
+  HORAIRES: 'horaires',
+  PUNITIONS: 'punitions',
+  PRESENCES: 'presences',
+  CORBEILLE: 'corbeille',
+  COMPTEUR: 'compteur',
+  CONFIG: 'config',
+  ALERTES_ADMIN: 'alertes_admin',
+  COMMUNIQUES: 'communiques',
+  COMPTA_ELEVES: 'compta_eleves',
+  SETTINGS: 'settings'
+};
+async function verifierEcoleAutorisee(ecoleId) { try { const docRef = doc(db, "ecoles", ECOLET_ID); const docSnap = await getDoc(docRef); return docSnap.exists(); } catch (error) { console.error("Erreur de vérification:", error); return false; } }
+const estAutorisee = await verifierEcoleAutorisee(schoolId);
+if (!estAutorisee) {
+document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
+throw new Error('École non autorisée: ' + schoolId);
 }
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 const schoolNameElement = document.querySelector('.school-name');
@@ -1839,7 +1847,7 @@ async function chargerHoraireFirebase() { if (!currentProf) return; try { const 
 function afficherHoraire() { let c = document.getElementById('horaireContainer'); if (!c) return; let j = getJourActuel(); if (j.estWeekend) { c.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:64px;margin-bottom:16px;">🎉</div><div style="font-size:24px;font-weight:bold;color:#60a5fa;">WEEK-END</div><div style="color:#cbd5e1;margin-top:8px;">Aucun cours</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>'; return; } let h = horaireProf[j.code] || []; if (h.length === 0) { c.innerHTML = '<div class="empty-state">Aucun horaire configuré<br><small>Allez dans Paramètres</small><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div></div>'; return; } let html = '<div class="horaire-list-container">'; h.forEach(p => { let ht = { 1: "1ère", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème", 6: "6ème", 7: "7ème", 8: "8ème" }[p.heure] || p.heure + "ème"; if (p.pause) html += '<div class="horaire-item horaire-pause"><div class="horaire-numero">' + ht + ' HEURE</div><div class="horaire-info-hidden">PAUSE</div></div>';
 else { let classeAffichee = p.classe || "Non définie"; let optionAffichee = p.option || "-"; let coursAffiche = p.cours || "Non défini"; html += '<div class="horaire-item" onclick=\'window.afficherModalCours(' + JSON.stringify({ libelle: ht + " HEURE", classe: classeAffichee, option: optionAffichee, cours: coursAffiche }) + ')\'><div class="horaire-numero">' + ht + ' HEURE</div><div class="horaire-info-hidden">' + classeAffichee + ' | ' + optionAffichee + ' | ' + coursAffiche + '</div></div>'; } }); html += '</div><div style="margin-top:20px;display:flex;gap:10px;justify-content:center"><button class="btn btn-sm btn-outline" onclick="window.allerHier()">◀ Hier</button><button class="btn btn-sm btn-primary" onclick="window.revenirAujourdhui()" style="background:#3b82f6">Aujourd\'hui</button><button class="btn btn-sm btn-outline" onclick="window.allerDemain()">Demain ▶</button></div>'; c.innerHTML = html; }
 function afficherConfigHoraire() { let c = document.getElementById('configHoraireList'); if (!c) return; let jour = document.getElementById('configJourSelect').value; let h = horaireProf[jour] || []; c.innerHTML = ''; h.sort((a, b) => a.heure - b.heure); h.forEach((p, idx) => { let div = document.createElement('div'); div.className = 'horaire-config-item'; let ht = { 1: "1ère", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème", 6: "6ème", 7: "7ème", 8: "8ème" }[p.heure] || p.heure + "ème"; if (p.pause) div.innerHTML = '<strong style="min-width:70px;color:#60a5fa;">' + ht + '</strong><span style="flex:1;color:#fbbf24;">PAUSE</span><button class="btn-sm btn-danger" data-idx="' + idx + '">X</button>';
-else { div.innerHTML = '<strong style="min-width:70px;color:#60a5fa;">' + ht + '</strong><select id="conf_classe_' + idx + '" style="width:110px;"><option value="">Classe</option>' + document.getElementById('classeSelect').innerHTML + '</select><select id="conf_option_' + idx + '" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_' + idx + '" placeholder="Cours" value="' + escapeHtml(p.cours || '') + '" style="width:120px;"><button class="btn-sm btn-danger" data-idx="' + idx + '">X</button>'; let clsSel = div.querySelector('#conf_classe_' + idx); if (clsSel && p.classe) clsSel.value = p.classe; let optSel = div.querySelector('#conf_option_' + idx); if (optSel) { let opts = optionsParClasse[p.classe] || []; optSel.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optSel.innerHTML += '<option value="' + escapeHtml(o) + '" ' + (p.option === o ? 'selected' : '') + '>' + escapeHtml(o) + '</option>'; }); } } c.appendChild(div); div.querySelector('.btn-danger')?.addEventListener('click', () => { horaireProf[jour].splice(idx, 1); horaireProf[jour].forEach((h2, i2) => h2.heure = i2 + 1); afficherConfigHoraire(); }); let cls = div.querySelector('#conf_classe_' + idx); if (cls) cls.onchange = function() { let optDiv = div.querySelector('#conf_option_' + idx); if (optDiv) { let opts = optionsParClasse[this.value] || []; optDiv.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optDiv.innerHTML += '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>'; }); } }; }); }
+else { div.innerHTML = '<strong style="min-width:70px;color:#60a5fa;">' + ht + '</strong><select id="conf_classe_' + idx + '" style="width:110px;"><option value="">Classe</option>' + document.getElementById('classeSelect').innerHTML + '</select><select id="conf_option_' + idx + '" style="width:90px;"><option value="">Option</option></select><input type="text" id="conf_cours_' + idx + '" placeholder="Cours" value="' + escapeHtml(p.cours || '') + '" style="width:120px;"><button class="btn-sm btn-danger" data-idx="' + idx + '">X</button>'; let clsSel = div.querySelector('#conf_classe_' + idx); if (clsSel && p.classe) clsSel.value = p.classe; let optSel = div.querySelector('#conf_option_' + idx); if (optSel) { let opts = optionsParClasse[p.classe] || []; optSel.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optSel.innerHTML += '<option value="' + escapeHtml(o) + '" ' + (p.option === o ? 'selected' : '') + '>' + escapeHtml(o) + '</option>'; }); } } c.appendChild(div); div.querySelector('.btn-danger')?.addEventListener('click', () => { horaireProf[jour].splice(idx, 1); horaireProf[jour].forEach((h2, i2) => h2.heure = i2 + 1); afficherConfigHoraire(); }); let cls = div.querySelector('#conf_classe_' + idx); if (cls) cls.onchange = function() { let optDiv = div.querySelector('#conf_option_' + idx); if (optDiv) { let opts = optionsParClasse[this.value] || []; optDiv.innerHTML = '<option value="">Option</option>'; opts.forEach(o => { optDiv.innerHTML += '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>'); }); } }; }); }
 function sauvegarderHoraireAuto() { let jour = document.getElementById('configJourSelect').value; let h = horaireProf[jour] || []; for (let i = 0; i < h.length; i++) { if (!h[i].pause) { let cls = document.getElementById('conf_classe_' + i); let opt = document.getElementById('conf_option_' + i); let crs = document.getElementById('conf_cours_' + i); if (cls) h[i].classe = cls.value; if (opt) h[i].option = opt.value; if (crs) h[i].cours = crs.value; } } if (currentProf) { sauvegarderHoraireFirebase(); } afficherHoraire(); toast("Horaire mis à jour", 'success'); }
 function ajouterHeure() { let jour = document.getElementById('configJourSelect').value; let nh = (horaireProf[jour]?.length || 0) + 1; horaireProf[jour].push({ heure: nh, classe: "", option: "", cours: "", pause: false }); afficherConfigHoraire(); }
 function chargerHoraireProf() { if (currentProf) { } if (horaireProf.lundi.length === 0) { horaireProf = { lundi: [{ heure: 1, classe: "4ème Année", option: "CG", cours: "Mathématiques", pause: false }, { heure: 2, classe: "3ème Année", option: "HP", cours: "Français", pause: false }, { heure: 3, pause: true }, { heure: 4, classe: "2ème Année", option: "Sciences", cours: "Physique", pause: false }, { heure: 5, classe: "1ère Année", option: "TCC", cours: "Anglais", pause: false }], mardi: [], mercredi: [], jeudi: [], vendredi: [] }; } afficherHoraire(); afficherConfigHoraire(); }
@@ -2812,6 +2820,7 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 btn.disabled = true;
                 btn.innerHTML = '⏳ SUPPRESSION...';
                 const ficheData = currentFiche;
+                const ficheIdASupprimer = currentFicheId;
                 const dateExpiration = new Date();
                 dateExpiration.setDate(dateExpiration.getDate() + 30);
                 const corbeilleData = {
@@ -2823,11 +2832,8 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                     supprimePar: currentProf?.nom || 'Inconnu',
                     school: ECOLET_ID
                 };
-                await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), corbeilleData);
-                await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId));
-                const ficheId = currentFicheId;
-                const ficheCours = currentFiche.cours;
-                const ficheClasse2 = currentFiche.classe;
+                await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, ficheIdASupprimer), corbeilleData);
+                await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, ficheIdASupprimer));
                 currentFiche = null;
                 currentFicheId = null;
                 champsModifiables = false;
@@ -2844,9 +2850,9 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 }
                 await enregistrerLog("suppression_fiche", {
                     message: `Fiche "${ficheCours}" supprimée par ${currentProf?.nom}`,
-                    ficheId: ficheId,
+                    ficheId: ficheIdASupprimer,
                     cours: ficheCours,
-                    classe: ficheClasse2,
+                    classe: ficheClasse,
                     option: ficheData.option || '',
                     numeroRef: ficheData.numeroRef,
                     action_par: currentProf?.nom
