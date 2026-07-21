@@ -62,6 +62,8 @@ body{overscroll-behavior:none;-webkit-overscroll-behavior:none;}
 .btn-success:hover{background:#166534;}
 .btn-secondary{background:#334155;}
 .btn-secondary:hover{background:#475569;}
+.btn-primary{background:#1e3a5f;}
+.btn-primary:hover{background:#0f2b44;}
 .btn-warning{background:#b45309;color:#fff;}
 .btn-warning:hover{background:#c2410c;}
 .table-wrapper{overflow-x:auto;touch-action:pan-x pan-y;}
@@ -495,7 +497,12 @@ body.light-mode #loginError{color:#b91c1c !important;}
 </div>
 <div class="prof-config"><h3>CONFIGURATION</h3>
 <div class="note-max-row"><label>Note max / période :</label><input type="number" id="p1MaxConfig" value="20" step="1"></div>
-<div class="btn-group"><button class="btn btn-success" id="newFicheBtn">📝 CRÉER UNE FICHE</button><button class="btn btn-danger" id="deleteFicheBtn">SUPPRIMER</button></div>
+<div class="btn-group" id="btnGroupContainer">
+<button class="btn btn-success" id="creerFicheBtn">📝 CRÉER</button>
+<button class="btn btn-primary" id="modifierFicheBtn" style="display:none;">✏️ MODIFIER</button>
+<button class="btn btn-danger" id="supprimerFicheBtn" style="display:none;">🗑️ SUPPRIMER</button>
+<button class="btn btn-secondary" id="viderChampsBtn">🧹 EFFACER</button>
+</div>
 </div>
 <div style="padding:20px;border-top:1px solid #334155;margin-top:20px;"><h3 style="color:#60a5fa;margin-bottom:15px;">👥 LISTE DES ÉLÈVES</h3><div id="elevesListContainer" style="max-height:300px;overflow-y:auto;margin-bottom:15px;"></div><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-success" id="rechargerElevesBtn" style="flex:1;">🔄 RECHARGER</button></div><div id="ficheStats" style="margin-top:12px;padding:12px;background:#0f172a;border-radius:12px;font-size:13px;color:#cbd5e1;"><div id="ficheStatsContent"></div></div>
 <div id="codesParentsInfo" style="display:none;"></div></div>
@@ -604,7 +611,6 @@ if (parentBtn) parentBtn.textContent = '🌙';
 <script type="module">
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where, orderBy, updateDoc } from "firebase/firestore";
-
 const firebaseConfig = {
   apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
   authDomain: "gesco-67c43.firebaseapp.com",
@@ -614,45 +620,31 @@ const firebaseConfig = {
   appId: "1:333004443566:web:de41f60000e418dce9023f",
   measurementId: "G-V7MF88Y5EE"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
 const urlParams = new URLSearchParams(window.location.search);
 let schoolId = urlParams.get('ecole');
 if (!schoolId) { window.location.href = '/schoolchoice'; throw new Error('Redirection'); }
-
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME = schoolId;
-
-function getEcoleRef(sousCollection, docId = null) {
-  if (docId) {
-    return doc(db, "ecoles", ECOLET_ID, sousCollection, docId);
-  }
-  return collection(db, "ecoles", ECOLET_ID, sousCollection);
+async function verifierEcoleExistante(ecoleId) {
+    try {
+        const docRef = doc(db, "ecoles", ecoleId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return data.actif !== false;
+        }
+        return false;
+    } catch (error) {
+        console.error("Erreur de vérification:", error);
+        return false;
+    }
 }
-
-const SC = {
-  PROFESSEURS: 'professeurs',
-  FICHES: 'fiches',
-  LOGS: 'logs',
-  HORAIRES: 'horaires',
-  PUNITIONS: 'punitions',
-  PRESENCES: 'presences',
-  CORBEILLE: 'corbeille',
-  COMPTEUR: 'compteur',
-  CONFIG: 'config',
-  ALERTES_ADMIN: 'alertes_admin',
-  COMMUNIQUES: 'communiques',
-  COMPTA_ELEVES: 'compta_eleves',
-  SETTINGS: 'settings'
-};
-
-async function verifierEcoleAutorisee(ecoleId) { try { const docRef = doc(db, "ecoles", ECOLET_ID); const docSnap = await getDoc(docRef); return docSnap.exists(); } catch (error) { console.error("Erreur de vérification:", error); return false; } }
-const estAutorisee = await verifierEcoleAutorisee(schoolId);
-if (!estAutorisee) {
-document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
-throw new Error('École non autorisée: ' + schoolId);
+const estActive = await verifierEcoleExistante(schoolId);
+if (!estActive) {
+document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" est inactif ou n'existe pas.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
+throw new Error('École inactive ou non trouvée: ' + schoolId);
 }
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 const schoolNameElement = document.querySelector('.school-name');
@@ -661,8 +653,9 @@ const footerElement = document.getElementById('footerNote');
 if (schoolNameElement) schoolNameElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay}`;
 if (schoolSubElement) schoolSubElement.textContent = `Année scolaire 2026-2027`;
 if (footerElement && schoolId) footerElement.textContent = `COMPLEXE SCOLAIRE ${schoolNameForDisplay} | Année scolaire 2026-2027`;
-let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [], saveTimeout = null, isCreatingFiche = false, directriceCode = "1111", pendingSync = [], groupesActuels = [];
+let currentProf = null, currentFicheId = null, currentFiche = null, toutesFiches = [], saveTimeout = null, isCreatingFiche = false, groupesActuels = [];
 let isUpdatingSelectors = false;
+let champsModifiables = false;
 let optionsParClasse = {
 "1ère Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
 "2ème Année": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"],
@@ -682,6 +675,10 @@ let reponseCache = new Map(), lastDataHash = null, currentParentCode = null, com
 let toastQueue = [];
 let isToastProcessing = false;
 let dernierSignalement = 0;
+let titulaireConfig = null, toutesFichesTitu = [], fichesTitulaire = [], toutesFichesCompletTitu = [], currentPeriodTitu = "all", currentClasseFilterTitu = "all";
+const classesSansOptionsTitu = ["7ème EB", "8ème EB"];
+let triAlphabetiqueActif = false;
+let historiqueSections = {};
 function toast(message, type = "success") {
 toastQueue.push({ message, type });
 if (!isToastProcessing) processToastQueue();
@@ -1382,7 +1379,6 @@ else if (noms.length === 2) propositions += noms[0] + ' ou ' + noms[1] + ' ?';
 else propositions += noms.slice(0, -1).join(', ') + ' ou ' + noms[noms.length - 1] + ' ?';
 return propositions;
 }
-let historiqueSections = {};
 function ajouterSectionVisitee(section) { if (!dernierEleveData) return; if (!dernierEleveData.sectionsVisitees) dernierEleveData.sectionsVisitees = []; if (!dernierEleveData.sectionsVisitees.includes(section)) dernierEleveData.sectionsVisitees.push(section); if (dernierEleveData.id) { if (!historiqueSections[dernierEleveData.id]) historiqueSections[dernierEleveData.id] = []; if (!historiqueSections[dernierEleveData.id].includes(section)) historiqueSections[dernierEleveData.id].push(section); } }
 function sectionDejaVisitee(section) { if (!dernierEleveData) return false; if (dernierEleveData.sectionsVisitees && dernierEleveData.sectionsVisitees.includes(section)) return true; if (dernierEleveData.id && historiqueSections[dernierEleveData.id]) return historiqueSections[dernierEleveData.id].includes(section); return false; }
 async function afficherInfosEleve(eleve) {
@@ -1568,6 +1564,72 @@ return `${getSalutation()} ! Entrez votre code parent. Si vous n'en avez pas, co
 }
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
 async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } catch (e) { console.log(e); } } return false; }
+function setChampsModifiables(actif) {
+    champsModifiables = actif;
+    const inputs = [
+        document.getElementById('coursInput'),
+        document.getElementById('classeSelect'),
+        document.getElementById('optionSelect'),
+        document.getElementById('p1MaxConfig')
+    ];
+    inputs.forEach(input => {
+        if (!input) return;
+        input.disabled = !actif;
+        input.style.opacity = actif ? '1' : '0.7';
+        input.style.cursor = actif ? 'text' : 'not-allowed';
+        input.style.borderColor = actif ? '#3b82f6' : '#334155';
+    });
+    const labels = document.querySelectorAll('.form-field label, .note-max-row label');
+    labels.forEach(label => {
+        if (actif) {
+            label.innerHTML = label.innerHTML.replace(' 🔒', '');
+        } else if (currentFicheId && currentFiche) {
+            if (!label.innerHTML.includes('🔒')) {
+                label.innerHTML = label.innerHTML + ' 🔒';
+            }
+        } else {
+            label.innerHTML = label.innerHTML.replace(' 🔒', '');
+        }
+    });
+    const modifierBtn = document.getElementById('modifierFicheBtn');
+    if (actif) {
+        modifierBtn.innerHTML = '💾 METTRE À JOUR';
+        modifierBtn.style.background = '#16a34a';
+        modifierBtn.className = 'btn btn-success';
+    } else {
+        modifierBtn.innerHTML = '✏️ MODIFIER';
+        modifierBtn.style.background = '#1e3a5f';
+        modifierBtn.className = 'btn btn-primary';
+    }
+}
+function mettreAJourBoutons() {
+    const creerBtn = document.getElementById('creerFicheBtn');
+    const modifierBtn = document.getElementById('modifierFicheBtn');
+    const supprimerBtn = document.getElementById('supprimerFicheBtn');
+    const viderBtn = document.getElementById('viderChampsBtn');
+    if (currentFicheId && currentFiche) {
+        creerBtn.style.display = 'none';
+        modifierBtn.style.display = 'inline-flex';
+        supprimerBtn.style.display = 'inline-flex';
+        viderBtn.style.display = 'inline-flex';
+        if (!champsModifiables) {
+            setChampsModifiables(false);
+        }
+    } else {
+        creerBtn.style.display = 'inline-flex';
+        modifierBtn.style.display = 'none';
+        supprimerBtn.style.display = 'none';
+        viderBtn.style.display = 'inline-flex';
+        setChampsModifiables(false);
+    }
+}
+function viderChamps() {
+    document.getElementById('coursInput').value = '';
+    document.getElementById('classeSelect').value = '';
+    document.getElementById('optionSelect').value = '';
+    document.getElementById('p1MaxConfig').value = 20;
+    toggleOptionField();
+}
 async function loadAllFiches() {
     if (!currentProf) return [];
     try {
@@ -1669,9 +1731,8 @@ async function selectFiche(id) {
                 correctionUpdateEpreuveList();
                 mettreAJourCompteurEleves();
                 mettreAJourStatsFiche();
-                const btn = document.getElementById('newFicheBtn');
-                btn.innerHTML = '💾 METTRE À JOUR';
-                btn.style.background = '#1e3a5f';
+                setChampsModifiables(false);
+                mettreAJourBoutons();
             } else { toast("Fiche invalide", 'error'); }
         }
     } catch (e) { console.error("Erreur chargement fiche:", e); toast("Erreur chargement fiche", 'error'); }
@@ -1695,7 +1756,6 @@ function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || [
 function getNoteClass(note, maxNote) { if (maxNote === 0) return ''; const ratio = note / maxNote; if (ratio >= 0.8) return 'note-excellent'; if (ratio >= 0.7) return 'note-bien'; if (ratio >= 0.5) return 'note-moyen'; return 'note-insuffisant'; }
 function getAppreciation(note, maxNote) { if (maxNote === 0) return { text: 'Non évalué', class: '' }; const ratio = note / maxNote; if (ratio >= 0.8) return { text: 'Excellent', class: 'appreciation-excellent' }; if (ratio >= 0.7) return { text: 'Très Bien', class: 'appreciation-tresbien' }; if (ratio >= 0.6) return { text: 'Bien', class: 'appreciation-bien' }; if (ratio >= 0.5) return { text: 'Assez Bien', class: 'appreciation-assezbien' }; if (ratio >= 0.4) return { text: 'Passable', class: 'appreciation-passable' }; return { text: 'Insuffisant', class: 'appreciation-insuffisant' }; }
 function getMoyenneGenerale(eleve) { let p1 = calcMoy(1, eleve.notes?.p1 || []); let p2 = calcMoy(2, eleve.notes?.p2 || []); let p3 = calcMoy(3, eleve.notes?.p3 || []); let p4 = calcMoy(4, eleve.notes?.p4 || []); let ex1 = eleve.notes?.exam1 || 0; let ex2 = eleve.notes?.exam2 || 0; let total = p1 + p2 + p3 + p4 + ex1 + ex2; let maxTotal = getPeriodeMax(1) * 4 + getExamMax(1) + getExamMax(2); return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal }; }
-let triAlphabetiqueActif = false;
 function afficherCotation() {
 let th = document.getElementById('cotationHeader');
 let tb = document.getElementById('cotationBody');
@@ -1972,8 +2032,6 @@ if (window.correctionMode.type === 'gesture') { const disp = document.querySelec
 setTimeout(() => { speak('Retour à ' + eleves[window.correctionMode.currentIndex]?.nom + '.'); }, 500);
 } else speak("Vous êtes déjà au premier élève.");
 }
-let titulaireConfig = null, toutesFichesTitu = [], fichesTitulaire = [], toutesFichesCompletTitu = [], currentPeriodTitu = "all", currentClasseFilterTitu = "all";
-const classesSansOptionsTitu = ["7ème EB", "8ème EB"];
 function getGreetingTitu() { const h = new Date().getHours(); if (h < 12) return "Bonjour"; if (h < 18) return "Bon après-midi"; return "Bonsoir"; }
 function formatDateTitu(date) { if (!date) return 'Date inconnue'; const d = date.toDate ? date.toDate() : new Date(date); return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }
 function getNotesByPeriodTitu(fiche, eleve, period) {
@@ -2560,62 +2618,22 @@ parentQuestionInputNew.addEventListener('keypress', (e) => { if (e.key === 'Ente
 parentQuestionInputNew.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px'; });
 }
 updateCounterDisplay();
-document.getElementById('newFicheBtn').addEventListener('click', async function() {
-    const btn = this;
+
+document.getElementById('creerFicheBtn').addEventListener('click', async function() {
     if (isCreatingFiche) {
         toast("⏳ Une opération est déjà en cours...", 'warning');
         return;
     }
-    
     const cours = document.getElementById('coursInput').value.trim();
     const classe = document.getElementById('classeSelect').value;
     const option = document.getElementById('optionSelect').value;
     const titulaire = currentProf ? currentProf.nom : '';
-    
     if (!cours) { toast("Veuillez renseigner le cours", 'error'); return; }
     if (!classe) { toast("Veuillez sélectionner une classe", 'error'); return; }
     if (classe !== '7ème EB' && classe !== '8ème EB' && !option) {
         toast("Veuillez sélectionner une option", 'error');
         return;
     }
-    
-    // Si une fiche est sélectionnée → METTRE À JOUR
-    if (currentFicheId && currentFiche) {
-        isCreatingFiche = true;
-        btn.disabled = true;
-        btn.innerHTML = '⏳ MISE À JOUR...';
-        try {
-            const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
-            currentFiche.cours = cours;
-            currentFiche.classe = classe;
-            currentFiche.option = fop;
-            currentFiche.p1Max = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
-            currentFiche.lastModified = new Date();
-            
-            if (navigator.onLine) {
-                await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId), currentFiche);
-                toast("✅ Fiche mise à jour avec succès", 'success');
-                await refreshSelectors(currentFicheId);
-                afficherEpreuves();
-                afficherEleves();
-                afficherCotation();
-                mettreAJourCompteurEleves();
-                mettreAJourStatsFiche();
-            } else {
-                toast("❌ Pas de connexion Internet", 'error');
-            }
-        } catch (error) {
-            toast("❌ Erreur: " + error.message, 'error');
-            console.error(error);
-        } finally {
-            isCreatingFiche = false;
-            btn.disabled = false;
-            btn.innerHTML = '💾 METTRE À JOUR';
-        }
-        return;
-    }
-    
-    // Sinon → CRÉER UNE NOUVELLE FICHE
     const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
     const fichesExistantes = await loadAllFiches();
     const doublon = fichesExistantes.find(f => 
@@ -2627,22 +2645,19 @@ document.getElementById('newFicheBtn').addEventListener('click', async function(
         toast("⚠️ Une fiche identique existe déjà !", 'warning');
         return;
     }
-    
     isCreatingFiche = true;
+    const btn = this;
     btn.disabled = true;
     btn.innerHTML = '⏳ CRÉATION...';
     try {
         if (currentFiche && currentFicheId) {
             await saveCurrentFiche();
         }
-        
         const nid = 'f' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const nnum = await getNextFicheNumero();
         const now = new Date();
-        
         await getAllComptaEleves();
         const elevesCompta = localEleves;
-        
         let elevesFiltres = elevesCompta.filter(e => {
             if (e.abandon) return false;
             if (e.classe !== classe) return false;
@@ -2650,7 +2665,6 @@ document.getElementById('newFicheBtn').addEventListener('click', async function(
             if (fop && e.option !== fop) return false;
             return true;
         });
-        
         let eleves = elevesFiltres.map(e => ({
             id: e.id || Date.now() + Math.random(),
             nom: e.nom + (e.prenom ? ' ' + e.prenom : ''),
@@ -2662,7 +2676,6 @@ document.getElementById('newFicheBtn').addEventListener('click', async function(
             importeLe: new Date().toISOString(),
             source: "auto"
         }));
-        
         const nouvelleFiche = {
             profId: currentProf.id,
             ficheId: nid,
@@ -2691,25 +2704,20 @@ document.getElementById('newFicheBtn').addEventListener('click', async function(
                 auto: true 
             }
         };
-        
         if (navigator.onLine) {
             await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, nid), nouvelleFiche);
         } else {
             toast("❌ Pas de connexion Internet", 'error');
             return;
         }
-        
         currentFiche = nouvelleFiche;
         currentFicheId = nid;
-        
         document.getElementById('coursInput').value = '';
         document.getElementById('classeSelect').value = '';
         document.getElementById('optionSelect').value = '';
         document.getElementById('p1MaxConfig').value = 20;
         toggleOptionField();
-        
         await refreshSelectors(nid);
-        
         afficherEpreuves();
         afficherEleves();
         afficherCotation();
@@ -2717,25 +2725,175 @@ document.getElementById('newFicheBtn').addEventListener('click', async function(
         refreshGroupes();
         mettreAJourCompteurEleves();
         mettreAJourStatsFiche();
-        
         const msg = `✅ Fiche "${cours}" - ${classe}${fop ? ' ('+fop+')' : ''} créée avec ${eleves.length} élève(s)`;
         toast(msg, 'success');
         await enregistrerLog("creation_fiche", { 
             message: 'Création de la fiche ' + cours + ' - ' + classe, 
             cours, classe, option: fop, nbEleves: eleves.length 
         }, "success");
-        
         document.getElementById('coursInput').focus();
-        
+        mettreAJourBoutons();
     } catch (error) {
         toast("❌ Erreur lors de la création", 'error');
         console.error(error);
     } finally {
         isCreatingFiche = false;
         btn.disabled = false;
-        btn.innerHTML = '📝 CRÉER UNE FICHE';
+        btn.innerHTML = '📝 CRÉER';
     }
 });
+
+document.getElementById('modifierFicheBtn').addEventListener('click', async function() {
+    if (!currentFicheId || !currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    if (!champsModifiables) {
+        setChampsModifiables(true);
+        toast("✏️ Mode modification activé. Modifiez les champs puis cliquez sur METTRE À JOUR.", 'info');
+        return;
+    }
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '⏳ MISE À JOUR...';
+    try {
+        const cours = document.getElementById('coursInput').value.trim();
+        const classe = document.getElementById('classeSelect').value;
+        const option = document.getElementById('optionSelect').value;
+        if (!cours) { toast("Veuillez renseigner le cours", 'error'); return; }
+        if (!classe) { toast("Veuillez sélectionner une classe", 'error'); return; }
+        const fop = (classe === '7ème EB' || classe === '8ème EB') ? '' : option;
+        currentFiche.cours = cours;
+        currentFiche.classe = classe;
+        currentFiche.option = fop;
+        currentFiche.p1Max = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
+        currentFiche.lastModified = new Date();
+        if (navigator.onLine) {
+            await setDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId), currentFiche);
+            toast("✅ Fiche mise à jour avec succès", 'success');
+            await refreshSelectors(currentFicheId);
+            afficherEpreuves();
+            afficherEleves();
+            afficherCotation();
+            mettreAJourCompteurEleves();
+            mettreAJourStatsFiche();
+        } else {
+            toast("❌ Pas de connexion Internet", 'error');
+            return;
+        }
+        setChampsModifiables(false);
+        mettreAJourBoutons();
+    } catch (error) {
+        toast("❌ Erreur: " + error.message, 'error');
+        console.error(error);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '✏️ MODIFIER';
+        btn.style.background = '#1e3a5f';
+        btn.className = 'btn btn-primary';
+    }
+});
+
+document.getElementById('supprimerFicheBtn').addEventListener('click', function() {
+    if (!currentFicheId || !currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    const ficheNom = currentFiche.cours || 'Fiche';
+    const ficheClasse = currentFiche.classe || '';
+    const ficheOption = currentFiche.option || '';
+    const ficheRef = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+    showConfirm(
+        `SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
+        "⚠️ La fiche sera supprimée définitivement.\n\n📌 Elle ne sera plus visible par les professeurs ni les titulaires.\n📌 L'administrateur pourra la restaurer pendant 30 jours depuis la corbeille.\n\nConfirmez-vous la suppression ?",
+        async function() {
+            try {
+                const btn = document.getElementById('supprimerFicheBtn');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ SUPPRESSION...';
+                const ficheData = currentFiche;
+                const dateExpiration = new Date();
+                dateExpiration.setDate(dateExpiration.getDate() + 30);
+                const corbeilleData = {
+                    ...ficheData,
+                    dateSuppression: new Date().toISOString(),
+                    dateExpiration: dateExpiration.toISOString(),
+                    professeurNom: currentProf?.nom || 'Inconnu',
+                    professeurId: currentProf?.id || 'inconnu',
+                    supprimePar: currentProf?.nom || 'Inconnu',
+                    school: ECOLET_ID
+                };
+                await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), corbeilleData);
+                await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId));
+                const ficheId = currentFicheId;
+                const ficheCours = currentFiche.cours;
+                const ficheClasse2 = currentFiche.classe;
+                currentFiche = null;
+                currentFicheId = null;
+                champsModifiables = false;
+                viderChamps();
+                await refreshSelectors();
+                mettreAJourBoutons();
+                setChampsModifiables(false);
+                afficherEpreuves();
+                afficherEleves();
+                afficherCotation();
+                updateExportSelect();
+                if (titulaireConfig) {
+                    await chargerFichesTitulaireTitu();
+                }
+                await enregistrerLog("suppression_fiche", {
+                    message: `Fiche "${ficheCours}" supprimée par ${currentProf?.nom}`,
+                    ficheId: ficheId,
+                    cours: ficheCours,
+                    classe: ficheClasse2,
+                    option: ficheData.option || '',
+                    numeroRef: ficheData.numeroRef,
+                    action_par: currentProf?.nom
+                }, "warning");
+                toast(`✅ Fiche "${ficheCours}" supprimée. L'admin peut la restaurer.`, 'success');
+            } catch (error) {
+                toast("❌ Erreur lors de la suppression", 'error');
+                console.error(error);
+            } finally {
+                const btn = document.getElementById('supprimerFicheBtn');
+                btn.disabled = false;
+                btn.innerHTML = '🗑️ SUPPRIMER';
+            }
+        }
+    );
+});
+
+document.getElementById('viderChampsBtn').addEventListener('click', function() {
+    if (champsModifiables && currentFicheId) {
+        showConfirm("Annuler les modifications ?", "Les modifications non sauvegardées seront perdues.", function() {
+            viderChamps();
+            currentFiche = null;
+            currentFicheId = null;
+            setChampsModifiables(false);
+            mettreAJourBoutons();
+            refreshSelectors();
+            afficherEpreuves();
+            afficherEleves();
+            afficherCotation();
+            updateExportSelect();
+            toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
+        });
+    } else {
+        viderChamps();
+        currentFiche = null;
+        currentFicheId = null;
+        setChampsModifiables(false);
+        mettreAJourBoutons();
+        refreshSelectors();
+        afficherEpreuves();
+        afficherEleves();
+        afficherCotation();
+        updateExportSelect();
+        toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
+    }
+});
+
 document.getElementById('rechargerElevesBtn').onclick = async function() {
 if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; }
 const classe = currentFiche.classe;
@@ -2758,31 +2916,10 @@ mettreAJourStatsFiche();
 toast(`✅ ${elevesAAjouter.length} nouvel(le)s élève(s) ajouté(s)`, 'success');
 };
 function mettreAJourStatsFiche() { const container = document.getElementById('ficheStatsContent'); if (!container || !currentFiche) return; const eleves = currentFiche.eleves || []; container.innerHTML = `<div style="display:flex;gap:20px;flex-wrap:wrap;"><div><span style="color:#94a3b8;">👥 Total élèves :</span><span style="color:#fff;font-weight:600;">${eleves.length}</span></div><div><span style="color:#94a3b8;">📅 Importé le :</span><span style="color:#94a3b8;">${currentFiche.importAuto?.date?new Date(currentFiche.importAuto.date).toLocaleDateString():'N/A'}</span></div></div>`; }
-document.getElementById('deleteFicheBtn').onclick = async function() {
-if (!currentFicheId) { toast("Aucune fiche sélectionnée", 'error'); return; }
-showConfirm("Déplacer cette fiche vers la corbeille ?\n\nLa directrice pourra la restaurer pendant 30 jours.", async function() {
-try {
-let ficheData = currentFiche;
-let nbEleves = ficheData?.eleves?.length || 0;
-await enregistrerLog("suppression_fiche", { message: 'Suppression de la fiche ' + (ficheData?.cours || "inconnue") + ' - ' + (ficheData?.classe || "inconnue"), ficheId: currentFicheId, cours: ficheData?.cours, classe: ficheData?.classe, option: ficheData?.option || "aucune", numeroRef: ficheData?.numeroRef, nbEleves: nbEleves, action_par: currentProf?.nom }, "warning");
-if (ficheData) {
-let dateExpiration = new Date();
-dateExpiration.setDate(dateExpiration.getDate() + 30);
-let corbeilleData = { ...ficheData, dateSuppression: new Date().toISOString(), dateExpiration: dateExpiration.toISOString(), professeurNom: currentProf.nom };
-if (navigator.onLine) { try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), corbeilleData); } catch (e) { console.error("Erreur sauvegarde corbeille:", e); } }
-}
-if (navigator.onLine) { try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId)); } catch (e) { toast("Erreur suppression", 'error'); } } else { toast("Pas de connexion", 'error'); }
-toutesFiches = await loadAllFiches();
-if (toutesFiches.length > 0) await selectFiche(toutesFiches[0].id);
-else { currentFiche = null; currentFicheId = null; document.getElementById('coursInput').value = ''; document.getElementById('classeSelect').value = ''; document.getElementById('optionSelect').value = ''; afficherEpreuves(); afficherEleves(); afficherCotation(); updateExportSelect(); refreshSelectors(); }
-toast("Fiche supprimée avec succès", 'success');
-} catch (error) { await enregistrerLog("erreur_suppression_fiche", { message: 'Erreur lors de la suppression de la fiche', erreur: error.message, ficheId: currentFicheId }, "error"); toast("Erreur lors de la suppression", 'error'); }
-});
-};
-document.getElementById('coursInput').oninput = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.cours = this.value; refreshSelectors(); } };
-document.getElementById('classeSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.classe = this.value; if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) { currentFiche.option = ''; document.getElementById('optionSelect').value = ''; } refreshSelectors(); } toggleOptionField(); mettreAJourSelectOptions(this.value); };
-document.getElementById('optionSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.option = this.value; refreshSelectors(); } };
-document.getElementById('p1MaxConfig').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche) { currentFiche.p1Max = parseFloat(this.value) || 20; afficherCotation(); } };
+document.getElementById('coursInput').oninput = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche && champsModifiables) { currentFiche.cours = this.value; } };
+document.getElementById('classeSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche && champsModifiables) { currentFiche.classe = this.value; if (['7ème EB', '8ème EB'].includes(currentFiche.classe)) { currentFiche.option = ''; document.getElementById('optionSelect').value = ''; } } toggleOptionField(); mettreAJourSelectOptions(this.value); };
+document.getElementById('optionSelect').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche && champsModifiables) { currentFiche.option = this.value; } };
+document.getElementById('p1MaxConfig').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche && champsModifiables) { currentFiche.p1Max = parseFloat(this.value) || 20; afficherCotation(); } };
 document.getElementById('exportCurrentBtn').onclick = async function() { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.eleves || currentFiche.eleves.length === 0) { toast("Aucun élève à exporter", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"), ficheId: currentFicheId, cours: currentFiche.cours, classe: currentFiche.classe, nbEleves: currentFiche.eleves.length, type: "fiche_cotation" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('landscape', 'mm', 'a4'); const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???'; pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 297, 210, 'F'); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(14); pdf.setTextColor(0, 51, 102); let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(80, 80, 80); pdf.text('GESTION SCOLAIRE', 148, 27, { align: 'center' }); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(0, 51, 102); pdf.text('FICHE DE COTATION', 148, 37, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(0, 0, 0); pdf.text("Année scolaire : " + (currentFiche.anneeScolaire || '2026-2027'), 14, 50); pdf.text("Référence : " + rn, 14, 57); pdf.text("Cours : " + (currentFiche.cours || ''), 14, 64); pdf.text("Classe : " + (currentFiche.classe || ''), 14, 71); let y = 78; if (currentFiche.option && currentFiche.option !== '') { pdf.text("Option : " + currentFiche.option, 14, y); y += 7; } pdf.text("Titulaire : " + (currentProf ? currentProf.nom : ''), 14, y); const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] }; const p1m = getPeriodeMax(1), p2m = getPeriodeMax(2), p3m = getPeriodeMax(3), p4m = getPeriodeMax(4); const e1m = getExamMax(1), e2m = getExamMax(2); const ts1m = getTotalSemestreMax(1), ts2m = getTotalSemestreMax(2), tam = getTotalAnnuelMax(); const hd = [['N°', 'NOMS', 'SEXE', 'P1/' + p1m, 'P2/' + p2m, 'EXAM S1/' + e1m, 'TOT S1/' + ts1m, 'P3/' + p3m, 'P4/' + p4m, 'EXAM S2/' + e2m, 'TOT S2/' + ts2m, 'TOTAL/' + tam]]; const bd = []; for (let i = 0; i < currentFiche.eleves.length; i++) { const e = currentFiche.eleves[i]; const n = e.notes || {}; const p1 = calcMoy(1, n.p1), p2 = calcMoy(2, n.p2), p3 = calcMoy(3, n.p3), p4 = calcMoy(4, n.p4); const ex1 = n.exam1 || 0, ex2 = n.exam2 || 0; bd.push([(i + 1).toString(), e.nom || '', e.sexe === 'F' ? 'F' : 'M', p1, p2, ex1, p1 + p2 + ex1, p3, p4, ex2, p3 + p4 + ex2, p1 + p2 + ex1 + p3 + p4 + ex2]); } pdf.autoTable({ head: hd, body: bd, startY: y + 10, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', textColor: [0, 0, 0] }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' }, alternateRowStyles: { fillColor: [245, 245, 245] } }); pdf.save("Fiche_" + rn + "_" + (currentFiche.cours || 'cours') + ".pdf"); toast("PDF exporté", 'success'); } catch (e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); } };
 document.getElementById('exportEleveNotesBtn').onclick = async function() { let idx = document.getElementById('eleveForExportSelect').value; if (idx === "") { toast("Veuillez sélectionner un élève", 'warning'); return; } let eleve = currentFiche.eleves[parseInt(idx)]; if (!eleve) { toast("Élève non trouvé", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"), eleve: eleve.nom, ficheId: currentFicheId, type: "releve_eleve" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('portrait', 'mm', 'a4'); const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???'; pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 210, 297, 'F'); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(14); pdf.setTextColor(0, 51, 102); let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 105, 20, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(80, 80, 80); pdf.text('GESTION DE SCOLARITÉ', 105, 27, { align: 'center' }); pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(0, 51, 102); pdf.text('RELEVE DES EPREUVES', 105, 37, { align: 'center' }); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(0, 0, 0); pdf.text("Référence: " + rn, 150, 50); pdf.text("Élève: " + (eleve.nom || ''), 20, 50); pdf.text("Classe: " + (currentFiche.classe || '') + (currentFiche.option ? ' - ' + currentFiche.option : ''), 20, 58); pdf.text("Cours: " + (currentFiche.cours || ''), 20, 66); const eps = currentFiche.epreuvesParPeriode || { 1: [], 2: [], 3: [], 4: [] }; const getP = function(p) { return currentFiche.p1Max || 20; }; const bd = []; for (let p = 1; p <= 4; p++) { for (let ei = 0; ei < (eps[p] || []).length; ei++) { let nt = (eleve.notes?.['p' + p] && eleve.notes['p' + p][ei]) ? eleve.notes['p' + p][ei] : 0; bd.push(["Période " + p, eps[p][ei].nom, nt + " / " + eps[p][ei].max, Math.round((nt / eps[p][ei].max) * getP(p)) + " / " + getP(p)]); } } bd.push(['', '', '', '']); bd.push(['RECAPITULATIF', '', '', '']); const p1m = getP(1), p2m = getP(2), p3m = getP(3), p4m = getP(4); const p1 = (function() { let e = eps[1] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p1?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p1m, Math.round((s / m) * p1m)) : 0; })(); const p2 = (function() { let e = eps[2] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p2?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p2m, Math.round((s / m) * p2m)) : 0; })(); const p3 = (function() { let e = eps[3] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p3?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p3m, Math.round((s / m) * p3m)) : 0; })(); const p4 = (function() { let e = eps[4] || []; let s = 0, m = 0; for (let i = 0; i < e.length; i++) { s += (eleve.notes?.p4?.[i] || 0); m += (e[i].max || 1); } return m ? Math.min(p4m, Math.round((s / m) * p4m)) : 0; })(); const ex1 = eleve.notes?.exam1 || 0, ex2 = eleve.notes?.exam2 || 0; bd.push(['Période 1', '', p1 + " / " + p1m, '']); bd.push(['Période 2', '', p2 + " / " + p2m, '']); bd.push(['Examen Semestre 1', '', ex1 + " / " + (p1m + p2m), '']); bd.push(['Total Semestre 1', '', (p1 + p2 + ex1) + " / " + (p1m + p2m + p1m + p2m), '']); bd.push(['Période 3', '', p3 + " / " + p3m, '']); bd.push(['Période 4', '', p4 + " / " + p4m, '']); bd.push(['Examen Semestre 2', '', ex2 + " / " + (p3m + p4m), '']); bd.push(['Total Semestre 2', '', (p3 + p4 + ex2) + " / " + (p3m + p4m + p3m + p4m), '']); bd.push(['TOTAL ANNUEL', '', (p1 + p2 + ex1 + p3 + p4 + ex2) + " / " + ((p1m + p2m) * 2 + (p3m + p4m) * 2), '']); pdf.autoTable({ head: [['Période', 'Epreuve', 'Note', 'Note / max période']], body: bd, startY: 75, theme: 'grid', styles: { fontSize: 9, cellPadding: 3, textColor: [0, 0, 0] }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 245] } }); pdf.save("Releve_" + rn + "_" + (eleve.nom || 'eleve').replace(/\s/g, '_') + ".pdf"); toast("PDF généré pour " + eleve.nom, 'success'); } catch (e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); } };
 document.getElementById('addEpreuve1').onclick = function() { addEpreuve(1); };
