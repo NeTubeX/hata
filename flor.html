@@ -152,7 +152,6 @@ body{overscroll-behavior:none;-webkit-overscroll-behavior:none;}
 .horaire-list-container{background:#0f172a;border-radius:16px;overflow:hidden;}
 .horaire-item{display:flex;align-items:center;gap:12px;background:#0f172a;padding:14px 16px;border-bottom:1px solid #1e293b;cursor:pointer;transition:background 0.2s;}
 .horaire-item:last-child{border-bottom:none;}
-.horaire-item:hover{background:#1e293b;}
 .horaire-numero{font-weight:bold;color:#60a5fa;min-width:80px;font-size:14px;}
 .horaire-info-hidden{flex:1;color:#cbd5e1;font-size:13px;text-align:center;}
 .horaire-pause{opacity:0.6;cursor:default;}
@@ -1637,6 +1636,22 @@ function viderChamps() {
     document.getElementById('optionSelect').value = '';
     document.getElementById('p1MaxConfig').value = 20;
     toggleOptionField();
+    // FORCER l'activation des champs
+    const inputs = [
+        document.getElementById('coursInput'),
+        document.getElementById('classeSelect'),
+        document.getElementById('optionSelect'),
+        document.getElementById('p1MaxConfig')
+    ];
+    inputs.forEach(input => {
+        if (input) {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.style.cursor = 'text';
+            input.style.borderColor = '#3b82f6';
+        }
+    });
+    champsModifiables = true;
 }
 async function loadAllFiches() {
     if (!currentProf) return [];
@@ -2810,10 +2825,9 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
     const ficheNom = currentFiche.cours || 'Fiche';
     const ficheClasse = currentFiche.classe || '';
     const ficheOption = currentFiche.option || '';
-    
     showConfirm(
         `SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
-        "⚠️ La fiche sera supprimée définitivement.\n\nConfirmez-vous la suppression ?",
+        "⚠️ La fiche sera supprimée définitivement.\n\n📌 Elle sera déplacée dans la corbeille.\n📌 L'administrateur pourra la restaurer pendant 30 jours.\n\nConfirmez-vous la suppression ?",
         async function() {
             try {
                 const btn = document.getElementById('supprimerFicheBtn');
@@ -2824,59 +2838,78 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 const dateExpiration = new Date();
                 dateExpiration.setDate(dateExpiration.getDate() + 30);
                 
-                // Envoyer en corbeille
+                // 1. Envoyer en corbeille
                 await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), {
                     ...ficheData,
                     dateSuppression: new Date().toISOString(),
                     dateExpiration: dateExpiration.toISOString(),
                     professeurNom: currentProf?.nom || 'Inconnu',
+                    professeurId: currentProf?.id || 'inconnu',
                     supprimePar: currentProf?.nom || 'Inconnu',
                     school: ECOLET_ID
                 });
                 
-                // Supprimer
+                // 2. Supprimer de la collection FICHES
                 await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId));
                 
-                // RÉINITIALISER TOUS LES SÉLECTEURS
-                const ficheIdSupprimee = currentFicheId;
+                const ficheCours = currentFiche.cours;
+                const ficheClasse2 = currentFiche.classe;
+                
+                // 3. Réinitialisation complète
                 currentFiche = null;
                 currentFicheId = null;
+                champsModifiables = false;
                 
-                // Vider les champs
+                // 4. Vider les champs
                 document.getElementById('coursInput').value = '';
                 document.getElementById('classeSelect').value = '';
                 document.getElementById('optionSelect').value = '';
                 document.getElementById('p1MaxConfig').value = 20;
                 toggleOptionField();
                 
-                // Recharger les fiches disponibles
+                // 5. Recharger toutes les fiches
                 toutesFiches = await loadAllFiches();
                 
-                // RÉINITIALISER MANUELLEMENT TOUS LES SÉLECTEURS
+                // 6. Réinitialiser TOUS les sélecteurs
                 const selectors = ['ficheSelect', 'epreuveFicheSelector', 'cotationFicheSelector', 'exportFicheSelector', 'correctionFicheSelector'];
                 selectors.forEach(id => {
                     const sel = document.getElementById(id);
                     if (sel) {
-                        sel.innerHTML = '<option value="">-- Choisir --</option>';
-                        toutesFiches.forEach(f => {
-                            const opt = document.createElement('option');
-                            opt.value = f.id;
-                            const refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
-                            const optText = f.option ? ' (' + f.option + ')' : '';
-                            opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
-                            sel.appendChild(opt);
-                        });
-                        if (toutesFiches.length > 0) {
-                            sel.value = toutesFiches[0].id;
-                        }
+                        sel.innerHTML = '<option value="">-- Aucune fiche --</option>';
+                        sel.value = '';
                     }
                 });
                 
-                // Si des fiches existent, sélectionner la première
+                // 7. Ajouter les fiches restantes dans les sélecteurs
                 if (toutesFiches.length > 0) {
+                    selectors.forEach(id => {
+                        const sel = document.getElementById(id);
+                        if (sel) {
+                            sel.innerHTML = '<option value="">-- Choisir --</option>';
+                            toutesFiches.forEach(f => {
+                                const opt = document.createElement('option');
+                                opt.value = f.id;
+                                const refa = f.numeroRef ? formatNumero(f.numeroRef) : 'Nouvelle';
+                                const optText = f.option ? ' (' + f.option + ')' : '';
+                                opt.textContent = refa + ' - ' + (f.cours || '?') + ' - ' + (f.classe || '?') + optText;
+                                sel.appendChild(opt);
+                            });
+                        }
+                    });
+                    
+                    // Sélectionner la première fiche
                     await selectFiche(toutesFiches[0].id);
+                } else {
+                    // Aucune fiche disponible
+                    selectors.forEach(id => {
+                        const sel = document.getElementById(id);
+                        if (sel) {
+                            sel.innerHTML = '<option value="">-- Aucune fiche --</option>';
+                        }
+                    });
                 }
                 
+                // 8. Mettre à jour l'interface
                 mettreAJourBoutons();
                 setChampsModifiables(false);
                 afficherEpreuves();
@@ -2884,11 +2917,23 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 afficherCotation();
                 updateExportSelect();
                 
+                // 9. Mettre à jour l'espace titulaire si actif
                 if (titulaireConfig) {
                     await chargerFichesTitulaireTitu();
                 }
                 
-                toast(`✅ Fiche "${ficheNom}" supprimée.`, 'success');
+                // 10. Log
+                await enregistrerLog("suppression_fiche", {
+                    message: `Fiche "${ficheCours}" supprimée par ${currentProf?.nom}`,
+                    cours: ficheCours,
+                    classe: ficheClasse2,
+                    option: ficheData.option || '',
+                    numeroRef: ficheData.numeroRef,
+                    action_par: currentProf?.nom
+                }, "warning");
+                
+                toast(`✅ Fiche "${ficheCours}" supprimée et envoyée en corbeille.`, 'success');
+                
             } catch (error) {
                 toast("❌ Erreur lors de la suppression", 'error');
                 console.error(error);
@@ -2899,13 +2944,26 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
             }
         }
     );
-});document.getElementById('viderChampsBtn').addEventListener('click', function() {
+});
+
+document.getElementById('viderChampsBtn').addEventListener('click', function() {
     if (champsModifiables && currentFicheId) {
         showConfirm("Annuler les modifications ?", "Les modifications non sauvegardées seront perdues.", function() {
-            viderChamps();
             currentFiche = null;
             currentFicheId = null;
-            setChampsModifiables(false);
+            viderChamps();
+            // FORCER L'ACTIVATION
+            const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.disabled = false;
+                    el.style.opacity = '1';
+                    el.style.cursor = 'text';
+                    el.style.borderColor = '#3b82f6';
+                }
+            });
+            champsModifiables = true;
             mettreAJourBoutons();
             refreshSelectors();
             afficherEpreuves();
@@ -2915,10 +2973,21 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
             toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
         });
     } else {
-        viderChamps();
         currentFiche = null;
         currentFicheId = null;
-        setChampsModifiables(false);
+        viderChamps();
+        // FORCER L'ACTIVATION
+        const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.disabled = false;
+                el.style.opacity = '1';
+                el.style.cursor = 'text';
+                el.style.borderColor = '#3b82f6';
+            }
+        });
+        champsModifiables = true;
         mettreAJourBoutons();
         refreshSelectors();
         afficherEpreuves();
