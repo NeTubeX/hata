@@ -152,6 +152,7 @@ body{overscroll-behavior:none;-webkit-overscroll-behavior:none;}
 .horaire-list-container{background:#0f172a;border-radius:16px;overflow:hidden;}
 .horaire-item{display:flex;align-items:center;gap:12px;background:#0f172a;padding:14px 16px;border-bottom:1px solid #1e293b;cursor:pointer;transition:background 0.2s;}
 .horaire-item:last-child{border-bottom:none;}
+.horaire-item:hover{background:#1e293b;}
 .horaire-numero{font-weight:bold;color:#60a5fa;min-width:80px;font-size:14px;}
 .horaire-info-hidden{flex:1;color:#cbd5e1;font-size:13px;text-align:center;}
 .horaire-pause{opacity:0.6;cursor:default;}
@@ -887,23 +888,114 @@ infoDiv.style.color = '#f59e0b';
 } else infoDiv.style.display = 'none';
 }
 setTimeout(afficherEtatGeneration, 1000);
-async function enregistrerLog(action, details = {}, statut = "info") {
+async function getIPInfo() {
 try {
-const now = new Date();
-const logData = {
-_type: "log_activite",
-action: action,
-utilisateur: currentProf?.nom || "Inconnu",
-utilisateurId: currentProf?.id || "inconnu",
-date: now.toISOString(),
-statut: statut,
-message: details.message || action
-};
-if (navigator.onLine) {
-try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4)), logData); }
-catch (error) { }
+let ip = "0.0.0.0";
+let fournisseur = "Inconnu";
+let ville = "Inconnue";
+let pays = "Inconnu";
+let os = "Inconnu";
+let navigateur = "Inconnu";
+try {
+const userAgent = navigator.userAgent;
+if (userAgent.includes('Chrome') && !userAgent.includes('Edg') && !userAgent.includes('OPR')) navigateur = 'Chrome';
+else if (userAgent.includes('Firefox')) navigateur = 'Firefox';
+else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) navigateur = 'Safari';
+else if (userAgent.includes('Edg')) navigateur = 'Edge';
+else if (userAgent.includes('OPR') || userAgent.includes('Opera')) navigateur = 'Opera';
+else if (userAgent.includes('Brave')) navigateur = 'Brave';
+else navigateur = 'Autre';
+if (userAgent.includes('Windows')) {
+if (userAgent.includes('Windows NT 10.0')) os = 'Windows 10/11';
+else if (userAgent.includes('Windows NT 6.3')) os = 'Windows 8.1';
+else if (userAgent.includes('Windows NT 6.2')) os = 'Windows 8';
+else if (userAgent.includes('Windows NT 6.1')) os = 'Windows 7';
+else if (userAgent.includes('Windows NT 6.0')) os = 'Windows Vista';
+else if (userAgent.includes('Windows NT 5.1')) os = 'Windows XP';
+else os = 'Windows';
+} else if (userAgent.includes('Mac OS X')) os = 'macOS';
+else if (userAgent.includes('Linux')) {
+if (userAgent.includes('Android')) os = 'Android';
+else os = 'Linux';
+} else if (userAgent.includes('iPhone') || userAgent.includes('iPad') || userAgent.includes('iPod')) os = 'iOS';
+else if (userAgent.includes('Android')) os = 'Android';
+else os = 'Autre';
+} catch (e) { console.error("Erreur détection OS/Navigateur:", e); }
+try {
+const ipRes = await fetch('https://api.ipify.org?format=json');
+const ipData = await ipRes.json();
+ip = ipData.ip || "0.0.0.0";
+} catch (e) {
+try {
+const ipRes = await fetch('https://api.my-ip.io/ip.json');
+const ipData = await ipRes.json();
+ip = ipData.ip || "0.0.0.0";
+} catch (e2) {
+try {
+const ipRes = await fetch('https://ipapi.co/ip/');
+ip = (await ipRes.text()).trim() || "0.0.0.0";
+} catch (e3) { ip = "0.0.0.0"; }
 }
-} catch (error) { }
+}
+if (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1" && ip !== "::1") {
+try {
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 5000);
+const geoRes = await fetch(`https://ipinfo.io/${ip}/json`, { signal: controller.signal });
+clearTimeout(timeoutId);
+const geo = await geoRes.json();
+if (geo && geo.ip) {
+pays = geo.country || "Inconnu";
+ville = geo.city || "Inconnue";
+fournisseur = geo.org || geo.isp || geo.asn || "Inconnu";
+}
+} catch (e) { console.error("Erreur ipinfo.io:", e); }
+if (fournisseur && fournisseur !== "Inconnu") {
+const f = fournisseur.toLowerCase();
+if (f.includes('orange')) fournisseur = "Orange";
+else if (f.includes('airtel')) fournisseur = "Airtel";
+else if (f.includes('vodacom')) fournisseur = "Vodacom";
+else if (f.includes('tigo')) fournisseur = "Tigo";
+else if (f.includes('africell')) fournisseur = "Africell";
+else if (f.includes('mtn')) fournisseur = "MTN";
+else if (f.includes('vodafone')) fournisseur = "Vodafone";
+else if (f.includes('wifi') || f.includes('home') || f.includes('cable') || f.includes('fiber') || f.includes('fibre')) fournisseur = "WiFi/Fibre";
+else if (f.includes('mobile') || f.includes('cellular') || f.includes('4g') || f.includes('5g')) fournisseur = "Mobile";
+}
+}
+return { ip, fournisseur, ville, pays, os, navigateur };
+} catch (e) { console.error("Erreur getIPInfo:", e); return { ip: "0.0.0.0", fournisseur: "Inconnu", ville: "Inconnue", pays: "Inconnu", os: "Inconnu", navigateur: "Inconnu" }; }
+}
+async function enregistrerLog(action, details, statut = "info") {
+try {
+const logId = "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+const now = new Date();
+const userInfo = { nom: currentProf?.nom || "Inconnu", id: currentProf?.id || "inconnu", type: currentProf ? "professeur" : "systeme", ecole: ECOLET_ID };
+const ipInfo = await getIPInfo();
+const browserInfo = { userAgent: navigator.userAgent, screen: window.screen.width + "x" + window.screen.height, platform: navigator.platform, language: navigator.language, ip: ipInfo.ip, fournisseur: ipInfo.fournisseur, ville: ipInfo.ville, pays: ipInfo.pays };
+const logData = { _type: "log_activite", id: logId, action: action, utilisateur: userInfo.nom, utilisateurId: userInfo.id, utilisateurType: userInfo.type, ecole: userInfo.ecole, date: now.toISOString(), dateTimestamp: now.getTime(), details: { ...details, browser: browserInfo, ip: ipInfo.ip, fournisseur: ipInfo.fournisseur, ville: ipInfo.ville, pays: ipInfo.pays, url: window.location.href }, statut: statut, message: details.message || action, lu: false };
+if (navigator.onLine) {
+try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, logId), logData); }
+catch (error) { }
+} 
+if (estActionCritique(action, statut)) alerterAdmin(logData);
+if (statut === "error" || statut === "critical") {
+if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
+}
+return logData;
+} catch (error) { console.error("Erreur enregistrement log:", error); return null; }
+}
+function estActionCritique(action, statut) {
+const actionsCritiques = ["connexion_echouee", "connexion_reussie", "deconnexion", "suppression_fiche", "modification_code", "creation_professeur", "suppression_professeur", "modification_options", "erreur_systeme", "tentative_hack", "creation_fiche", "suppression_eleve", "modification_code_acces", "export_pdf", "correction_masse", "connexion_technique", "deconnexion_technique"];
+return actionsCritiques.includes(action) || statut === "error" || statut === "critical";
+}
+async function alerterAdmin(logData) {
+try {
+const alertId = "alert_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+const now = new Date();
+const alertData = { _type: "alerte_admin", id: alertId, logId: logData.id, action: logData.action, utilisateur: logData.utilisateur, utilisateurId: logData.utilisateurId, ecole: logData.ecole, date: now.toISOString(), dateTimestamp: now.getTime(), details: logData.details, statut: logData.statut, message: logData.message || logData.action, lue: false, priorite: logData.statut === "critical" ? "haute" : "moyenne" };
+await setDoc(doc(db, "ecoles", ECOLET_ID, SC.ALERTES_ADMIN, alertId), alertData);
+} catch (error) { console.error("Erreur envoi alerte admin:", error); }
 }
 async function rafraichirFiches() {
 const btn = document.getElementById('refreshFichesBtn');
@@ -936,6 +1028,7 @@ async function changerCodeAcces(ancienCode, nouveauCode) {
 if (!currentProf) { toast("Vous n'êtes pas connecté", "error"); return false; }
 try {
 if (currentProf.code !== ancienCode) {
+await enregistrerLog("tentative_code_incorrect", { message: 'Tentative de changement de code avec ancien code incorrect', utilisateur: currentProf.nom }, "error");
 toast("❌ Ancien code incorrect", "error");
 return false;
 }
@@ -944,11 +1037,12 @@ if (navigator.onLine) {
 try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), { profId: currentProf.id, nom: currentProf.nom, code: nouveauCode, school: ECOLET_ID }); }
 catch (e) { console.error("Erreur sauvegarde code:", e); }
 }
-await enregistrerLog("changement_code", { message: 'Changement de code pour ' + currentProf.nom }, "success");
+await enregistrerLog("changement_code", { message: 'Changement de code pour ' + currentProf.nom, utilisateur: currentProf.nom }, "success");
 toast("✅ Code changé avec succès", "success");
 return true;
 } catch (error) {
 console.error("Erreur changement code:", error);
+await enregistrerLog("erreur_changement_code", { message: 'Erreur lors du changement de code: ' + error.message, utilisateur: currentProf?.nom }, "error");
 toast("❌ Erreur lors du changement de code", "error");
 return false;
 }
@@ -1488,10 +1582,28 @@ function setChampsModifiables(actif) {
     ];
     inputs.forEach(input => {
         if (!input) return;
-        input.disabled = !actif;
-        input.style.opacity = actif ? '1' : '0.7';
-        input.style.cursor = actif ? 'text' : 'not-allowed';
-        input.style.borderColor = actif ? '#3b82f6' : '#334155';
+        if (actif) {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.style.cursor = 'text';
+            input.style.borderColor = '#3b82f6';
+            input.style.pointerEvents = 'auto';
+            input.style.background = '#2d3748';
+            input.style.color = '#fff';
+            if (input.tagName === 'SELECT') {
+                input.style.backgroundImage = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>\")";
+                input.style.backgroundRepeat = 'no-repeat';
+                input.style.backgroundPosition = 'right 12px center';
+                input.style.backgroundSize = '14px';
+                input.style.paddingRight = '32px !important';
+            }
+        } else {
+            input.disabled = true;
+            input.style.opacity = '0.7';
+            input.style.cursor = 'not-allowed';
+            input.style.borderColor = '#334155';
+            input.style.pointerEvents = 'none';
+        }
     });
     const labels = document.querySelectorAll('.form-field label, .note-max-row label');
     labels.forEach(label => {
@@ -1534,6 +1646,7 @@ function mettreAJourBoutons() {
         modifierBtn.style.display = 'none';
         supprimerBtn.style.display = 'none';
         viderBtn.style.display = 'inline-flex';
+        champsModifiables = false;
         setChampsModifiables(false);
     }
 }
@@ -1543,21 +1656,30 @@ function viderChamps() {
     document.getElementById('optionSelect').value = '';
     document.getElementById('p1MaxConfig').value = 20;
     toggleOptionField();
-    const inputs = [
-        document.getElementById('coursInput'),
-        document.getElementById('classeSelect'),
-        document.getElementById('optionSelect'),
-        document.getElementById('p1MaxConfig')
-    ];
-    inputs.forEach(input => {
-        if (input) {
-            input.disabled = false;
-            input.style.opacity = '1';
-            input.style.cursor = 'text';
-            input.style.borderColor = '#3b82f6';
+    const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = false;
+            el.style.opacity = '1';
+            el.style.cursor = 'text';
+            el.style.borderColor = '#3b82f6';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#2d3748';
+            el.style.color = '#fff';
+            if (el.tagName === 'SELECT') {
+                el.style.backgroundImage = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>\")";
+                el.style.backgroundRepeat = 'no-repeat';
+                el.style.backgroundPosition = 'right 12px center';
+                el.style.backgroundSize = '14px';
+                el.style.paddingRight = '32px !important';
+            }
         }
     });
     champsModifiables = true;
+    currentFiche = null;
+    currentFicheId = null;
+    mettreAJourBoutons();
 }
 async function loadAllFiches() {
     if (!currentProf) return [];
@@ -1830,8 +1952,8 @@ if (data.school === ECOLET_ID) fp = { id: data.profId, nom: data.nom, code: data
 } catch (e) { console.error("Erreur recherche professeur:", e); }
 }
 if (!fp) {
-if (tentativeConnexion >= SEUIL_ALERTE) await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"', tentative: tentativeConnexion }, "critical");
-else await enregistrerLog("connexion_echouee", { message: 'Tentative de connexion échouée pour "' + n + '"', tentative: tentativeConnexion }, "error");
+if (tentativeConnexion >= SEUIL_ALERTE) await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de connexion échouées pour "' + n + '"', ip: "client", tentative: tentativeConnexion, userAgent: navigator.userAgent, raison: "Compte non trouvé" }, "critical");
+else await enregistrerLog("connexion_echouee", { message: 'Tentative de connexion échouée pour "' + n + '"', raison: "Compte non trouvé", tentative: tentativeConnexion }, "error");
 document.getElementById('loginError').innerHTML = 'Compte désactivé ou identifiants incorrects';
 toast("Compte désactivé ou identifiants incorrects", 'error');
 btn.disabled = false;
@@ -1849,7 +1971,7 @@ return;
 }
 tentativeConnexion = 0;
 if (c === fp.code) {
-await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n }, "success");
+await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n, code_utilise: c }, "success");
 currentProf = { id: fp.id, nom: n, code: fp.code, createdAt: Date.now() };
 sauvegarderSession(currentProf);
 await signalerConnexionProf(currentProf);
@@ -1868,8 +1990,8 @@ btn.disabled = false;
 btn.innerHTML = 'Se connecter';
 btn.style.opacity = '1';
 } else {
-if (tentativeConnexion >= SEUIL_ALERTE) await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n, tentative: tentativeConnexion }, "critical");
-else await enregistrerLog("connexion_echouee", { message: 'Code incorrect pour ' + n }, "error");
+if (tentativeConnexion >= SEUIL_ALERTE) await enregistrerLog("tentative_hack", { message: '🚨 ' + tentativeConnexion + ' tentatives de code incorrect pour ' + n, code_saisi: c, code_attendu: fp.code, tentative: tentativeConnexion }, "critical");
+else await enregistrerLog("connexion_echouee", { message: 'Code incorrect pour ' + n, code_saisi: c, code_attendu: fp.code }, "error");
 document.getElementById('loginError').innerHTML = 'Code incorrect';
 toast("Code d'accès incorrect", 'error');
 btn.disabled = false;
@@ -2731,72 +2853,56 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
     const ficheNom = currentFiche.cours || 'Fiche';
     const ficheClasse = currentFiche.classe || '';
     const ficheOption = currentFiche.option || '';
-    showConfirm(
-        `SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
-        "⚠️ La fiche sera supprimée définitivement.\n\nConfirmez-vous la suppression ?",
+    const ficheRef = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
+    showStyledConfirm(
+        `🗑️ SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
+        `⚠️ La fiche sera supprimée définitivement.\n\n📌 Elle ne sera plus visible par les professeurs ni les titulaires.\n📌 L'administrateur pourra la restaurer pendant 30 jours depuis la corbeille.\n\nConfirmez-vous la suppression ?`,
         async function() {
             try {
                 const btn = document.getElementById('supprimerFicheBtn');
                 btn.disabled = true;
                 btn.innerHTML = '⏳ SUPPRESSION...';
-                
+                const ficheData = currentFiche;
+                const dateExpiration = new Date();
+                dateExpiration.setDate(dateExpiration.getDate() + 30);
+                const corbeilleData = {
+                    ...ficheData,
+                    dateSuppression: new Date().toISOString(),
+                    dateExpiration: dateExpiration.toISOString(),
+                    professeurNom: currentProf?.nom || 'Inconnu',
+                    professeurId: currentProf?.id || 'inconnu',
+                    supprimePar: currentProf?.nom || 'Inconnu',
+                    school: ECOLET_ID
+                };
+                await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, currentFicheId), corbeilleData);
                 await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.FICHES, currentFicheId));
-                
+                const ficheId = currentFicheId;
                 const ficheCours = currentFiche.cours;
                 const ficheClasse2 = currentFiche.classe;
-                
                 currentFiche = null;
                 currentFicheId = null;
                 champsModifiables = false;
-                
                 viderChamps();
-                
-                const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
-                inputs.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.disabled = false;
-                        el.style.opacity = '1';
-                        el.style.cursor = 'text';
-                        el.style.borderColor = '#3b82f6';
-                    }
-                });
-                champsModifiables = true;
-                
-                toutesFiches = await loadAllFiches();
-                
                 await refreshSelectors();
-                
-                if (toutesFiches.length > 0) {
-                    await selectFiche(toutesFiches[0].id);
-                } else {
-                    document.getElementById('ficheSelect').innerHTML = '<option value="">-- Aucune fiche --</option>';
-                    document.getElementById('epreuveFicheSelector').innerHTML = '<option value="">-- Aucune fiche --</option>';
-                    document.getElementById('cotationFicheSelector').innerHTML = '<option value="">-- Aucune fiche --</option>';
-                    document.getElementById('exportFicheSelector').innerHTML = '<option value="">-- Aucune fiche --</option>';
-                    document.getElementById('correctionFicheSelector').innerHTML = '<option value="">-- Aucune fiche --</option>';
-                }
-                
                 mettreAJourBoutons();
+                setChampsModifiables(false);
                 afficherEpreuves();
                 afficherEleves();
                 afficherCotation();
                 updateExportSelect();
-                
                 if (titulaireConfig) {
                     await chargerFichesTitulaireTitu();
                 }
-                
                 await enregistrerLog("suppression_fiche", {
-                    message: `Fiche "${ficheCours}" supprimée définitivement par ${currentProf?.nom}`,
+                    message: `Fiche "${ficheCours}" supprimée par ${currentProf?.nom}`,
+                    ficheId: ficheId,
                     cours: ficheCours,
                     classe: ficheClasse2,
-                    option: ficheOption || '',
+                    option: ficheData.option || '',
+                    numeroRef: ficheData.numeroRef,
                     action_par: currentProf?.nom
                 }, "warning");
-                
-                toast(`✅ Fiche "${ficheCours}" supprimée définitivement.`, 'success');
-                
+                toast(`✅ Fiche "${ficheCours}" supprimée. L'admin peut la restaurer.`, 'success');
             } catch (error) {
                 toast("❌ Erreur lors de la suppression", 'error');
                 console.error(error);
@@ -2810,28 +2916,35 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
 });
 
 document.getElementById('viderChampsBtn').addEventListener('click', function() {
-    currentFiche = null;
-    currentFicheId = null;
-    viderChamps();
-    const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
-    inputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.disabled = false;
-            el.style.opacity = '1';
-            el.style.cursor = 'text';
-            el.style.borderColor = '#3b82f6';
-            el.style.pointerEvents = 'auto';
-        }
-    });
-    champsModifiables = true;
-    mettreAJourBoutons();
-    refreshSelectors();
-    afficherEpreuves();
-    afficherEleves();
-    afficherCotation();
-    updateExportSelect();
-    toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
+    if (champsModifiables && currentFicheId) {
+        showConfirm("Annuler les modifications ?", "Les modifications non sauvegardées seront perdues.", function() {
+            viderChamps();
+            currentFiche = null;
+            currentFicheId = null;
+            champsModifiables = false;
+            mettreAJourBoutons();
+            setChampsModifiables(false);
+            refreshSelectors();
+            afficherEpreuves();
+            afficherEleves();
+            afficherCotation();
+            updateExportSelect();
+            toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
+        });
+    } else {
+        viderChamps();
+        currentFiche = null;
+        currentFicheId = null;
+        champsModifiables = false;
+        mettreAJourBoutons();
+        setChampsModifiables(false);
+        refreshSelectors();
+        afficherEpreuves();
+        afficherEleves();
+        afficherCotation();
+        updateExportSelect();
+        toast("🧹 Champs vidés. Vous pouvez créer une nouvelle fiche.", 'info');
+    }
 });
 
 document.getElementById('rechargerElevesBtn').onclick = async function() {
