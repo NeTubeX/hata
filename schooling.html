@@ -648,21 +648,8 @@ const SC = {
   COMPTA_ELEVES: 'compta_eleves',
   SETTINGS: 'settings'
 };
-async function verifierEcoleAutorisee() {
-    try {
-        const docRef = doc(db, "ecoles", ECOLET_ID);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) return true;
-        const docRef2 = doc(db, "ecoles", schoolId.replace(/[^a-zA-Z0-9]/g,'_'));
-        const docSnap2 = await getDoc(docRef2);
-        if (docSnap2.exists()) return true;
-        return false;
-    } catch (error) {
-        console.error("Erreur de vérification:", error);
-        return true;
-    }
-}
-const estAutorisee = await verifierEcoleAutorisee();
+async function verifierEcoleAutorisee(ecoleId) { try { const docRef = doc(db, "ecoles", ECOLET_ID); const docSnap = await getDoc(docRef); return docSnap.exists(); } catch (error) { console.error("Erreur de vérification:", error); return false; } }
+const estAutorisee = await verifierEcoleAutorisee(schoolId);
 if (!estAutorisee) {
 document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
 throw new Error('École non autorisée: ' + schoolId);
@@ -902,7 +889,82 @@ infoDiv.style.color = '#f59e0b';
 }
 setTimeout(afficherEtatGeneration, 1000);
 async function getIPInfo() {
-return { ip: "0.0.0.0", fournisseur: "Inconnu", ville: "Inconnue", pays: "Inconnu", os: "Inconnu", navigateur: "Inconnu" };
+try {
+let ip = "0.0.0.0";
+let fournisseur = "Inconnu";
+let ville = "Inconnue";
+let pays = "Inconnu";
+let os = "Inconnu";
+let navigateur = "Inconnu";
+try {
+const userAgent = navigator.userAgent;
+if (userAgent.includes('Chrome') && !userAgent.includes('Edg') && !userAgent.includes('OPR')) navigateur = 'Chrome';
+else if (userAgent.includes('Firefox')) navigateur = 'Firefox';
+else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) navigateur = 'Safari';
+else if (userAgent.includes('Edg')) navigateur = 'Edge';
+else if (userAgent.includes('OPR') || userAgent.includes('Opera')) navigateur = 'Opera';
+else if (userAgent.includes('Brave')) navigateur = 'Brave';
+else navigateur = 'Autre';
+if (userAgent.includes('Windows')) {
+if (userAgent.includes('Windows NT 10.0')) os = 'Windows 10/11';
+else if (userAgent.includes('Windows NT 6.3')) os = 'Windows 8.1';
+else if (userAgent.includes('Windows NT 6.2')) os = 'Windows 8';
+else if (userAgent.includes('Windows NT 6.1')) os = 'Windows 7';
+else if (userAgent.includes('Windows NT 6.0')) os = 'Windows Vista';
+else if (userAgent.includes('Windows NT 5.1')) os = 'Windows XP';
+else os = 'Windows';
+} else if (userAgent.includes('Mac OS X')) os = 'macOS';
+else if (userAgent.includes('Linux')) {
+if (userAgent.includes('Android')) os = 'Android';
+else os = 'Linux';
+} else if (userAgent.includes('iPhone') || userAgent.includes('iPad') || userAgent.includes('iPod')) os = 'iOS';
+else if (userAgent.includes('Android')) os = 'Android';
+else os = 'Autre';
+} catch (e) { console.error("Erreur détection OS/Navigateur:", e); }
+try {
+const ipRes = await fetch('https://api.ipify.org?format=json');
+const ipData = await ipRes.json();
+ip = ipData.ip || "0.0.0.0";
+} catch (e) {
+try {
+const ipRes = await fetch('https://api.my-ip.io/ip.json');
+const ipData = await ipRes.json();
+ip = ipData.ip || "0.0.0.0";
+} catch (e2) {
+try {
+const ipRes = await fetch('https://ipapi.co/ip/');
+ip = (await ipRes.text()).trim() || "0.0.0.0";
+} catch (e3) { ip = "0.0.0.0"; }
+}
+}
+if (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1" && ip !== "::1") {
+try {
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 5000);
+const geoRes = await fetch(`https://ipinfo.io/${ip}/json`, { signal: controller.signal });
+clearTimeout(timeoutId);
+const geo = await geoRes.json();
+if (geo && geo.ip) {
+pays = geo.country || "Inconnu";
+ville = geo.city || "Inconnue";
+fournisseur = geo.org || geo.isp || geo.asn || "Inconnu";
+}
+} catch (e) { console.error("Erreur ipinfo.io:", e); }
+if (fournisseur && fournisseur !== "Inconnu") {
+const f = fournisseur.toLowerCase();
+if (f.includes('orange')) fournisseur = "Orange";
+else if (f.includes('airtel')) fournisseur = "Airtel";
+else if (f.includes('vodacom')) fournisseur = "Vodacom";
+else if (f.includes('tigo')) fournisseur = "Tigo";
+else if (f.includes('africell')) fournisseur = "Africell";
+else if (f.includes('mtn')) fournisseur = "MTN";
+else if (f.includes('vodafone')) fournisseur = "Vodafone";
+else if (f.includes('wifi') || f.includes('home') || f.includes('cable') || f.includes('fiber') || f.includes('fibre')) fournisseur = "WiFi/Fibre";
+else if (f.includes('mobile') || f.includes('cellular') || f.includes('4g') || f.includes('5g')) fournisseur = "Mobile";
+}
+}
+return { ip, fournisseur, ville, pays, os, navigateur };
+} catch (e) { console.error("Erreur getIPInfo:", e); return { ip: "0.0.0.0", fournisseur: "Inconnu", ville: "Inconnue", pays: "Inconnu", os: "Inconnu", navigateur: "Inconnu" }; }
 }
 async function enregistrerLog(action, details, statut = "info") {
 try {
@@ -915,7 +977,7 @@ const logData = { _type: "log_activite", id: logId, action: action, utilisateur:
 if (navigator.onLine) {
 try { await setDoc(doc(db, "ecoles", ECOLET_ID, SC.LOGS, logId), logData); }
 catch (error) { }
-}
+} 
 if (estActionCritique(action, statut)) alerterAdmin(logData);
 if (statut === "error" || statut === "critical") {
 if (typeof toast === 'function') toast("⚠️ " + (details.message || action), "error");
@@ -1510,28 +1572,6 @@ return `${getSalutation()} ! Entrez votre code parent. Si vous n'en avez pas, co
 }
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
 async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } catch (e) { console.log(e); } } return false; }
-function viderChamps() {
-    document.getElementById('coursInput').value = '';
-    document.getElementById('classeSelect').value = '';
-    document.getElementById('optionSelect').value = '';
-    document.getElementById('p1MaxConfig').value = 20;
-    toggleOptionField();
-    champsModifiables = false;
-    setChampsModifiables(false);
-    const inputs = [
-        document.getElementById('coursInput'),
-        document.getElementById('classeSelect'),
-        document.getElementById('optionSelect'),
-        document.getElementById('p1MaxConfig')
-    ];
-    inputs.forEach(input => {
-        if (!input) return;
-        input.disabled = false;
-        input.style.opacity = '1';
-        input.style.cursor = 'text';
-        input.style.borderColor = '#3b82f6';
-    });
-}
 function setChampsModifiables(actif) {
     champsModifiables = actif;
     const inputs = [
@@ -1542,10 +1582,28 @@ function setChampsModifiables(actif) {
     ];
     inputs.forEach(input => {
         if (!input) return;
-        input.disabled = !actif;
-        input.style.opacity = actif ? '1' : '0.7';
-        input.style.cursor = actif ? 'text' : 'not-allowed';
-        input.style.borderColor = actif ? '#3b82f6' : '#334155';
+        if (actif) {
+            input.disabled = false;
+            input.style.opacity = '1';
+            input.style.cursor = 'text';
+            input.style.borderColor = '#3b82f6';
+            input.style.pointerEvents = 'auto';
+            input.style.background = '#2d3748';
+            input.style.color = '#fff';
+            if (input.tagName === 'SELECT') {
+                input.style.backgroundImage = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>\")";
+                input.style.backgroundRepeat = 'no-repeat';
+                input.style.backgroundPosition = 'right 12px center';
+                input.style.backgroundSize = '14px';
+                input.style.paddingRight = '32px !important';
+            }
+        } else {
+            input.disabled = true;
+            input.style.opacity = '0.7';
+            input.style.cursor = 'not-allowed';
+            input.style.borderColor = '#334155';
+            input.style.pointerEvents = 'none';
+        }
     });
     const labels = document.querySelectorAll('.form-field label, .note-max-row label');
     labels.forEach(label => {
@@ -1589,6 +1647,52 @@ function mettreAJourBoutons() {
         supprimerBtn.style.display = 'none';
         viderBtn.style.display = 'inline-flex';
         setChampsModifiables(false);
+    }
+}
+function viderChamps() {
+    document.getElementById('coursInput').value = '';
+    document.getElementById('classeSelect').value = '';
+    document.getElementById('optionSelect').value = '';
+    document.getElementById('p1MaxConfig').value = 20;
+    toggleOptionField();
+    const inputs = ['coursInput', 'classeSelect', 'optionSelect', 'p1MaxConfig'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.disabled = false;
+            el.style.opacity = '1';
+            el.style.cursor = 'text';
+            el.style.borderColor = '#3b82f6';
+            el.style.pointerEvents = 'auto';
+            el.style.background = '#2d3748';
+            el.style.color = '#fff';
+            if (el.tagName === 'SELECT') {
+                el.style.backgroundImage = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>\")";
+                el.style.backgroundRepeat = 'no-repeat';
+                el.style.backgroundPosition = 'right 12px center';
+                el.style.backgroundSize = '14px';
+                el.style.paddingRight = '32px !important';
+            }
+        }
+    });
+    champsModifiables = true;
+    updateStatus();
+    toast('🧹 Champs vidés - Ils restent modifiables', 'success');
+}
+function updateStatus() {
+    const statusText = document.getElementById('statusText');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusDetail = document.getElementById('statusDetail');
+    if (champsModifiables) {
+        statusText.textContent = 'ACTIFS';
+        statusText.className = 'active';
+        statusIndicator.className = 'test-indicator active';
+        statusDetail.textContent = '✅ Les champs sont modifiables';
+    } else {
+        statusText.textContent = 'VERROUILLÉS';
+        statusText.className = 'inactive';
+        statusIndicator.className = 'test-indicator inactive';
+        statusDetail.textContent = '🔒 Les champs sont verrouillés (non modifiables)';
     }
 }
 async function loadAllFiches() {
@@ -2764,9 +2868,9 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
     const ficheClasse = currentFiche.classe || '';
     const ficheOption = currentFiche.option || '';
     const ficheRef = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
-    showConfirm(
-        `SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
-        "⚠️ La fiche sera supprimée définitivement.\n\n📌 Elle ne sera plus visible par les professeurs ni les titulaires.\n📌 L'administrateur pourra la restaurer pendant 30 jours depuis la corbeille.\n\nConfirmez-vous la suppression ?",
+    showStyledConfirm(
+        `🗑️ SUPPRIMER "${ficheNom}" - ${ficheClasse} ${ficheOption ? '('+ficheOption+')' : ''}`,
+        `⚠️ La fiche sera supprimée définitivement.\n\n📌 Elle ne sera plus visible par les professeurs ni les titulaires.\n📌 L'administrateur pourra la restaurer pendant 30 jours depuis la corbeille.\n\nConfirmez-vous la suppression ?`,
         async function() {
             try {
                 const btn = document.getElementById('supprimerFicheBtn');
@@ -2793,7 +2897,7 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 currentFicheId = null;
                 champsModifiables = false;
                 viderChamps();
-                await refreshSelectors(null);
+                await refreshSelectors();
                 mettreAJourBoutons();
                 setChampsModifiables(false);
                 afficherEpreuves();
@@ -2820,13 +2924,6 @@ document.getElementById('supprimerFicheBtn').addEventListener('click', function(
                 const btn = document.getElementById('supprimerFicheBtn');
                 btn.disabled = false;
                 btn.innerHTML = '🗑️ SUPPRIMER';
-                currentFiche = null;
-                currentFicheId = null;
-                champsModifiables = false;
-                viderChamps();
-                await refreshSelectors(null);
-                mettreAJourBoutons();
-                setChampsModifiables(false);
             }
         }
     );
