@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="importmap">
 {"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
 </script>
@@ -122,6 +123,10 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 .btn-edit:hover{box-shadow:0 4px 16px rgba(245,158,11,0.25);}
 .btn-change-id{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;}
 .btn-change-id:hover{box-shadow:0 4px 16px rgba(139,92,246,0.25);}
+.btn-export{background:linear-gradient(135deg,#10b981,#059669);color:#fff;}
+.btn-export:hover{box-shadow:0 4px 16px rgba(16,185,129,0.25);}
+.btn-import{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;}
+.btn-import:hover{box-shadow:0 4px 16px rgba(245,158,11,0.25);}
 .messages-grid{display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto;padding:4px;}
 .msg-bubble{max-width:85%;padding:8px 14px;border-radius:12px;font-size:13px;line-height:1.5;word-wrap:break-word;animation:fadeIn 0.2s ease;}
 .msg-left{align-self:flex-start;background:var(--bg-secondary);border:1px solid var(--border-color);border-bottom-left-radius:4px;}
@@ -206,6 +211,22 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 .progress-bar{width:100%;height:8px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;margin:6px 0;}
 .progress-bar .fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:4px;transition:width 0.3s ease;}
 .progress-text{font-size:12px;color:var(--text-secondary);text-align:center;}
+.counter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px;}
+.counter-card{background:var(--bg-card);border-radius:var(--radius-sm);padding:14px 16px;border:1px solid var(--border-color);text-align:center;transition:all 0.3s;}
+.counter-card:hover{border-color:var(--border-hover);transform:translateY(-2px);}
+.counter-card .number{font-size:28px;font-weight:800;color:var(--text-primary);}
+.counter-card .label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;}
+.counter-card .sub{font-size:11px;color:var(--text-secondary);margin-top:2px;}
+.counter-card.blue .number{color:var(--blue);}
+.counter-card.green .number{color:var(--green);}
+.counter-card.orange .number{color:var(--orange);}
+.counter-card.purple .number{color:var(--purple);}
+.counter-card.red .number{color:var(--red);}
+.counter-card.gold .number{color:var(--gold);}
+.chart-container{max-width:100%;height:300px;margin:10px 0;}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.filter-row select,.filter-row input{padding:6px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;outline:none;}
+.filter-row select:focus,.filter-row input:focus{border-color:var(--blue);}
 </style>
 </head>
 <body>
@@ -237,6 +258,37 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <div class="topbar-left"><h2 id="pageTitle">NETUBEX · ADMIN</h2><div class="breadcrumb">/ <span id="breadcrumb">Dashboard</span></div></div>
 <div class="topbar-right"><div class="status"><span class="dot"></span> Live</div><div class="topbar-avatar">AD</div></div>
 </div>
+
+<!-- COUNTERS & STATS -->
+<div class="counter-grid" id="counterGrid">
+<div class="counter-card blue"><div class="number" id="totalStudents">0</div><div class="label">👨‍🎓 Total Élèves</div><div class="sub" id="totalStudentsSub">Toutes écoles confondues</div></div>
+<div class="counter-card green"><div class="number" id="activeStudents">0</div><div class="label">✅ Élèves Actifs</div><div class="sub" id="activeStudentsSub"></div></div>
+<div class="counter-card orange"><div class="number" id="abandonedStudents">0</div><div class="label">⚠️ Abandonnés</div><div class="sub" id="abandonedStudentsSub">× 2.000 FC</div></div>
+<div class="counter-card purple"><div class="number" id="totalSchools">0</div><div class="label">🏫 Écoles</div><div class="sub" id="totalSchoolsSub"></div></div>
+<div class="counter-card gold"><div class="number" id="totalAbandonedFee">0</div><div class="label">💰 Frais Abandons</div><div class="sub" id="totalAbandonedFeeSub">2.000 FC × abandonnés</div></div>
+</div>
+
+<!-- FILTER & CHART -->
+<div class="card">
+<div class="card-header"><h3>📊 Comparaison des Écoles <span class="count">Répartition des élèves</span></h3>
+<div class="actions">
+<button class="btn btn-refresh btn-sm" id="refreshStatsBtn">🔄 Rafraîchir</button>
+</div>
+</div>
+<div class="card-body">
+<div class="filter-row">
+<label style="font-size:11px;color:var(--text-secondary);">🏫 Filtre par école :</label>
+<select id="schoolFilter" style="min-width:200px;"><option value="all">📊 Toutes les écoles</option></select>
+<button class="btn btn-primary btn-sm" id="applyFilterBtn">✅ Appliquer</button>
+<button class="btn btn-outline btn-sm" id="resetFilterBtn">🔄 Réinitialiser</button>
+<span style="margin-left:auto;font-size:11px;color:var(--text-muted);" id="filterInfo">Affichage : Toutes les écoles</span>
+</div>
+<div class="chart-container"><canvas id="schoolChart"></canvas></div>
+<div id="chartLegend" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:8px 0;"></div>
+</div>
+</div>
+
+<!-- STATS GRID -->
 <div class="stats-grid" id="mainStats">
 <div class="stat-card blue"><div class="value" id="statSchools">0</div><div class="label">Schools</div></div>
 <div class="stat-card purple"><div class="value" id="statMembers">0</div><div class="label">Members</div></div>
@@ -246,6 +298,8 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <div class="stat-card purple"><div class="value" id="statCodes">0</div><div class="label">Parent Codes</div></div>
 <div class="stat-card gold"><div class="value" id="statLab">0</div><div class="label">Innovation Lab</div></div>
 </div>
+
+<!-- TABS -->
 <div class="tabs-container" id="tabContainer">
 <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
 <button class="tab-btn" data-tab="schools">🏫 Schools</button>
@@ -262,236 +316,285 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <button class="tab-btn" data-tab="explorer">🔍 Database Explorer</button>
 <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
 </div>
+
+<!-- TAB CONTENTS -->
 <div id="dashboard-tab" class="tab-content active"><div class="card"><div class="card-header"><h3>📊 Dashboard <span class="count">Overview</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div style="padding:20px;text-align:center;color:var(--text-muted);"><span style="font-size:48px;display:block;margin-bottom:10px;">📊</span><p style="font-size:1.1rem;font-weight:600;color:var(--text-secondary);">Real-time Data Overview</p><p style="font-size:0.9rem;">All data updates automatically</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px;max-width:600px;margin-left:auto;margin-right:auto;"><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--blue);" id="dashSchools">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Schools</div></div><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--purple);" id="dashMembers">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Members</div></div><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--green);" id="dashSheets">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Sheets</div></div><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--orange);" id="dashConnections">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Connections</div></div><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--gold);" id="dashLab">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Innovation Lab</div></div><div style="background:var(--bg-secondary);padding:12px;border-radius:10px;border:1px solid var(--border-color);"><div style="font-size:1.8rem;font-weight:800;color:var(--red);" id="dashAudit">0</div><div style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">Audit Logs</div></div></div></div></div></div></div>
+
+<!-- AUTRES TABS (simplifiés pour la lisibilité) -->
 <div id="schools-tab" class="tab-content"><div class="card"><div class="card-header"><h3>🏫 Schools <span class="count" id="schoolCount">0</span></h3><div class="actions"><button class="btn btn-success btn-sm" id="showAddSchool">➕ Add School</button><button class="btn btn-refresh btn-sm" id="refreshSchoolsBtn">🔄 Rafraîchir</button></div></div><div id="addSchoolForm" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border-color);"><div class="form-grid"><div class="form-group"><label>📝 Nom de l'école <span class="required">*</span></label><input type="text" id="schoolName" placeholder="Ex: Collège Saint Joseph"></div><div class="form-group"><label>🔑 ID <span class="required">*</span></label><input type="text" id="schoolId" placeholder="auto-generated" readonly style="background:rgba(0,0,0,0.2);"></div><div class="form-group"><label>📍 Province</label><select id="schoolProvince"><option value="">Sélectionner</option><option value="Kinshasa">Kinshasa</option><option value="Kongo Central">Kongo Central</option><option value="Haut-Katanga">Haut-Katanga</option><option value="Nord-Kivu">Nord-Kivu</option><option value="Sud-Kivu">Sud-Kivu</option><option value="Lualaba">Lualaba</option><option value="Équateur">Équateur</option><option value="Kasaï">Kasaï</option></select></div><div class="form-group"><label>🏙️ Ville</label><input type="text" id="schoolCity" placeholder="Ex: Kinshasa"></div><div class="form-group"><label>📞 Téléphone</label><input type="text" id="schoolPhone" placeholder="+243 XXX XXX XXX"></div><div class="form-group"><label>👤 Directeur</label><input type="text" id="schoolDirector" placeholder="Nom du directeur"></div><div class="form-group full-width"><label>📍 Adresse</label><textarea id="schoolAddress" rows="2" placeholder="Adresse complète..."></textarea></div></div><div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-primary" id="saveSchoolBtn">💾 Enregistrer</button><button class="btn btn-outline" id="cancelSchoolBtn">Annuler</button></div></div><div class="card-body" id="schoolsList"><div class="empty-state">Chargement...</div></div></div></div>
+
 <div id="inactive-tab" class="tab-content"><div class="card"><div class="card-header"><h3>⛔ Inactive Schools <span class="count" id="inactiveCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshInactiveBtn">🔄 Rafraîchir</button></div></div><div class="card-body" id="inactiveList"><div class="empty-state">Chargement...</div></div></div></div>
-<div id="members-tab" class="tab-content"><div class="card"><div class="card-header"><h3>👥 Active Members <span class="count" id="membersCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshMembersBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="filter-row" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;"><select id="memberSchoolFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text-primary);font-size:12px;"><option value="all">Toutes les écoles</option></select><input type="text" id="memberSearch" placeholder="Rechercher..." style="flex:1;min-width:150px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text-primary);font-size:12px;"></div><div class="table-wrapper"><table><thead><tr><th>#</th><th>Nom</th><th>Classe</th><th>Sexe</th><th>École</th><th>Statut</th></tr></thead><tbody id="membersBody"></tbody></table></div></div></div></div>
+
+<div id="members-tab" class="tab-content"><div class="card"><div class="card-header"><h3>👥 Active Members <span class="count" id="membersCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshMembersBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="filter-row"><select id="memberSchoolFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text-primary);font-size:12px;"><option value="all">Toutes les écoles</option></select><input type="text" id="memberSearch" placeholder="Rechercher..." style="flex:1;min-width:150px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:6px 12px;color:var(--text-primary);font-size:12px;"></div><div class="table-wrapper"><table><thead><tr><th>#</th><th>Nom</th><th>Classe</th><th>Sexe</th><th>École</th><th>Statut</th></tr></thead><tbody id="membersBody"></tbody></table></div></div></div></div>
+
 <div id="teachers-tab" class="tab-content"><div class="card"><div class="card-header"><h3>👨‍🏫 Teachers <span class="count" id="teachersCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshTeachersBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="table-wrapper"><table><thead><tr><th>#</th><th>Nom</th><th>Code</th><th>École</th><th>Sheets</th><th>Statut</th></tr></thead><tbody id="teachersBody"></tbody></table></div></div></div></div>
+
 <div id="sheets-tab" class="tab-content"><div class="card"><div class="card-header"><h3>📄 Sheets <span class="count" id="sheetsCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshSheetsBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="table-wrapper"><table><thead><tr><th>#</th><th>Matière</th><th>Classe</th><th>Option</th><th>Professeur</th><th>Élèves</th></tr></thead><tbody id="sheetsBody"></tbody></table></div></div></div></div>
+
 <div id="audit-tab" class="tab-content"><div class="card"><div class="card-header"><h3>📜 Audit <span class="count" id="auditCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshAuditBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="table-wrapper"><table><thead><tr><th>#</th><th>Utilisateur</th><th>Action</th><th>Détails</th><th>Date</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></div></div>
+
 <div id="communication-tab" class="tab-content"><div class="card"><div class="card-header"><h3>💬 Communication <span class="count" id="commCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshCommBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="messages-grid" id="commMessages"><div class="empty-state">Aucun message</div></div></div><div class="card-body" style="border-top:1px solid var(--border-color);padding:12px 18px;"><textarea id="commMessage" rows="2" placeholder="Écrire un message à M. Flory..." style="width:100%;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;"></textarea><button class="btn btn-primary" id="sendCommBtn" style="margin-top:6px;width:100%;">📤 Envoyer</button></div></div></div>
+
 <div id="whitemonths-tab" class="tab-content"><div class="card"><div class="card-header"><h3>❄️ White Months <span class="count" id="wmCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshWmBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="table-wrapper"><table><thead><tr><th>Élève</th><th>Classe</th><th>École</th><th>Mois</th><th>Date</th></tr></thead><tbody id="wmBody"></tbody></table></div></div></div></div>
+
 <div id="innovation-tab" class="tab-content"><div class="card"><div class="card-header"><h3>🔬 Innovation Lab <span class="count" id="labCount">0</span></h3><div class="actions"><button class="btn btn-success btn-sm" id="showAddLab">➕ Ajouter</button><button class="btn btn-refresh btn-sm" id="refreshLabBtn">🔄 Rafraîchir</button></div></div><div id="addLabForm" style="display:none;padding:14px 18px;border-bottom:1px solid var(--border-color);"><div class="form-grid"><div class="form-group"><label>📝 Titre <span class="required">*</span></label><input type="text" id="labTitle" placeholder="Titre de l'expérimentation"></div><div class="form-group"><label>📊 Catégorie</label><select id="labCategory"><option value="AI">🤖 IA / ML</option><option value="Blockchain">⛓️ Blockchain</option><option value="Cloud">☁️ Cloud</option><option value="Mobile">📱 Mobile</option><option value="Data">📊 Données</option><option value="Other">🔧 Autre</option></select></div><div class="form-group"><label>📌 Statut</label><select id="labStatus"><option value="in_progress">🟢 En cours</option><option value="completed">✅ Terminé</option><option value="pending">🟡 En attente</option><option value="cancelled">🔴 Annulé</option></select></div><div class="form-group full-width"><label>📄 Description</label><textarea id="labDescription" rows="2" placeholder="Décrire l'expérimentation..."></textarea></div><div class="form-group"><label>👤 Responsable</label><input type="text" id="labLead" placeholder="Nom du responsable"></div><div class="form-group"><label>📊 Priorité</label><select id="labPriority"><option value="high">🔴 Haute</option><option value="medium">🟡 Moyenne</option><option value="low">🟢 Basse</option></select></div><div class="form-group"><label>📊 Impact</label><select id="labImpact"><option value="high">🔴 Élevé</option><option value="medium">🟡 Moyen</option><option value="low">🟢 Faible</option></select></div><div class="form-group"><label>📅 Début</label><input type="date" id="labStart"></div><div class="form-group"><label>📅 Fin</label><input type="date" id="labEnd"></div><div class="form-group"><label>📊 Progression %</label><input type="number" id="labProgress" min="0" max="100" value="0"></div><div class="form-group"><label>👥 Équipe</label><input type="text" id="labTeam" placeholder="Jean, Marie, Pierre"></div><div class="form-group"><label>🏷️ Tags</label><input type="text" id="labTags" placeholder="IA, Chatbot, NLP"></div></div><div style="display:flex;gap:8px;margin-top:10px;"><button class="btn btn-primary" id="saveLabBtn">💾 Enregistrer</button><button class="btn btn-outline" id="cancelLabBtn">Annuler</button></div></div><div class="card-body" id="labList"><div class="empty-state">Chargement...</div></div></div></div>
-<div id="connections-tab" class="tab-content"><div class="card"><div class="card-header"><h3>📱 Connections <span class="count" id="connCount">0</span></h3><div class="actions"><button class="btn btn-danger btn-sm" id="clearConnections">🗑️ Tout supprimer</button><button class="btn btn-refresh btn-sm" id="refreshConnBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="connexion-stats"><div class="connexion-stat-card"><div class="stat-number" id="connTotal">0</div><div class="stat-label">Total</div></div><div class="connexion-stat-card"><div class="stat-number green" id="connSuccess">0</div><div class="stat-label">✅ Réussies</div></div><div class="connexion-stat-card"><div class="stat-number red" id="connFailed">0</div><div class="stat-label">❌ Échouées</div></div></div><div class="filter-bar" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;"><select id="connSchoolFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><option value="all">Toutes</option></select><input type="text" id="connUserFilter" placeholder="Utilisateur..." style="flex:1;min-width:80px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><select id="connStatusFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><option value="all">Tous</option><option value="success">✅ Réussie</option><option value="failed">❌ Échouée</option></select><span class="filter-info" id="connFilterInfo" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span></div><div class="table-wrapper"><table class="connexion-table"><thead><tr><th>#</th><th>Utilisateur</th><th>Date</th><th>Heure</th><th>Version</th><th>Navigateur</th><th>Fournisseur</th><th>Statut</th></tr></thead><tbody id="connBody"><tr><td colspan="8" class="empty-state">Chargement...</td></tr></tbody></table></div><div class="pagination-container"><div class="pagination-info" id="connPaginationInfo">0 connexions</div><div class="pagination-buttons" id="connPagination"></div></div></div></div></div>
+
+<div id="connections-tab" class="tab-content"><div class="card"><div class="card-header"><h3>📱 Connections <span class="count" id="connCount">0</span></h3><div class="actions"><button class="btn btn-danger btn-sm" id="clearConnections">🗑️ Tout supprimer</button><button class="btn btn-refresh btn-sm" id="refreshConnBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="connexion-stats"><div class="connexion-stat-card"><div class="stat-number" id="connTotal">0</div><div class="stat-label">Total</div></div><div class="connexion-stat-card"><div class="stat-number green" id="connSuccess">0</div><div class="stat-label">✅ Réussies</div></div><div class="connexion-stat-card"><div class="stat-number red" id="connFailed">0</div><div class="stat-label">❌ Échouées</div></div></div><div class="filter-row"><select id="connSchoolFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><option value="all">Toutes</option></select><input type="text" id="connUserFilter" placeholder="Utilisateur..." style="flex:1;min-width:80px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><select id="connStatusFilter" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:4px 10px;color:var(--text-primary);font-size:11px;"><option value="all">Tous</option><option value="success">✅ Réussie</option><option value="failed">❌ Échouée</option></select><span class="filter-info" id="connFilterInfo" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span></div><div class="table-wrapper"><table class="connexion-table"><thead><tr><th>#</th><th>Utilisateur</th><th>Date</th><th>Heure</th><th>Version</th><th>Navigateur</th><th>Fournisseur</th><th>Statut</th></tr></thead><tbody id="connBody"><tr><td colspan="8" class="empty-state">Chargement...</td></tr></tbody></table></div><div class="pagination-container"><div class="pagination-info" id="connPaginationInfo">0 connexions</div><div class="pagination-buttons" id="connPagination"></div></div></div></div></div>
+
 <div id="parentcodes-tab" class="tab-content"><div class="card"><div class="card-header"><h3>🔑 Parent Codes <span class="count" id="codesCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshCodesBtn">🔄 Rafraîchir</button></div></div><div class="card-body"><div class="code-ecole-filter"><label>🏫 École :</label><select id="codeSchoolSelect"><option value="">-- Sélectionner --</option></select><span style="font-size:11px;color:var(--text-muted);" id="codeInfo"></span></div><div class="code-stats"><span>Total : <strong id="codeTotal">0</strong></span><span>Résultats : <strong id="codeResults">0</strong></span></div><div class="code-search-container"><input type="text" id="codeSearchInput" class="search-input" placeholder="🔍 Tapez les premières lettres du nom..."><div id="codeResultsContainer" class="code-results"><div class="empty-state">Sélectionnez une école</div></div></div></div></div></div>
+
 <div id="explorer-tab" class="tab-content"><div class="card"><div class="card-header"><h3>🔍 Database Explorer</h3><div class="actions"><button class="btn btn-danger btn-sm" id="deleteEmptyCollections">🗑️ Supprimer les collections vides</button><button class="btn btn-refresh btn-sm" id="refreshExplorerBtn">🔄 Rafraîchir</button></div></div><div class="card-body" id="explorerContent"><div class="empty-state">Chargement de la base de données...</div></div></div></div>
+
 <div id="settings-tab" class="tab-content"><div class="card"><div class="card-header"><h3>⚙️ Settings</h3></div><div class="card-body"><div style="max-width:420px;margin:0 auto;"><div style="background:var(--bg-secondary);border-radius:var(--radius-sm);padding:20px;border:1px solid var(--border-color);"><div style="text-align:center;margin-bottom:16px;"><div style="font-size:36px;color:var(--blue);">🔐</div><h4 style="color:var(--text-primary);font-size:16px;margin-top:6px;">Code d'accès</h4><p style="color:var(--text-muted);font-size:12px;">Modifier le code d'accès à 4 chiffres</p></div><div style="margin-bottom:10px;"><label style="font-size:10px;font-weight:600;color:var(--text-muted);">Code actuel</label><input type="password" id="currentCode" maxlength="4" placeholder="••••" style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:18px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;"></div><div style="margin-bottom:10px;"><label style="font-size:10px;font-weight:600;color:var(--text-muted);">Nouveau code (4 chiffres)</label><input type="password" id="newCode" maxlength="4" placeholder="••••" style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:18px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;"></div><div style="margin-bottom:14px;"><label style="font-size:10px;font-weight:600;color:var(--text-muted);">Confirmer</label><input type="password" id="confirmCode" maxlength="4" placeholder="••••" style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:18px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;"></div><div id="settingsError" style="color:var(--red);font-size:12px;margin-bottom:10px;text-align:center;"></div><button class="btn btn-primary" id="changeCodeBtn" style="width:100%;justify-content:center;padding:12px;">🔄 Changer le code</button></div></div></div></div></div>
 </div>
+
+<!-- MODAL & TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="modalOverlay"><div class="modal-content"><div class="modal-icon" id="modalIcon">📋</div><h3 id="modalTitle">Détails</h3><p class="modal-subtitle" id="modalSubtitle">Information</p><div id="modalBody"></div><div class="modal-actions"><button class="btn-close-modal" id="modalCloseBtn">Fermer</button></div></div></div>
+
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,doc,getDoc,getDocs,setDoc,deleteDoc,updateDoc,query,where,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f",measurementId:"G-V7MF88Y5EE"};
 const app=initializeApp(firebaseConfig);const db=getFirestore(app);const ACCESS_CODE="Theone12";
 let allSchools=[],allMembers=[],allTeachers=[],allSheets=[],auditLogs=[],allCodes=[],allConnections=[],allLab=[];
+let allStudents=[]; let chartInstance=null; let currentFilter="all";
 const SC={PROFESSEURS:"professeurs",FICHES:"fiches",COMPTA_ELEVES:"compta_eleves",ELEVES:"eleves",PUNITIONS:"punitions",PRESENCES:"presences",HORAIRES:"horaires",CORBEILLE:"corbeille",COMPTEUR:"compteur",CONFIG:"config",ALERTES_ADMIN:"alertes_admin",COMMUNIQUES:"communiques",SETTINGS:"settings"};
-const SUB_COLLECTIONS=[SC.PROFESSEURS,SC.FICHES,SC.COMPTA_ELEVES,SC.ELEVES,SC.PUNITIONS,SC.PRESENCES,SC.HORAIRES,SC.CORBEILLE,SC.COMPTEUR,SC.CONFIG,SC.ALERTES_ADMIN,SC.COMMUNIQUES,SC.SETTINGS];
 let isLoading=false;
 
+// === TOAST & UTILITIES ===
 function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✅",error:"❌",warning:"⚠️",info:"ℹ️"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};const el=document.createElement("div");el.className=`toast ${type}`;el.innerHTML=`<span class="toast-icon">${icons[type]}</span><div class="toast-content"><div class="toast-title">${titles[type]}</div><div class="toast-message">${msg}</div></div>`;c.appendChild(el);setTimeout(()=>el.classList.add("show"),10);setTimeout(()=>{el.classList.remove("show");setTimeout(()=>{if(el.parentNode)el.remove()},300)},3500);}
 function escapeHtml(s){if(!s)return"";return String(s).replace(/[&<>]/g,m=>m==="&"?"&amp;":m==="<"?"&lt;":">"?"&gt;":"")}
 function formatDate(d){if(!d)return"-";const dt=new Date(d);return dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+function formatNumber(n){return new Intl.NumberFormat('fr-FR').format(n);}
 function showConfirm(title,message){return new Promise((resolve)=>{const modal=document.getElementById("modalOverlay");document.getElementById("modalIcon").textContent="⚠️";document.getElementById("modalTitle").textContent=title||"Confirmation";document.getElementById("modalSubtitle").textContent=message||"Êtes-vous sûr ?";document.getElementById("modalBody").innerHTML="";const close=document.getElementById("modalCloseBtn");close.textContent="Annuler";close.className="btn-close-modal";close.style.background="var(--bg-secondary)";close.style.color="var(--text-secondary)";modal.classList.add("show");const yesBtn=document.createElement("button");yesBtn.textContent="Confirmer";yesBtn.className="btn-close-modal";yesBtn.style.background="linear-gradient(135deg,#ef4444,#dc2626)";yesBtn.style.color="#fff";yesBtn.style.border="none";yesBtn.style.padding="8px 24px";yesBtn.style.borderRadius="20px";yesBtn.style.fontWeight="600";yesBtn.style.cursor="pointer";const actions=modal.querySelector(".modal-actions");actions.appendChild(yesBtn);const cleanup=()=>{modal.classList.remove("show");close.removeEventListener("click",closeHandler);yesBtn.removeEventListener("click",yesHandler);actions.removeChild(yesBtn);};const closeHandler=()=>{cleanup();resolve(false);};const yesHandler=()=>{cleanup();resolve(true);};close.addEventListener("click",closeHandler);yesBtn.addEventListener("click",yesHandler);})}
 function showModal(title,body){const modal=document.getElementById("modalOverlay");document.getElementById("modalIcon").textContent="📋";document.getElementById("modalTitle").textContent=title||"Détails";document.getElementById("modalSubtitle").textContent="";document.getElementById("modalBody").innerHTML=body;const close=document.getElementById("modalCloseBtn");close.textContent="Fermer";close.className="btn-close-modal";close.style.background="linear-gradient(135deg,#3b82f6,#2563eb)";close.style.color="#fff";close.onclick=()=>modal.classList.remove("show");modal.classList.add("show");}
 
-// Fonction pour changer l'ID d'une école en copiant toutes les données
-async function changeSchoolId(oldId, newId, schoolData) {
-    try {
-        // Vérifier si le nouvel ID existe déjà
-        const existingSnap = await getDoc(doc(db, "ecoles", newId));
-        if (existingSnap.exists()) {
-            toast("❌ Ce nouvel ID existe déjà !", "error");
-            return false;
-        }
-
-        // Créer une barre de progression
-        const modal = document.getElementById("modalOverlay");
-        document.getElementById("modalIcon").textContent = "🔄";
-        document.getElementById("modalTitle").textContent = "Changement d'ID en cours...";
-        document.getElementById("modalSubtitle").textContent = "Copie des données vers la nouvelle école";
-        document.getElementById("modalBody").innerHTML = `
-            <div class="progress-container">
-                <div class="progress-text" id="progressText">Préparation de la copie...</div>
-                <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
-                <div class="progress-text" style="font-size:10px;color:var(--text-muted);" id="progressDetail">0 documents copiés</div>
-            </div>
-        `;
-        const closeBtn = document.getElementById("modalCloseBtn");
-        closeBtn.style.display = "none";
-        modal.classList.add("show");
-
-        let totalDocs = 0;
-        let copiedDocs = 0;
-
-        function updateProgress(step, detail) {
-            const pct = Math.min((copiedDocs / (totalDocs || 1)) * 100, 99);
-            document.getElementById("progressFill").style.width = pct + "%";
-            document.getElementById("progressText").textContent = step;
-            document.getElementById("progressDetail").textContent = `${copiedDocs} documents copiés${detail ? " - " + detail : ""}`;
-        }
-
-        // 1. Copier le document principal de l'école
-        updateProgress("📋 Copie des informations de l'école...");
-        await setDoc(doc(db, "ecoles", newId), {
-            ...schoolData,
-            id: newId,
-            ancienId: oldId,
-            dateMigration: new Date().toISOString()
-        });
-        copiedDocs++;
-        totalDocs++;
-
-        // 2. Compter tous les documents à copier
-        for (const subCol of SUB_COLLECTIONS) {
-            try {
-                const snap = await getDocs(collection(db, "ecoles", oldId, subCol));
-                totalDocs += snap.docs.length;
-            } catch(e) {}
-        }
-
-        // 3. Copier toutes les sous-collections
-        for (const subCol of SUB_COLLECTIONS) {
-            try {
-                const snap = await getDocs(collection(db, "ecoles", oldId, subCol));
-                if (snap.docs.length > 0) {
-                    updateProgress(`📁 Copie de "${subCol}"...`);
-                    
-                    for (const docSnap of snap.docs) {
-                        const data = docSnap.data();
-                        // Conserver l'ID original si possible
-                        await setDoc(doc(db, "ecoles", newId, subCol, docSnap.id), data);
-                        copiedDocs++;
-                        updateProgress(`📁 Copie de "${subCol}"...`, `${copiedDocs}/${totalDocs}`);
-                    }
-                }
-            } catch(e) {
-                console.warn(`Erreur copie ${subCol}:`, e);
-            }
-        }
-
-        // 4. Supprimer l'ancienne école
-        updateProgress("🗑️ Suppression de l'ancienne école...");
-        
-        // Supprimer toutes les sous-collections de l'ancienne école
-        for (const subCol of SUB_COLLECTIONS) {
-            try {
-                const snap = await getDocs(collection(db, "ecoles", oldId, subCol));
-                for (const docSnap of snap.docs) {
-                    await deleteDoc(docSnap.ref);
-                }
-            } catch(e) {}
-        }
-        
-        // Supprimer le document principal
-        await deleteDoc(doc(db, "ecoles", oldId));
-
-        // 5. Terminé !
-        document.getElementById("progressFill").style.width = "100%";
-        document.getElementById("progressText").textContent = "✅ Migration terminée avec succès !";
-        document.getElementById("progressDetail").textContent = `${copiedDocs} documents migrés vers le nouvel ID "${newId}"`;
-        
-        closeBtn.style.display = "block";
-        closeBtn.textContent = "Fermer";
-        closeBtn.onclick = () => {
-            modal.classList.remove("show");
-            loadSchools();
-            updateStats();
-        };
-
-        toast(`✅ École migrée avec succès vers "${newId}" (${copiedDocs} docs)`, "success");
-        return true;
-
-    } catch(e) {
-        console.error("Erreur migration:", e);
-        document.getElementById("modalBody").innerHTML = `
-            <div style="text-align:center;padding:20px;color:var(--red);">
-                <div style="font-size:36px;">❌</div>
-                <h4>Erreur lors de la migration</h4>
-                <p style="color:var(--text-secondary);font-size:13px;">${escapeHtml(e.message)}</p>
-            </div>
-        `;
-        document.getElementById("modalCloseBtn").style.display = "block";
-        document.getElementById("modalCloseBtn").textContent = "Fermer";
-        document.getElementById("modalCloseBtn").onclick = () => {
-            document.getElementById("modalOverlay").classList.remove("show");
-        };
-        toast("❌ Erreur: "+e.message, "error");
-        return false;
-    }
+// === STUDENTS COUNTER ===
+function updateStudentCounters() {
+    // Récupérer tous les élèves depuis allMembers
+    const totalStudents = allMembers.length;
+    const activeStudents = allMembers.filter(m => m.statut !== "abandon" && m.statut !== "dropout").length;
+    const abandonedStudents = allMembers.filter(m => m.statut === "abandon" || m.statut === "dropout").length;
+    const totalAbandonedFee = abandonedStudents * 2000;
+    
+    document.getElementById("totalStudents").textContent = formatNumber(totalStudents);
+    document.getElementById("activeStudents").textContent = formatNumber(activeStudents);
+    document.getElementById("abandonedStudents").textContent = formatNumber(abandonedStudents);
+    document.getElementById("totalSchools").textContent = formatNumber(allSchools.length);
+    document.getElementById("totalAbandonedFee").textContent = formatNumber(totalAbandonedFee) + " FC";
+    
+    document.getElementById("activeStudentsSub").textContent = `${activeStudents} élèves actifs`;
+    document.getElementById("abandonedStudentsSub").textContent = `${abandonedStudents} × 2.000 FC`;
+    document.getElementById("totalSchoolsSub").textContent = `${allSchools.length} écoles`;
+    document.getElementById("totalAbandonedFeeSub").textContent = `${abandonedStudents} × 2.000 FC = ${formatNumber(totalAbandonedFee)} FC`;
+    
+    // Mettre à jour les filtres
+    updateSchoolFilter();
+    
+    // Mettre à jour le graphique
+    updateChart();
 }
 
-function showChangeIdModal(school) {
-    const modal = document.getElementById("modalOverlay");
-    document.getElementById("modalIcon").textContent = "🔄";
-    document.getElementById("modalTitle").textContent = `Changer l'ID de l'école`;
-    document.getElementById("modalSubtitle").textContent = `Actuel: "${school.id}" → Nouvel ID`;
-    document.getElementById("modalBody").innerHTML = `
-        <div style="margin-bottom:10px;">
-            <div style="background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:8px;margin-bottom:12px;">
-                <span style="color:var(--text-muted);font-size:11px;">📌 École</span>
-                <div style="font-weight:600;color:var(--text-primary);">${escapeHtml(school.nom)}</div>
-            </div>
-            <div style="background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:8px;margin-bottom:12px;">
-                <span style="color:var(--text-muted);font-size:11px;">🔑 Ancien ID</span>
-                <div style="font-family:monospace;color:var(--blue);">${escapeHtml(school.id)}</div>
-            </div>
-            <div class="form-group">
-                <label>🔑 Nouvel ID <span class="required">*</span></label>
-                <input type="text" id="newSchoolId" placeholder="Ex: college-saint-joseph" style="background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:8px 12px;color:var(--text-primary);font-size:14px;outline:none;width:100%;font-family:monospace;">
-                <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">⚠️ L'ID doit être unique et ne contenir que des lettres, chiffres et tirets</div>
-            </div>
-            <div style="background:rgba(245,158,11,0.08);padding:10px 14px;border-radius:8px;border:1px solid rgba(245,158,11,0.2);margin-top:10px;">
-                <span style="color:var(--orange);font-weight:600;">⚠️ Attention</span>
-                <ul style="color:var(--text-secondary);font-size:11px;margin:6px 0 0 16px;padding:0;">
-                    <li style="margin:4px 0;">Toutes les données seront copiées vers la nouvelle école</li>
-                    <li style="margin:4px 0;">L'ancienne école sera supprimée automatiquement</li>
-                    <li style="margin:4px 0;">Les liens (parent codes, etc.) seront conservés</li>
-                </ul>
-            </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:14px;justify-content:center;">
-            <button class="btn btn-primary" id="confirmChangeIdBtn">🔄 Confirmer le changement</button>
-            <button class="btn btn-outline" id="cancelChangeIdBtn">Annuler</button>
-        </div>
-    `;
-    modal.classList.add("show");
-
-    document.getElementById("cancelChangeIdBtn").addEventListener("click", function() {
-        modal.classList.remove("show");
+// === UPDATE SCHOOL FILTER ===
+function updateSchoolFilter() {
+    const filter = document.getElementById("schoolFilter");
+    const currentValue = filter.value;
+    filter.innerHTML = '<option value="all">📊 Toutes les écoles</option>';
+    allSchools.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.nom || s.id} (${allMembers.filter(m => m.ecoleId === s.id).length} élèves)`;
+        filter.appendChild(opt);
     });
+    if (currentValue && filter.querySelector(`option[value="${currentValue}"]`)) {
+        filter.value = currentValue;
+    }
+    filter.value = currentFilter;
+}
 
-    document.getElementById("confirmChangeIdBtn").addEventListener("click", async function() {
-        const newId = document.getElementById("newSchoolId").value.trim();
-        if (!newId) {
-            toast("❌ Veuillez entrer un nouvel ID", "error");
-            return;
+// === UPDATE CHART ===
+function updateChart() {
+    const ctx = document.getElementById('schoolChart').getContext('2d');
+    const filter = document.getElementById("schoolFilter").value;
+    currentFilter = filter;
+    
+    let data = [];
+    let labels = [];
+    let colors = [
+        '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', 
+        '#06b6d4', '#f472b6', '#34d399', '#fb923c', '#a78bfa',
+        '#22d3ee', '#f87171', '#4ade80', '#fbbf24', '#c084fc'
+    ];
+    
+    if (filter === "all") {
+        // Toutes les écoles
+        const schoolStats = allSchools.map(s => {
+            const count = allMembers.filter(m => m.ecoleId === s.id).length;
+            return { id: s.id, nom: s.nom || s.id, count: count };
+        }).sort((a, b) => b.count - a.count);
+        
+        const total = schoolStats.reduce((sum, s) => sum + s.count, 0);
+        
+        schoolStats.forEach((s, i) => {
+            const pct = total > 0 ? (s.count / total) * 100 : 0;
+            labels.push(`${s.nom.substring(0, 20)} (${pct.toFixed(1)}%)`);
+            data.push(s.count);
+        });
+        
+        document.getElementById("filterInfo").textContent = `📊 Affichage : Toutes les écoles (${total} élèves)`;
+    } else {
+        // Une école spécifique
+        const school = allSchools.find(s => s.id === filter);
+        if (school) {
+            const students = allMembers.filter(m => m.ecoleId === filter);
+            const total = students.length;
+            
+            // Afficher par classe
+            const classStats = {};
+            students.forEach(m => {
+                const cls = m.classe || "Sans classe";
+                classStats[cls] = (classStats[cls] || 0) + 1;
+            });
+            
+            Object.keys(classStats).sort().forEach((cls, i) => {
+                const count = classStats[cls];
+                const pct = total > 0 ? (count / total) * 100 : 0;
+                labels.push(`${cls} (${pct.toFixed(1)}%)`);
+                data.push(count);
+            });
+            
+            document.getElementById("filterInfo").textContent = `🏫 ${school.nom} - ${total} élèves`;
+        } else {
+            document.getElementById("filterInfo").textContent = `⚠️ École non trouvée`;
         }
-        // Vérifier le format
-        if (!/^[a-z0-9-]+$/.test(newId)) {
-            toast("❌ L'ID ne doit contenir que des lettres minuscules, chiffres et tirets", "error");
-            return;
-        }
-        if (newId === school.id) {
-            toast("⚠️ Le nouvel ID est identique à l'ancien", "warning");
-            return;
-        }
-        // Vérifier si l'ID existe déjà
-        try {
-            const existing = await getDoc(doc(db, "ecoles", newId));
-            if (existing.exists()) {
-                toast("❌ Cet ID existe déjà !", "error");
-                return;
+    }
+    
+    // Détruire l'ancien graphique
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    // Créer le nouveau graphique
+    chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, data.length),
+                borderColor: '#080c18',
+                borderWidth: 2,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#a0b4d0',
+                        font: { size: 10, family: 'Inter' },
+                        padding: 12,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const value = context.parsed;
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${formatNumber(value)} élèves (${pct}%)`;
+                        }
+                    },
+                    backgroundColor: 'rgba(8,12,24,0.9)',
+                    titleColor: '#f0f4ff',
+                    bodyColor: '#a0b4d0',
+                    borderColor: 'rgba(59,130,246,0.2)',
+                    borderWidth: 1
+                }
             }
-        } catch(e) {
-            toast("Erreur: "+e.message, "error");
-            return;
         }
-
-        modal.classList.remove("show");
-        // Lancer la migration
-        await changeSchoolId(school.id, newId, school);
     });
+    
+    // Mettre à jour la légende personnalisée
+    const legendContainer = document.getElementById("chartLegend");
+    const total = data.reduce((a, b) => a + b, 0);
+    legendContainer.innerHTML = labels.map((label, i) => {
+        const pct = total > 0 ? ((data[i] / total) * 100).toFixed(1) : 0;
+        return `<span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);">
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${colors[i % colors.length]};"></span>
+            ${label} : ${formatNumber(data[i])} (${pct}%)
+        </span>`;
+    }).join('');
+}
+
+// === LOAD ALL DATA ===
+async function loadAllData(){
+if(isLoading)return;isLoading=true;
+try{
+const snap=await getDocs(collection(db,"ecoles"));
+allSchools=[];allMembers=[];allTeachers=[];allSheets=[];allCodes=[];allConnections=[];allLab=[];allStudents=[];
+console.log("📊 Chargement des écoles...");
+for(const ds of snap.docs){
+const id=ds.id;const ecoleData=ds.data();
+if(ecoleData.actif===false)continue;
+allSchools.push({id,...ecoleData});
+try{
+const mSnap=await getDocs(collection(db,"ecoles",id,SC.COMPTA_ELEVES));
+mSnap.forEach(d=>{const data=d.data();if(data._type==="compta_eleve"){ 
+    allStudents.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Inconnu",prenom:data.prenom||"",sexe:data.sexe||"M",classe:data.classe||"",statut:data.abandon?"abandon":data.exonere?"exempted":"regular"});
+    if(!data.abandon){
+        allMembers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Inconnu",prenom:data.prenom||"",sexe:data.sexe||"M",classe:data.classe||"",statut:data.exonere?"exempted":"regular"});
+    }
+    if(data.parentCode&&data.parentCode.length>=6){
+        allCodes.push({id:d.id,ecole:id,nom:data.nom||"",prenom:data.prenom||"",parentCode:data.parentCode,classe:data.classe||"",option:data.option||""});
+    }
+}})
+}catch(e){}
+try{
+const pSnap=await getDocs(collection(db,"ecoles",id,SC.PROFESSEURS));
+pSnap.forEach(d=>{const data=d.data();if(data._type==="prof"){allTeachers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Inconnu",code:data.code||"0000",actif:data.actif!==false,sheets:0});}})
+}catch(e){}
+try{
+const fSnap=await getDocs(collection(db,"ecoles",id,SC.FICHES));
+fSnap.forEach(d=>{const data=d.data();if(!data._type){allSheets.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,cours:data.cours||"Sans matière",classe:data.classe||"",option:data.option||"",titulaire:data.titulaire||"",eleves:data.eleves?data.eleves.length:0});}})
+}catch(e){}
+try{
+const lSnap=await getDocs(query(collection(db,"ecoles",id,SC.COMPTA_ELEVES),orderBy("date","desc"),limit(200)));
+lSnap.forEach(d=>{const data=d.data();if(data.action==="connexion_reussie"||data.action==="connexion_echouee"||data.action==="connexion"){const isSuccess=data.action==="connexion"||data.action==="connexion_reussie";const details=data.details||{};allConnections.push({id:d.id,ecole:id,ecoleNom:ecoleData.nom||id,utilisateur:data.utilisateur||data.nom||"Inconnu",date:data.date||new Date().toISOString(),statut:isSuccess?"success":"failed",version:details.os||"Inconnu",navigateur:details.navigateur||"Inconnu",fournisseur:details.fournisseur||"Inconnu"});}})
+}catch(e){}
+}
+const auditSnap=await getDocs(query(collection(db,"audit_logs"),orderBy("date","desc"),limit(200)));
+auditLogs=[];auditSnap.forEach(d=>auditLogs.push({id:d.id,...d.data()}));
+const labSnap=await getDocs(collection(db,"innovation_lab"));
+allLab=[];labSnap.forEach(d=>allLab.push({id:d.id,...d.data()}));
+allConnections.sort((a,b)=>new Date(b.date)-new Date(a.date));
+allLab.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+console.log(`✅ Chargé: ${allSchools.length} écoles, ${allStudents.length} élèves, ${allMembers.length} membres, ${allTeachers.length} profs, ${allSheets.length} fiches, ${allCodes.length} codes, ${allConnections.length} connexions, ${allLab.length} lab`);
+
+// Mettre à jour tous les compteurs
+updateStats();
+updateStudentCounters();
+updateSelectors();
+
+// Mettre à jour les comptes d'affichage
+document.getElementById("schoolCount").textContent=allSchools.length;
+document.getElementById("membersCount").textContent=allMembers.length;
+document.getElementById("teachersCount").textContent=allTeachers.length;
+document.getElementById("sheetsCount").textContent=allSheets.length;
+document.getElementById("auditCount").textContent=auditLogs.length;
+document.getElementById("codesCount").textContent=allCodes.length;
+document.getElementById("connCount").textContent=allConnections.length;
+document.getElementById("labCount").textContent=allLab.length;
+
+toast(`✅ ${allSchools.length} écoles, ${allStudents.length} élèves chargés`,"success");
+}catch(e){console.error("Erreur loadAllData:",e);toast("❌ Erreur chargement: "+e.message,"error");}
+finally{isLoading=false;}
 }
 
 function updateStats(){
@@ -514,55 +617,6 @@ document.getElementById("labBadge").textContent=allLab.length;
 document.getElementById("connBadge").textContent=allConnections.length;
 }
 
-async function loadAllData(){
-if(isLoading)return;isLoading=true;
-try{
-const snap=await getDocs(collection(db,"ecoles"));
-allSchools=[];allMembers=[];allTeachers=[];allSheets=[];allCodes=[];allConnections=[];allLab=[];
-console.log("📊 Chargement des écoles...");
-for(const ds of snap.docs){
-const id=ds.id;const ecoleData=ds.data();
-if(ecoleData.actif===false)continue;
-allSchools.push({id,...ecoleData});
-try{
-const mSnap=await getDocs(collection(db,"ecoles",id,SC.COMPTA_ELEVES));
-mSnap.forEach(d=>{const data=d.data();if(data._type==="compta_eleve"&&!data.abandon){allMembers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Inconnu",prenom:data.prenom||"",sexe:data.sexe||"M",classe:data.classe||"",statut:data.exonere?"exempted":"regular"});if(data.parentCode&&data.parentCode.length>=6){allCodes.push({id:d.id,ecole:id,nom:data.nom||"",prenom:data.prenom||"",parentCode:data.parentCode,classe:data.classe||"",option:data.option||""});}}})
-}catch(e){}
-try{
-const pSnap=await getDocs(collection(db,"ecoles",id,SC.PROFESSEURS));
-pSnap.forEach(d=>{const data=d.data();if(data._type==="prof"){allTeachers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Inconnu",code:data.code||"0000",actif:data.actif!==false,sheets:0});}})
-}catch(e){}
-try{
-const fSnap=await getDocs(collection(db,"ecoles",id,SC.FICHES));
-fSnap.forEach(d=>{const data=d.data();if(!data._type){allSheets.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,cours:data.cours||"Sans matière",classe:data.classe||"",option:data.option||"",titulaire:data.titulaire||"",eleves:data.eleves?data.eleves.length:0});}})
-}catch(e){}
-try{
-const lSnap=await getDocs(query(collection(db,"ecoles",id,SC.COMPTA_ELEVES),orderBy("date","desc"),limit(200)));
-lSnap.forEach(d=>{const data=d.data();if(data.action==="connexion_reussie"||data.action==="connexion_echouee"||data.action==="connexion"){const isSuccess=data.action==="connexion"||data.action==="connexion_reussie";const details=data.details||{};allConnections.push({id:d.id,ecole:id,ecoleNom:ecoleData.nom||id,utilisateur:data.utilisateur||data.nom||"Inconnu",date:data.date||new Date().toISOString(),statut:isSuccess?"success":"failed",version:details.os||"Inconnu",navigateur:details.navigateur||"Inconnu",fournisseur:details.fournisseur||"Inconnu"});}})
-}catch(e){}
-}
-const auditSnap=await getDocs(query(collection(db,"audit_logs"),orderBy("date","desc"),limit(200)));
-auditLogs=[];auditSnap.forEach(d=>auditLogs.push({id:d.id,...d.data()}));
-const labSnap=await getDocs(collection(db,"innovation_lab"));
-allLab=[];labSnap.forEach(d=>allLab.push({id:d.id,...d.data()}));
-allConnections.sort((a,b)=>new Date(b.date)-new Date(a.date));
-allLab.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-console.log(`✅ Chargé: ${allSchools.length} écoles, ${allMembers.length} membres, ${allTeachers.length} profs, ${allSheets.length} fiches, ${allCodes.length} codes, ${allConnections.length} connexions, ${allLab.length} lab`);
-updateStats();
-document.getElementById("schoolCount").textContent=allSchools.length;
-document.getElementById("membersCount").textContent=allMembers.length;
-document.getElementById("teachersCount").textContent=allTeachers.length;
-document.getElementById("sheetsCount").textContent=allSheets.length;
-document.getElementById("auditCount").textContent=auditLogs.length;
-document.getElementById("codesCount").textContent=allCodes.length;
-document.getElementById("connCount").textContent=allConnections.length;
-document.getElementById("labCount").textContent=allLab.length;
-updateSelectors();
-toast(`✅ ${allSchools.length} écoles, ${allMembers.length} membres chargés`,"success");
-}catch(e){console.error("Erreur loadAllData:",e);toast("❌ Erreur chargement: "+e.message,"error");}
-finally{isLoading=false;}
-}
-
 function updateSelectors(){
 const codeSelect=document.getElementById("codeSchoolSelect");
 codeSelect.innerHTML='<option value="">-- Sélectionner --</option>';
@@ -575,6 +629,7 @@ connFilter.innerHTML='<option value="all">Toutes</option>';
 allSchools.forEach(s=>{const opt=document.createElement("option");opt.value=s.id;opt.textContent=s.nom||s.id;connFilter.appendChild(opt);});
 }
 
+// === LOAD SCHOOLS ===
 async function loadSchools(){
 const container=document.getElementById("schoolsList");
 try{
@@ -582,20 +637,307 @@ await loadAllData();
 if(allSchools.length===0){container.innerHTML='<div class="empty-state"><span class="empty-icon">🏫</span>Aucune école trouvée</div>';return;}
 let html='<div class="table-wrapper"><table><thead><tr><th>École</th><th>ID</th><th>Province</th><th>Ville</th><th>Téléphone</th><th>Directeur</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
 allSchools.forEach(s=>{
-html+=`<tr><td><strong>${escapeHtml(s.nom)}</strong></td><td style="font-family:monospace;color:var(--blue);font-size:11px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.telephone||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td><span class="badge ${s.actif!==false?"active":"inactive"}">${s.actif!==false?"Actif":"Inactif"}</span></td><td><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">🔄 ID</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?"⏸️":"▶️"}</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️</button></td></tr>`;
+const studentCount = allStudents.filter(m => m.ecoleId === s.id).length;
+html+=`<tr><td><strong>${escapeHtml(s.nom)}</strong><span style="font-size:10px;color:var(--text-muted);display:block;">👨‍🎓 ${studentCount} élèves</span></td><td style="font-family:monospace;color:var(--blue);font-size:11px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.telephone||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td><span class="badge ${s.actif!==false?"active":"inactive"}">${s.actif!==false?"Actif":"Inactif"}</span></td><td><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">🔄 ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">📤</button><button class="btn btn-sm btn-import import-btn" data-id="${s.id}">📥</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?"⏸️":"▶️"}</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️</button></td></tr>`;
 });
 html+="</tbody></table></div>";
 container.innerHTML=html;
+
+// Ajouter les événements pour les nouveaux boutons
 document.querySelectorAll('.change-id-btn').forEach(btn=>{btn.addEventListener('click',function(){const school=allSchools.find(s=>s.id===this.dataset.id);if(school)showChangeIdModal(school);});});
+document.querySelectorAll('.export-btn').forEach(btn=>{btn.addEventListener('click',function(){const school=allSchools.find(s=>s.id===this.dataset.id);if(school)exportSchoolData(school.id);});});
+document.querySelectorAll('.import-btn').forEach(btn=>{btn.addEventListener('click',function(){const school=allSchools.find(s=>s.id===this.dataset.id);if(school)importSchoolData(school.id);});});
 document.querySelectorAll('.toggle-school-btn').forEach(btn=>{btn.addEventListener('click',function(){toggleSchool(this.dataset.id);});});
 document.querySelectorAll('.delete-school-btn').forEach(btn=>{btn.addEventListener('click',function(){deleteSchool(this.dataset.id);});});
 updateStats();
 }catch(e){container.innerHTML='<div class="empty-state">❌ Erreur chargement écoles</div>';}
 }
 
+// === TOGGLE / DELETE SCHOOL ===
 window.toggleSchool=async function(id){try{const ref=doc(db,"ecoles",id);const snap=await getDoc(ref);if(snap.exists()){const data=snap.data();await updateDoc(ref,{actif:data.actif!==false?false:true});toast(`École ${data.actif!==false?"désactivée":"activée"}`,"success");loadSchools();}}catch(e){toast("Erreur: "+e.message,"error");}};
 window.deleteSchool=async function(id){if(!await showConfirm("Supprimer l'école","Supprimer cette école et toutes ses données ?"))return;try{const collections=[SC.PROFESSEURS,SC.FICHES,SC.COMPTA_ELEVES,SC.ELEVES,SC.PUNITIONS,SC.PRESENCES,SC.HORAIRES,SC.CORBEILLE,SC.COMPTEUR,SC.CONFIG,SC.ALERTES_ADMIN,SC.COMMUNIQUES,SC.SETTINGS];let count=0;for(const col of collections){try{const snap=await getDocs(collection(db,"ecoles",id,col));for(const ds of snap.docs){try{await deleteDoc(ds.ref);count++;}catch(e){}}}catch(e){}}await deleteDoc(doc(db,"ecoles",id));toast(`✅ École supprimée (${count} documents)`,"success");loadSchools();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}};
 
+// === EXPORT SCHOOL DATA (Excel) ===
+async function exportSchoolData(schoolId) {
+    try {
+        const school = allSchools.find(s => s.id === schoolId);
+        if (!school) { toast("École non trouvée", "error"); return; }
+        
+        toast(`📤 Export des données de ${school.nom}...`, "info");
+        
+        // Récupérer toutes les données de l'école
+        const students = allStudents.filter(m => m.ecoleId === schoolId);
+        const teachers = allTeachers.filter(t => t.ecoleId === schoolId);
+        const sheets = allSheets.filter(s => s.ecoleId === schoolId);
+        const codes = allCodes.filter(c => c.ecole === schoolId);
+        const connections = allConnections.filter(c => c.ecole === schoolId);
+        const lab = allLab.filter(l => l.ecoleId === schoolId);
+        
+        // Créer le workbook
+        const wb = XLSX.utils.book_new();
+        
+        // 1. Onglet École
+        const schoolData = [['NETUBEX - FICHE ÉCOLE', '']];
+        schoolData.push(['', '']);
+        schoolData.push(['📌 INFORMATIONS GÉNÉRALES', '']);
+        schoolData.push(['ID de l\'école', school.id]);
+        schoolData.push(['Nom', school.nom]);
+        schoolData.push(['Province', school.province || '']);
+        schoolData.push(['Ville', school.ville || '']);
+        schoolData.push(['Téléphone', school.telephone || '']);
+        schoolData.push(['Directeur', school.directeur || '']);
+        schoolData.push(['Adresse', school.adresse || '']);
+        schoolData.push(['Date création', school.dateCreation ? formatDate(school.dateCreation) : '']);
+        schoolData.push(['Statut', school.actif !== false ? '✅ Actif' : '❌ Inactif']);
+        schoolData.push(['', '']);
+        schoolData.push(['📊 STATISTIQUES', '']);
+        schoolData.push(['Professeurs', teachers.length]);
+        schoolData.push(['Élèves', students.length]);
+        schoolData.push(['Fiches', sheets.length]);
+        schoolData.push(['Codes Parents', codes.length]);
+        schoolData.push(['Connexions', connections.length]);
+        schoolData.push(['', '']);
+        schoolData.push(['📝 EXPORT EFFECTUÉ LE', new Date().toLocaleString('fr-FR')]);
+        schoolData.push(['🔐 Exporté par', 'Admin']);
+        
+        const wsSchool = XLSX.utils.aoa_to_sheet(schoolData);
+        wsSchool['!cols'] = [{wch:20}, {wch:40}];
+        XLSX.utils.book_append_sheet(wb, wsSchool, '🏫 École');
+        
+        // 2. Onglet Professeurs
+        if (teachers.length > 0) {
+            const profData = [['#', 'NOM', 'CODE', 'STATUT', 'FICHES', 'DATE AJOUT']];
+            teachers.forEach((t, i) => {
+                profData.push([i+1, t.nom, t.code, t.actif ? '✅ Actif' : '❌ Inactif', t.sheets || 0, '']);
+            });
+            const wsProf = XLSX.utils.aoa_to_sheet(profData);
+            wsProf['!cols'] = [{wch:5}, {wch:25}, {wch:12}, {wch:15}, {wch:10}, {wch:20}];
+            XLSX.utils.book_append_sheet(wb, wsProf, '👨‍🏫 Professeurs');
+        }
+        
+        // 3. Onglet Fiches
+        if (sheets.length > 0) {
+            const sheetData = [['#', 'MATIÈRE', 'CLASSE', 'OPTION', 'PROFESSEUR', 'ÉLÈVES']];
+            sheets.forEach((s, i) => {
+                sheetData.push([i+1, s.cours, s.classe, s.option || '', s.titulaire, s.eleves]);
+            });
+            const wsSheet = XLSX.utils.aoa_to_sheet(sheetData);
+            wsSheet['!cols'] = [{wch:5}, {wch:25}, {wch:15}, {wch:15}, {wch:20}, {wch:10}];
+            XLSX.utils.book_append_sheet(wb, wsSheet, '📄 Fiches');
+        }
+        
+        // 4. Onglet Élèves
+        if (students.length > 0) {
+            const studentData = [['#', 'NOM', 'PRÉNOM', 'CLASSE', 'SEXE', 'STATUT', 'CODE PARENT']];
+            students.forEach((s, i) => {
+                studentData.push([i+1, s.nom, s.prenom, s.classe, s.sexe === 'F' ? '👩 Fille' : '👨 Garçon', 
+                    s.statut === 'abandon' ? '⚠️ Abandonné' : s.statut === 'exempted' ? '⭐ Exonéré' : '📌 Régulier',
+                    codes.find(c => c.id === s.id)?.parentCode || ''
+                ]);
+            });
+            const wsStudent = XLSX.utils.aoa_to_sheet(studentData);
+            wsStudent['!cols'] = [{wch:5}, {wch:20}, {wch:20}, {wch:15}, {wch:12}, {wch:15}, {wch:15}];
+            XLSX.utils.book_append_sheet(wb, wsStudent, '👨‍🎓 Élèves');
+        }
+        
+        // 5. Onglet Connexions
+        if (connections.length > 0) {
+            const connData = [['#', 'UTILISATEUR', 'DATE', 'STATUT', 'VERSION', 'NAVIGATEUR']];
+            connections.slice(0, 500).forEach((c, i) => {
+                connData.push([i+1, c.utilisateur, formatDate(c.date), 
+                    c.statut === 'success' ? '✅ Réussie' : '❌ Échouée', 
+                    c.version || '', c.navigateur || '']);
+            });
+            const wsConn = XLSX.utils.aoa_to_sheet(connData);
+            wsConn['!cols'] = [{wch:5}, {wch:25}, {wch:22}, {wch:15}, {wch:15}, {wch:20}];
+            XLSX.utils.book_append_sheet(wb, wsConn, '📱 Connexions');
+        }
+        
+        // 6. Onglet Innovation Lab
+        if (lab.length > 0) {
+            const labData = [['#', 'TITRE', 'CATÉGORIE', 'STATUT', 'PROGRESSION', 'RESPONSABLE']];
+            lab.forEach((l, i) => {
+                const statusLabels = {in_progress:'🟢 En cours', completed:'✅ Terminé', pending:'🟡 En attente', cancelled:'🔴 Annulé'};
+                labData.push([i+1, l.title || '', l.category || '', statusLabels[l.status] || l.status, l.progress || 0, l.lead || '']);
+            });
+            const wsLab = XLSX.utils.aoa_to_sheet(labData);
+            wsLab['!cols'] = [{wch:5}, {wch:30}, {wch:15}, {wch:18}, {wch:12}, {wch:20}];
+            XLSX.utils.book_append_sheet(wb, wsLab, '🔬 Innovation Lab');
+        }
+        
+        // 7. Onglet Synthèse
+        const summaryData = [
+            ['NETUBEX - TABLEAU DE BORD', ''],
+            ['', ''],
+            ['📊 STATISTIQUES GLOBALES', ''],
+            ['École', school.nom],
+            ['Province', school.province || ''],
+            ['Directeur', school.directeur || ''],
+            ['Création', school.dateCreation ? formatDate(school.dateCreation) : ''],
+            ['Statut', school.actif !== false ? '✅ Actif' : '❌ Inactif'],
+            ['', ''],
+            ['📈 INDICATEURS CLÉS', ''],
+            ['Indicateur', 'Valeur'],
+            ['Professeurs', teachers.length],
+            ['Élèves', students.length],
+            ['Fiches', sheets.length],
+            ['Codes Parents', codes.length],
+            ['Connexions', connections.length],
+            ['', ''],
+            ['📅 DERNIÈRE MISE À JOUR', new Date().toLocaleString('fr-FR')]
+        ];
+        const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+        wsSummary['!cols'] = [{wch:25}, {wch:30}];
+        XLSX.utils.book_append_sheet(wb, wsSummary, '📊 Synthèse');
+        
+        // Exporter le fichier
+        const fileName = `${school.nom.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0,10)}_backup.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        toast(`✅ Export terminé : ${fileName}`, "success");
+        
+    } catch(e) {
+        console.error("Erreur export:", e);
+        toast("❌ Erreur export: "+e.message, "error");
+    }
+}
+
+// === IMPORT SCHOOL DATA ===
+async function importSchoolData(schoolId) {
+    try {
+        const school = allSchools.find(s => s.id === schoolId);
+        if (!school) { toast("École non trouvée", "error"); return; }
+        
+        const confirmed = await showConfirm(
+            `⚠️ Import pour ${school.nom}`,
+            `Cette opération va ÉCRASER toutes les données existantes de l'école.\n\n` +
+            `📌 Professeurs : ${allTeachers.filter(t => t.ecoleId === schoolId).length}\n` +
+            `📌 Élèves : ${allStudents.filter(s => s.ecoleId === schoolId).length}\n` +
+            `📌 Fiches : ${allSheets.filter(s => s.ecoleId === schoolId).length}\n\n` +
+            `Confirmez-vous ?`
+        );
+        if (!confirmed) return;
+        
+        // Créer un input file
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.xlsx,.xls';
+        input.onchange = async function(e) {
+            try {
+                const file = e.target.files[0];
+                if (!file) { toast("Aucun fichier sélectionné", "warning"); return; }
+                
+                const reader = new FileReader();
+                reader.onload = async function(loadEvent) {
+                    try {
+                        const data = new Uint8Array(loadEvent.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        let importedCount = 0;
+                        let totalImported = 0;
+                        
+                        // Lire les données de chaque onglet
+                        const sheets = workbook.SheetNames;
+                        
+                        // 1. Professeurs
+                        if (sheets.includes('👨‍🏫 Professeurs')) {
+                            const ws = workbook.Sheets['👨‍🏫 Professeurs'];
+                            const rows = XLSX.utils.sheet_to_json(ws);
+                            for (const row of rows) {
+                                if (row.NOM && row.CODE) {
+                                    try {
+                                        const profRef = doc(collection(db, "ecoles", schoolId, SC.PROFESSEURS));
+                                        await setDoc(profRef, {
+                                            nom: row.NOM,
+                                            code: row.CODE,
+                                            actif: row.STATUT?.includes('Actif') || false,
+                                            _type: "prof"
+                                        });
+                                        importedCount++;
+                                    } catch(e) { console.warn("Erreur import prof:", e); }
+                                }
+                            }
+                            totalImported += importedCount;
+                            toast(`✅ ${importedCount} professeurs importés`, "success");
+                            importedCount = 0;
+                        }
+                        
+                        // 2. Élèves
+                        if (sheets.includes('👨‍🎓 Élèves')) {
+                            const ws = workbook.Sheets['👨‍🎓 Élèves'];
+                            const rows = XLSX.utils.sheet_to_json(ws);
+                            for (const row of rows) {
+                                if (row.NOM) {
+                                    try {
+                                        const studentRef = doc(collection(db, "ecoles", schoolId, SC.COMPTA_ELEVES));
+                                        const data = {
+                                            nom: row.NOM || '',
+                                            prenom: row.PRÉNOM || '',
+                                            classe: row.CLASSE || '',
+                                            sexe: row.SEXE?.includes('Fille') ? 'F' : 'M',
+                                            exonere: row.STATUT?.includes('Exonéré') || false,
+                                            abandon: row.STATUT?.includes('Abandonné') || false,
+                                            _type: "compta_eleve"
+                                        };
+                                        if (row['CODE PARENT']) {
+                                            data.parentCode = row['CODE PARENT'];
+                                        }
+                                        await setDoc(studentRef, data);
+                                        importedCount++;
+                                    } catch(e) { console.warn("Erreur import élève:", e); }
+                                }
+                            }
+                            totalImported += importedCount;
+                            toast(`✅ ${importedCount} élèves importés`, "success");
+                            importedCount = 0;
+                        }
+                        
+                        // 3. Fiches
+                        if (sheets.includes('📄 Fiches')) {
+                            const ws = workbook.Sheets['📄 Fiches'];
+                            const rows = XLSX.utils.sheet_to_json(ws);
+                            for (const row of rows) {
+                                if (row.MATIÈRE) {
+                                    try {
+                                        const sheetRef = doc(collection(db, "ecoles", schoolId, SC.FICHES));
+                                        await setDoc(sheetRef, {
+                                            cours: row.MATIÈRE || '',
+                                            classe: row.CLASSE || '',
+                                            option: row.OPTION || '',
+                                            titulaire: row.PROFESSEUR || '',
+                                            eleves: []
+                                        });
+                                        importedCount++;
+                                    } catch(e) { console.warn("Erreur import fiche:", e); }
+                                }
+                            }
+                            totalImported += importedCount;
+                            toast(`✅ ${importedCount} fiches importées`, "success");
+                            importedCount = 0;
+                        }
+                        
+                        toast(`✅ Import terminé : ${totalImported} documents importés`, "success");
+                        loadAllData();
+                        
+                    } catch(e) {
+                        toast("❌ Erreur lecture fichier: "+e.message, "error");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+                
+            } catch(e) {
+                toast("❌ Erreur: "+e.message, "error");
+            }
+        };
+        input.click();
+        
+    } catch(e) {
+        console.error("Erreur import:", e);
+        toast("❌ Erreur import: "+e.message, "error");
+    }
+}
+
+// === LOAD OTHER TABS (simplifiés) ===
 async function loadInactiveSchools(){const container=document.getElementById("inactiveList");try{const snap=await getDocs(query(collection(db,"ecoles"),where("actif","==",false)));const inactive=[];snap.forEach(d=>{inactive.push({id:d.id,...d.data()});});document.getElementById("inactiveCount").textContent=inactive.length;if(inactive.length===0){container.innerHTML='<div class="empty-state"><span class="empty-icon">✅</span>Aucune école inactive</div>';return;}let html='<div class="table-wrapper"><table><thead><tr><th>École</th><th>ID</th><th>Province</th><th>Ville</th><th>Actions</th></tr></thead><tbody>';inactive.forEach(s=>{html+=`<tr><td><strong>${escapeHtml(s.nom)}</strong></td><td style="font-family:monospace;color:var(--blue);font-size:11px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td><button class="btn btn-sm btn-success toggle-school-btn" data-id="${s.id}">▶️ Réactiver</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️</button></td></tr>`;});html+="</tbody></table></div>";container.innerHTML=html;document.querySelectorAll('.toggle-school-btn').forEach(btn=>{btn.addEventListener('click',function(){toggleSchool(this.dataset.id);});});document.querySelectorAll('.delete-school-btn').forEach(btn=>{btn.addEventListener('click',function(){deleteSchool(this.dataset.id);});});}catch(e){container.innerHTML='<div class="empty-state">❌ Erreur chargement écoles inactives</div>';}}
 
 async function loadMembers(){const container=document.getElementById("membersBody");const filter=document.getElementById("memberSchoolFilter").value;const search=document.getElementById("memberSearch").value.toLowerCase();let all=allMembers;if(filter!=="all")all=all.filter(m=>m.ecoleId===filter);if(search)all=all.filter(m=>m.nom.toLowerCase().includes(search)||(m.prenom&&m.prenom.toLowerCase().includes(search)));document.getElementById("membersCount").textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="6" class="empty-state">Aucun membre trouvé</td></tr>';return;}let html="";all.slice(0,500).forEach((m,i)=>{html+=`<tr><td>${i+1}</td><td><strong>${escapeHtml(m.nom)} ${escapeHtml(m.prenom)}</strong></td><td>${escapeHtml(m.classe)}</td><td>${m.sexe==="F"?"👩 Fille":"👨 Garçon"}</td><td>${escapeHtml(m.ecoleNom)}</td><td><span class="badge ${m.statut==="exempted"?"exempted":"regular"}">${m.statut==="exempted"?"Exonéré":"Régulier"}</span></td></tr>`;});container.innerHTML=html;}
@@ -612,13 +954,10 @@ document.getElementById("sendCommBtn").addEventListener("click",async function()
 async function loadWhiteMonths(){const container=document.getElementById("wmBody");try{let all=[];for(const e of allSchools){const id=e.id;const ecoleNom=e.nom||id;try{const s=await getDocs(collection(db,"ecoles",id,SC.COMPTA_ELEVES));s.forEach(d=>{const data=d.data();const moisBlancs=data.moisBlancs||[];moisBlancs.forEach(m=>{all.push({nom:data.nom||"Inconnu",prenom:data.prenom||"",classe:data.classe||"",ecoleNom:ecoleNom,mois:m,date:data.dateInscription||"-"});});})}catch(e){}}document.getElementById("wmCount").textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="5" class="empty-state">Aucun mois blanc enregistré</td></tr>';return;}let html="";all.slice(0,100).forEach((w,i)=>{html+=`<tr><td><strong>${escapeHtml(w.nom)} ${escapeHtml(w.prenom)}</strong></td><td>${escapeHtml(w.classe)}</td><td>${escapeHtml(w.ecoleNom)}</td><td><span style="color:var(--orange);font-weight:600;">❄️ ${escapeHtml(w.mois)}</span></td><td style="font-size:11px;color:var(--text-muted);">${escapeHtml(w.date)}</td></tr>`;});container.innerHTML=html;}catch(e){container.innerHTML='<tr><td colspan="5" class="empty-state">Erreur chargement mois blancs</td></tr>';}}
 
 async function loadLab(){const container=document.getElementById("labList");try{allLab.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));document.getElementById("labCount").textContent=allLab.length;document.getElementById("labBadge").textContent=allLab.length;if(allLab.length===0){container.innerHTML='<div class="empty-state"><span class="empty-icon">🔬</span>Aucune expérimentation</div>';return;}let html='<div class="table-wrapper"><table><thead><tr><th>Titre</th><th>Catégorie</th><th>Statut</th><th>Progression</th><th>Responsable</th><th>Priorité</th><th>Impact</th><th>Actions</th></tr></thead><tbody>';const statusLabels={in_progress:"🟢 En cours",completed:"✅ Terminé",pending:"🟡 En attente",cancelled:"🔴 Annulé"};allLab.forEach(exp=>{html+=`<tr><td><strong>${escapeHtml(exp.title||"Sans titre")}</strong></td><td><span class="badge" style="background:rgba(139,92,246,0.15);color:var(--purple);">${escapeHtml(exp.category||"Autre")}</span></td><td><span class="badge ${exp.status==="completed"?"active":exp.status==="cancelled"?"inactive":""}">${statusLabels[exp.status]||"Inconnu"}</span></td><td><div style="display:flex;align-items:center;gap:6px;"><div style="flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:4px;overflow:hidden;"><div style="width:${exp.progress||0}%;height:100%;background:${exp.progress>=80?"var(--green)":exp.progress>=40?"var(--orange)":"var(--red)"};border-radius:4px;"></div></div><span style="font-size:10px;color:var(--text-muted);">${exp.progress||0}%</span></div></td><td>${escapeHtml(exp.lead||"-")}</td><td>${exp.priority==="high"?"🔴 Haute":exp.priority==="medium"?"🟡 Moyenne":"🟢 Basse"}</td><td>${exp.impact==="high"?"🔴 Élevé":exp.impact==="medium"?"🟡 Moyen":"🟢 Faible"}</td><td><button class="btn btn-sm btn-outline view-lab-btn" data-id="${exp.id}">👁️</button><button class="btn btn-sm btn-danger delete-lab-btn" data-id="${exp.id}">🗑️</button></td></tr>`;});html+="</tbody></table></div>";container.innerHTML=html;document.querySelectorAll('.view-lab-btn').forEach(btn=>{btn.addEventListener('click',function(){viewLab(this.dataset.id);});});document.querySelectorAll('.delete-lab-btn').forEach(btn=>{btn.addEventListener('click',function(){deleteLab(this.dataset.id);});});}catch(e){container.innerHTML='<div class="empty-state">Erreur chargement</div>';}}
-
 window.viewLab=function(id){const exp=allLab.find(e=>e.id===id);if(!exp)return;const statusLabels={in_progress:"🟢 En cours",completed:"✅ Terminé",pending:"🟡 En attente",cancelled:"🔴 Annulé"};showModal("🔬 Détails de l'expérimentation",`<div class="modal-grid"><div class="modal-item"><span class="label">Titre</span><span class="value">${escapeHtml(exp.title)}</span></div><div class="modal-item"><span class="label">Catégorie</span><span class="value">${escapeHtml(exp.category)}</span></div><div class="modal-item"><span class="label">Statut</span><span class="value">${statusLabels[exp.status]||exp.status}</span></div><div class="modal-item"><span class="label">Progression</span><span class="value">${exp.progress}%</span></div><div class="modal-item"><span class="label">Responsable</span><span class="value">${escapeHtml(exp.lead||"-")}</span></div><div class="modal-item"><span class="label">Priorité</span><span class="value">${exp.priority}</span></div><div class="modal-item"><span class="label">Impact</span><span class="value">${exp.impact}</span></div><div class="modal-item"><span class="label">Équipe</span><span class="value">${(exp.team||[]).join(", ")||"-"}</span></div><div class="modal-item"><span class="label">Tags</span><span class="value">${(exp.tags||[]).join(", ")||"-"}</span></div><div class="modal-item"><span class="label">Créé le</span><span class="value">${formatDate(exp.createdAt)}</span></div></div>`);}
 window.deleteLab=async function(id){if(!await showConfirm("Supprimer l'expérimentation","Supprimer définitivement ?"))return;try{await deleteDoc(doc(db,"innovation_lab",id));toast("Expérimentation supprimée","success");loadLab();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}};
-document.getElementById("showAddLab").addEventListener("click",function(){document.getElementById("addLabForm").style.display="block";});
-document.getElementById("cancelLabBtn").addEventListener("click",function(){document.getElementById("addLabForm").style.display="none";document.getElementById("labTitle").value="";document.getElementById("labDescription").value="";document.getElementById("labLead").value="";document.getElementById("labTeam").value="";document.getElementById("labTags").value="";document.getElementById("labProgress").value="0";document.getElementById("labStart").value="";document.getElementById("labEnd").value="";});
-document.getElementById("saveLabBtn").addEventListener("click",async function(){const title=document.getElementById("labTitle").value.trim();if(!title){toast("Le titre est requis","error");return;}try{const data={title,description:document.getElementById("labDescription").value.trim(),category:document.getElementById("labCategory").value,status:document.getElementById("labStatus").value,priority:document.getElementById("labPriority").value,impact:document.getElementById("labImpact").value,lead:document.getElementById("labLead").value.trim(),startDate:document.getElementById("labStart").value,endDate:document.getElementById("labEnd").value,progress:parseInt(document.getElementById("labProgress").value)||0,team:document.getElementById("labTeam").value.split(",").map(s=>s.trim()).filter(Boolean),tags:document.getElementById("labTags").value.split(",").map(s=>s.trim()).filter(Boolean),createdBy:"Admin",createdAt:new Date().toISOString()};await setDoc(doc(collection(db,"innovation_lab")),data);toast("Expérimentation ajoutée","success");document.getElementById("addLabForm").style.display="none";loadLab();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}});
 
+// === CONNECTIONS ===
 async function loadConnections(){document.getElementById("connCount").textContent=allConnections.length;updateConnectionStats();displayConnections();}
 function updateConnectionStats(){const total=allConnections.length;const success=allConnections.filter(c=>c.statut==="success").length;const failed=allConnections.filter(c=>c.statut==="failed").length;document.getElementById("connTotal").textContent=total;document.getElementById("connSuccess").textContent=success;document.getElementById("connFailed").textContent=failed;document.getElementById("connCount").textContent=total;document.getElementById("connBadge").textContent=total;}
 let connPage=1;const connPageSize=10;
@@ -629,9 +968,11 @@ document.getElementById("connUserFilter").addEventListener("input",()=>{connPage
 document.getElementById("connStatusFilter").addEventListener("change",()=>{connPage=1;displayConnections();});
 document.getElementById("clearConnections").addEventListener("click",async function(){if(!await showConfirm("Supprimer toutes les connexions","Supprimer tous les logs de connexion ?"))return;try{allConnections=[];toast(`✅ Connexions supprimées`,"success");loadConnections();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}});
 
+// === CODE PARENTS ===
 document.getElementById("codeSchoolSelect").addEventListener("change",function(){const ecoleId=this.value;if(!ecoleId){document.getElementById("codeResultsContainer").innerHTML='<div class="empty-state">Sélectionnez une école</div>';document.getElementById("codeTotal").textContent="0";document.getElementById("codeResults").textContent="0";document.getElementById("codeInfo").textContent="";return;}const codes=allCodes.filter(c=>c.ecole===ecoleId);document.getElementById("codeTotal").textContent=codes.length;document.getElementById("codeResults").textContent=codes.length;document.getElementById("codeInfo").textContent=`${codes.length} codes chargés`;if(codes.length===0){document.getElementById("codeResultsContainer").innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Aucun code parent</div>';}else{document.getElementById("codeResultsContainer").innerHTML=`<div class="code-results"><div style="padding:6px;color:var(--text-muted);font-size:11px;">${codes.length} codes disponibles. Tapez les premières lettres du nom.</div></div>`;}updateStats();});
 document.getElementById("codeSearchInput").addEventListener("input",function(){const term=this.value.toLowerCase().trim();const ecoleId=document.getElementById("codeSchoolSelect").value;if(!ecoleId){document.getElementById("codeResultsContainer").innerHTML='<div class="empty-state">Sélectionnez une école</div>';return;}const codes=allCodes.filter(c=>c.ecole===ecoleId);if(!term){document.getElementById("codeResultsContainer").innerHTML=`<div class="code-results"><div style="padding:6px;color:var(--text-muted);font-size:11px;">${codes.length} codes disponibles. Tapez les premières lettres du nom.</div></div>`;document.getElementById("codeResults").textContent=codes.length;return;}const results=codes.filter(c=>`${c.nom} ${c.prenom}`.toLowerCase().includes(term));document.getElementById("codeResults").textContent=results.length;if(results.length===0){document.getElementById("codeResultsContainer").innerHTML=`<div class="empty-state"><span class="empty-icon">🔍</span>Aucun résultat pour "${escapeHtml(term)}"</div>`;return;}let html=`<div style="font-size:10px;color:var(--text-muted);padding:2px 6px;">${results.length} résultat(s)</div>`;results.slice(0,50).forEach(c=>{const nomComplet=`${c.nom} ${c.prenom}`.trim()||"Inconnu";html+=`<div class="code-result-item"><span class="code-ecole">👤 ${escapeHtml(nomComplet)} <span style="color:var(--text-muted);font-size:10px;">${escapeHtml(c.classe)}</span></span><span class="code-value">🔑 ${escapeHtml(c.parentCode)}</span></div>`;});document.getElementById("codeResultsContainer").innerHTML=html;});
 
+// === EXPLORER ===
 async function loadExplorer(){const container=document.getElementById("explorerContent");container.innerHTML='<div class="empty-state">🔍 Analyse de la base de données...</div>';try{const resultats=await scanDatabase();displayExplorer(container,resultats);}catch(e){container.innerHTML=`<div class="empty-state">❌ Erreur: ${e.message}</div>`;}}
 async function scanDatabase(){const resultats={collections:{},totalCollections:0,totalDocuments:0,totalSousCollections:0,collectionsVides:0,erreurs:[]};let ecolesIds=[];try{const snap=await getDocs(collection(db,"ecoles"));snap.forEach(d=>ecolesIds.push(d.id));}catch(e){}const collectionsRacines=["ecoles","communication","audit_logs","sync_logs","professeurs_en_ligne","innovation_lab"];const suffixes=["professeurs","fiches","eleves","compta_eleves","punitions","presences","horaires","corbeille","compteur","config","alertes_admin","communiques","settings"];const collectionsDynamiques=[];ecolesIds.forEach(id=>{suffixes.forEach(s=>collectionsDynamiques.push(`ecoles/${id}/${s}`));});const toutesAChercher=[...new Set([...collectionsRacines,...collectionsDynamiques])];for(const chemin of toutesAChercher){try{const ref=chemin.includes("/")?collection(db,...chemin.split("/")):collection(db,chemin);const snap=await getDocs(ref);const documents=[];snap.forEach(ds=>{const data=ds.data();documents.push({id:ds.id,data:data,nbChamps:Object.keys(data).length,date:data.dateCreation||data.date||data.createdAt||null,type:data._type||data.type||"unknown"});});let tailleTotale=0;documents.forEach(d=>tailleTotale+=new Blob([JSON.stringify(d.data)]).size);const estSousCollection=chemin.includes("/");resultats.collections[chemin]={chemin:chemin,nbDocuments:documents.length,tailleTotale:tailleTotale,documents:documents,estSousCollection:estSousCollection,existe:true,types:[...new Set(documents.map(d=>d.type))].sort()};if(documents.length===0)resultats.collectionsVides++;resultats.totalDocuments+=documents.length;resultats.totalCollections++;if(estSousCollection)resultats.totalSousCollections++;}catch(e){}}const trie=Object.keys(resultats.collections).sort((a,b)=>resultats.collections[b].nbDocuments-resultats.collections[a].nbDocuments);const trieObj={};trie.forEach(key=>{trieObj[key]=resultats.collections[key];});resultats.collections=trieObj;return resultats;}
 function displayExplorer(container,resultats){const collections=resultats.collections;const totalDocs=resultats.totalDocuments;const totalCols=resultats.totalCollections;let html=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:12px;"><div class="explorer-stat-card"><div class="stat-number" style="color:var(--blue);">${totalCols}</div><div class="stat-label">Collections</div></div><div class="explorer-stat-card"><div class="stat-number" style="color:var(--green);">${totalDocs}</div><div class="stat-label">Documents</div></div><div class="explorer-stat-card"><div class="stat-number" style="color:var(--purple);">${resultats.totalSousCollections}</div><div class="stat-label">Sous-collections</div></div><div class="explorer-stat-card"><div class="stat-number" style="color:var(--orange);">${resultats.collectionsVides}</div><div class="stat-label">Vides</div></div></div><div style="margin-bottom:10px;"><input type="text" id="explorerSearch" placeholder="🔍 Rechercher une collection..." style="width:100%;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:12px;outline:none;"></div><div id="explorerList">`;if(Object.keys(collections).length===0){html+=`<div class="empty-state">Aucune collection trouvée</div>`;}else{let idx=0;for(const[chemin,collection]of Object.entries(collections)){idx++;const docs=collection.documents||[];const nbDocs=docs.length;const estVide=nbDocs===0;const estSousCol=collection.estSousCollection;let icon="📁";let borderColor="var(--blue)";if(estVide){icon="📭";borderColor="var(--text-muted)";}else if(estSousCol){icon="📂";borderColor="var(--purple)";}html+=`<div class="explorer-collection" style="border-color:${borderColor}40;"><div class="explorer-collection-header" onclick="toggleExplorer('exp-${idx}')"><div class="col-name"><span>${icon}</span><span>${escapeHtml(chemin)}</span>${estSousCol?'<span style="font-size:9px;color:var(--purple);background:rgba(139,92,246,0.15);padding:0 8px;border-radius:12px;">sous</span>':''}${estVide?'<span style="font-size:9px;color:var(--text-muted);background:rgba(255,255,255,0.04);padding:0 8px;border-radius:12px;">vide</span>':''}</div><div class="col-stats"><span class="count" style="color:${borderColor};">${nbDocs}</span><button class="btn-delete-collection" onclick="event.stopPropagation();deleteCollection('${chemin}',${nbDocs})">🗑️</button></div></div><div class="explorer-collection-body" id="exp-${idx}">`;if(nbDocs===0){html+=`<div class="explorer-empty">📭 Collection vide</div>`;}else{docs.slice(0,10).forEach((doc,di)=>{html+=`<div class="explorer-doc-item"><span class="doc-id">#${di+1} ${doc.id.substring(0,8)}...</span><span class="doc-data">${escapeHtml(JSON.stringify(doc.data).substring(0,60))}${JSON.stringify(doc.data).length>60?"...":""}</span><span class="doc-champs">${doc.nbChamps} champs</span></div>`;});if(docs.length>10)html+=`<div class="explorer-empty">... et ${docs.length-10} autres</div>`;}html+=`</div></div>`;}}html+=`</div>`;container.innerHTML=html;document.getElementById("explorerSearch").addEventListener("input",function(){const q=this.value.toLowerCase();document.querySelectorAll(".explorer-collection").forEach(el=>{const text=el.innerText.toLowerCase();el.style.display=text.includes(q)?"":`none`;});});}
@@ -639,19 +980,38 @@ window.toggleExplorer=function(id){const el=document.getElementById(id);if(el)el
 window.deleteCollection=async function(chemin,nbDocs){if(!await showConfirm("Supprimer la collection",`Supprimer "${chemin}" avec ${nbDocs} document(s) ?`))return;try{const parts=chemin.split("/");let ref;if(parts.length===1)ref=collection(db,chemin);else ref=collection(db,...parts);const snap=await getDocs(ref);let count=0;for(const ds of snap.docs){try{await deleteDoc(ds.ref);count++;}catch(e){}}toast(`✅ "${chemin}" supprimée (${count} docs)`,"success");loadExplorer();}catch(e){toast("Erreur: "+e.message,"error");}}
 document.getElementById("deleteEmptyCollections").addEventListener("click",async function(){const container=document.getElementById("explorerContent");const collections=container.querySelectorAll(".explorer-collection");const empty=[];collections.forEach(el=>{if(el.innerText.includes("vide")){const name=el.querySelector(".col-name span:last-child")?.textContent||"";if(name)empty.push(name);}});if(empty.length===0){toast("Aucune collection vide","info");return;}if(!await showConfirm("Supprimer les collections vides",`Supprimer ${empty.length} collection(s) vide(s) ?`))return;let count=0;for(const chemin of empty){try{const parts=chemin.split("/");let ref;if(parts.length===1)ref=collection(db,chemin);else ref=collection(db,...parts);const snap=await getDocs(ref);for(const ds of snap.docs){try{await deleteDoc(ds.ref);}catch(e){}}count++;}catch(e){}}toast(`✅ ${count} collections vides supprimées`,"success");loadExplorer();});
 
+// === SETTINGS ===
 document.getElementById("changeCodeBtn").addEventListener("click",function(){const current=document.getElementById("currentCode").value;const newCode=document.getElementById("newCode").value;const confirm=document.getElementById("confirmCode").value;const error=document.getElementById("settingsError");if(current!==ACCESS_CODE){error.textContent="❌ Code actuel incorrect";return;}if(!/^\d{4}$/.test(newCode)){error.textContent="❌ Code doit contenir 4 chiffres";return;}if(newCode!==confirm){error.textContent="❌ Codes ne correspondent pas";return;}if(newCode===ACCESS_CODE){error.textContent="⚠️ Nouveau code identique";return;}ACCESS_CODE=newCode;localStorage.setItem("access_code_direction",newCode);error.textContent="";toast("✅ Code changé avec succès","success");document.getElementById("currentCode").value="";document.getElementById("newCode").value="";document.getElementById("confirmCode").value="";});
 
+// === NAVIGATION ===
 document.querySelectorAll(".nav-item, .tab-btn").forEach(el=>{el.addEventListener("click",function(){const target=this.dataset.tab;if(!target)return;document.querySelectorAll(".nav-item, .tab-btn").forEach(t=>t.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-content").forEach(c=>c.classList.remove("active"));const container=document.getElementById(target+"-tab");if(container)container.classList.add("active");document.getElementById("breadcrumb").textContent=this.textContent.trim();if(target==="schools")loadSchools();if(target==="inactive")loadInactiveSchools();if(target==="members")loadMembers();if(target==="teachers")loadTeachers();if(target==="sheets")loadSheets();if(target==="audit")loadAudit();if(target==="communication")loadCommunication();if(target==="whitemonths")loadWhiteMonths();if(target==="innovation")loadLab();if(target==="connections")loadConnections();if(target==="parentcodes"){}if(target==="explorer")loadExplorer();});});
 
+// === FILTER EVENTS ===
 document.getElementById("memberSchoolFilter").addEventListener("change",loadMembers);
 document.getElementById("memberSearch").addEventListener("input",loadMembers);
+document.getElementById("schoolFilter").addEventListener("change",updateChart);
+document.getElementById("applyFilterBtn").addEventListener("click",updateChart);
+document.getElementById("resetFilterBtn").addEventListener("click",function(){
+    document.getElementById("schoolFilter").value = "all";
+    updateChart();
+});
+document.getElementById("refreshStatsBtn").addEventListener("click",function(){
+    loadAllData();
+    toast("🔄 Statistiques mises à jour", "info");
+});
 
+// === ADD SCHOOL ===
 document.getElementById("showAddSchool").addEventListener("click",function(){document.getElementById("addSchoolForm").style.display="block";});
 document.getElementById("cancelSchoolBtn").addEventListener("click",function(){document.getElementById("addSchoolForm").style.display="none";document.getElementById("schoolName").value="";document.getElementById("schoolId").value="";document.getElementById("schoolProvince").value="";document.getElementById("schoolCity").value="";document.getElementById("schoolPhone").value="";document.getElementById("schoolDirector").value="";document.getElementById("schoolAddress").value="";});
 document.getElementById("schoolName").addEventListener("input",function(){const val=this.value.trim().toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");document.getElementById("schoolId").value=val||"auto-"+Date.now().toString().slice(-6);});
 document.getElementById("saveSchoolBtn").addEventListener("click",async function(){const nom=document.getElementById("schoolName").value.trim();const id=document.getElementById("schoolId").value.trim();if(!nom||!id){toast("Le nom et l'ID sont requis","error");return;}try{const ref=doc(db,"ecoles",id);const snap=await getDoc(ref);if(snap.exists()){toast("Cet ID existe déjà","error");return;}const data={nom,id,province:document.getElementById("schoolProvince").value,ville:document.getElementById("schoolCity").value.trim(),telephone:document.getElementById("schoolPhone").value.trim(),directeur:document.getElementById("schoolDirector").value.trim(),adresse:document.getElementById("schoolAddress").value.trim(),actif:true,dateCreation:new Date().toISOString(),dateEnregistrement:new Date().toISOString()};await setDoc(ref,data);toast("✅ École ajoutée avec succès","success");document.getElementById("addSchoolForm").style.display="none";loadSchools();loadInactiveSchools();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}});
 
-// Boutons de rafraîchissement
+// === LAB ===
+document.getElementById("showAddLab").addEventListener("click",function(){document.getElementById("addLabForm").style.display="block";});
+document.getElementById("cancelLabBtn").addEventListener("click",function(){document.getElementById("addLabForm").style.display="none";document.getElementById("labTitle").value="";document.getElementById("labDescription").value="";document.getElementById("labLead").value="";document.getElementById("labTeam").value="";document.getElementById("labTags").value="";document.getElementById("labProgress").value="0";document.getElementById("labStart").value="";document.getElementById("labEnd").value="";});
+document.getElementById("saveLabBtn").addEventListener("click",async function(){const title=document.getElementById("labTitle").value.trim();if(!title){toast("Le titre est requis","error");return;}try{const data={title,description:document.getElementById("labDescription").value.trim(),category:document.getElementById("labCategory").value,status:document.getElementById("labStatus").value,priority:document.getElementById("labPriority").value,impact:document.getElementById("labImpact").value,lead:document.getElementById("labLead").value.trim(),startDate:document.getElementById("labStart").value,endDate:document.getElementById("labEnd").value,progress:parseInt(document.getElementById("labProgress").value)||0,team:document.getElementById("labTeam").value.split(",").map(s=>s.trim()).filter(Boolean),tags:document.getElementById("labTags").value.split(",").map(s=>s.trim()).filter(Boolean),createdBy:"Admin",createdAt:new Date().toISOString()};await setDoc(doc(collection(db,"innovation_lab")),data);toast("Expérimentation ajoutée","success");document.getElementById("addLabForm").style.display="none";loadLab();updateStats();}catch(e){toast("Erreur: "+e.message,"error");}});
+
+// === REFRESH BUTTONS ===
 document.getElementById("refreshBtn")?.addEventListener("click",async function(){await loadAllData();loadSchools();loadInactiveSchools();loadMembers();loadTeachers();loadSheets();loadAudit();loadCommunication();loadWhiteMonths();loadLab();loadConnections();loadExplorer();toast("✅ Toutes les données ont été rafraîchies","success");});
 document.getElementById("refreshSchoolsBtn")?.addEventListener("click",loadSchools);
 document.getElementById("refreshInactiveBtn")?.addEventListener("click",loadInactiveSchools);
@@ -666,10 +1026,11 @@ document.getElementById("refreshConnBtn")?.addEventListener("click",loadConnecti
 document.getElementById("refreshCodesBtn")?.addEventListener("click",function(){loadParentCodes();});
 document.getElementById("refreshExplorerBtn")?.addEventListener("click",loadExplorer);
 
-async function init(){await loadAllData();await loadSchools();await loadInactiveSchools();await loadMembers();await loadTeachers();await loadSheets();await loadAudit();await loadCommunication();await loadWhiteMonths();await loadLab();await loadConnections();await loadExplorer();updateStats();toast("🚀 Dashboard prêt - Auto-update actif","success");}
+// === INIT ===
+async function init(){await loadAllData();await loadSchools();await loadInactiveSchools();await loadMembers();await loadTeachers();await loadSheets();await loadAudit();await loadCommunication();await loadWhiteMonths();await loadLab();await loadConnections();await loadExplorer();updateStats();updateStudentCounters();toast("🚀 Dashboard prêt - Auto-update actif","success");}
 init();
 
-// Auto-refresh toutes les 60 secondes
+// === AUTO-REFRESH toutes les 60 secondes ===
 setInterval(async function(){
 console.log("🔄 Auto-refresh...");
 await loadAllData();
@@ -680,6 +1041,7 @@ loadSheets();
 loadConnections();
 loadLab();
 updateStats();
+updateStudentCounters();
 }, 60000);
 </script>
 </body>
