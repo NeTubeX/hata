@@ -627,24 +627,32 @@ let schoolId = urlParams.get('ecole');
 if (!schoolId) { window.location.href = '/schoolchoice'; throw new Error('Redirection'); }
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME = schoolId;
-async function verifierEcoleExistante(ecoleId) {
-    try {
-        const docRef = doc(db, "ecoles", ecoleId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            return data.actif !== false;
-        }
-        return false;
-    } catch (error) {
-        console.error("Erreur de vérification:", error);
-        return false;
-    }
+function getEcoleRef(sousCollection, docId = null) {
+  if (docId) {
+    return doc(db, "ecoles", ECOLET_ID, sousCollection, docId);
+  }
+  return collection(db, "ecoles", ECOLET_ID, sousCollection);
 }
-const estActive = await verifierEcoleExistante(schoolId);
-if (!estActive) {
-document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" est inactif ou n'existe pas.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
-throw new Error('École inactive ou non trouvée: ' + schoolId);
+const SC = {
+  PROFESSEURS: 'professeurs',
+  FICHES: 'fiches',
+  LOGS: 'logs',
+  HORAIRES: 'horaires',
+  PUNITIONS: 'punitions',
+  PRESENCES: 'presences',
+  CORBEILLE: 'corbeille',
+  COMPTEUR: 'compteur',
+  CONFIG: 'config',
+  ALERTES_ADMIN: 'alertes_admin',
+  COMMUNIQUES: 'communiques',
+  COMPTA_ELEVES: 'compta_eleves',
+  SETTINGS: 'settings'
+};
+async function verifierEcoleAutorisee(ecoleId) { try { const docRef = doc(db, "ecoles", ECOLET_ID); const docSnap = await getDoc(docRef); return docSnap.exists(); } catch (error) { console.error("Erreur de vérification:", error); return false; } }
+const estAutorisee = await verifierEcoleAutorisee(schoolId);
+if (!estAutorisee) {
+document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0a0e1a;color:#fff;flex-direction:column;padding:20px;text-align:center;"><div style="font-size:64px;margin-bottom:20px;">🚫</div><h1 style="color:#ef4444;margin-bottom:10px;">Accès non autorisé</h1><p style="color:#94a3b8;max-width:400px;margin-bottom:20px;">L'établissement "<strong>${schoolId}</strong>" n'est pas enregistré dans notre système.<br>Veuillez contacter l'entreprise NeTubeX SARL.</p><button onclick="window.location.href='/schoolchoice'" style="background:#3b82f6;color:#fff;border:none;padding:12px 30px;border-radius:40px;cursor:pointer;font-size:16px;">Retourner au sélecteur</button></div>`;
+throw new Error('École non autorisée: ' + schoolId);
 }
 const schoolNameForDisplay = schoolId.toUpperCase().replace(/-/g, ' ');
 const schoolNameElement = document.querySelector('.school-name');
@@ -1855,11 +1863,14 @@ d.innerHTML = `
 <div class="login-card">
 <h2>ÉCOLE ${schoolId.toUpperCase().replace(/-/g, ' ')}</h2>
 <p class="subtitle">Accès enseignant</p>
-<div class="select-wrapper">
-<span class="select-label">Professeur</span>
-<select id="loginNom">
-<option value="">-- Choisir --</option>
-</select>
+<div class="select-wrapper" style="display:flex;gap:8px;align-items:center;">
+    <div style="flex:1;">
+        <span class="select-label">Professeur</span>
+        <select id="loginNom">
+            <option value="">-- Choisir --</option>
+        </select>
+    </div>
+    <button id="refreshTeachersBtn" style="background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);border-radius:40px;padding:8px 12px;color:#60a5fa;cursor:pointer;font-size:16px;margin-top:18px;transition:all 0.3s ease;" title="Rafraîchir la liste des professeurs">🔄</button>
 </div>
 <input type="password" id="loginCode" placeholder="🔑 Code d'accès">
 <button id="loginBtn" class="login-btn-with-loader">Se connecter</button>
@@ -1868,6 +1879,22 @@ d.innerHTML = `
 `;
 document.body.appendChild(d);
 await refreshTeachersList();
+// Bouton rafraîchir
+document.getElementById('refreshTeachersBtn').onclick = async function() {
+const btn = this;
+btn.disabled = true;
+btn.style.opacity = '0.6';
+btn.textContent = '⏳';
+toast("🔄 Rafraîchissement de la liste...", 'info');
+await refreshTeachersList();
+btn.textContent = '✅';
+setTimeout(() => {
+    btn.textContent = '🔄';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    toast("✅ Liste des professeurs mise à jour", 'success');
+}, 800);
+};
 let clickCount = 0, clickTimeout = null;
 const loginCard = d.querySelector('.login-card');
 if (loginCard) {
@@ -1949,44 +1976,21 @@ btn.style.opacity = '1';
 }
 };
 }
-
-// ============================================================
-// ✅ FONCTION CORRIGÉE - MÊME MÉTHODE QUE LE CODE QUI FONCTIONNE
-// ============================================================
 async function refreshTeachersList() {
-    let professeurs = [];
-    if (navigator.onLine) {
-        try {
-            const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
-            snap.forEach(ds => {
-                const data = ds.data();
-                if (data.school === ECOLET_ID) {
-                    professeurs.push({ id: data.profId, nom: data.nom, code: data.code });
-                }
-            });
-        } catch (e) { 
-            console.error("Erreur chargement professeurs:", e); 
-        }
-    }
-    professeurs.sort((a, b) => a.nom.localeCompare(b.nom));
-    let lo = document.getElementById('loginOverlay');
-    if (lo) { 
-        let se = lo.querySelector('#loginNom'); 
-        if (se) { 
-            se.innerHTML = '<option value="">-- Choisir --</option>'; 
-            let numero = 1;
-            professeurs.forEach(function(p) {
-                let o = document.createElement('option');
-                o.value = p.nom;
-                let numeroStr = String(numero).padStart(2, '0');
-                o.textContent = numeroStr + '. ' + p.nom;
-                se.appendChild(o);
-                numero++;
-            });
-        } 
-    }
+let professeurs = [];
+if (navigator.onLine) {
+try {
+const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
+snap.forEach(ds => {
+const data = ds.data();
+if (data.school === ECOLET_ID) professeurs.push({ id: data.profId, nom: data.nom, code: data.code });
+});
+} catch (e) { console.error("Erreur chargement professeurs:", e); }
 }
-
+professeurs.sort((a, b) => a.nom.localeCompare(b.nom));
+let lo = document.getElementById('loginOverlay');
+if (lo) { let se = lo.querySelector('#loginNom'); if (se) { se.innerHTML = '<option value="">-- Choisir --</option>'; let numero = 1; professeurs.forEach(function(p) { let o = document.createElement('option'); o.value = p.nom; let numeroStr = String(numero).padStart(2, '0'); o.textContent = numeroStr + '. ' + p.nom; se.appendChild(o); numero++; }); } }
+}
 function generateProfCode() { return Math.floor(1000 + Math.random() * 9000).toString(); }
 async function chargerOptionsParClasse() { try { let od = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe")); if (od.exists()) optionsParClasse = od.data(); else await setDoc(doc(db, "ecoles", ECOLET_ID, SC.CONFIG, "options_par_classe"), optionsParClasse); } catch (e) { console.error(e); } toggleOptionField(); }
 function correctionUpdateEpreuveList() {
