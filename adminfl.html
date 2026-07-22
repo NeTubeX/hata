@@ -263,6 +263,25 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 .explorer-doc-item .doc-champs{color:var(--text-muted);font-size:9px;}
 .btn-delete-collection{background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:12px;transition:0.3s;}
 .btn-delete-collection:hover{background:rgba(239,68,68,0.15);color:var(--red);}
+.transfer-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);z-index:25000;display:none;align-items:center;justify-content:center;padding:20px;}
+.transfer-modal.show{display:flex;}
+.transfer-modal-content{background:var(--bg-card);border-radius:14px;width:92%;max-width:550px;padding:24px 28px;border:1px solid var(--border-color);box-shadow:0 16px 48px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
+.transfer-modal-content .modal-icon{font-size:42px;margin-bottom:4px;text-align:center;}
+.transfer-modal-content h3{color:var(--text-primary);font-size:1.2rem;margin-bottom:4px;text-align:center;}
+.transfer-modal-content .modal-subtitle{color:var(--text-muted);font-size:0.85rem;text-align:center;margin-bottom:12px;}
+.transfer-modal-content .form-group{margin-bottom:12px;}
+.transfer-modal-content .form-group label{font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;}
+.transfer-modal-content .form-group select{width:100%;padding:10px 14px;border-radius:8px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);color:var(--text-primary);font-size:13px;outline:none;font-family:'Inter',sans-serif;}
+.transfer-modal-content .form-group select:focus{border-color:var(--blue);}
+.transfer-modal-content .transfer-info{padding:10px 14px;background:rgba(245,158,11,0.08);border-radius:8px;border:1px solid rgba(245,158,11,0.15);margin-bottom:12px;}
+.transfer-modal-content .transfer-info p{font-size:12px;color:var(--text-secondary);}
+.transfer-modal-content .transfer-info strong{color:var(--text-primary);}
+.transfer-modal-actions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
+.transfer-modal-actions button{padding:8px 24px;border-radius:20px;border:none;font-weight:600;font-size:0.9rem;cursor:pointer;transition:0.2s;}
+.transfer-modal-actions .btn-transfer-confirm{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;}
+.transfer-modal-actions .btn-transfer-confirm:hover{box-shadow:0 4px 16px rgba(139,92,246,0.25);}
+.transfer-modal-actions .btn-transfer-cancel{background:transparent;border:1px solid var(--border-color);color:var(--text-secondary);}
+.transfer-modal-actions .btn-transfer-cancel:hover{background:rgba(255,255,255,0.04);color:var(--text-primary);}
 </style>
 </head>
 <body>
@@ -403,7 +422,7 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 </div>
 <div class="card-body"><div class="filter-row"><select id="teacherSchoolFilter"><option value="all">All schools</option></select></div><div class="table-wrapper"><table><thead><tr><th>#</th><th>Name</th><th>Code</th><th>School</th><th>Status</th></tr></thead><tbody id="teachersBody"></tbody></table></div></div></div></div>
 
-<div id="sheets-tab" class="tab-content"><div class="card"><div class="card-header"><h3>Sheets <span class="count" id="sheetsCount">0</span></h3><div class="actions"><button class="btn btn-add btn-sm" id="showAddSheet">Add</button><button class="btn btn-refresh btn-sm" id="refreshSheetsBtn">Refresh</button></div></div>
+<div id="sheets-tab" class="tab-content"><div class="card"><div class="card-header"><h3>Sheets <span class="count" id="sheetsCount">0</span></h3><div class="actions"><button class="btn btn-add btn-sm" id="showAddSheet">Add</button><button class="btn btn-refresh btn-sm" id="refreshSheetsBtn">Refresh</button><button class="btn btn-transfer btn-sm" id="showTransferSheets">📤 Transfer</button></div></div>
 <div id="addSheetForm" class="add-form">
 <div class="form-grid">
 <div class="form-group"><label>Subject <span class="required">*</span></label><input type="text" id="sheetCours" placeholder="e.g. Mathematics" autocomplete="off"></div>
@@ -487,6 +506,19 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="modalOverlay"><div class="modal-content"><div class="modal-icon" id="modalIcon">📋</div><h3 id="modalTitle">Details</h3><p class="modal-subtitle" id="modalSubtitle">Information</p><div id="modalBody"></div><div class="modal-actions"><button class="btn-close-modal" id="modalCloseBtn">Close</button></div></div></div>
 
+<div class="transfer-modal" id="transferModal">
+<div class="transfer-modal-content">
+<div class="modal-icon">📤</div>
+<h3 id="transferTitle">Transfer Sheets</h3>
+<p class="modal-subtitle" id="transferSubtitle">Move all sheets from one teacher to another</p>
+<div id="transferBody"></div>
+<div class="transfer-modal-actions">
+<button class="btn-transfer-cancel" id="transferCancelBtn">Cancel</button>
+<button class="btn-transfer-confirm" id="transferConfirmBtn">✅ Confirm Transfer</button>
+</div>
+</div>
+</div>
+
 <div class="search-modal" id="searchModal">
 <div class="search-modal-content">
 <div class="modal-header">
@@ -504,7 +536,7 @@ document.addEventListener('copy', e => e.preventDefault());
 document.addEventListener('cut', e => e.preventDefault());
 
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,doc,getDoc,getDocs,setDoc,deleteDoc,updateDoc,query,where,orderBy,limit,onSnapshot}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,doc,getDoc,getDocs,setDoc,deleteDoc,updateDoc,query,where,orderBy,limit,onSnapshot,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f",measurementId:"G-V7MF88Y5EE"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -634,7 +666,123 @@ async function loadMembers(){const container=document.getElementById("membersBod
 
 async function loadTeachers(){const container=document.getElementById("teachersBody");if(!container)return;const filter=document.getElementById("teacherSchoolFilter")?.value||"all";let all=allTeachers;if(filter!=="all")all=all.filter(t=>t.ecoleId===filter);const count=document.getElementById("teachersCount");if(count)count.textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="5" class="empty-state">No teachers found</td></tr>';return;}let html="";all.slice(0,500).forEach((t,i)=>{html+=`<tr><td>${i+1}</td><td><strong>${escapeHtml(t.nom)}</strong></td><td style="font-family:monospace;color:var(--blue);">${t.code}</td><td>${escapeHtml(t.ecoleNom)}</td><td><span class="badge ${t.actif?"active":"inactive"}">${t.actif?"Active":"Inactive"}</span></td></tr>`;});container.innerHTML=html;}
 
-async function loadSheets(){const container=document.getElementById("sheetsBody");if(!container)return;const filter=document.getElementById("sheetSchoolFilter")?.value||"all";let all=allSheets;if(filter!=="all")all=all.filter(s=>s.ecoleId===filter);const count=document.getElementById("sheetsCount");if(count)count.textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="6" class="empty-state">No sheets found</td></tr>';return;}let html="";all.slice(0,500).forEach((s,i)=>{html+=`<tr><td>${i+1}</td><td><strong>${escapeHtml(s.cours)}</strong></td><td>${escapeHtml(s.classe)}</td><td>${escapeHtml(s.option||"-")}</td><td>${escapeHtml(s.titulaire)}</td><td><button class="btn btn-sm btn-danger delete-sheet-btn" data-id="${s.id}" data-ecole="${s.ecoleId}">🗑️</button></td></tr>`;});container.innerHTML=html;document.querySelectorAll('.delete-sheet-btn').forEach(btn=>{btn.addEventListener('click',async function(){const id=this.dataset.id;const ecole=this.dataset.ecole;if(await showConfirm("Delete Sheet","Delete this sheet?")){try{await deleteDoc(doc(db,"ecoles",ecole,SC.FICHES,id));toast("Sheet deleted","success");loadAllData();loadSheets();updateStats();}catch(e){toast("Error: "+e.message,"error");}}});});}
+async function loadSheets(){const container=document.getElementById("sheetsBody");if(!container)return;const filter=document.getElementById("sheetSchoolFilter")?.value||"all";let all=allSheets;if(filter!=="all")all=all.filter(s=>s.ecoleId===filter);const count=document.getElementById("sheetsCount");if(count)count.textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="6" class="empty-state">No sheets found</td></tr>';return;}let html="";all.slice(0,500).forEach((s,i)=>{html+=`<tr><td>${i+1}</td><td><strong>${escapeHtml(s.cours)}</strong></td><td>${escapeHtml(s.classe)}</td><td>${escapeHtml(s.option||"-")}</td><td>${escapeHtml(s.titulaire)}</td><td><button class="btn btn-sm btn-danger delete-sheet-btn" data-id="${s.id}" data-ecole="${s.ecoleId}">🗑️</button><button class="btn btn-sm btn-transfer transfer-sheet-btn" data-id="${s.id}" data-ecole="${s.ecoleId}" data-teacher="${s.titulaire}">📤 Transfer</button></td></tr>`;});container.innerHTML=html;
+document.querySelectorAll('.delete-sheet-btn').forEach(btn=>{btn.addEventListener('click',async function(){const id=this.dataset.id;const ecole=this.dataset.ecole;if(await showConfirm("Delete Sheet","Delete this sheet?")){try{await deleteDoc(doc(db,"ecoles",ecole,SC.FICHES,id));toast("Sheet deleted","success");loadAllData();loadSheets();updateStats();}catch(e){toast("Error: "+e.message,"error");}}});});
+document.querySelectorAll('.transfer-sheet-btn').forEach(btn=>{btn.addEventListener('click',function(){const id=this.dataset.id;const ecole=this.dataset.ecole;const teacher=this.dataset.teacher;openTransferModal(ecole,id,teacher);});});}
+
+function openTransferModal(ecoleId,sheetId,currentTeacher){
+const modal=document.getElementById('transferModal');
+if(!modal)return;
+const teachers=allTeachers.filter(t=>t.ecoleId===ecoleId);
+const currentTeacherName=currentTeacher||'Unknown';
+document.getElementById('transferTitle').textContent='📤 Transfer Sheet';
+document.getElementById('transferSubtitle').textContent='Move this sheet to another teacher';
+document.getElementById('transferBody').innerHTML=`
+<div class="transfer-info">
+<p><strong>Current Teacher:</strong> ${escapeHtml(currentTeacherName)}</p>
+<p><strong>Sheet ID:</strong> ${escapeHtml(sheetId)}</p>
+<p style="margin-top:6px;font-size:11px;color:var(--text-muted);">Select a teacher to transfer this sheet to.</p>
+</div>
+<div class="form-group">
+<label>Select Teacher <span class="required">*</span></label>
+<select id="transferTeacherSelect">
+<option value="">-- Select a teacher --</option>
+${teachers.map(t=>`<option value="${t.id}">${escapeHtml(t.nom)} (${t.code})</option>`).join('')}
+</select>
+</div>
+<div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+${teachers.length===0?'⚠️ No teachers available in this school.':'✅ '+teachers.length+' teacher(s) available'}
+</div>
+`;
+modal.classList.add('show');
+document.getElementById('transferConfirmBtn').onclick=async function(){
+const select=document.getElementById('transferTeacherSelect');
+const teacherId=select.value;
+if(!teacherId){toast('Please select a teacher','warning');return;}
+const teacher=allTeachers.find(t=>t.id===teacherId&&t.ecoleId===ecoleId);
+if(!teacher){toast('Teacher not found','error');return;}
+try{
+const ref=doc(db,"ecoles",ecoleId,SC.FICHES,sheetId);
+await updateDoc(ref,{titulaire:teacher.nom,profId:teacherId});
+toast(`✅ Sheet transferred to ${teacher.nom}`,`success`);
+modal.classList.remove('show');
+loadAllData();loadSheets();updateStats();
+}catch(e){toast('Error: '+e.message,'error');}
+};
+document.getElementById('transferCancelBtn').onclick=function(){modal.classList.remove('show');};
+modal.addEventListener('click',function(e){if(e.target===this)this.classList.remove('show');});
+}
+
+document.getElementById('showTransferSheets')?.addEventListener('click',function(){
+const modal=document.getElementById('transferModal');
+if(!modal)return;
+const filter=document.getElementById('sheetSchoolFilter')?.value||'all';
+let teachers=[];
+if(filter==='all'){
+teachers=allTeachers;
+}else{
+teachers=allTeachers.filter(t=>t.ecoleId===filter);
+}
+if(teachers.length===0){toast('No teachers available in this school','warning');return;}
+document.getElementById('transferTitle').textContent='📤 Transfer All Sheets';
+document.getElementById('transferSubtitle').textContent='Move all sheets from one teacher to another';
+document.getElementById('transferBody').innerHTML=`
+<div class="transfer-info">
+<p><strong>This will transfer ALL sheets from a teacher to another teacher.</strong></p>
+<p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Make sure to select the correct source and destination teachers.</p>
+</div>
+<div class="form-group">
+<label>Source Teacher <span class="required">*</span></label>
+<select id="transferSourceSelect">
+<option value="">-- Select source teacher --</option>
+${teachers.map(t=>`<option value="${t.id}">${escapeHtml(t.nom)} (${t.code}) - ${allSheets.filter(s=>s.ecoleId===t.ecoleId&&s.titulaire===t.nom).length} sheets</option>`).join('')}
+</select>
+</div>
+<div class="form-group">
+<label>Destination Teacher <span class="required">*</span></label>
+<select id="transferDestSelect">
+<option value="">-- Select destination teacher --</option>
+${teachers.map(t=>`<option value="${t.id}">${escapeHtml(t.nom)} (${t.code})</option>`).join('')}
+</select>
+</div>
+<div id="transferPreview" style="margin-top:8px;font-size:12px;color:var(--text-muted);"></div>
+`;
+modal.classList.add('show');
+document.getElementById('transferSourceSelect')?.addEventListener('change',function(){
+const sourceId=this.value;
+const destSelect=document.getElementById('transferDestSelect');
+const preview=document.getElementById('transferPreview');
+if(!sourceId){preview.textContent='';return;}
+const source=allTeachers.find(t=>t.id===sourceId);
+const count=allSheets.filter(s=>s.ecoleId===source?.ecoleId&&s.titulaire===source?.nom).length;
+preview.textContent=`📊 ${count} sheet(s) will be transferred from ${source?.nom||'?'}`;
+});
+document.getElementById('transferConfirmBtn').onclick=async function(){
+const sourceId=document.getElementById('transferSourceSelect').value;
+const destId=document.getElementById('transferDestSelect').value;
+if(!sourceId||!destId){toast('Please select both teachers','warning');return;}
+if(sourceId===destId){toast('Source and destination must be different','warning');return;}
+const source=allTeachers.find(t=>t.id===sourceId);
+const dest=allTeachers.find(t=>t.id===destId);
+if(!source||!dest){toast('Teacher not found','error');return;}
+const sheets=allSheets.filter(s=>s.ecoleId===source.ecoleId&&s.titulaire===source.nom);
+if(sheets.length===0){toast('No sheets to transfer','warning');return;}
+if(!await showConfirm('Transfer All Sheets',`Transfer ${sheets.length} sheet(s) from ${source.nom} to ${dest.nom}?`))return;
+try{
+const batch=writeBatch(db);
+sheets.forEach(s=>{
+const ref=doc(db,"ecoles",s.ecoleId,SC.FICHES,s.id);
+batch.update(ref,{titulaire:dest.nom,profId:destId});
+});
+await batch.commit();
+toast(`✅ ${sheets.length} sheet(s) transferred to ${dest.nom}`,`success`);
+modal.classList.remove('show');
+loadAllData();loadSheets();updateStats();
+}catch(e){toast('Error: '+e.message,'error');}
+};
+document.getElementById('transferCancelBtn').onclick=function(){modal.classList.remove('show');};
+modal.addEventListener('click',function(e){if(e.target===this)this.classList.remove('show');});
+});
 
 async function loadWhiteMonths(){const container=document.getElementById("wmBody");if(!container)return;const filter=document.getElementById("wmSchoolFilter")?.value||"all";try{let all=[];for(const e of allSchools){if(filter!=="all"&&e.id!==filter)continue;const id=e.id;const ecoleNom=e.nom||id;try{const s=await getDocs(collection(db,"ecoles",id,SC.COMPTA_ELEVES));s.forEach(d=>{const data=d.data();const moisBlancs=data.moisBlancs||[];moisBlancs.forEach(m=>{all.push({docId:d.id,ecoleId:id,nom:data.nom||"Unknown",prenom:data.prenom||"",classe:data.classe||"",ecoleNom:ecoleNom,mois:m,date:data.dateInscription||"-"});});})}catch(e){}}const count=document.getElementById("wmCount");if(count)count.textContent=all.length;if(all.length===0){container.innerHTML='<tr><td colspan="6" class="empty-state">No white months found</td></tr>';return;}let html="";all.slice(0,100).forEach((w,i)=>{html+=`<tr><td><strong>${escapeHtml(w.nom)} ${escapeHtml(w.prenom)}</strong></td><td>${escapeHtml(w.classe)}</td><td>${escapeHtml(w.ecoleNom)}</td><td><span class="badge whitemonth">❄️ ${escapeHtml(w.mois)}</span></td><td><span class="badge active">Active</span></td><td><button class="btn btn-sm btn-restore restore-wm-btn" data-doc="${w.docId}" data-ecole="${w.ecoleId}" data-mois="${w.mois}">🔄 Restore</button><button class="btn btn-sm btn-danger delete-wm-btn" data-doc="${w.docId}" data-ecole="${w.ecoleId}" data-mois="${w.mois}">🗑️</button></td></tr>`;});container.innerHTML=html;document.querySelectorAll('.delete-wm-btn').forEach(btn=>{btn.addEventListener('click',async function(){const docId=this.dataset.doc;const ecole=this.dataset.ecole;const mois=this.dataset.mois;if(await showConfirm("Delete White Month","Remove this white month?")){try{const ref=doc(db,"ecoles",ecole,SC.COMPTA_ELEVES,docId);const snap=await getDoc(ref);if(snap.exists()){const data=snap.data();const moisBlancs=data.moisBlancs||[];const updated=moisBlancs.filter(m=>m!==mois);await updateDoc(ref,{moisBlancs:updated});toast("White month removed","success");loadAllData();loadWhiteMonths();updateStats();}}catch(e){toast("Error: "+e.message,"error");}}});});document.querySelectorAll('.restore-wm-btn').forEach(btn=>{btn.addEventListener('click',async function(){const docId=this.dataset.doc;const ecole=this.dataset.ecole;const mois=this.dataset.mois;if(await showConfirm("Restore White Month","Restore this white month as normal month?")){try{const ref=doc(db,"ecoles",ecole,SC.COMPTA_ELEVES,docId);const snap=await getDoc(ref);if(snap.exists()){const data=snap.data();const moisBlancs=data.moisBlancs||[];const updated=moisBlancs.filter(m=>m!==mois);await updateDoc(ref,{moisBlancs:updated});toast("White month restored (removed from white list)","success");loadAllData();loadWhiteMonths();updateStats();}}catch(e){toast("Error: "+e.message,"error");}}});});}catch(e){container.innerHTML='<tr><td colspan="6" class="empty-state">Error loading white months</td></tr>';}}
 
