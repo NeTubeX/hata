@@ -750,21 +750,10 @@ document.addEventListener('keydown', function() { signalerActiviteProf(); });
 document.addEventListener('scroll', function() { signalerActiviteProf(); });
 async function signalerDeconnexionProf() {
 if (!currentProf) return;
-try {
-await updateDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), {
-statut: "inactif",
-derniereActivite: new Date().toISOString()
-});
-} catch(e) { console.error("Erreur mise à jour statut:", e); }
+try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id)); }
+catch(e) { console.error("Erreur signalement déconnexion:", e); }
 }
-window.addEventListener('beforeunload', function() {
-if (currentProf) {
-updateDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), {
-statut: "inactif",
-derniereActivite: new Date().toISOString()
-}).catch(e => console.log("Erreur mise à jour statut", e));
-}
-});
+window.addEventListener('beforeunload', function() { signalerDeconnexionProf(); });
 function peutGenererCode() {
 const aujourdhui = new Date().toISOString().slice(0, 10);
 const lastGen = localStorage.getItem('gloria_code_gen_date_' + currentProf?.id);
@@ -1985,7 +1974,6 @@ if (c === fp.code) {
 await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n, code_utilise: c }, "success");
 currentProf = { id: fp.id, nom: n, code: fp.code, createdAt: Date.now() };
 sauvegarderSession(currentProf);
-await signalerConnexionProf(currentProf);
 document.getElementById('loginOverlay').remove();
 document.getElementById('mainApp').style.display = 'block';
 const parentBtn = document.getElementById('parentFloatingBtn');
@@ -2553,7 +2541,6 @@ prefillTitulaireNom();
 }
 document.getElementById('logoutBtnParam').addEventListener('click', function() {
 showStyledConfirm("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?\n\nVous devrez vous reconnecter pour accéder à nouveau à l'espace professeur.", async function() {
-await signalerDeconnexionProf();
 localStorage.removeItem('gloria_session_prof');
 document.cookie.split(";").forEach(function(c) { document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); });
 document.getElementById('mainApp').style.display = 'none';
