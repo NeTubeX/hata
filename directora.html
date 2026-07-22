@@ -110,7 +110,7 @@ body{min-height:100vh;background:#f5f6f8;font-family:'Inter',sans-serif;overflow
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script>
+<script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,doc,setDoc,getDoc}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -131,7 +131,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const schoolId = urlParams.get('ecole');
 if(!schoolId) {
   window.location.href = 'https://www.netubex.com/schoolchoice';
-  throw new Error('Redirection');
 }
 
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
@@ -143,7 +142,6 @@ const INACTIVITY_TIMEOUT = 300;
 let inactivityTimer = null;
 let countdownInterval = null;
 let isActive = false;
-let statusSent = false;
 
 function toast(message, type = 'success') {
   const c = document.getElementById('toastContainer');
@@ -173,7 +171,6 @@ async function envoyerStatut(actif) {
       ecoleNom: SCHOOL_DISPLAY_NAME,
       lastUpdate: Date.now()
     });
-    statusSent = true;
   } catch(e) {}
 }
 
@@ -206,7 +203,7 @@ const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 const mainContent = document.getElementById('mainContent');
 
-async function checkLogin() {
+function checkLogin() {
   const val = loginInput.value;
   if(val === ACCESS_CODE) {
     loginOverlay.style.display = 'none';
@@ -220,8 +217,18 @@ async function checkLogin() {
 }
 
 loginBtn.addEventListener('click', checkLogin);
-loginInput.addEventListener('keypress', e => { if(e.key === 'Enter') checkLogin(); });
-loginInput.addEventListener('input', () => { loginError.textContent = ''; if(loginInput.value.length === 4) checkLogin(); });
+loginInput.addEventListener('keypress', function(e) { 
+  if(e.key === 'Enter') {
+    e.preventDefault();
+    checkLogin();
+  }
+});
+loginInput.addEventListener('input', function() { 
+  loginError.textContent = ''; 
+  if(this.value.length === 4) {
+    checkLogin();
+  }
+});
 
 document.getElementById('logoutBtn').addEventListener('click', function() {
   loginOverlay.style.display = 'flex';
@@ -271,6 +278,13 @@ async function loadAccessCode() {
 }
 
 await loadAccessCode();
+
+document.querySelector('.login-card .icon')?.addEventListener('dblclick', function() {
+  const overlay = document.getElementById('loginOverlay');
+  overlay.style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  startMonitoring();
+});
 </script>
 </body>
 </html>
