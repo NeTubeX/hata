@@ -720,40 +720,40 @@ processToastQueue();
 }, 400);
 }, 3500);
 }
-async function signalerConnexionProf(prof) {
-try {
-await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, prof.id), {
-profId: prof.id,
-nom: prof.nom,
-ecole: prof.school || ECOLET_ID,
-statut: "en_ligne",
-debut: new Date().toISOString(),
-derniereActivite: new Date().toISOString()
+async function verifierCompteActif(profId) {
+    try {
+        const docRef = doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, profId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.actif === false) {
+                compteDesactive = true;
+                messageDesactivation = data.messageDesactivation || 'Votre compte a été désactivé par l\'entreprise NeTubeX SARL.';
+                return false;
+            }
+            return true;
+        }
+        return true;
+    } catch (e) {
+        console.error("Erreur vérification compte:", e);
+        return true;
+    }
+}
+document.addEventListener('click', function() { });
+document.addEventListener('keydown', function() { });
+document.addEventListener('scroll', function() { });
+window.addEventListener('beforeunload', function() {});
+document.getElementById('logoutBtnParam').addEventListener('click', function() {
+    showStyledConfirm("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?", async function() {
+        localStorage.removeItem('gloria_session_prof');
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        document.getElementById('mainApp').style.display = 'none';
+        showLogin();
+        toast("Vous êtes déconnecté", 'success');
+    });
 });
-} catch(e) { console.error("Erreur signalement connexion:", e); }
-}
-async function signalerActiviteProf() {
-if (!currentProf) return;
-const maintenant = Date.now();
-if (maintenant - dernierSignalement < 10000) return;
-dernierSignalement = maintenant;
-try {
-await updateDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id), {
-derniereActivite: new Date().toISOString()
-});
-} catch(e) {
-if (e.message.includes("not-found")) await signalerConnexionProf(currentProf);
-}
-}
-document.addEventListener('click', function() { signalerActiviteProf(); });
-document.addEventListener('keydown', function() { signalerActiviteProf(); });
-document.addEventListener('scroll', function() { signalerActiviteProf(); });
-async function signalerDeconnexionProf() {
-if (!currentProf) return;
-try { await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, currentProf.id)); }
-catch(e) { console.error("Erreur signalement déconnexion:", e); }
-}
-window.addEventListener('beforeunload', function() { signalerDeconnexionProf(); });
 function peutGenererCode() {
 const aujourdhui = new Date().toISOString().slice(0, 10);
 const lastGen = localStorage.getItem('gloria_code_gen_date_' + currentProf?.id);
@@ -1060,7 +1060,6 @@ async function getQuestionCountFromFirebase(code) { if (!code || code.length !==
 async function incrementQuestionCountForCode(code) { if (!code || code.length !== 6) return 0; const newCount = await incrementQuestionCountInFirebase(code); updateCounterDisplay(); return newCount; }
 async function incrementQuestionCountInFirebase(code) { if (!code || code.length !== 6) return 0; const today = new Date().toISOString().slice(0, 10); try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code); const docSnap = await getDoc(docRef); let currentCount = 0; if (docSnap.exists()) { const data = docSnap.data(); if (data.date === today) currentCount = data.count || 0; else currentCount = 0; } const newCount = currentCount + 1; await setDoc(docRef, { code: code, count: newCount, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() }); const cacheKey = 'parent_counter_' + ECOLET_ID + '_' + code; try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount })); } catch (e) {} return newCount; } catch (e) { console.error("Erreur incrémentation compteur:", e); return 0; } }
 function isCacheValid(eleveData) { const currentHash = getDataHash(eleveData); if (!currentHash) return false; return lastDataHash === currentHash; }
-async function verifierCompteActif(profId) { try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, profId); const docSnap = await getDoc(docRef); if (docSnap.exists()) { const data = docSnap.data(); if (data.actif === false) { compteDesactive = true; messageDesactivation = data.messageDesactivation || 'Votre compte a été désactivé par l\'entreprise NeTubeX SARL parce que vous avez enfreint les règles de la plateforme.'; return false; } return true; } return true; } catch (e) { console.error("Erreur vérification compte:", e); return true; } }
 function getWeekNumber(date) { const d = new Date(date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7); const week1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7); }
 function getSessionId() { if (!sessionId) { sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); sessionStorage.setItem('parental_session_id', sessionId); } return sessionId; }
 async function logParentalActivity(type, code, data = {}) { try { const now = new Date(); const logData = { _type: "parental_analytics", timestamp: now.toISOString(), date: now.toISOString().slice(0, 10), hour: now.getHours(), week: getWeekNumber(now), month: now.getMonth() + 1, year: now.getFullYear(), type: type, parentCode: code || 'unknown', ecole: ECOLET_ID, sessionId: getSessionId(), details: data, count: 1 }; if (navigator.onLine) { try { await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData); } catch (e) { } } return true; } catch (e) { return false; } }
@@ -1571,7 +1570,34 @@ return "Bonsoir";
 return `${getSalutation()} ! Entrez votre code parent. Si vous n'en avez pas, contactez la comptabilité de l'école ${nomEcole}.`;
 }
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
-async function restaurerSession() { let session = localStorage.getItem('gloria_session_prof'); if (session) { try { let prof = JSON.parse(session); if (prof.school !== ECOLET_ID) { localStorage.removeItem('gloria_session_prof'); return false; } const actif = await verifierCompteActif(prof.id); if (!actif) { localStorage.removeItem('gloria_session_prof'); return false; } currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() }; document.getElementById('mainApp').style.display = 'block'; const parentBtn = document.getElementById('parentFloatingBtn'); if (parentBtn) parentBtn.style.display = 'flex'; toutesFiches = await loadAllFiches(); if (toutesFiches.length) await selectFiche(toutesFiches[0].id); await refreshSelectors(); await chargerHoraireFirebase(); toast("Bienvenue " + currentProf.nom, 'success'); return true; } catch (e) { console.log(e); } } return false; }
+async function restaurerSession() {
+    let session = localStorage.getItem('gloria_session_prof');
+    if (session) {
+        try {
+            let prof = JSON.parse(session);
+            if (prof.school !== ECOLET_ID) {
+                localStorage.removeItem('gloria_session_prof');
+                return false;
+            }
+            const actif = await verifierCompteActif(prof.id);
+            if (!actif) {
+                localStorage.removeItem('gloria_session_prof');
+                return false;
+            }
+            currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() };
+            document.getElementById('mainApp').style.display = 'block';
+            const parentBtn = document.getElementById('parentFloatingBtn');
+            if (parentBtn) parentBtn.style.display = 'flex';
+            toutesFiches = await loadAllFiches();
+            if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
+            await refreshSelectors();
+            await chargerHoraireFirebase();
+            toast("Bienvenue " + currentProf.nom, 'success');
+            return true;
+        } catch (e) { console.log(e); }
+    }
+    return false;
+}
 function setChampsModifiables(actif) {
     champsModifiables = actif;
     const inputs = [
@@ -1974,7 +2000,6 @@ if (c === fp.code) {
 await enregistrerLog("connexion_reussie", { message: 'Connexion réussie de ' + n, code_utilise: c }, "success");
 currentProf = { id: fp.id, nom: n, code: fp.code, createdAt: Date.now() };
 sauvegarderSession(currentProf);
-await signalerConnexionProf(currentProf);
 document.getElementById('loginOverlay').remove();
 document.getElementById('mainApp').style.display = 'block';
 const parentBtn = document.getElementById('parentFloatingBtn');
@@ -2540,16 +2565,6 @@ await chargerFichesPourRechercheTitu();
 prefillTitulaireNom();
 }
 }
-document.getElementById('logoutBtnParam').addEventListener('click', function() {
-showStyledConfirm("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?\n\nVous devrez vous reconnecter pour accéder à nouveau à l'espace professeur.", async function() {
-await signalerDeconnexionProf();
-localStorage.removeItem('gloria_session_prof');
-document.cookie.split(";").forEach(function(c) { document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); });
-document.getElementById('mainApp').style.display = 'none';
-showLogin();
-toast("Vous êtes déconnecté", 'success');
-});
-});
 document.querySelectorAll('.main-nav-btn').forEach(btn => {
 btn.addEventListener('click', function() {
 document.querySelectorAll('.main-nav-btn').forEach(b => b.classList.remove('active'));
@@ -3114,4 +3129,3 @@ setTimeout(() => updateCounterDisplay(), 1000);
 </script>
 </body>
 </html>
-```
