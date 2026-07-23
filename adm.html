@@ -372,7 +372,6 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <div class="card"><div class="card-header"><h3>Dashboard <span class="count">Overview</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshBtn">⟳ Refresh</button></div></div><div class="card-body"><div style="padding:16px;text-align:center;color:var(--text-muted);"><span style="font-size:36px;display:block;margin-bottom:8px;">📊</span><p style="font-size:1rem;font-weight:600;color:var(--text-secondary);">Vue d'ensemble en temps réel</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px;max-width:500px;margin-left:auto;margin-right:auto;"><div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;border:1px solid var(--border-color);"><div style="font-size:1.5rem;font-weight:800;color:var(--blue);" id="dashSchools">0</div><div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">Schools</div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;border:1px solid var(--border-color);"><div style="font-size:1.5rem;font-weight:800;color:var(--purple);" id="dashMembers">0</div><div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">Members</div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;border:1px solid var(--border-color);"><div style="font-size:1.5rem;font-weight:800;color:var(--green);" id="dashSheets">0</div><div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">Sheets</div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;border:1px solid var(--border-color);"><div style="font-size:1.5rem;font-weight:800;color:var(--orange);" id="dashConnections">0</div><div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">Connections</div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;border:1px solid var(--border-color);"><div style="font-size:1.5rem;font-weight:800;color:var(--gold);" id="dashLab">0</div><div style="font-size:0.65rem;color:var(--text-muted);font-weight:600;">Innovation Lab</div></div></div></div></div></div>
 </div>
 
-<!-- SCHOOLS TAB -->
 <div id="schools-tab" class="tab-content"><div class="card"><div class="card-header"><h3>🏫 Schools <span class="count" id="schoolCount">0</span></h3><div class="actions"><button class="btn btn-success btn-sm" id="showAddSchool">+ Add</button><button class="btn btn-refresh btn-sm" id="refreshSchoolsBtn">⟳</button></div></div>
 <div id="addSchoolForm" class="add-form">
 <div class="form-grid">
@@ -555,7 +554,6 @@ document.getElementById("fraisCard")?.addEventListener("click", showFraisDetails
 document.getElementById("sidebarToggle")?.addEventListener("click", function() {
     sidebarCollapsed = !sidebarCollapsed;
     document.getElementById("sidebar").classList.toggle("collapsed");
-    document.getElementById("toggleIcon").textContent = sidebarCollapsed ? '▶' : '◀';
     if(sidebarCollapsed) {
         this.innerHTML = '<span id="toggleIcon">▶</span> Expand';
     } else {
@@ -794,7 +792,7 @@ async function loadAllData(){
     finally{ isLoading=false; }
 }
 
-// ===== LOAD FUNCTIONS =====
+// ===== LOAD FUNCTIONS WITH EVENT BINDING =====
 async function loadSchools(){
     const container=document.getElementById("schoolsList");
     if(!container)return;
@@ -822,6 +820,23 @@ async function loadSchools(){
         });
         html+="</tbody></table></div>";
         container.innerHTML=html;
+        
+        // ==== ATTACHEMENT DES EVENEMENTS ====
+        container.querySelectorAll('.edit-school-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ showEditSchool(this.dataset.id); });
+        });
+        container.querySelectorAll('.change-id-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ showChangeId(this.dataset.id); });
+        });
+        container.querySelectorAll('.export-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ exportSchool(this.dataset.id); });
+        });
+        container.querySelectorAll('.toggle-school-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ toggleSchool(this.dataset.id); });
+        });
+        container.querySelectorAll('.delete-school-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ deleteSchool(this.dataset.id); });
+        });
     } catch(e){ container.innerHTML='<div class="empty-state">❌ Erreur</div>'; }
 }
 
@@ -847,6 +862,10 @@ async function loadMembers(){
         </tr>`;
     });
     container.innerHTML=html;
+    
+    container.querySelectorAll('.delete-member-btn').forEach(btn=>{
+        btn.addEventListener('click', function(){ deleteMember(this.dataset.id, this.dataset.ecole); });
+    });
 }
 
 async function loadTeachers(){
@@ -868,6 +887,10 @@ async function loadTeachers(){
         </tr>`;
     });
     container.innerHTML=html;
+    
+    container.querySelectorAll('.delete-teacher-btn').forEach(btn=>{
+        btn.addEventListener('click', function(){ deleteTeacher(this.dataset.id, this.dataset.ecole); });
+    });
 }
 
 async function loadSheets(){
@@ -892,7 +915,207 @@ async function loadSheets(){
         </tr>`;
     });
     container.innerHTML=html;
+    
+    container.querySelectorAll('.delete-sheet-btn').forEach(btn=>{
+        btn.addEventListener('click', function(){ deleteSheet(this.dataset.id, this.dataset.ecole); });
+    });
 }
+
+// ===== ACTIONS =====
+window.toggleSchool = async function(id){
+    if(!await showConfirm("Changer statut","Activer/Désactiver cette école ?")) return;
+    try{
+        const ref=doc(db,"ecoles",id);
+        const snap=await getDoc(ref);
+        if(snap.exists()){
+            const data=snap.data();
+            await updateDoc(ref,{actif:data.actif!==false?false:true});
+            toast("Statut modifié","success");
+            loadSchools();
+            loadAllData();
+        }
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+};
+
+window.deleteSchool = async function(id){
+    if(!await showConfirm("Supprimer","Supprimer définitivement cette école ?")) return;
+    try{
+        const collections=[SC.PROFESSEURS,SC.FICHES,SC.COMPTA_ELEVES,SC.ELEVES,SC.PUNITIONS,SC.PRESENCES,SC.HORAIRES,SC.CORBEILLE,SC.COMPTEUR,SC.CONFIG,SC.ALERTES_ADMIN,SC.COMMUNIQUES,SC.SETTINGS];
+        for(const col of collections){
+            try{
+                const snap=await getDocs(collection(db,"ecoles",id,col));
+                for(const ds of snap.docs){ await deleteDoc(ds.ref); }
+            }catch(e){}
+        }
+        await deleteDoc(doc(db,"ecoles",id));
+        toast("✅ École supprimée","success");
+        loadSchools();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+};
+
+window.deleteMember = async function(id,ecole){
+    if(!await showConfirm("Supprimer","Supprimer ce membre ?")) return;
+    try{
+        await deleteDoc(doc(db,"ecoles",ecole,SC.COMPTA_ELEVES,id));
+        toast("Membre supprimé","success");
+        loadMembers();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+};
+
+window.deleteTeacher = async function(id,ecole){
+    if(!await showConfirm("Supprimer","Supprimer ce professeur ?")) return;
+    try{
+        await deleteDoc(doc(db,"ecoles",ecole,SC.PROFESSEURS,id));
+        toast("Professeur supprimé","success");
+        loadTeachers();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+};
+
+window.deleteSheet = async function(id,ecole){
+    if(!await showConfirm("Supprimer","Supprimer cette fiche ?")) return;
+    try{
+        await deleteDoc(doc(db,"ecoles",ecole,SC.FICHES,id));
+        toast("Fiche supprimée","success");
+        loadSheets();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+};
+
+window.showEditSchool = function(id){
+    const school=allSchools.find(s=>s.id===id);
+    if(!school){ toast("École non trouvée","error"); return; }
+    const modal=document.getElementById("modalOverlay");
+    document.getElementById("modalIcon").textContent="✏️";
+    document.getElementById("modalTitle").textContent="Modifier - "+escapeHtml(school.nom);
+    document.getElementById("modalSubtitle").textContent="Modifier les informations";
+    document.getElementById("modalBody").innerHTML=`
+        <div class="form-grid">
+            <div class="form-group full-width"><label>Nom</label><input type="text" id="editSchoolName" value="${escapeHtml(school.nom)}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+            <div class="form-group"><label>Province</label><input type="text" id="editSchoolProvince" value="${escapeHtml(school.province||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+            <div class="form-group"><label>Ville</label><input type="text" id="editSchoolCity" value="${escapeHtml(school.ville||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+            <div class="form-group"><label>Directeur</label><input type="text" id="editSchoolDirector" value="${escapeHtml(school.directeur||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+            <div class="form-group"><label>Téléphone</label><input type="text" id="editSchoolPhone" value="${escapeHtml(school.telephone||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+            <div class="form-group full-width"><label>Tarif (FC)</label><input type="number" id="editSchoolTarif" value="${school.tarifParEleve||2000}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
+        </div>
+        <div class="modal-actions" style="margin-top:12px;">
+            <button class="btn btn-primary" id="saveEditSchool">💾 Sauvegarder</button>
+            <button class="btn btn-outline" id="cancelEditSchool">Annuler</button>
+        </div>
+    `;
+    modal.classList.add("show");
+    document.getElementById("saveEditSchool").addEventListener("click", async function(){
+        const newNom=document.getElementById("editSchoolName").value.trim();
+        const tarif=parseInt(document.getElementById("editSchoolTarif").value)||2000;
+        if(!newNom){ toast("Nom requis","error"); return; }
+        try{
+            await updateDoc(doc(db,"ecoles",id),{
+                nom:newNom,
+                province:document.getElementById("editSchoolProvince").value.trim(),
+                ville:document.getElementById("editSchoolCity").value.trim(),
+                directeur:document.getElementById("editSchoolDirector").value.trim(),
+                telephone:document.getElementById("editSchoolPhone").value.trim(),
+                tarifParEleve:tarif
+            });
+            toast("✅ École mise à jour","success");
+            modal.classList.remove("show");
+            loadSchools();
+            loadAllData();
+        } catch(e){ toast("Erreur: "+e.message,"error"); }
+    });
+    document.getElementById("cancelEditSchool").addEventListener("click", function(){ modal.classList.remove("show"); });
+};
+
+window.showChangeId = function(id){
+    const school=allSchools.find(s=>s.id===id);
+    if(!school){ toast("École non trouvée","error"); return; }
+    const modal=document.getElementById("modalOverlay");
+    document.getElementById("modalIcon").textContent="🔄";
+    document.getElementById("modalTitle").textContent="Changer l'ID";
+    document.getElementById("modalSubtitle").textContent="ID actuel: "+school.id;
+    document.getElementById("modalBody").innerHTML=`
+        <div style="margin-bottom:10px;">
+            <div style="background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:6px;margin-bottom:10px;">
+                <span style="color:var(--text-muted);font-size:10px;">École</span>
+                <div style="font-weight:600;">${escapeHtml(school.nom)}</div>
+            </div>
+            <div class="form-group"><label>Nouvel ID</label><input type="text" id="newSchoolId" placeholder="ex: college-saint-joseph" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;font-family:monospace;"></div>
+            <div style="font-size:9px;color:var(--orange);margin-top:4px;">⚠️ Toutes les données seront migrées</div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" id="confirmChangeId">Confirmer</button>
+            <button class="btn btn-outline" id="cancelChangeId">Annuler</button>
+        </div>
+    `;
+    modal.classList.add("show");
+    document.getElementById("cancelChangeId").addEventListener("click", function(){ modal.classList.remove("show"); });
+    document.getElementById("confirmChangeId").addEventListener("click", async function(){
+        const newId=document.getElementById("newSchoolId").value.trim();
+        if(!newId){ toast("Entrez un ID","error"); return; }
+        if(!/^[a-zA-Z0-9-]+$/.test(newId)){ toast("ID invalide","error"); return; }
+        if(newId===id){ toast("ID identique","warning"); return; }
+        try{
+            const existing=await getDoc(doc(db,"ecoles",newId));
+            if(existing.exists()){ toast("ID existe déjà","error"); return; }
+        } catch(e){ toast("Erreur: "+e.message,"error"); return; }
+        modal.classList.remove("show");
+        // Migration simplifiée
+        try{
+            const ref=doc(db,"ecoles",id);
+            const snap=await getDoc(ref);
+            if(snap.exists()){
+                const data=snap.data();
+                await setDoc(doc(db,"ecoles",newId),{...data,id:newId,ancienId:id,dateMigration:new Date().toISOString()});
+                // Copier les sous-collections (simplifié)
+                const subCols=['professeurs','fiches','compta_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings'];
+                for(const sub of subCols){
+                    try{
+                        const snapSub=await getDocs(collection(db,"ecoles",id,sub));
+                        for(const ds of snapSub.docs){
+                            await setDoc(doc(db,"ecoles",newId,sub,ds.id),ds.data());
+                        }
+                    }catch(e){}
+                }
+                await deleteDoc(doc(db,"ecoles",id));
+                toast("✅ ID changé vers "+newId,"success");
+                loadSchools();
+                loadAllData();
+            }
+        } catch(e){ toast("Erreur: "+e.message,"error"); }
+    });
+};
+
+window.exportSchool = function(id){
+    const school=allSchools.find(s=>s.id===id);
+    if(!school){ toast("École non trouvée","error"); return; }
+    toast("📤 Export en cours...","info");
+    try{
+        const students=allStudents.filter(m=>m.ecoleId===id);
+        const teachers=allTeachers.filter(t=>t.ecoleId===id);
+        const sheets=allSheets.filter(s=>s.ecoleId===id);
+        const wb=XLSX.utils.book_new();
+        const data=[['NETUBEX - '+school.nom,''],['',''],['Total élèves',students.length],['Total professeurs',teachers.length],['Total fiches',sheets.length],['',''],['Exporté le',new Date().toLocaleString('fr-FR')]];
+        const ws=XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb,ws,'Résumé');
+        if(students.length>0){
+            const stData=[['#','Nom','Prénom','Classe','Statut']];
+            students.forEach((s,i)=>{ stData.push([i+1,s.nom,s.prenom,s.classe,s.statut]); });
+            const wsSt=XLSX.utils.aoa_to_sheet(stData);
+            XLSX.utils.book_append_sheet(wb,wsSt,'Élèves');
+        }
+        if(teachers.length>0){
+            const tData=[['#','Nom','Code']];
+            teachers.forEach((t,i)=>{ tData.push([i+1,t.nom,t.code]); });
+            const wsT=XLSX.utils.aoa_to_sheet(tData);
+            XLSX.utils.book_append_sheet(wb,wsT,'Professeurs');
+        }
+        const fileName=school.nom.replace(/[^a-zA-Z0-9]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+        XLSX.writeFile(wb,fileName);
+        toast("✅ Export terminé","success");
+    } catch(e){ toast("Erreur export: "+e.message,"error"); }
+};
 
 // ===== NAVIGATION =====
 document.querySelectorAll(".nav-item, .tab-btn").forEach(el=>{
@@ -913,6 +1136,10 @@ document.querySelectorAll(".nav-item, .tab-btn").forEach(el=>{
         if(target==="connections") loadConnections();
         if(target==="parentcodes") loadParentCodes();
         if(target==="explorer") loadExplorer();
+        if(target==="inactive") loadInactive();
+        if(target==="whitemonths") loadWhiteMonths();
+        if(target==="direction") loadDirection();
+        if(target==="teacherstatus") loadTeacherStatus();
     });
 });
 
@@ -933,6 +1160,284 @@ document.getElementById("refreshSchoolsBtn")?.addEventListener("click", loadScho
 document.getElementById("refreshMembersBtn")?.addEventListener("click", loadMembers);
 document.getElementById("refreshTeachersBtn")?.addEventListener("click", loadTeachers);
 document.getElementById("refreshSheetsBtn")?.addEventListener("click", loadSheets);
+document.getElementById("refreshInactiveBtn")?.addEventListener("click", loadInactive);
+document.getElementById("refreshWmBtn")?.addEventListener("click", loadWhiteMonths);
+document.getElementById("refreshDirectionBtn")?.addEventListener("click", loadDirection);
+document.getElementById("refreshTeacherStatusBtn")?.addEventListener("click", loadTeacherStatus);
+
+// ===== ADD FORMS =====
+document.getElementById("showAddSchool")?.addEventListener("click", function(){
+    document.getElementById("addSchoolForm").style.display="block";
+});
+document.getElementById("cancelSchoolBtn")?.addEventListener("click", function(){
+    document.getElementById("addSchoolForm").style.display="none";
+});
+document.getElementById("showAddMember")?.addEventListener("click", function(){
+    document.getElementById("addMemberForm").style.display="block";
+    updateSelectors();
+});
+document.getElementById("cancelMemberBtn")?.addEventListener("click", function(){
+    document.getElementById("addMemberForm").style.display="none";
+});
+document.getElementById("showAddTeacher")?.addEventListener("click", function(){
+    document.getElementById("addTeacherForm").style.display="block";
+    updateSelectors();
+});
+document.getElementById("cancelTeacherBtn")?.addEventListener("click", function(){
+    document.getElementById("addTeacherForm").style.display="none";
+});
+document.getElementById("showAddSheet")?.addEventListener("click", function(){
+    document.getElementById("addSheetForm").style.display="block";
+    updateSelectors();
+});
+document.getElementById("cancelSheetBtn")?.addEventListener("click", function(){
+    document.getElementById("addSheetForm").style.display="none";
+});
+
+document.getElementById("schoolName")?.addEventListener("input", function(){
+    const val=this.value.trim().toLowerCase().replace(/[^a-z0-9]/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"");
+    document.getElementById("schoolId").value=val||"auto-"+Date.now().toString().slice(-6);
+});
+
+document.getElementById("saveSchoolBtn")?.addEventListener("click", async function(){
+    const nom=document.getElementById("schoolName").value.trim();
+    const id=document.getElementById("schoolId").value.trim();
+    const tarif=parseInt(document.getElementById("schoolTarif").value)||2000;
+    if(!nom||!id){ toast("Nom et ID requis","error"); return; }
+    try{
+        const existing=await getDoc(doc(db,"ecoles",id));
+        if(existing.exists()){ toast("ID existe déjà","error"); return; }
+        await setDoc(doc(db,"ecoles",id),{
+            nom,id,
+            province:document.getElementById("schoolProvince").value,
+            ville:document.getElementById("schoolCity").value.trim(),
+            telephone:document.getElementById("schoolPhone").value.trim(),
+            directeur:document.getElementById("schoolDirector").value.trim(),
+            adresse:document.getElementById("schoolAddress").value.trim(),
+            actif:true,
+            tarifParEleve:tarif,
+            dateCreation:new Date().toISOString()
+        });
+        toast("✅ École ajoutée","success");
+        document.getElementById("addSchoolForm").style.display="none";
+        loadSchools();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+});
+
+document.getElementById("saveMemberBtn")?.addEventListener("click", async function(){
+    const nom=document.getElementById("memberName").value.trim();
+    const ecole=document.getElementById("memberSchoolSelect").value;
+    if(!nom||!ecole){ toast("Nom et école requis","error"); return; }
+    try{
+        await setDoc(doc(collection(db,"ecoles",ecole,SC.COMPTA_ELEVES)),{
+            nom,
+            prenom:document.getElementById("memberPrenom").value.trim(),
+            classe:document.getElementById("memberClasse").value.trim(),
+            sexe:document.getElementById("memberSexe").value,
+            exonere:document.getElementById("memberStatut").value==="exempted",
+            abandon:false,
+            _type:"compta_eleve",
+            parentCode:document.getElementById("memberParentCode").value.trim()||null
+        });
+        toast("✅ Membre ajouté","success");
+        document.getElementById("addMemberForm").style.display="none";
+        loadMembers();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+});
+
+document.getElementById("saveTeacherBtn")?.addEventListener("click", async function(){
+    const nom=document.getElementById("teacherName").value.trim();
+    const code=document.getElementById("teacherCode").value.trim();
+    const ecole=document.getElementById("teacherSchoolSelect").value;
+    if(!nom||!code||!ecole){ toast("Tous les champs requis","error"); return; }
+    try{
+        await setDoc(doc(collection(db,"ecoles",ecole,SC.PROFESSEURS)),{
+            nom,code,actif:true,_type:"prof"
+        });
+        toast("✅ Professeur ajouté","success");
+        document.getElementById("addTeacherForm").style.display="none";
+        loadTeachers();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+});
+
+document.getElementById("saveSheetBtn")?.addEventListener("click", async function(){
+    const cours=document.getElementById("sheetCours").value.trim();
+    const classe=document.getElementById("sheetClasse").value.trim();
+    const ecole=document.getElementById("sheetSchoolSelect").value;
+    if(!cours||!classe||!ecole){ toast("Cours, classe et école requis","error"); return; }
+    try{
+        await setDoc(doc(collection(db,"ecoles",ecole,SC.FICHES)),{
+            cours,classe,
+            option:document.getElementById("sheetOption").value.trim(),
+            titulaire:document.getElementById("sheetTitulaire").value.trim(),
+            createdBy:"Admin",
+            eleves:[]
+        });
+        toast("✅ Fiche ajoutée","success");
+        document.getElementById("addSheetForm").style.display="none";
+        loadSheets();
+        loadAllData();
+    } catch(e){ toast("Erreur: "+e.message,"error"); }
+});
+
+// ===== AUTRES ONGLETS =====
+async function loadInactive(){
+    const container=document.getElementById("inactiveList");
+    if(!container)return;
+    try{
+        const snap=await getDocs(query(collection(db,"ecoles"),where("actif","==",false)));
+        const inactive=[]; snap.forEach(d=>inactive.push({id:d.id,...d.data()}));
+        document.getElementById("inactiveCount").textContent=inactive.length;
+        if(inactive.length===0){ container.innerHTML='<div class="empty-state">✅ Aucune école inactive</div>'; return; }
+        let html='<div class="table-wrapper"><table><thead><tr><th>École</th><th>ID</th><th>Province</th><th>Actions</th></tr></thead><tbody>';
+        inactive.forEach(s=>{
+            html+=`<tr>
+                <td><strong>${escapeHtml(s.nom)}</strong></td>
+                <td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td>
+                <td>${escapeHtml(s.province||"-")}</td>
+                <td>
+                    <button class="btn btn-sm btn-success toggle-school-btn" data-id="${s.id}">▶️ Réactiver</button>
+                    <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️</button>
+                </td>
+            </tr>`;
+        });
+        html+="</tbody></table></div>";
+        container.innerHTML=html;
+        container.querySelectorAll('.toggle-school-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ toggleSchool(this.dataset.id); });
+        });
+        container.querySelectorAll('.delete-school-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ deleteSchool(this.dataset.id); });
+        });
+    } catch(e){ container.innerHTML='<div class="empty-state">❌ Erreur</div>'; }
+}
+
+async function loadWhiteMonths(){
+    const container=document.getElementById("wmBody");
+    if(!container)return;
+    try{
+        let allWm=[];
+        for(const e of allSchools){
+            const snap=await getDocs(collection(db,"ecoles",e.id,SC.COMPTA_ELEVES));
+            snap.forEach(d=>{
+                const data=d.data();
+                const moisBlancs=data.moisBlancs||[];
+                moisBlancs.forEach(m=>{
+                    allWm.push({
+                        docId:d.id,
+                        ecoleId:e.id,
+                        nom:data.nom||"Unknown",
+                        classe:data.classe||"",
+                        ecoleNom:e.nom||e.id,
+                        mois:m
+                    });
+                });
+            });
+        }
+        document.getElementById("wmCount").textContent=allWm.length;
+        if(allWm.length===0){ container.innerHTML='<tr><td colspan="6" class="empty-state">Aucun mois blanc</td></tr>'; return; }
+        let html="";
+        allWm.slice(0,100).forEach((w,i)=>{
+            html+=`<tr>
+                <td><strong>${escapeHtml(w.nom)}</strong></td>
+                <td>${escapeHtml(w.classe)}</td>
+                <td>${escapeHtml(w.ecoleNom)}</td>
+                <td><span class="badge whitemonth">❄️ ${escapeHtml(w.mois)}</span></td>
+                <td><span class="badge active">Actif</span></td>
+                <td><button class="btn btn-sm btn-restore restore-wm-btn" data-doc="${w.docId}" data-ecole="${w.ecoleId}" data-mois="${w.mois}">🔄 Restaurer</button></td>
+            </tr>`;
+        });
+        container.innerHTML=html;
+        container.querySelectorAll('.restore-wm-btn').forEach(btn=>{
+            btn.addEventListener('click', async function(){
+                const docId=this.dataset.doc;
+                const ecole=this.dataset.ecole;
+                const mois=this.dataset.mois;
+                if(!await showConfirm("Restaurer","Restaurer ce mois blanc ?")) return;
+                try{
+                    const ref=doc(db,"ecoles",ecole,SC.COMPTA_ELEVES,docId);
+                    const snap=await getDoc(ref);
+                    if(snap.exists()){
+                        const data=snap.data();
+                        const moisBlancs=data.moisBlancs||[];
+                        await updateDoc(ref,{moisBlancs:moisBlancs.filter(m=>m!==mois)});
+                        toast("Mois blanc restauré","success");
+                        loadWhiteMonths();
+                        loadAllData();
+                    }
+                } catch(e){ toast("Erreur: "+e.message,"error"); }
+            });
+        });
+    } catch(e){ container.innerHTML='<tr><td colspan="6" class="empty-state">Erreur</td></tr>'; }
+}
+
+async function loadDirection(){
+    const container=document.getElementById("directionBody");
+    if(!container)return;
+    try{
+        let data=[];
+        for(const e of allSchools){
+            try{
+                const ref=doc(db,"ecoles",e.id,"status","direction");
+                const snap=await getDoc(ref);
+                if(snap.exists()){ data.push({...snap.data(),schoolNom:e.nom||e.id}); }
+            }catch(e){}
+        }
+        document.getElementById("directionCount").textContent=data.length;
+        if(data.length===0){ container.innerHTML='<tr><td colspan="3" class="empty-state">Aucune donnée</td></tr>'; return; }
+        let html="";
+        data.forEach(d=>{
+            const isActive=d.actif===true;
+            html+=`<tr>
+                <td><strong>${escapeHtml(d.schoolNom)}</strong></td>
+                <td><span class="status-dot ${isActive?'on':'off'}"></span><span class="status-text ${isActive?'on':'off'}">${isActive?'🟢 Actif':'🔴 Inactif'}</span></td>
+                <td style="font-size:10px;color:var(--text-muted);">${formatDate(d.date)}</td>
+            </tr>`;
+        });
+        container.innerHTML=html;
+    } catch(e){ container.innerHTML='<tr><td colspan="3" class="empty-state">Erreur</td></tr>'; }
+}
+
+async function loadTeacherStatus(){
+    const container=document.getElementById("teacherStatusBody");
+    if(!container)return;
+    try{
+        let teachers=[];
+        for(const e of allSchools){
+            const snap=await getDocs(collection(db,"ecoles",e.id,SC.PROFESSEURS));
+            snap.forEach(d=>{
+                const data=d.data();
+                if(data._type==="prof"){
+                    teachers.push({
+                        id:d.id,
+                        nom:data.nom||"Unknown",
+                        code:data.code||"0000",
+                        ecoleNom:e.nom||e.id,
+                        actif:data.actif!==false,
+                        lastActivity:data.lastActivity||data.createdAt||null
+                    });
+                }
+            });
+        }
+        document.getElementById("teacherStatusCount").textContent=teachers.length;
+        if(teachers.length===0){ container.innerHTML='<tr><td colspan="6" class="empty-state">Aucun professeur</td></tr>'; return; }
+        let html="";
+        teachers.slice(0,100).forEach((t,i)=>{
+            html+=`<tr>
+                <td>${i+1}</td>
+                <td><strong>${escapeHtml(t.nom)}</strong></td>
+                <td>${escapeHtml(t.ecoleNom)}</td>
+                <td style="font-family:monospace;color:var(--blue);font-size:10px;">${t.code}</td>
+                <td><span class="status-dot ${t.actif?'on':'off'}"></span><span class="status-text ${t.actif?'on':'off'}">${t.actif?'🟢 Actif':'🔴 Inactif'}</span></td>
+                <td style="font-size:10px;color:var(--text-muted);">${t.lastActivity?formatDate(t.lastActivity):'-'}</td>
+            </tr>`;
+        });
+        container.innerHTML=html;
+    } catch(e){ container.innerHTML='<tr><td colspan="6" class="empty-state">Erreur</td></tr>'; }
+}
 
 // ===== CONNECTIONS =====
 let connPage=1; const connPageSize=10;
@@ -1074,11 +1579,71 @@ async function loadExplorer(){
     }catch(e){ container.innerHTML='<div class="empty-state">❌ Erreur</div>'; }
 }
 document.getElementById("refreshExplorerBtn")?.addEventListener("click", loadExplorer);
+document.getElementById("deleteEmptyCollections")?.addEventListener("click", async function(){
+    if(!await showConfirm("Supprimer vides","Supprimer toutes les collections vides ?")) return;
+    toast("Fonctionnalité à implémenter","warning");
+});
+
+// ===== SETTINGS =====
+document.getElementById("changeCodeBtn")?.addEventListener("click", function(){
+    const current=document.getElementById("currentCode").value;
+    const newCode=document.getElementById("newCode").value;
+    const confirm=document.getElementById("confirmCode").value;
+    const error=document.getElementById("settingsError");
+    if(current!==ACCESS_CODE){ error.textContent="❌ Code actuel incorrect"; return; }
+    if(!/^\d{4}$/.test(newCode)){ error.textContent="❌ Code doit contenir 4 chiffres"; return; }
+    if(newCode!==confirm){ error.textContent="❌ Codes ne correspondent pas"; return; }
+    if(newCode===ACCESS_CODE){ error.textContent="⚠️ Code identique"; return; }
+    ACCESS_CODE=newCode;
+    localStorage.setItem("access_code_direction",newCode);
+    error.textContent="";
+    toast("✅ Code modifié avec succès","success");
+    document.getElementById("currentCode").value="";
+    document.getElementById("newCode").value="";
+    document.getElementById("confirmCode").value="";
+});
+
+// ===== SEARCH =====
+document.getElementById("globalSearchInput")?.addEventListener("input", function(){
+    const val=this.value.trim();
+    const clear=document.getElementById("searchClear");
+    if(val.length>0){ clear.style.display="block"; } else { clear.style.display="none"; }
+    if(val.length>=2){
+        const results={schools:[],members:[],teachers:[],sheets:[],codes:[]};
+        const q=val.toLowerCase();
+        allSchools.forEach(s=>{ if(s.nom&&s.nom.toLowerCase().includes(q)) results.schools.push({id:s.id,nom:s.nom,detail:s.ville||s.province||''}); });
+        allMembers.forEach(m=>{ const name=(m.nom+' '+m.prenom).trim(); if(name.toLowerCase().includes(q)) results.members.push({id:m.id,ecoleId:m.ecoleId,nom:name,detail:m.classe+' · '+m.ecoleNom}); });
+        allTeachers.forEach(t=>{ if(t.nom&&t.nom.toLowerCase().includes(q)) results.teachers.push({id:t.id,ecoleId:t.ecoleId,nom:t.nom,detail:t.code+' · '+t.ecoleNom}); });
+        allSheets.forEach(s=>{ if(s.cours&&s.cours.toLowerCase().includes(q)) results.sheets.push({id:s.id,ecoleId:s.ecoleId,nom:s.cours,detail:s.classe+' · '+s.titulaire}); });
+        const container=document.getElementById("searchResults");
+        let html='';
+        if(results.schools.length>0){ html+=`<div class="search-result-group"><div class="group-title">🏫 Écoles (${results.schools.length})</div>`; results.schools.forEach(s=>{ html+=`<div class="search-result-item"><div class="left"><span class="icon">🏫</span><span class="name">${escapeHtml(s.nom)}</span><span class="detail">${escapeHtml(s.detail)}</span></div><div class="right"><span class="tag school">École</span></div></div>`; }); html+='</div>'; }
+        if(results.members.length>0){ html+=`<div class="search-result-group"><div class="group-title">👥 Membres (${results.members.length})</div>`; results.members.forEach(m=>{ html+=`<div class="search-result-item"><div class="left"><span class="icon">👤</span><span class="name">${escapeHtml(m.nom)}</span><span class="detail">${escapeHtml(m.detail)}</span></div><div class="right"><span class="tag student">Élève</span></div></div>`; }); html+='</div>'; }
+        if(results.teachers.length>0){ html+=`<div class="search-result-group"><div class="group-title">👨‍🏫 Professeurs (${results.teachers.length})</div>`; results.teachers.forEach(t=>{ html+=`<div class="search-result-item"><div class="left"><span class="icon">👨‍🏫</span><span class="name">${escapeHtml(t.nom)}</span><span class="detail">${escapeHtml(t.detail)}</span></div><div class="right"><span class="tag teacher">Professeur</span></div></div>`; }); html+='</div>'; }
+        if(results.sheets.length>0){ html+=`<div class="search-result-group"><div class="group-title">📄 Fiches (${results.sheets.length})</div>`; results.sheets.forEach(s=>{ html+=`<div class="search-result-item"><div class="left"><span class="icon">📄</span><span class="name">${escapeHtml(s.nom)}</span><span class="detail">${escapeHtml(s.detail)}</span></div><div class="right"><span class="tag sheet">Fiche</span></div></div>`; }); html+='</div>'; }
+        if(html==='') html='<div class="search-empty"><span class="empty-icon">🔍</span><p>Aucun résultat pour "<strong>'+escapeHtml(val)+'"</strong></p></div>';
+        container.innerHTML=html;
+        document.getElementById("searchModal").classList.add("show");
+    } else if(val.length===0){
+        document.getElementById("searchModal").classList.remove("show");
+    }
+});
+document.getElementById("searchClear")?.addEventListener("click", function(){
+    document.getElementById("globalSearchInput").value="";
+    this.style.display="none";
+    document.getElementById("searchModal").classList.remove("show");
+});
+document.getElementById("searchModalClose")?.addEventListener("click", function(){
+    document.getElementById("searchModal").classList.remove("show");
+});
+document.getElementById("searchModal")?.addEventListener("click", function(e){
+    if(e.target===this) this.classList.remove("show");
+});
 
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', function(){
     loadAllData();
-    setTimeout(() => { loadSchools(); loadMembers(); loadTeachers(); loadSheets(); loadConnections(); loadParentCodes(); loadExplorer(); }, 500);
+    setTimeout(() => { loadSchools(); loadMembers(); loadTeachers(); loadSheets(); loadConnections(); loadParentCodes(); loadExplorer(); loadInactive(); loadWhiteMonths(); loadDirection(); loadTeacherStatus(); }, 500);
 });
 </script>
 </body>
