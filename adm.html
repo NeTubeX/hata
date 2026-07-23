@@ -311,7 +311,10 @@ body{background:var(--bg-primary);font-family:'Inter',sans-serif;color:var(--tex
 <input type="text" id="globalSearchInput" placeholder="Rechercher..." autocomplete="off">
 <button class="search-clear" id="searchClear" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">✕</button>
 </div>
-<div class="topbar-right"><div class="status"><span class="dot"></span> Live</div><div class="topbar-avatar">DS</div></div>
+<div class="topbar-right">
+<div class="status"><span class="dot"></span> Live</div>
+<div class="topbar-avatar">DS</div>
+</div>
 </div>
 
 <div class="counter-grid" id="counterGrid">
@@ -499,11 +502,12 @@ let isToastShowing=false;
 let sidebarCollapsed=false;
 const SC={PROFESSEURS:"professeurs",FICHES:"fiches",COMPTA_ELEVES:"compta_eleves",ELEVES:"eleves",PUNITIONS:"punitions",PRESENCES:"presences",HORAIRES:"horaires",CORBEILLE:"corbeille",COMPTEUR:"compteur",CONFIG:"config",ALERTES_ADMIN:"alertes_admin",COMMUNIQUES:"communiques",SETTINGS:"settings"};
 
-// ===== TOAST =====
-function toast(message, type = 'info', duration = 4000) {
+// ===== TOAST - UNIQUEMENT POUR LES ACTIONS UTILISATEUR =====
+function toast(message, type = 'info', duration = 3000) {
     toastQueue.push({ message, type, duration });
     if (!isToastShowing) showNextToast();
 }
+
 function showNextToast() {
     if (toastQueue.length === 0) { isToastShowing = false; return; }
     isToastShowing = true;
@@ -716,7 +720,7 @@ function updateSelectors(){
     });
 }
 
-// ===== LOAD DATA =====
+// ===== LOAD DATA - SANS TOAST =====
 async function loadAllData(){
     if(isLoading)return;
     isLoading=true;
@@ -787,8 +791,7 @@ async function loadAllData(){
         if(el("codesCount"))el("codesCount").textContent=allCodes.length;
         if(el("connCount"))el("connCount").textContent=allConnections.length;
         if(el("labCount"))el("labCount").textContent=allLab.length;
-        toast("✅ Données chargées: "+allSchools.length+" écoles, "+allMembers.length+" élèves","success");
-    } catch(e){ console.error("Error:",e); toast("❌ Erreur: "+e.message,"error"); }
+    } catch(e){ console.error("Error:",e); }
     finally{ isLoading=false; }
 }
 
@@ -797,7 +800,7 @@ async function loadSchools(){
     const container=document.getElementById("schoolsList");
     if(!container)return;
     try{
-        await loadAllData();
+        if(allSchools.length===0) await loadAllData();
         if(allSchools.length===0){ container.innerHTML='<div class="empty-state"><span class="empty-icon">🏫</span>Aucune école</div>'; return; }
         let html='<div class="table-wrapper"><table><thead><tr><th>École</th><th>ID</th><th>Province</th><th>Ville</th><th>Directeur</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
         allSchools.forEach(s=>{
@@ -821,7 +824,6 @@ async function loadSchools(){
         html+="</tbody></table></div>";
         container.innerHTML=html;
         
-        // ==== ATTACHEMENT DES EVENEMENTS ====
         container.querySelectorAll('.edit-school-btn').forEach(btn=>{
             btn.addEventListener('click', function(){ showEditSchool(this.dataset.id); });
         });
@@ -921,7 +923,7 @@ async function loadSheets(){
     });
 }
 
-// ===== ACTIONS =====
+// ===== ACTIONS AVEC TOAST =====
 window.toggleSchool = async function(id){
     if(!await showConfirm("Changer statut","Activer/Désactiver cette école ?")) return;
     try{
@@ -930,7 +932,7 @@ window.toggleSchool = async function(id){
         if(snap.exists()){
             const data=snap.data();
             await updateDoc(ref,{actif:data.actif!==false?false:true});
-            toast("Statut modifié","success");
+            toast("Statut modifié avec succès","success");
             loadSchools();
             loadAllData();
         }
@@ -984,139 +986,6 @@ window.deleteSheet = async function(id,ecole){
     } catch(e){ toast("Erreur: "+e.message,"error"); }
 };
 
-window.showEditSchool = function(id){
-    const school=allSchools.find(s=>s.id===id);
-    if(!school){ toast("École non trouvée","error"); return; }
-    const modal=document.getElementById("modalOverlay");
-    document.getElementById("modalIcon").textContent="✏️";
-    document.getElementById("modalTitle").textContent="Modifier - "+escapeHtml(school.nom);
-    document.getElementById("modalSubtitle").textContent="Modifier les informations";
-    document.getElementById("modalBody").innerHTML=`
-        <div class="form-grid">
-            <div class="form-group full-width"><label>Nom</label><input type="text" id="editSchoolName" value="${escapeHtml(school.nom)}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-            <div class="form-group"><label>Province</label><input type="text" id="editSchoolProvince" value="${escapeHtml(school.province||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-            <div class="form-group"><label>Ville</label><input type="text" id="editSchoolCity" value="${escapeHtml(school.ville||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-            <div class="form-group"><label>Directeur</label><input type="text" id="editSchoolDirector" value="${escapeHtml(school.directeur||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-            <div class="form-group"><label>Téléphone</label><input type="text" id="editSchoolPhone" value="${escapeHtml(school.telephone||"")}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-            <div class="form-group full-width"><label>Tarif (FC)</label><input type="number" id="editSchoolTarif" value="${school.tarifParEleve||2000}" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;"></div>
-        </div>
-        <div class="modal-actions" style="margin-top:12px;">
-            <button class="btn btn-primary" id="saveEditSchool">💾 Sauvegarder</button>
-            <button class="btn btn-outline" id="cancelEditSchool">Annuler</button>
-        </div>
-    `;
-    modal.classList.add("show");
-    document.getElementById("saveEditSchool").addEventListener("click", async function(){
-        const newNom=document.getElementById("editSchoolName").value.trim();
-        const tarif=parseInt(document.getElementById("editSchoolTarif").value)||2000;
-        if(!newNom){ toast("Nom requis","error"); return; }
-        try{
-            await updateDoc(doc(db,"ecoles",id),{
-                nom:newNom,
-                province:document.getElementById("editSchoolProvince").value.trim(),
-                ville:document.getElementById("editSchoolCity").value.trim(),
-                directeur:document.getElementById("editSchoolDirector").value.trim(),
-                telephone:document.getElementById("editSchoolPhone").value.trim(),
-                tarifParEleve:tarif
-            });
-            toast("✅ École mise à jour","success");
-            modal.classList.remove("show");
-            loadSchools();
-            loadAllData();
-        } catch(e){ toast("Erreur: "+e.message,"error"); }
-    });
-    document.getElementById("cancelEditSchool").addEventListener("click", function(){ modal.classList.remove("show"); });
-};
-
-window.showChangeId = function(id){
-    const school=allSchools.find(s=>s.id===id);
-    if(!school){ toast("École non trouvée","error"); return; }
-    const modal=document.getElementById("modalOverlay");
-    document.getElementById("modalIcon").textContent="🔄";
-    document.getElementById("modalTitle").textContent="Changer l'ID";
-    document.getElementById("modalSubtitle").textContent="ID actuel: "+school.id;
-    document.getElementById("modalBody").innerHTML=`
-        <div style="margin-bottom:10px;">
-            <div style="background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:6px;margin-bottom:10px;">
-                <span style="color:var(--text-muted);font-size:10px;">École</span>
-                <div style="font-weight:600;">${escapeHtml(school.nom)}</div>
-            </div>
-            <div class="form-group"><label>Nouvel ID</label><input type="text" id="newSchoolId" placeholder="ex: college-saint-joseph" style="background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:6px 10px;color:var(--text-primary);width:100%;font-family:monospace;"></div>
-            <div style="font-size:9px;color:var(--orange);margin-top:4px;">⚠️ Toutes les données seront migrées</div>
-        </div>
-        <div class="modal-actions">
-            <button class="btn btn-primary" id="confirmChangeId">Confirmer</button>
-            <button class="btn btn-outline" id="cancelChangeId">Annuler</button>
-        </div>
-    `;
-    modal.classList.add("show");
-    document.getElementById("cancelChangeId").addEventListener("click", function(){ modal.classList.remove("show"); });
-    document.getElementById("confirmChangeId").addEventListener("click", async function(){
-        const newId=document.getElementById("newSchoolId").value.trim();
-        if(!newId){ toast("Entrez un ID","error"); return; }
-        if(!/^[a-zA-Z0-9-]+$/.test(newId)){ toast("ID invalide","error"); return; }
-        if(newId===id){ toast("ID identique","warning"); return; }
-        try{
-            const existing=await getDoc(doc(db,"ecoles",newId));
-            if(existing.exists()){ toast("ID existe déjà","error"); return; }
-        } catch(e){ toast("Erreur: "+e.message,"error"); return; }
-        modal.classList.remove("show");
-        // Migration simplifiée
-        try{
-            const ref=doc(db,"ecoles",id);
-            const snap=await getDoc(ref);
-            if(snap.exists()){
-                const data=snap.data();
-                await setDoc(doc(db,"ecoles",newId),{...data,id:newId,ancienId:id,dateMigration:new Date().toISOString()});
-                // Copier les sous-collections (simplifié)
-                const subCols=['professeurs','fiches','compta_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings'];
-                for(const sub of subCols){
-                    try{
-                        const snapSub=await getDocs(collection(db,"ecoles",id,sub));
-                        for(const ds of snapSub.docs){
-                            await setDoc(doc(db,"ecoles",newId,sub,ds.id),ds.data());
-                        }
-                    }catch(e){}
-                }
-                await deleteDoc(doc(db,"ecoles",id));
-                toast("✅ ID changé vers "+newId,"success");
-                loadSchools();
-                loadAllData();
-            }
-        } catch(e){ toast("Erreur: "+e.message,"error"); }
-    });
-};
-
-window.exportSchool = function(id){
-    const school=allSchools.find(s=>s.id===id);
-    if(!school){ toast("École non trouvée","error"); return; }
-    toast("📤 Export en cours...","info");
-    try{
-        const students=allStudents.filter(m=>m.ecoleId===id);
-        const teachers=allTeachers.filter(t=>t.ecoleId===id);
-        const sheets=allSheets.filter(s=>s.ecoleId===id);
-        const wb=XLSX.utils.book_new();
-        const data=[['NETUBEX - '+school.nom,''],['',''],['Total élèves',students.length],['Total professeurs',teachers.length],['Total fiches',sheets.length],['',''],['Exporté le',new Date().toLocaleString('fr-FR')]];
-        const ws=XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb,ws,'Résumé');
-        if(students.length>0){
-            const stData=[['#','Nom','Prénom','Classe','Statut']];
-            students.forEach((s,i)=>{ stData.push([i+1,s.nom,s.prenom,s.classe,s.statut]); });
-            const wsSt=XLSX.utils.aoa_to_sheet(stData);
-            XLSX.utils.book_append_sheet(wb,wsSt,'Élèves');
-        }
-        if(teachers.length>0){
-            const tData=[['#','Nom','Code']];
-            teachers.forEach((t,i)=>{ tData.push([i+1,t.nom,t.code]); });
-            const wsT=XLSX.utils.aoa_to_sheet(tData);
-            XLSX.utils.book_append_sheet(wb,wsT,'Professeurs');
-        }
-        const fileName=school.nom.replace(/[^a-zA-Z0-9]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
-        XLSX.writeFile(wb,fileName);
-        toast("✅ Export terminé","success");
-    } catch(e){ toast("Erreur export: "+e.message,"error"); }
-};
-
 // ===== NAVIGATION =====
 document.querySelectorAll(".nav-item, .tab-btn").forEach(el=>{
     el.addEventListener("click", function(){
@@ -1155,7 +1024,7 @@ document.getElementById("teacherSchoolFilter")?.addEventListener("change", loadT
 document.getElementById("sheetSchoolFilter")?.addEventListener("change", loadSheets);
 document.getElementById("sheetSearch")?.addEventListener("input", loadSheets);
 
-document.getElementById("refreshBtn")?.addEventListener("click", function(){ loadAllData(); toast("🔄 Données actualisées","info"); });
+document.getElementById("refreshBtn")?.addEventListener("click", function(){ loadAllData(); toast("Données actualisées","info"); });
 document.getElementById("refreshSchoolsBtn")?.addEventListener("click", loadSchools);
 document.getElementById("refreshMembersBtn")?.addEventListener("click", loadMembers);
 document.getElementById("refreshTeachersBtn")?.addEventListener("click", loadTeachers);
@@ -1485,7 +1354,7 @@ async function loadConnections(){
 document.getElementById("refreshConnBtn")?.addEventListener("click", loadConnections);
 document.getElementById("clearConnections")?.addEventListener("click", async function(){
     if(!await showConfirm("Supprimer tout","Supprimer toutes les connexions ?")) return;
-    allConnections=[]; toast("🗑 Connexions supprimées","success"); loadConnections();
+    allConnections=[]; toast("Connexions supprimées","success"); loadConnections();
 });
 
 // ===== PARENT CODES =====
@@ -1640,10 +1509,22 @@ document.getElementById("searchModal")?.addEventListener("click", function(e){
     if(e.target===this) this.classList.remove("show");
 });
 
-// ===== INIT =====
+// ===== INIT - SANS TOAST =====
 document.addEventListener('DOMContentLoaded', function(){
     loadAllData();
-    setTimeout(() => { loadSchools(); loadMembers(); loadTeachers(); loadSheets(); loadConnections(); loadParentCodes(); loadExplorer(); loadInactive(); loadWhiteMonths(); loadDirection(); loadTeacherStatus(); }, 500);
+    setTimeout(() => { 
+        loadSchools(); 
+        loadMembers(); 
+        loadTeachers(); 
+        loadSheets(); 
+        loadConnections(); 
+        loadParentCodes(); 
+        loadExplorer(); 
+        loadInactive(); 
+        loadWhiteMonths(); 
+        loadDirection(); 
+        loadTeacherStatus(); 
+    }, 500);
 });
 </script>
 </body>
