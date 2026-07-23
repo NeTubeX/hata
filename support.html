@@ -101,7 +101,7 @@ body{min-height:100vh;background:#0a0e1a;font-family:'Inter',sans-serif;overflow
 #tabSupport .card-body{padding:0;flex:1;display:flex;flex-direction:column}
 #tabSupport .card-header{display:none}
 body.support-fullscreen .container{padding:0;max-width:100%}
-body.support-fullscreen .header,body.support-fullscreen .tabs-container,body.support-fullscreen #tabProfesseurs,body.support-fullscreen #tabFiches,body.support-fullscreen #tabStats{display:none!important}
+body.support-fullscreen .header,body.support-fullscreen .tabs-container,body.support-fullscreen #tabProfesseurs,body.support-fullscreen #tabStats{display:none!important}
 body.support-fullscreen #tabSupport{display:block!important;height:100vh;padding:0;margin:0;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#0f172a}
 body.support-fullscreen #tabSupport .card{border-radius:0;margin:0;height:100vh;min-height:100vh;border:none;background:#0f172a;display:flex;flex-direction:column}
 body.support-fullscreen .support-header-chat{border-radius:0;flex-shrink:0}
@@ -313,8 +313,6 @@ measurementId: "G-V7MF88Y5EE"
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const ECOLET_ID = "complexe-scolaire-a";
-
 const SUPPORT_DOC_ID = "support_netubex_board";
 const supportDocRef = doc(db, "communication", SUPPORT_DOC_ID);
 
@@ -373,7 +371,7 @@ if (prof.actif === false) return { label: 'Inactif', class: 'inactif', icon: '�
 return { label: 'Actif', class: 'actif', icon: '🟢' };
 }
 
-function loadEcoles() {
+function loadSchools() {
 return getDocs(collection(db, "ecoles")).then(snap => {
 allSchools = [];
 snap.forEach(ds => { allSchools.push(ds.id); });
@@ -471,31 +469,41 @@ toast('✅ Réponse envoyée', 'success');
 
 async function loadProfesseursData() {
 try {
-const profsSnap = await getDocs(collection(db, "ecoles", ECOLET_ID, "professeurs"));
+const ecolesSnap = await getDocs(collection(db, "ecoles"));
 allProfesseurs = [];
+allFiches = [];
+allEleves = [];
+
+for (const ecoleDoc of ecolesSnap.docs) {
+const ecoleId = ecoleDoc.id;
+
+const profsRef = collection(db, "ecoles", ecoleId, "professeurs");
+const profsSnap = await getDocs(profsRef);
 profsSnap.forEach(ds => {
 const data = ds.data();
 if (data._type === "prof") {
-allProfesseurs.push({ id: ds.id, ...data });
+allProfesseurs.push({ id: ds.id, ecole: ecoleId, ...data });
 }
 });
-const fichesSnap = await getDocs(collection(db, "ecoles", ECOLET_ID, "fiches"));
-allFiches = [];
-allEleves = [];
+
+const fichesRef = collection(db, "ecoles", ecoleId, "fiches");
+const fichesSnap = await getDocs(fichesRef);
 fichesSnap.forEach(ds => {
 const data = ds.data();
 if (!data._type) {
-allFiches.push({ id: ds.id, ...data });
+const ficheData = { id: ds.id, ecole: ecoleId, ...data };
+allFiches.push(ficheData);
 if (data.eleves) {
 data.eleves.forEach(e => {
-if (e.nom) allEleves.push({ ...e, ficheId: ds.id, ficheCours: data.cours, ficheClasse: data.classe });
+if (e.nom) allEleves.push({ ...e, ficheId: ds.id, ecole: ecoleId, ficheCours: data.cours, ficheClasse: data.classe });
 });
 }
 }
 });
+}
 renderProfesseurs();
 renderStats();
-} catch (e) { console.error(e); }
+} catch (e) { console.error(e); toast('Erreur chargement données', 'error'); }
 }
 
 function getFichesByProf(profId) {
@@ -523,7 +531,7 @@ const status = getStatusLabel(prof);
 const fiches = getFichesByProf(prof.id);
 const nbFiches = fiches.length;
 const nbEleves = fiches.reduce((sum, f) => sum + (f.eleves ? f.eleves.length : 0), 0);
-html += '<div class="prof-card"><div class="prof-header"><div class="prof-name"><i class="fas fa-user-circle"></i> ' + escapeHtml(prof.nom || 'Inconnu') + ' <span class="prof-stat">' + status.icon + ' ' + status.label + '</span></div><div class="prof-code">🔑 ' + escapeHtml(prof.code || '---') + '</div></div><div class="prof-stat">📄 <span>' + nbFiches + '</span> fiche(s) · 👥 <span>' + nbEleves + '</span> élève(s)</div><div class="fiches-list">';
+html += '<div class="prof-card"><div class="prof-header"><div class="prof-name"><i class="fas fa-user-circle"></i> ' + escapeHtml(prof.nom || 'Inconnu') + ' <span class="prof-stat">' + status.icon + ' ' + status.label + '</span></div><div class="prof-code">🔑 ' + escapeHtml(prof.code || '---') + '</div></div><div class="prof-stat">📄 <span>' + nbFiches + '</span> fiche(s) · 👥 <span>' + nbEleves + '</span> élève(s) · 🏫 <span>' + escapeHtml(prof.ecole || '') + '</span></div><div class="fiches-list">';
 if (nbFiches === 0) {
 html += '<div style="color:#94a3b8;font-size:12px;padding:4px 0;">Aucune fiche</div>';
 } else {
@@ -557,7 +565,7 @@ const fiches = getFichesByProf(prof.id);
 const nbFiches = fiches.length;
 const nbEleves = fiches.reduce((sum, f) => sum + (f.eleves ? f.eleves.length : 0), 0);
 const status = getStatusLabel(prof);
-html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b;font-size:13px;"><span>' + status.icon + ' ' + escapeHtml(prof.nom || 'Inconnu') + '</span><span style="color:#94a3b8;">📄 ' + nbFiches + ' · 👥 ' + nbEleves + '</span></div>';
+html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b;font-size:13px;"><span>' + status.icon + ' ' + escapeHtml(prof.nom || 'Inconnu') + ' <span style="color:#64748b;font-size:11px;">(' + escapeHtml(prof.ecole || '') + ')</span></span><span style="color:#94a3b8;">📄 ' + nbFiches + ' · 👥 ' + nbEleves + '</span></div>';
 });
 html += '</div>';
 container.innerHTML = html;
@@ -610,12 +618,12 @@ const modal = document.getElementById('confirmModal');
 document.getElementById('confirmTitle').textContent = 'Déconnexion';
 document.getElementById('confirmMessage').textContent = 'Voulez-vous vraiment vous déconnecter ?';
 modal.classList.add('show');
-document.getElementById('confirmYes').onclick = function() { modal.classList.remove('show'); toast('Déconnexion', 'info'); window.location.reload(); };
+document.getElementById('confirmYes').onclick = function() { modal.classList.remove('show'); toast('Déconnexion', 'info'); };
 document.getElementById('confirmNo').onclick = function() { modal.classList.remove('show'); };
 });
 
 async function init() {
-await loadEcoles();
+await loadSchools();
 const select = document.getElementById('supportEcoleFilter');
 select.innerHTML = '<option value="all">Tous</option>';
 allSchools.forEach(s => {
