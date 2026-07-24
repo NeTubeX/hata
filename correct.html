@@ -2,176 +2,111 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Correcto Local V3 - Avec Image Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Correcto Mobile</title>
 <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-  body { font-family: Arial; padding: 20px; background: #f4f4f4; }
- .container { background: white; padding: 20px; border-radius: 8px; max-width: 800px; margin: auto; }
-  h2 { color: #2c3e50; }
-  input, textarea, button, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;}
-  button { background: #27ae60; color: white; border: none; cursor: pointer; font-weight: bold; }
-  button:disabled { background: #95a5a6; }
+  body { font-family: Arial; padding: 10px; background: #f4f4f4; }
+ .container { background: white; padding: 15px; border-radius: 8px; }
+  h2 { color: #2c3e50; font-size: 18px; }
+  input, button, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+  button { background: #27ae60; color: white; border: none; font-weight: bold; }
   button.test { background: #3498db; }
- .question { border: 1px dashed #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-  #resultat { margin-top: 20px; padding: 15px; background: #ecf0f1; border-radius: 5px; }
- .note { font-size: 24px; font-weight: bold; color: #27ae60; }
-  #status {color: #e67e22; font-weight: bold;}
-  #imagePreview { max-width: 100%; margin-top: 10px; border: 1px solid #ddd; }
+  video, canvas, img { width: 100%; border-radius: 8px; margin-top: 10px; }
+  #status {color: #e67e22; font-weight: bold; text-align:center;}
+  .note { font-size: 28px; font-weight: bold; color: #27ae60; text-align:center; }
 </style>
 </head>
 <body>
 <div class="container">
-  <h2>📝 Correcto Local V3 - Avec Test</h2>
-  <p style="background:#fdebd0; padding:10px;">⚠️ Ouvre avec: <b>http://localhost:8000</b> pour que Tesseract marche</p>
+  <h2>📝 Correcto Mobile V4</h2>
 
-  <p><b>Étape 1: Corrigé TEST déjà rempli</b></p>
-  <input type="text" id="nomEpreuve" value="Test Français P1">
-  <div id="questions">
-    <div class="question">
-      <input type="text" class="qText" value="1. Quelle est la capitale de la RDC?">
-      <input type="text" class="qRep" value="kinshasa">
-      <input type="number" class="qPts" value="2">
-    </div>
-    <div class="question">
-      <input type="text" class="qText" value="2. Combien font 10 + 5?">
-      <input type="text" class="qRep" value="15, quinze">
-      <input type="number" class="qPts" value="2">
-    </div>
-    <div class="question">
-      <input type="text" class="qText" value="3. Donne un fleuve de la RDC">
-      <input type="text" class="qRep" value="congo, zambèze">
-      <input type="number" class="qPts" value="1">
-    </div>
-  </div>
-  <button onclick="ajouterQuestion()">+ Ajouter Question</button>
+  <b>1. Corrigé TEST</b>
+  <input type="text" id="nomEpreuve" value="Test P1">
   <button onclick="sauverCorrigé()">💾 Sauvegarder Corrigé</button>
 
   <hr>
-  <p><b>Étape 2: Corriger une copie</b></p>
+  <b>2. Corriger</b>
   <select id="selectCorrigé"></select>
+  
+  <button onclick="ouvrirCamera()">📷 Prendre Photo</button>
+  <video id="video" autoplay style="display:none;"></video>
+  <button id="btnPhoto" onclick="prendrePhoto()" style="display:none;">📸 Capturer</button>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <img id="preview">
 
-  <button class="test" onclick="utiliserImageTest()">🖼️ Utiliser Image Test</button>
-  <p style="text-align:center;">OU</p>
-  <input type="file" id="imageInput" accept="image/*" onchange="previewImage(event)">
-  <img id="imagePreview" style="display:none;">
-
-  <button id="btnCorriger" onclick="corriger()">🚀 Scanner & Corriger</button>
+  <button id="btnCorriger" onclick="corriger()">🚀 Corriger</button>
   <div id="status"></div>
-
   <div id="resultat"></div>
-  <button onclick="exporterExcel()">📊 Exporter en Excel</button>
 </div>
 
 <script>
 let corriges = JSON.parse(localStorage.getItem('corriges')) || [];
 let notes = [];
-let fichierActuel = null;
+let imageBlob = null;
 
-// IMAGE TEST - Une copie avec les 3 bonnes réponses
-const IMAGE_TEST_URL = "https://i.imgur.com/8Q4bK7p.png"; // Image test écrite à la main
-
-function ajouterQuestion() {
-  document.getElementById('questions').innerHTML += `
-    <div class="question">
-      <input type="text" class="qText" placeholder="Question">
-      <input type="text" class="qRep" placeholder="Réponses: rep1, rep2">
-      <input type="number" class="qPts" placeholder="Points" value="1">
-    </div>`;
-}
-
-function sauverCorrigé() {
-  let nom = document.getElementById('nomEpreuve').value;
-  if(!nom) return alert('Donne un nom à l\'épreuve');
-  let questions = [];
-  document.querySelectorAll('.question').forEach(q => {
-    questions.push({
-      text: q.querySelector('.qText').value,
-      reponses: q.querySelector('.qRep').value.toLowerCase().split(','),
-      points: parseFloat(q.querySelector('.qPts').value)
-    });
+// On pré-remplit le corrigé test
+if(corriges.length === 0){
+  corriges.push({
+    nom: "Test Français P1",
+    questions: [
+      {text: "Capitale RDC?", reponses: ["kinshasa"], points: 2},
+      {text: "10 + 5?", reponses: ["15","quinze"], points: 2},
+      {text: "Fleuve RDC?", reponses: ["congo","zambèze"], points: 1}
+    ]
   });
-  corriges.push({nom, questions});
   localStorage.setItem('corriges', JSON.stringify(corriges));
-  chargerSelect();
-  alert('Corrigé sauvé!');
 }
 
+function sauverCorrigé(){ localStorage.setItem('corriges', JSON.stringify(corriges)); chargerSelect(); alert('Sauvé!'); }
 function chargerSelect() {
   let sel = document.getElementById('selectCorrigé');
-  sel.innerHTML = '<option value="">Choisis un corrigé</option>';
+  sel.innerHTML = '';
   corriges.forEach((c, i) => sel.innerHTML += `<option value="${i}">${c.nom}</option>`);
 }
 chargerSelect();
 
-function previewImage(event) {
-  fichierActuel = event.target.files[0];
-  const reader = new FileReader();
-  reader.onload = () => {
-    document.getElementById('imagePreview').src = reader.result;
-    document.getElementById('imagePreview').style.display = 'block';
-  }
-  reader.readAsDataURL(fichierActuel);
+async function ouvrirCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+  document.getElementById('video').srcObject = stream;
+  document.getElementById('video').style.display = 'block';
+  document.getElementById('btnPhoto').style.display = 'block';
 }
 
-async function utiliserImageTest() {
-  document.getElementById('status').innerText = 'Chargement image test...';
-  const response = await fetch(IMAGE_TEST_URL);
-  fichierActuel = await response.blob();
-  document.getElementById('imagePreview').src = IMAGE_TEST_URL;
-  document.getElementById('imagePreview').style.display = 'block';
-  document.getElementById('status').innerText = '✅ Image test chargée. Clique sur Corriger';
+function prendrePhoto() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  imageBlob = canvas.toDataURL('image/png');
+  document.getElementById('preview').src = imageBlob;
+  video.srcObject.getTracks().forEach(track => track.stop());
+  video.style.display = 'none';
+  document.getElementById('btnPhoto').style.display = 'none';
 }
 
 async function corriger() {
+  if(!imageBlob) return alert('Prends d\'abord une photo');
   const corrigéIndex = document.getElementById('selectCorrigé').value;
-  const btn = document.getElementById('btnCorriger');
+  
+  document.getElementById('status').innerText = '⏳ Lecture... 10-20s sur mobile';
+  const { data: { text } = await Tesseract.recognize(imageBlob, 'fra', {
+    logger: m => document.getElementById('status').innerText = m.status + ' + Math.round(m.progress * 100) + '%'
+  });
 
-  if(!fichierActuel) return alert('❌ Choisis d\'abord une photo ou clique sur Image Test');
-  if(corrigéIndex === '') return alert('❌ Choisis un corrigé');
+  const corrigé = corriges[corrigéIndex];
+  let noteTotale = 0;
+  let texteMinuscule = text.toLowerCase();
+  corrigé.questions.forEach(q => {
+    if(q.reponses.some(rep => texteMinuscule.includes(rep.trim()))) noteTotale += q.points;
+  });
 
-  btn.disabled = true;
-  document.getElementById('status').innerText = '⏳ Lecture de la copie... 5 à 15s.';
-
-  try {
-    const { data: { text } = await Tesseract.recognize(fichierActuel, 'fra', {
-      logger: m => document.getElementById('status').innerText = m.status + ' ' + Math.round(m.progress * 100) + '%'
-    });
-
-    document.getElementById('status').innerText = '🧠 Correction en cours...';
-    const corrigé = corriges[corrigéIndex];
-    let noteTotale = 0;
-    let details = '';
-    let texteMinuscule = text.toLowerCase();
-
-    corrigé.questions.forEach((q, i) => {
-      let trouvé = q.reponses.some(rep => texteMinuscule.includes(rep.trim()));
-      if(trouvé) noteTotale += q.points;
-      details += `Q${i+1}: ${trouvé? '✅ +'+q.points+'pts' : '❌ 0pt'} <br>`;
-    });
-
-    document.getElementById('status').innerText = '✅ Terminé!';
-    document.getElementById('resultat').innerHTML = `
-      <h3>Résultat</h3>
-      <p class="note">Note: ${noteTotale} / ${corrigé.questions.reduce((a,b)=>a+b.points,0)}</p>
-      <p><b>Détails:</b><br>${details}</p>
-      <p><b>Texte lu:</b><br><small>${text}</small></p>
-    `;
-    notes.push({eleve: 'Eleve '+ (notes.length+1), note: noteTotale});
-
-  } catch(e) {
-    alert('ERREUR: Ouvre le fichier avec http://localhost:8000');
-    document.getElementById('status').innerText = 'Erreur: ' + e.message;
-  }
-  btn.disabled = false;
-}
-
-function exporterExcel() {
-  if(notes.length === 0) return alert('Corrige d\'abord des copies');
-  const ws = XLSX.utils.json_to_sheet(notes);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Notes");
-  XLSX.writeFile(wb, "notes.xlsx");
+  document.getElementById('status').innerText = '✅ Terminé!';
+  document.getElementById('resultat').innerHTML = `
+    <p class="note">Note: ${noteTotale} / ${corrigé.questions.reduce((a,b)=>a+b.points,0)}</p>
+    <p><b>Texte lu:</b><br><small>${text}</small></p>
+  `;
 }
 </script>
 </body>
