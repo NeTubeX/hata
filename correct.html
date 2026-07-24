@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Correcto Local - App de Correction</title>
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial; padding: 20px; background: #f4f4f4; }
+ .container { background: white; padding: 20px; border-radius: 8px; max-width: 800px; margin: auto; }
+  h2 { color: #2c3e50; }
+  input, textarea, button { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; }
+  button { background: #27ae60; color: white; border: none; cursor: pointer; font-weight: bold; }
+  button:hover { background: #229954; }
+ .question { border: 1px dashed #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+  #resultat { margin-top: 20px; padding: 15px; background: #ecf0f1; border-radius: 5px; }
+ .note { font-size: 24px; font-weight: bold; color: #27ae60; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h2>📝 Correcto Local V1</h2>
+  <p><b>Étape 1: Remplis le corrigé</b></p>
+
+  <input type="text" id="nomEpreuve" placeholder="Nom de l'épreuve: Interro Français P1">
+  <div id="questions">
+    <div class="question">
+      Q1: <input type="text" class="qText" placeholder="Question: Capitale de la RDC?">
+      <input type="text" class="qRep" placeholder="Réponses acceptées: kinshasa, kynshasa">
+      <input type="number" class="qPts" placeholder="Points: 2" value="2">
+    </div>
+  </div>
+  <button onclick="ajouterQuestion()">+ Ajouter Question</button>
+  <button onclick="sauverCorrigé()">💾 Sauvegarder Corrigé</button>
+
+  <hr>
+  <p><b>Étape 2: Corriger une copie</b></p>
+  <select id="selectCorrigé"></select>
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="corriger()">🚀 Scanner & Corriger</button>
+  <div id="status"></div>
+
+  <div id="resultat"></div>
+  <button onclick="exporterExcel()">📊 Exporter en Excel</button>
+</div>
+
+<script>
+let corriges = JSON.parse(localStorage.getItem('corriges')) || [];
+let notes = [];
+
+function ajouterQuestion() {
+  document.getElementById('questions').innerHTML += `
+    <div class="question">
+      <input type="text" class="qText" placeholder="Question">
+      <input type="text" class="qRep" placeholder="Réponses acceptées: rep1, rep2">
+      <input type="number" class="qPts" placeholder="Points" value="1">
+    </div>`;
+}
+
+function sauverCorrigé() {
+  let nom = document.getElementById('nomEpreuve').value;
+  let questions = [];
+  document.querySelectorAll('.question').forEach(q => {
+    questions.push({
+      text: q.querySelector('.qText').value,
+      reponses: q.querySelector('.qRep').value.toLowerCase().split(','),
+      points: parseFloat(q.querySelector('.qPts').value)
+    });
+  });
+  corriges.push({nom, questions});
+  localStorage.setItem('corriges', JSON.stringify(corriges));
+  chargerSelect();
+  alert('Corrigé sauvé!');
+}
+
+function chargerSelect() {
+  let sel = document.getElementById('selectCorrigé');
+  sel.innerHTML = '';
+  corriges.forEach((c, i) => sel.innerHTML += `<option value="${i}">${c.nom}</option>`);
+}
+chargerSelect();
+
+async function corriger() {
+  const file = document.getElementById('imageInput').files[0];
+  const corrigéIndex = document.getElementById('selectCorrigé').value;
+  if(!file || corrigéIndex === '') return alert('Choisis une image et un corrigé');
+
+  document.getElementById('status').innerText = 'Lecture de la copie... 10s';
+  const { data: { text } = await Tesseract.recognize(file, 'fra');
+
+  document.getElementById('status').innerText = 'Correction en cours...';
+  const corrigé = corriges[corrigéIndex];
+  let noteTotale = 0;
+  let details = '';
+  let texteMinuscule = text.toLowerCase();
+
+  corrigé.questions.forEach((q, i) => {
+    let trouvé = q.reponses.some(rep => texteMinuscule.includes(rep.trim()));
+    if(trouvé) noteTotale += q.points;
+    details += `Q${i+1}: ${trouvé? '✅ +'+q.points+'pts' : '❌ 0pt'} <br>`;
+  });
+
+  document.getElementById('status').innerText = 'Terminé!';
+  document.getElementById('resultat').innerHTML = `
+    <h3>Résultat</h3>
+    <p class="note">Note: ${noteTotale} / ${corrigé.questions.reduce((a,b)=>a+b.points,0)}</p>
+    <p><b>Détails:</b><br>${details}</p>
+    <p><b>Texte lu:</b><br><small>${text}</small></p>
+  `;
+
+  notes.push({eleve: 'Eleve '+ (notes.length+1), note: noteTotale});
+}
+
+function exporterExcel() {
+  const ws = XLSX.utils.json_to_sheet(notes);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Notes");
+  XLSX.writeFile(wb, "notes.xlsx");
+}
+</script>
+</body>
+</html>
