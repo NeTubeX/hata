@@ -2657,7 +2657,13 @@ async function exportSchoolCompleteToExcel(schoolId) {
 
 async function exportSchoolAsPDF(schoolId) {
     try {
-        toast("⏳ Generating PDF...", "info");
+        toast("⏳ Generating professional PDF...", "info");
+        
+        if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF === 'undefined') {
+            toast("❌ PDF library not loaded. Please refresh.", "error");
+            return;
+        }
+        
         showModal("📤 Export Progress", `
             <div style="padding:10px;">
                 <div style="text-align:center;margin-bottom:10px;">
@@ -2668,61 +2674,329 @@ async function exportSchoolAsPDF(schoolId) {
                     <div class="progress-bar"><div class="fill" id="exportProgress" style="width:0%;"></div></div>
                     <div class="progress-text" id="exportProgressText">0%</div>
                 </div>
-                <div id="exportStats" style="margin-top:10px;font-size:12px;color:var(--text-secondary);">Preparing data...</div>
+                <div id="exportStats" style="margin-top:10px;font-size:12px;color:var(--text-secondary);">Loading data...</div>
             </div>
         `);
+        
         const schoolDoc = await getDoc(doc(db, "ecoles", schoolId));
-        if (!schoolDoc.exists()) { document.getElementById("modalOverlay").classList.remove("show"); toast("❌ School not found", "error"); return; }
+        if (!schoolDoc.exists()) {
+            document.getElementById("modalOverlay").classList.remove("show");
+            toast("❌ School not found", "error");
+            return;
+        }
+        
         const schoolData = schoolDoc.data();
         document.getElementById("exportSchoolName").textContent = schoolData.nom || schoolId;
+        
         const teachers = [], students = [], sheets = [], alerts = [];
-        document.getElementById("exportProgress").style.width = "10%";
-        document.getElementById("exportProgressText").textContent = "10% - Loading teachers...";
+        
+        document.getElementById("exportProgress").style.width = "15%";
+        document.getElementById("exportProgressText").textContent = "15% - Loading teachers...";
+        
         const teachersSnap = await getDocs(collection(db, "ecoles", schoolId, "professeurs"));
-        teachersSnap.forEach(d => { const data = d.data(); teachers.push({ nom: data.nom || "Unknown", code: data.code || "-", actif: data.actif !== false ? "Active" : "Inactive" }); });
-        document.getElementById("exportProgress").style.width = "30%";
-        document.getElementById("exportProgressText").textContent = "30% - Loading students...";
+        teachersSnap.forEach(d => {
+            const data = d.data();
+            teachers.push({
+                nom: data.nom || "Unknown",
+                code: data.code || "-",
+                actif: data.actif !== false ? "Active" : "Inactive",
+                createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('fr-FR') : "-"
+            });
+        });
+        
+        document.getElementById("exportProgress").style.width = "35%";
+        document.getElementById("exportProgressText").textContent = "35% - Loading students...";
+        
         const studentsSnap = await getDocs(collection(db, "ecoles", schoolId, "compta_eleves"));
-        studentsSnap.forEach(d => { const data = d.data(); students.push({ nom: data.nom || "Unknown", prenom: data.prenom || "", classe: data.classe || "", sexe: data.sexe === "F" ? "Girl" : "Boy", statut: data.exonere ? "Exempted" : "Regular", parentCode: data.parentCode || "-" }); });
-        document.getElementById("exportProgress").style.width = "50%";
-        document.getElementById("exportProgressText").textContent = "50% - Loading sheets...";
+        studentsSnap.forEach(d => {
+            const data = d.data();
+            students.push({
+                nom: data.nom || "Unknown",
+                prenom: data.prenom || "",
+                classe: data.classe || "",
+                sexe: data.sexe === "F" ? "F" : "M",
+                statut: data.exonere ? "Exempted" : "Regular",
+                parentCode: data.parentCode || "-",
+                dateInscription: data.dateInscription ? new Date(data.dateInscription).toLocaleDateString('fr-FR') : "-"
+            });
+        });
+        
+        document.getElementById("exportProgress").style.width = "55%";
+        document.getElementById("exportProgressText").textContent = "55% - Loading sheets...";
+        
         const sheetsSnap = await getDocs(collection(db, "ecoles", schoolId, "fiches"));
-        sheetsSnap.forEach(d => { const data = d.data(); sheets.push({ cours: data.cours || "No subject", classe: data.classe || "", option: data.option || "-", titulaire: data.titulaire || "-" }); });
-        document.getElementById("exportProgress").style.width = "70%";
-        document.getElementById("exportProgressText").textContent = "70% - Loading alerts...";
+        sheetsSnap.forEach(d => {
+            const data = d.data();
+            sheets.push({
+                cours: data.cours || "No subject",
+                classe: data.classe || "",
+                option: data.option || "-",
+                titulaire: data.titulaire || "-",
+                createdBy: data.createdBy || "Admin"
+            });
+        });
+        
+        document.getElementById("exportProgress").style.width = "75%";
+        document.getElementById("exportProgressText").textContent = "75% - Loading alerts...";
+        
         const alertsSnap = await getDocs(collection(db, "ecoles", schoolId, "alertes_admin"));
-        alertsSnap.forEach(d => { const data = d.data(); alerts.push({ message: data.alerte || data.message || "-", date: data.date ? new Date(data.date).toLocaleString() : "-" }); });
+        alertsSnap.forEach(d => {
+            const data = d.data();
+            alerts.push({
+                message: data.alerte || data.message || "-",
+                date: data.date ? new Date(data.date).toLocaleString('fr-FR') : "-"
+            });
+        });
+        
         document.getElementById("exportProgress").style.width = "90%";
         document.getElementById("exportProgressText").textContent = "90% - Generating PDF...";
+        
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('l', 'mm', 'a4');
-        const blue = [59, 130, 246], dark = [10, 14, 26];
-        let yPos = 20;
-        doc.setFontSize(22); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text('NETUBEX SARL', 20, yPos); yPos += 10;
-        doc.setFontSize(16); doc.setTextColor(dark[0], dark[1], dark[2]); doc.text('SCHOOL EXPORT - COMPLETE DATA', 20, yPos); yPos += 8;
-        doc.setFontSize(11); doc.setTextColor(dark[0], dark[1], dark[2]);
-        doc.text(`School: ${schoolData.nom || schoolId}`, 20, yPos); yPos += 6;
-        doc.text(`ID: ${schoolId}`, 20, yPos); yPos += 6;
-        doc.text(`Province: ${schoolData.province || '-'}`, 20, yPos); yPos += 6;
-        doc.text(`City: ${schoolData.ville || '-'}`, 20, yPos); yPos += 6;
-        doc.text(`Principal: ${schoolData.directeur || '-'}`, 20, yPos); yPos += 6;
-        doc.text(`Phone: ${schoolData.telephone || '-'}`, 20, yPos); yPos += 6;
-        doc.text(`Fee: ${schoolData.tarifParEleve || 2000} FC`, 20, yPos); yPos += 6;
-        doc.text(`Status: ${schoolData.actif !== false ? '✅ Active' : '⛔ Inactive'}`, 20, yPos); yPos += 6;
-        doc.text(`Export Date: ${new Date().toLocaleString('en-US')}`, 20, yPos); yPos += 12;
-        if (teachers.length > 0) { doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`TEACHERS (${teachers.length})`, 20, yPos); yPos += 8; const teacherData = teachers.map(t => [t.nom, t.code, t.actif]); doc.autoTable({ startY: yPos, head: [['Name', 'Code', 'Status']], body: teacherData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 9 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (students.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`STUDENTS (${students.length})`, 20, yPos); yPos += 8; const studentData = students.map(s => [s.nom, s.prenom, s.classe, s.sexe, s.statut, s.parentCode]); doc.autoTable({ startY: yPos, head: [['Last Name', 'First Name', 'Class', 'Gender', 'Status', 'Parent Code']], body: studentData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 8 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (sheets.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`SHEETS (${sheets.length})`, 20, yPos); yPos += 8; const sheetData = sheets.map(s => [s.cours, s.classe, s.option, s.titulaire]); doc.autoTable({ startY: yPos, head: [['Subject', 'Class', 'Option', 'Teacher']], body: sheetData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 9 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (alerts.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(245, 158, 11); doc.text(`ALERTS (${alerts.length})`, 20, yPos); yPos += 8; const alertData = alerts.map(a => [a.message, a.date]); doc.autoTable({ startY: yPos, head: [['Message', 'Date']], body: alertData, theme: 'grid', headStyles: { fillColor: [245, 158, 11] }, styles: { fontSize: 9 } }); }
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('CONFIDENTIAL - NETUBEX SARL - Unauthorized distribution prohibited', 20, doc.internal.pageSize.height - 10); doc.text(`Page ${i}/${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10); }
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 15;
+        let yPos = 25;
+        
+        const primaryColor = [41, 128, 185];
+        const secondaryColor = [52, 73, 94];
+        const darkGray = [44, 62, 80];
+        
+        // Fonction d'en-tête
+        function addPageHeader(pageNum, totalPages) {
+            doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.setLineWidth(2);
+            doc.line(margin, 18, pageWidth - margin, 18);
+            
+            doc.setFontSize(18);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text('NETUBEX SARL', margin + 5, 15);
+            
+            doc.setFontSize(9);
+            doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.text('Document Officiel - Export Données', margin + 5, 21);
+            
+            doc.setFontSize(8);
+            doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+            doc.text(`Page ${pageNum}/${totalPages}`, pageWidth - margin - 35, 15);
+            doc.text(new Date().toLocaleString('fr-FR'), pageWidth - margin - 35, 21);
+            
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.5);
+            doc.line(margin, 24, pageWidth - margin, 24);
+            
+            return 28;
+        }
+        
+        // Fonction de pied de page
+        function addPageFooter() {
+            const footerY = pageHeight - 12;
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.5);
+            doc.line(margin, footerY - 4, pageWidth - margin, footerY - 4);
+            
+            doc.setFontSize(7);
+            doc.setTextColor(150, 150, 150);
+            doc.text('CONFIDENTIEL - NETUBEX SARL - Tous droits réservés', margin + 5, footerY);
+            doc.text('Document généré automatiquement', pageWidth - margin - 65, footerY);
+        }
+        
+        // Premier en-tête
+        const totalPages = 3 + (teachers.length > 0 ? 1 : 0) + (students.length > 0 ? 1 : 0) + (sheets.length > 0 ? 1 : 0) + (alerts.length > 0 ? 1 : 0);
+        let currentPage = 1;
+        yPos = addPageHeader(currentPage, totalPages);
+        
+        // TITRE
+        doc.setFontSize(16);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('RAPPORT COMPLET DE L\'ÉCOLE', pageWidth/2, yPos, { align: 'center' });
+        yPos += 12;
+        
+        // INFOS ÉCOLE
+        doc.setFontSize(10);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        const infoLines = [
+            `🏫 École: ${schoolData.nom || schoolId}`,
+            `🆔 ID: ${schoolId}`,
+            `📍 Province: ${schoolData.province || '-'}`,
+            `🏙️ Ville: ${schoolData.ville || '-'}`,
+            `👨‍💼 Directeur: ${schoolData.directeur || '-'}`,
+            `📞 Téléphone: ${schoolData.telephone || '-'}`,
+            `💰 Frais: ${schoolData.tarifParEleve || 2000} FC`,
+            `📊 Statut: ${schoolData.actif !== false ? '✅ Active' : '⛔ Inactive'}`,
+            `📅 Export: ${new Date().toLocaleString('fr-FR')}`
+        ];
+        
+        let maxWidth = 0;
+        infoLines.forEach(line => {
+            const width = doc.getStringUnitWidth(line) * 10 / doc.internal.scaleFactor;
+            if (width > maxWidth) maxWidth = width;
+        });
+        const colWidth = Math.min(maxWidth + 10, (pageWidth - 2 * margin) / 3);
+        
+        infoLines.forEach((line, idx) => {
+            const col = idx % 3;
+            const row = Math.floor(idx / 3);
+            const x = margin + col * (colWidth + 5);
+            const y = yPos + row * 7;
+            if (y < pageHeight - 30) {
+                doc.text(line, x, y);
+            }
+        });
+        yPos += Math.ceil(infoLines.length / 3) * 7 + 8;
+        
+        // STATISTIQUES RAPIDES
+        doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.setLineWidth(0.5);
+        doc.rect(margin, yPos - 4, pageWidth - 2 * margin, 20);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        const stats = [
+            `👨‍🏫 Professeurs: ${teachers.length}`,
+            `👨‍🎓 Élèves: ${students.length}`,
+            `📄 Fiches: ${sheets.length}`,
+            `⚠️ Alertes: ${alerts.length}`
+        ];
+        const statWidth = (pageWidth - 2 * margin) / stats.length;
+        stats.forEach((stat, idx) => {
+            doc.text(stat, margin + idx * statWidth + 5, yPos + 10);
+        });
+        yPos += 24;
+        
+        // TABLEAUX
+        if (teachers.length > 0) {
+            if (yPos > pageHeight - 50) { currentPage++; yPos = addPageHeader(currentPage, totalPages); }
+            
+            doc.setFontSize(13);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text(`👨‍🏫 PROFESSEURS (${teachers.length})`, margin, yPos);
+            yPos += 8;
+            
+            const teacherData = teachers.map(t => [t.nom, t.code, t.actif, t.createdAt]);
+            doc.autoTable({
+                startY: yPos,
+                head: [['Nom', 'Code', 'Statut', 'Créé le']],
+                body: teacherData,
+                theme: 'grid',
+                headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+                styles: { fontSize: 8, cellPadding: 3 },
+                margin: { left: margin, right: margin },
+                columnStyles: {
+                    0: { cellWidth: 50 },
+                    1: { cellWidth: 40 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 40 }
+                }
+            });
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
+        
+        if (students.length > 0) {
+            if (yPos > pageHeight - 50) { currentPage++; yPos = addPageHeader(currentPage, totalPages); }
+            
+            doc.setFontSize(13);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text(`👨‍🎓 ÉLÈVES (${students.length})`, margin, yPos);
+            yPos += 8;
+            
+            const studentData = students.map(s => [s.nom, s.prenom, s.classe, s.sexe, s.statut, s.parentCode, s.dateInscription]);
+            doc.autoTable({
+                startY: yPos,
+                head: [['Nom', 'Prénom', 'Classe', 'Sexe', 'Statut', 'Code Parent', 'Inscription']],
+                body: studentData,
+                theme: 'grid',
+                headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 8 },
+                styles: { fontSize: 7, cellPadding: 2 },
+                margin: { left: margin, right: margin },
+                columnStyles: {
+                    0: { cellWidth: 30 },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 25 },
+                    3: { cellWidth: 20 },
+                    4: { cellWidth: 25 },
+                    5: { cellWidth: 30 },
+                    6: { cellWidth: 30 }
+                }
+            });
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
+        
+        if (sheets.length > 0) {
+            if (yPos > pageHeight - 50) { currentPage++; yPos = addPageHeader(currentPage, totalPages); }
+            
+            doc.setFontSize(13);
+            doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.text(`📄 FICHES PÉDAGOGIQUES (${sheets.length})`, margin, yPos);
+            yPos += 8;
+            
+            const sheetData = sheets.map(s => [s.cours, s.classe, s.option, s.titulaire, s.createdBy]);
+            doc.autoTable({
+                startY: yPos,
+                head: [['Matière', 'Classe', 'Option', 'Titulaire', 'Créé par']],
+                body: sheetData,
+                theme: 'grid',
+                headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 9 },
+                styles: { fontSize: 8, cellPadding: 3 },
+                margin: { left: margin, right: margin },
+                columnStyles: {
+                    0: { cellWidth: 40 },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 40 },
+                    4: { cellWidth: 30 }
+                }
+            });
+            yPos = doc.lastAutoTable.finalY + 10;
+        }
+        
+        if (alerts.length > 0) {
+            if (yPos > pageHeight - 50) { currentPage++; yPos = addPageHeader(currentPage, totalPages); }
+            
+            doc.setFontSize(13);
+            doc.setTextColor(231, 76, 60);
+            doc.text(`⚠️ ALERTES ADMIN (${alerts.length})`, margin, yPos);
+            yPos += 8;
+            
+            const alertData = alerts.map(a => [a.message, a.date]);
+            doc.autoTable({
+                startY: yPos,
+                head: [['Message', 'Date']],
+                body: alertData,
+                theme: 'grid',
+                headStyles: { fillColor: [231, 76, 60], textColor: [255, 255, 255], fontSize: 9 },
+                styles: { fontSize: 8, cellPadding: 3 },
+                margin: { left: margin, right: margin },
+                columnStyles: {
+                    0: { cellWidth: 80 },
+                    1: { cellWidth: 50 }
+                }
+            });
+        }
+        
+        // Pied de page sur toutes les pages
+        for (let i = 1; i <= doc.internal.getNumberOfPages(); i++) {
+            doc.setPage(i);
+            addPageFooter();
+        }
+        
         document.getElementById("exportProgress").style.width = "100%";
         document.getElementById("exportProgressText").textContent = "100% - Done!";
+        
         const fileName = `school_${schoolId}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
-        setTimeout(() => { document.getElementById("modalOverlay").classList.remove("show"); }, 500);
-        toast(`✅ PDF exported`, "success");
-    } catch (error) { document.getElementById("modalOverlay").classList.remove("show"); toast("❌ Error: " + error.message, "error"); console.error("PDF error:", error); }
+        
+        setTimeout(() => {
+            document.getElementById("modalOverlay").classList.remove("show");
+        }, 500);
+        
+        toast(`✅ PDF professionnel exporté`, "success");
+        
+    } catch (error) {
+        document.getElementById("modalOverlay").classList.remove("show");
+        toast("❌ Erreur PDF: " + error.message, "error");
+        console.error("PDF error:", error);
+    }
 }
 
 async function exportSchoolAsCSV(schoolId) {
