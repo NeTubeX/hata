@@ -675,7 +675,7 @@ let optionsParClasse = {
 const toutesOptionsTitu = ["TOUTES", "LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"];
 let horaireProf = { lundi: [], mardi: [], mercredi: [], jeudi: [], vendredi: [] };
 let jourAffichage = null, localEleves = [], toutesFichesCompletes = [];
-const WORKER_URL = 'https://ia.netube-a97.workers.dev/';
+const WORKER_URL = 'https://#.netube-a97.workers.dev/';
 let iaInstructions = null, dernierEleveConsulte = null, dernierEleveData = null, correctionFiche = null, correctionFicheId = null;
 let tentativeConnexion = 0, derniereTentative = 0, SEUIL_ALERTE = 3;
 let dernierCommunique = null, communiqueAffiche = false, enAttenteChoixEleve = false, listeElevesEnAttente = [];
@@ -1463,7 +1463,6 @@ const msg = message.trim().toLowerCase();
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 const aujourdhui = new Date();
 const jourSemaine = aujourdhui.getDay();
-if (jourSemaine === 0) return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
 if (msg === 'oui' || msg === 'o' || msg === 'ok' || msg === 'd\'accord' || msg === 'vas-y' || msg === 'go') {
 if (dernierEleveData) {
 const sections = ['notes', 'frais', 'presence', 'punitions'];
@@ -1829,7 +1828,7 @@ function getPeriodeMax(p) { return currentFiche.p1Max || 20; }
 function getExamMax(s) { if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2); else return getPeriodeMax(3) + getPeriodeMax(4); }
 function getTotalSemestreMax(s) { if (s === 1) return getPeriodeMax(1) + getPeriodeMax(2) + getExamMax(1); else return getPeriodeMax(3) + getPeriodeMax(4) + getExamMax(2); }
 function getTotalAnnuelMax() { return getTotalSemestreMax(1) + getTotalSemestreMax(2); }
-function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || []; if (!eps.length || !notes?.length) return 0; let sommeNotes = 0, sommeMax = 0; for (let i = 0; i < eps.length; i++) { sommeNotes += (notes[i] || 0); sommeMax += (eps[i].max || 1); } if (sommeMax === 0) return 0; let noteMaxPeriode = currentFiche.p1Max || 20; let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode; return Math.round(Math.min(noteMaxPeriode, moyenne)); }
+function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || []; if (!eps.length || !notes?.length) return 0; let sommeNotes = 0, sommeMax = 0; for (let i = 0; i < eps.length; i++) { sommeNotes += (notes[i] || 0); sommeMax += (eps[i].max || 1); } if (sommeMax === 0) return 0; let noteMaxPeriode = currentFiche.p1Max || 20; let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode; return Math.min(noteMaxPeriode, Math.round(moyenne)); }
 function getNoteClass(note, maxNote) { if (maxNote === 0) return ''; const ratio = note / maxNote; if (ratio >= 0.8) return 'note-excellent'; if (ratio >= 0.7) return 'note-bien'; if (ratio >= 0.5) return 'note-moyen'; return 'note-insuffisant'; }
 function getAppreciation(note, maxNote) { if (maxNote === 0) return { text: 'Non évalué', class: '' }; const ratio = note / maxNote; if (ratio >= 0.8) return { text: 'Excellent', class: 'appreciation-excellent' }; if (ratio >= 0.7) return { text: 'Très Bien', class: 'appreciation-tresbien' }; if (ratio >= 0.6) return { text: 'Bien', class: 'appreciation-bien' }; if (ratio >= 0.5) return { text: 'Assez Bien', class: 'appreciation-assezbien' }; if (ratio >= 0.4) return { text: 'Passable', class: 'appreciation-passable' }; return { text: 'Insuffisant', class: 'appreciation-insuffisant' }; }
 function getMoyenneGenerale(eleve) { let p1 = calcMoy(1, eleve.notes?.p1 || []); let p2 = calcMoy(2, eleve.notes?.p2 || []); let p3 = calcMoy(3, eleve.notes?.p3 || []); let p4 = calcMoy(4, eleve.notes?.p4 || []); let ex1 = eleve.notes?.exam1 || 0; let ex2 = eleve.notes?.exam2 || 0; let total = p1 + p2 + p3 + p4 + ex1 + ex2; let maxTotal = getPeriodeMax(1) * 4 + getExamMax(1) + getExamMax(2); return { moyenne: Math.round(total / 6 * 20) / 20, total: total, maxTotal: maxTotal }; }
@@ -2121,22 +2120,22 @@ sumN += (notes[i] || 0);
 sumM += (epsList[i].max || 1);
 }
 if (sumM === 0) return 0;
-return Math.round(Math.min(pMax, (sumN / sumM) * pMax));
+return Math.min(pMax, Math.round((sumN / sumM) * pMax));
 }
 let p1 = calcMoyNormalise(1, eleve.notes?.p1 || [], fiche.epreuvesParPeriode);
 let p2 = calcMoyNormalise(2, eleve.notes?.p2 || [], fiche.epreuvesParPeriode);
 let p3 = calcMoyNormalise(3, eleve.notes?.p3 || [], fiche.epreuvesParPeriode);
 let p4 = calcMoyNormalise(4, eleve.notes?.p4 || [], fiche.epreuvesParPeriode);
-let exam1 = Math.round(eleve.notes?.exam1 || 0);
-let exam2 = Math.round(eleve.notes?.exam2 || 0);
+let exam1 = eleve.notes?.exam1 || 0;
+let exam2 = eleve.notes?.exam2 || 0;
 const examMax = pMax * 2;
-let totalS1 = Math.round(p1 + p2 + exam1);
-let totalS2 = Math.round(p3 + p4 + exam2);
+let totalS1 = p1 + p2 + exam1;
+let totalS2 = p3 + p4 + exam2;
 const totalS1Max = pMax * 4;
 const totalS2Max = pMax * 4;
 if (period === "s1") return { p1, p2, exam1, examMax, totalS1, totalS1Max, p3: 0, p4: 0, exam2: 0, totalS2: 0, totalS2Max: 0, total: totalS1, totalMax: totalS1Max, pMax: pMax };
 if (period === "s2") return { p1: 0, p2: 0, exam1: 0, examMax: 0, totalS1: 0, totalS1Max: 0, p3, p4, exam2, totalS2, totalS2Max, total: totalS2, totalMax: totalS2Max, pMax: pMax };
-return { p1, p2, exam1, examMax, totalS1, totalS1Max, p3, p4, exam2, totalS2, totalS2Max, total: Math.round(totalS1 + totalS2), totalMax: pMax * 8, pMax: pMax };
+return { p1, p2, exam1, examMax, totalS1, totalS1Max, p3, p4, exam2, totalS2, totalS2Max, total: totalS1 + totalS2, totalMax: pMax * 8, pMax: pMax };
 }
 function getNotesForEleveTitu(eleve, fiche) {
 const pMax = fiche.p1Max || 20;
@@ -2149,20 +2148,20 @@ sumN += (notes[i] || 0);
 sumM += (epsList[i].max || 1);
 }
 if (sumM === 0) return 0;
-return Math.round(Math.min(pMax, (sumN / sumM) * pMax));
+return Math.min(pMax, Math.round((sumN / sumM) * pMax));
 }
 let p1 = calcMoyNormalise(1, eleve.notes?.p1 || [], fiche.epreuvesParPeriode);
 let p2 = calcMoyNormalise(2, eleve.notes?.p2 || [], fiche.epreuvesParPeriode);
 let p3 = calcMoyNormalise(3, eleve.notes?.p3 || [], fiche.epreuvesParPeriode);
 let p4 = calcMoyNormalise(4, eleve.notes?.p4 || [], fiche.epreuvesParPeriode);
-let exam1 = Math.round(eleve.notes?.exam1 || 0);
-let exam2 = Math.round(eleve.notes?.exam2 || 0);
+let exam1 = eleve.notes?.exam1 || 0;
+let exam2 = eleve.notes?.exam2 || 0;
 const examMax = pMax * 2;
-let totalS1 = Math.round(p1 + p2 + exam1);
-let totalS2 = Math.round(p3 + p4 + exam2);
+let totalS1 = p1 + p2 + exam1;
+let totalS2 = p3 + p4 + exam2;
 const totalS1Max = pMax * 4;
 const totalS2Max = pMax * 4;
-return { p1, p2, exam1, examMax, totalS1, totalS1Max, p3, p4, exam2, totalS2, totalS2Max, total: Math.round(totalS1 + totalS2), totalMax: pMax * 8, pMax: pMax };
+return { p1, p2, exam1, examMax, totalS1, totalS1Max, p3, p4, exam2, totalS2, totalS2Max, total: totalS1 + totalS2, totalMax: pMax * 8, pMax: pMax };
 }
 function renderFicheCardTitu(fiche) {
 const pMax = fiche.p1Max || 20;
@@ -2243,8 +2242,8 @@ pdf.text('Classe: ' + classe + (option ? ' - ' + (option === 'TOUTES' ? 'TOUTES 
 pdf.text('Titulaire: ' + titulaireNom, 14, 78);
 const headers = [['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
 const body = [];
-function calcMoyPdf(periode, notes, eps, pM) { let e = eps[periode] || []; if (!e.length || !notes || !notes.length) return 0; let sn = 0, sm = 0; for (let i = 0; i < e.length; i++) { sn += (notes[i] || 0); sm += (e[i].max || 1); } return sm ? Math.round(Math.min(pM, (sn / sm) * pM)) : 0; }
-const maxRow = ['MAXIMA', '', '', pMax, pMax, pMax*2, pMax*3, pMax, pMax, pMax*2, pMax*3, pMax*6];
+function calcMoyPdf(periode, notes, eps, pM) { let e = eps[periode] || []; if (!e.length || !notes || !notes.length) return 0; let sn = 0, sm = 0; for (let i = 0; i < e.length; i++) { sn += (notes[i] || 0); sm += (e[i].max || 1); } return sm ? Math.min(pM, Math.round((sn / sm) * pM)) : 0; }
+const maxRow = ['MAXIMA', '', '', pMax, pMax, pMax*2, pMax*4, pMax, pMax, pMax*2, pMax*4, pMax*8];
 body.push(maxRow);
 for (let i = 0; i < eleves.length; i++) {
 let e = eleves[i];
@@ -2252,7 +2251,7 @@ let p1 = calcMoyPdf(1, e.notes?.p1 || [], epreuves, pMax);
 let p2 = calcMoyPdf(2, e.notes?.p2 || [], epreuves, pMax);
 let p3 = calcMoyPdf(3, e.notes?.p3 || [], epreuves, pMax);
 let p4 = calcMoyPdf(4, e.notes?.p4 || [], epreuves, pMax);
-let exam1 = Math.round(e.notes?.exam1 || 0), exam2 = Math.round(e.notes?.exam2 || 0);
+let exam1 = e.notes?.exam1 || 0, exam2 = e.notes?.exam2 || 0;
 body.push([(i + 1).toString().padStart(2, '0'), e.nom || '', e.sexe || '', p1, p2, exam1, p1 + p2 + exam1, p3, p4, exam2, p3 + p4 + exam2, p1 + p2 + exam1 + p3 + p4 + exam2]);
 }
 if (body.length === 1) body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
@@ -2465,7 +2464,7 @@ toast('Affichage : ' + this.textContent);
 function prefillTitulaireNom() { if (currentProf && currentProf.nom) { const input = document.getElementById('titulaireNomInput'); if (input) { const savedConfig = localStorage.getItem('gloria_titulaire_config'); if (!savedConfig) input.value = currentProf.nom; } } }
 document.getElementById('saveTitulaireConfigBtn').onclick = async () => {
 let nom = document.getElementById('titulaireNomInput').value.trim();
-if (!nom) { toast("❌ Veuillez entrer votre nom ", 'error'); return; }
+if (!nom) { toast("❌ Veuillez entrer votre nom (obligatoire)", 'error'); return; }
 let classesOptions = getSelectedClassesOptionsTitu();
 if (classesOptions.length === 0) { toast("Veuillez sélectionner au moins une classe", 'error'); return; }
 let config = { nom: nom, classesOptions: classesOptions };
@@ -2502,7 +2501,7 @@ const classesUniques = [...new Set(resultats.map(r => `${r.classe}${r.option?` (
 document.getElementById('titulaireEleveInfo').innerHTML = `<div><span>👤 Élève:</span><span>${premier.nomEleve}</span></div><div><span>⚧ Sexe:</span><span>${premier.sexe==='M'?'Masculin':'Féminin'}</span></div><div><span>📚 Classe(s):</span><span>${classesUniques}</span></div>`;
 let tableHTML = '';
 for (const r of resultats) {
-tableHTML += `<tr><td style="text-align:left;font-weight:600">${r.cours}</td><td style="text-align:center">${r.classe}${r.option?` (${r.option})`:''}</td><td class="${r.p1<(r.pMax/2)?'failed':'passed'}">${r.p1}</td><td class="${r.p2<(r.pMax/2)?'failed':'passed'}">${r.p2}</td><td class="${r.exam1<(r.pMax/2)?'failed':'passed'}">${r.exam1}</td><td class="${r.totalS1<60?'failed':'passed'}">${r.totalS1}</td><td class="${r.p3<(r.pMax/2)?'failed':'passed'}">${r.p3}</td><td class="${r.p4<(r.pMax/2)?'failed':'passed'}">${r.p4}</td><td class="${r.exam2<(r.pMax/2)?'failed':'passed'}">${r.exam2}</td><td class="${r.totalS2<60?'failed':'passed'}">${r.totalS2}</td><td class="${r.total<120?'failed':'passed'}">${r.total}</td></tr>`;
+tableHTML += `<tr><td style="text-align:left;font-weight:600">${r.cours}</td><td style="text-align:center">${r.classe}${r.option?` (${r.option})`:''}</td><td class="${r.p1<(r.pMax/2)?'failed':'passed'}">${r.p1}</td><td class="${r.p2<(r.pMax/2)?'failed':'passed'}">${r.p2}</td><td class="${r.exam1<(r.pMax/2)?'failed':'passed'}">${r.exam1}</td><td class="${r.totalS1<80?'failed':'passed'}">${r.totalS1}</td><td class="${r.p3<(r.pMax/2)?'failed':'passed'}">${r.p3}</td><td class="${r.p4<(r.pMax/2)?'failed':'passed'}">${r.p4}</td><td class="${r.exam2<(r.pMax/2)?'failed':'passed'}">${r.exam2}</td><td class="${r.totalS2<80?'failed':'passed'}">${r.totalS2}</td><td class="${r.total<160?'failed':'passed'}">${r.total}</td></tr>`;
 }
 document.getElementById('titulaireReleveBody').innerHTML = tableHTML;
 resultCard.classList.add('show');
@@ -2608,7 +2607,7 @@ const prioEmoji = dernierComm.priorite === 'haute' ? '🔴' : (dernierComm.prior
 const prioLabel = dernierComm.priorite === 'haute' ? 'Haute priorité' : (dernierComm.priorite === 'moyenne' ? 'Priorité moyenne' : 'Information');
 messageComm = `<div style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px 16px;margin:8px 0;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:20px;">📢</span><span style="font-weight:700;color:#ffd700;font-size:15px;">${escapeHtml(dernierComm.titre)}</span><span style="font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:2px 12px;border-radius:30px;">${prioEmoji} ${prioLabel}</span><span style="font-size:11px;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 12px;border-radius:30px;">📅 ${dernierComm.statut}</span></div><div style="color:#e2e8f0;font-size:14px;margin-top:8px;line-height:1.6;">${escapeHtml(dernierComm.contenu)}</div><div style="font-size:10px;color:#64748b;margin-top:6px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;">Publié par la Direction</div></div>`;
 }
-parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble" style="padding:16px 20px;max-width:92%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;"><div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;"> ÉCOLE ${nomEcole}</div>${messageComm}<div style="color:#e2e8f0;font-size:17px;margin:8px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div><div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div><div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au samedi</div></div></div>`;
+parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble" style="padding:16px 20px;max-width:92%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;"><div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;"> ÉCOLE ${nomEcole}</div>${messageComm}<div style="color:#e2e8f0;font-size:17px;margin:8px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div><div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div><div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au dimanche</div></div></div>`;
 parentInfoEleveNew.innerHTML = `   ÉCOLE ${nomEcole}`;
 parentQuestionInputNew.value = '';
 parentQuestionInputNew.focus();
@@ -2624,16 +2623,6 @@ parentSendBtnNew.onclick = async () => {
 if (estEnAttenteReponse) { toast("Veuillez patienter, je suis en train d'écrire", 'warning'); return; }
 const message = parentQuestionInputNew.value.trim();
 if (!message) return;
-const aujourdhui = new Date();
-const jourSemaine = aujourdhui.getDay();
-if (jourSemaine === 0) {
-parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.</div></div>`;
-parentQuestionInputNew.value = '';
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
-return;
-}
 if (!await canAskQuestion()) {
 toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
 parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 20 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
