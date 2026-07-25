@@ -448,7 +448,7 @@ select option:hover{background:#1a3a6a;}
 <div class="card-body">
 <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
 <div style="flex:1;min-width:200px;">
-<input type="text" id="teacherSearchInput" placeholder="Entrer le code du professeur" maxlength="8" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;outline:none;letter-spacing:2px;text-transform:uppercase;" autocomplete="off">
+<input type="text" id="teacherSearchInput" placeholder="Entrer le BASE DES DONNÉES ID" maxlength="50" style="width:100%;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;font-family:monospace;outline:none;" autocomplete="off">
 </div>
 <button class="btn btn-primary" id="searchTeacherBtn" style="padding:10px 24px;">🔍 Rechercher</button>
 <button class="btn btn-outline" id="clearSearchBtn" style="padding:10px 24px;">✕ Effacer</button>
@@ -457,7 +457,7 @@ select option:hover{background:#1a3a6a;}
 <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
 <div style="font-size:48px;margin-bottom:16px;">🔍</div>
 <h4 style="color:var(--text-primary);margin-bottom:8px;">Rechercher un professeur</h4>
-<p style="font-size:13px;">Entrez le code du professeur pour afficher ses informations</p>
+<p style="font-size:13px;">Entrez le <strong>BASE DES DONNÉES ID</strong> (Firebase ID) du professeur</p>
 </div>
 </div>
 </div>
@@ -746,7 +746,7 @@ async function loadAllData(){
                 pSnap.forEach(d=>{
                     const data=d.data();
                     if(data._type==="prof"){
-                        allTeachers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Unknown",code:data.code||null,actif:data.actif!==false,lastActivity:data.lastActivity||data.createdAt||null});
+                        allTeachers.push({id:d.id,ecoleId:id,ecoleNom:ecoleData.nom||id,nom:data.nom||"Unknown",code:data.code||null,accessCode:data.accessCode||null,actif:data.actif!==false,lastActivity:data.lastActivity||data.createdAt||null,createdAt:data.createdAt||data.dateCreation||null});
                     }
                 });
             }catch(e){}
@@ -807,16 +807,32 @@ async function loadSchools(){
                 <td>${escapeHtml(s.directeur||"-")}</td>
                 <td><span class="badge ${s.actif!==false?"active":"inactive"}">${s.actif!==false?"Active":"Inactive"}</span></td>
                 <td>
-                    <button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">✏️</button>
-                    <button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">🔄</button>
-                    <button class="btn btn-sm btn-export export-btn" data-id="${s.id}">📤</button>
-                    <button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?"⏸️":"▶️"}</button>
-                    <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️</button>
+                    <button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button>
+                    <div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Modifier</button>
+                        <button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Changer ID</button>
+                        <button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Exporter</button>
+                        <button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?"Désactiver":"Activer"}</button>
+                        <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Supprimer</button>
+                    </div>
                 </td>
             </tr>`;
         });
         html+="</tbody></table></div>";
         container.innerHTML=html;
+        container.querySelectorAll('.action-toggle-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){
+                const id=this.dataset.id;
+                const div=document.getElementById('action-btns-'+id);
+                if(div.style.display==='none' || div.style.display===''){
+                    div.style.display='flex';
+                    this.textContent='✕ Fermer';
+                }else{
+                    div.style.display='none';
+                    this.textContent='⚡ Actions';
+                }
+            });
+        });
         container.querySelectorAll('.edit-school-btn').forEach(btn=>{
             btn.addEventListener('click', function(){ showEditSchool(this.dataset.id); });
         });
@@ -1217,8 +1233,9 @@ document.getElementById("saveTeacherBtn")?.addEventListener("click", async funct
     if(!nom||!ecole){ toast("Name and school required","error"); return; }
     try{
         const code = await generateUniqueTeacherCode();
+        const accessCode = Math.floor(1000 + Math.random() * 9000).toString();
         await setDoc(doc(collection(db,"ecoles",ecole,SC.PROFESSEURS)),{
-            nom,code,actif:true,_type:"prof",createdAt:new Date().toISOString()
+            nom,code,accessCode,actif:true,_type:"prof",createdAt:new Date().toISOString()
         });
         toast("Teacher added","success");
         document.getElementById("addTeacherForm").style.display="none";
@@ -1617,7 +1634,12 @@ async function assignCodesToAllTeachers() {
         if (data.code) { alreadyHaveCode++; continue; }
         try {
           const newCode = await generateUniqueTeacherCode();
-          await updateDoc(teacherDoc.ref, { code: newCode, codeAttributionDate: new Date().toISOString() });
+          const newAccessCode = Math.floor(1000 + Math.random() * 9000).toString();
+          await updateDoc(teacherDoc.ref, { 
+            code: newCode, 
+            accessCode: newAccessCode,
+            codeAttributionDate: new Date().toISOString() 
+          });
           assigned++;
         } catch (error) { errors++; }
       }
@@ -1676,78 +1698,93 @@ async function loadNotebookStats() {
 async function generateNotebookExcel() {
   try {
     toast("⏳ Génération du fichier Excel...", "info");
+    
     const teachers = [];
     const schoolsSnap = await getDocs(collection(db, "ecoles"));
+    
     for (const schoolDoc of schoolsSnap.docs) {
       const schoolId = schoolDoc.id;
       const schoolData = schoolDoc.data();
+      
       if (schoolData.actif === false) continue;
-      const teachersSnap = await getDocs(collection(db, "ecoles", schoolId, "professeurs"));
+      
+      const teachersSnap = await getDocs(
+        collection(db, "ecoles", schoolId, "professeurs")
+      );
+      
       teachersSnap.forEach(doc => {
         const data = doc.data();
-        teachers.push({
-          ecole: schoolData.nom || schoolId,
-          code: data.code || "NON_DEFINI",
-          nom: data.nom || "Inconnu",
-          firebaseId: doc.id,
-          actif: data.actif !== false
-        });
+        if (data.code) {
+          let dateFormatee = "-";
+          let heureFormatee = "-";
+          
+          if (data.createdAt || data.dateCreation) {
+            const date = new Date(data.createdAt || data.dateCreation);
+            if (!isNaN(date.getTime())) {
+              dateFormatee = date.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              });
+              heureFormatee = date.toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
+            }
+          }
+          
+          teachers.push({
+            code: data.code,
+            firebaseId: doc.id,
+            accessCode: data.accessCode || "NON_DEFINI",
+            dateCreation: dateFormatee,
+            heureCreation: heureFormatee
+          });
+        }
       });
     }
-    if (teachers.length === 0) { toast("❌ Aucun professeur trouvé", "warning"); return; }
-    teachers.sort((a, b) => {
-      if (a.ecole !== b.ecole) return a.ecole.localeCompare(b.ecole);
-      return a.code.localeCompare(b.code);
-    });
+    
+    if (teachers.length === 0) {
+      toast("❌ Aucun professeur trouvé", "warning");
+      return;
+    }
+    
+    teachers.sort((a, b) => a.firebaseId.localeCompare(b.firebaseId));
+    
     const wb = XLSX.utils.book_new();
+    
     const data = [
-      ['NETUBEX - LISTE DES CODES PROFESSEURS'],
-      [''],
-      ['Date d\'export', new Date().toLocaleString('fr-FR')],
-      ['Total professeurs', teachers.length],
-      ['Total écoles', new Set(teachers.map(t => t.ecole)).size],
-      [''],
-      ['#', 'ÉCOLE', 'CODE PROFESSEUR', 'NOM', 'FIREBASE ID', 'STATUT']
+      ['N°', 'CODE PROFESSEUR', 'BASE DES DONNÉES ID', 'CODE D\'ACCÈS', 'DATE CRÉATION', 'HEURE CRÉATION']
     ];
-    teachers.forEach((t, i) => {
-      data.push([i + 1, t.ecole, t.code, t.nom, t.firebaseId, t.actif ? 'ACTIF' : 'INACTIF']);
+    
+    teachers.forEach((t, index) => {
+      data.push([
+        index + 1,
+        t.code,
+        t.firebaseId,
+        t.accessCode,
+        t.dateCreation,
+        t.heureCreation
+      ]);
     });
-    const ws1 = XLSX.utils.aoa_to_sheet(data);
-    ws1['!cols'] = [{ wch: 5 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, ws1, 'Codes Professeurs');
-    const codesData = [['ÉCOLE', 'CODE PROFESSEUR', 'NOM']];
-    teachers.forEach(t => codesData.push([t.ecole, t.code, t.nom]));
-    const ws2 = XLSX.utils.aoa_to_sheet(codesData);
-    ws2['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 25 }];
-    XLSX.utils.book_append_sheet(wb, ws2, 'Codes Uniquement');
-    const ecoleStats = {};
-    let actifs = 0, inactifs = 0;
-    teachers.forEach(t => {
-      ecoleStats[t.ecole] = (ecoleStats[t.ecole] || 0) + 1;
-      if (t.actif) actifs++; else inactifs++;
-    });
-    const statsData = [
-      ['STATISTIQUES'],
-      [''],
-      ['Indicateur', 'Valeur'],
-      ['Date d\'export', new Date().toLocaleString('fr-FR')],
-      ['Total professeurs', teachers.length],
-      ['Nombre d\'écoles', Object.keys(ecoleStats).length],
-      ['Professeurs actifs', actifs],
-      ['Professeurs inactifs', inactifs],
-      [''],
-      ['RÉPARTITION PAR ÉCOLE'],
-      ['ÉCOLE', 'NOMBRE']
+    
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 5 },   // N°
+      { wch: 18 },  // CODE PROFESSEUR
+      { wch: 25 },  // BASE DES DONNÉES ID
+      { wch: 15 },  // CODE D'ACCÈS
+      { wch: 15 },  // DATE CRÉATION
+      { wch: 12 }   // HEURE CRÉATION
     ];
-    Object.entries(ecoleStats).sort((a, b) => b[1] - a[1]).forEach(([ecole, count]) => {
-      statsData.push([ecole, count]);
-    });
-    const ws3 = XLSX.utils.aoa_to_sheet(statsData);
-    ws3['!cols'] = [{ wch: 30 }, { wch: 15 }];
-    XLSX.utils.book_append_sheet(wb, ws3, 'Statistiques');
+    
+    XLSX.utils.book_append_sheet(wb, ws, 'Codes Professeurs');
+    
     const fileName = `codes_professeurs_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
+    
     toast(`✅ Export réussi ! ${teachers.length} professeurs`, "success");
+    
   } catch (error) {
     toast("❌ Erreur: " + error.message, "error");
     console.error("Export error:", error);
@@ -1757,10 +1794,10 @@ document.getElementById("assignCodesBtn")?.addEventListener("click", assignCodes
 document.getElementById("generateNotebookBtn")?.addEventListener("click", generateNotebookExcel);
 document.getElementById("refreshNotebookBtn")?.addEventListener("click", function(){ loadNotebookStats(); toast("✅ Statistiques actualisées", "success"); });
 
-let lastSearchCode = '';
-async function searchTeacherByCode(code) {
+let lastSearchId = '';
+async function searchTeacherByFirebaseId(firebaseId) {
   try {
-    const codeUpper = code.toUpperCase().trim();
+    const idToSearch = firebaseId.trim();
     const schoolsSnap = await getDocs(collection(db, "ecoles"));
     let foundTeacher = null, foundSchool = null;
     for (const schoolDoc of schoolsSnap.docs) {
@@ -1769,8 +1806,8 @@ async function searchTeacherByCode(code) {
       if (schoolData.actif === false) continue;
       const teachersSnap = await getDocs(collection(db, "ecoles", schoolId, "professeurs"));
       for (const teacherDoc of teachersSnap.docs) {
-        const data = teacherDoc.data();
-        if (data.code && data.code.toUpperCase().trim() === codeUpper) {
+        if (teacherDoc.id === idToSearch) {
+          const data = teacherDoc.data();
           foundTeacher = { id: teacherDoc.id, ...data };
           foundSchool = { id: schoolId, ...schoolData };
           break;
@@ -1784,7 +1821,7 @@ async function searchTeacherByCode(code) {
 function displayTeacherSearchResult(result) {
   const container = document.getElementById("teacherSearchResults");
   if (!result || !result.teacher) {
-    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">😕</div><h4 style="color:var(--text-primary);margin-bottom:8px;">Aucun résultat</h4><p style="font-size:13px;">Aucun professeur trouvé avec ce code</p></div>`;
+    container.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:16px;">😕</div><h4 style="color:var(--text-primary);margin-bottom:8px;">Aucun résultat</h4><p style="font-size:13px;">Aucun professeur trouvé avec ce BASE DES DONNÉES ID</p></div>`;
     return;
   }
   const t = result.teacher;
@@ -1794,8 +1831,8 @@ function displayTeacherSearchResult(result) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div style="grid-column:span 2;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:10px;">
-          <div><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:32px;">👨‍🏫</span><div><h3 style="color:var(--text-primary);font-size:18px;">${escapeHtml(t.nom)}</h3><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;"><span style="font-family:monospace;color:var(--gold);font-size:16px;font-weight:700;letter-spacing:1px;">🔑 ${escapeHtml(t.code)}</span><span class="badge ${t.actif !== false ? 'active' : 'inactive'}">${t.actif !== false ? '✅ Actif' : '⛔ Inactif'}</span></div></div></div></div>
-          <div style="text-align:right;"><div style="font-size:11px;color:var(--text-muted);">Firebase ID</div><div style="font-family:monospace;font-size:11px;color:var(--blue);">${escapeHtml(t.id)}</div></div>
+          <div><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:32px;">👨‍🏫</span><div><h3 style="color:var(--text-primary);font-size:18px;">${escapeHtml(t.nom)}</h3><div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;"><span style="font-family:monospace;color:var(--gold);font-size:16px;font-weight:700;letter-spacing:1px;">🔑 ${escapeHtml(t.code)}</span><span style="font-family:monospace;color:var(--blue);font-size:12px;">🆔 ${escapeHtml(t.id)}</span><span class="badge ${t.actif !== false ? 'active' : 'inactive'}">${t.actif !== false ? '✅ Actif' : '⛔ Inactif'}</span></div></div></div></div>
+          <div style="text-align:right;"><div style="font-size:11px;color:var(--text-muted);">Code d'accès</div><div style="font-family:monospace;font-size:16px;font-weight:700;color:var(--green);">${escapeHtml(t.accessCode || 'NON_DEFINI')}</div></div>
         </div>
       </div>
       <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:16px;">
@@ -1835,20 +1872,20 @@ async function performTeacherSearch() {
   const input = document.getElementById("teacherSearchInput");
   const btn = document.getElementById("searchTeacherBtn");
   if (!input) return;
-  const code = input.value.trim();
-  if (code.length !== 8) { toast("❌ Le code doit faire 8 caractères", "warning"); return; }
-  if (code === lastSearchCode) { toast("ℹ️ Ce professeur est déjà affiché", "info"); return; }
+  const firebaseId = input.value.trim();
+  if (!firebaseId) { toast("❌ Veuillez entrer un BASE DES DONNÉES ID", "warning"); return; }
+  if (firebaseId === lastSearchId) { toast("ℹ️ Ce professeur est déjà affiché", "info"); return; }
   btn.disabled = true;
   btn.textContent = '⏳ Recherche...';
   try {
-    const result = await searchTeacherByCode(code);
+    const result = await searchTeacherByFirebaseId(firebaseId);
     if (result && result.teacher) {
-      lastSearchCode = code;
+      lastSearchId = firebaseId;
       displayTeacherSearchResult(result);
       toast(`✅ Professeur trouvé: ${result.teacher.nom}`, "success");
     } else {
       displayTeacherSearchResult(null);
-      toast("❌ Aucun professeur trouvé avec ce code", "warning");
+      toast("❌ Aucun professeur trouvé avec ce BASE DES DONNÉES ID", "warning");
     }
   } catch (error) {
     toast("❌ Erreur: " + error.message, "error");
@@ -1860,7 +1897,7 @@ async function performTeacherSearch() {
 }
 document.getElementById("searchTeacherBtn")?.addEventListener("click", performTeacherSearch);
 document.getElementById("teacherSearchInput")?.addEventListener("keyup", function(e) {
-  if (e.key === "Enter" && this.value.trim().length === 8) performTeacherSearch();
+  if (e.key === "Enter") performTeacherSearch();
 });
 document.getElementById("clearSearchBtn")?.addEventListener("click", function() {
   document.getElementById("teacherSearchInput").value = "";
@@ -1868,10 +1905,10 @@ document.getElementById("clearSearchBtn")?.addEventListener("click", function() 
     <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
       <div style="font-size:48px;margin-bottom:16px;">🔍</div>
       <h4 style="color:var(--text-primary);margin-bottom:8px;">Rechercher un professeur</h4>
-      <p style="font-size:13px;">Entrez le code du professeur pour afficher ses informations</p>
+      <p style="font-size:13px;">Entrez le <strong>BASE DES DONNÉES ID</strong> (Firebase ID) du professeur</p>
     </div>
   `;
-  lastSearchCode = '';
+  lastSearchId = '';
   toast("✅ Recherche effacée", "info");
 });
 document.getElementById("refreshSearchBtn")?.addEventListener("click", function() {
@@ -1880,10 +1917,10 @@ document.getElementById("refreshSearchBtn")?.addEventListener("click", function(
     <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
       <div style="font-size:48px;margin-bottom:16px;">🔍</div>
       <h4 style="color:var(--text-primary);margin-bottom:8px;">Rechercher un professeur</h4>
-      <p style="font-size:13px;">Entrez le code du professeur pour afficher ses informations</p>
+      <p style="font-size:13px;">Entrez le <strong>BASE DES DONNÉES ID</strong> (Firebase ID) du professeur</p>
     </div>
   `;
-  lastSearchCode = '';
+  lastSearchId = '';
   toast("✅ Page réinitialisée", "success");
 });
 
