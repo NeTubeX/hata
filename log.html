@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Connexion - Gestion Scolarité</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0f172a);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+        .login-box{background:rgba(18,18,31,0.95);backdrop-filter:blur(20px);border-radius:32px;padding:44px 36px;width:100%;max-width:400px;border:1px solid rgba(255,215,0,0.2);box-shadow:0 30px 80px rgba(0,0,0,0.7);}
+        .login-box .logo{text-align:center;font-size:48px;margin-bottom:12px;}
+        .login-box h1{text-align:center;font-size:22px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
+        .login-box .sub{text-align:center;color:#94a3b8;font-size:13px;margin-bottom:6px;}
+        .login-box .ecole-id{text-align:center;color:#64748b;font-size:11px;margin-bottom:28px;background:rgba(255,215,0,0.05);padding:6px 12px;border-radius:20px;border:1px solid rgba(255,215,0,0.08);display:inline-block;margin-left:auto;margin-right:auto;width:auto;}
+        .login-box .ecole-wrapper{text-align:center;}
+        .form-group{margin-bottom:20px;}
+        .form-group label{display:block;color:#cbd5e1;font-size:13px;font-weight:500;margin-bottom:8px;text-align:center;}
+        .form-group input{width:100%;padding:16px;border-radius:16px;background:rgba(45,55,72,0.6);border:2px solid rgba(255,215,0,0.15);color:#fff;font-size:22px;text-align:center;letter-spacing:8px;font-family:monospace;outline:none;transition:all 0.3s;}
+        .form-group input:focus{border-color:#ffd700;box-shadow:0 0 0 4px rgba(255,215,0,0.08);background:rgba(45,55,72,0.8);}
+        .form-group input::placeholder{color:#475569;font-size:14px;letter-spacing:2px;font-family:'Inter',sans-serif;}
+        #loginBtn{width:100%;padding:16px;border-radius:16px;border:none;background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:0.5px;}
+        #loginBtn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,215,0,0.2);}
+        #loginBtn:active{transform:scale(0.97);}
+        #loginBtn:disabled{opacity:0.5;transform:none;box-shadow:none;}
+        .error{color:#ef4444;font-size:13px;text-align:center;margin-top:12px;min-height:20px;}
+        .info{color:#10b981;font-size:13px;text-align:center;margin-top:12px;min-height:20px;}
+        .footer{text-align:center;margin-top:28px;padding-top:16px;border-top:1px solid rgba(255,215,0,0.06);}
+        .footer p{color:#334155;font-size:11px;letter-spacing:0.5px;}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+        .login-box{animation:fadeIn 0.6s ease-out;}
+        .code-hint{text-align:center;color:#475569;font-size:11px;margin-top:8px;}
+        .role-badge{display:inline-block;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:600;margin-top:4px;}
+        .role-badge.dir{background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.2);}
+        .role-badge.compta{background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.2);}
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="logo">🏫</div>
+        <h1>GESTION SCOLAIRE</h1>
+        <p class="sub" id="schoolSub">COMPLEXE SCOLAIRE</p>
+        <div class="ecole-wrapper">
+            <div class="ecole-id" id="ecoleDisplay">📌 ÉCOLE : CHARGEMENT...</div>
+        </div>
+        
+        <div class="form-group">
+            <label>🔑 Code d'accès</label>
+            <input type="password" id="loginCode" placeholder="••••" maxlength="6" inputmode="numeric" autofocus>
+            <div class="code-hint">4 à 6 chiffres</div>
+        </div>
+        
+        <button id="loginBtn">🔓 SE CONNECTER</button>
+        
+        <div id="errorMsg" class="error"></div>
+        <div id="infoMsg" class="info"></div>
+        
+        <div class="footer">
+            <p>© 2026 - Tous droits réservés</p>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+            "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+        }
+    }
+    </script>
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { getFirestore, doc, getDoc } from "firebase/firestore";
+        
+        // ============================================
+        // FIREBASE CONFIG
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
+            authDomain: "gesco-67c43.firebaseapp.com",
+            projectId: "gesco-67c43",
+            storageBucket: "gesco-67c43.firebasestorage.app",
+            messagingSenderId: "333004443566",
+            appId: "1:333004443566:web:de41f60000e418dce9023f"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // ============================================
+        // RÉCUPÉRER L'ID DE L'ÉCOLE
+        // ============================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const ecoleId = urlParams.get('ecole') || 'mon-ecole';
+        const schoolDisplay = ecoleId.toUpperCase().replace(/-/g, ' ');
+        
+        document.getElementById('ecoleDisplay').textContent = `📌 ÉCOLE : ${schoolDisplay}`;
+        document.getElementById('schoolSub').textContent = `COMPLEXE SCOLAIRE ${schoolDisplay}`;
+        document.title = `Connexion - ${schoolDisplay}`;
+        
+        // ============================================
+        // CHARGER LA CONFIGURATION
+        // ============================================
+        let config = {
+            codeDirection: '1111',
+            codeComptabilite: '0000',
+            urlDirection: 'https://www.netubex.com/direction',
+            urlComptabilite: 'https://www.netubex.com/schoolcompta'
+        };
+        
+        async function chargerConfig() {
+            try {
+                const ref = doc(db, "ecoles", ecoleId, "settings", "data");
+                const snap = await getDoc(ref);
+                if (snap.exists()) {
+                    const data = snap.data();
+                    config.codeDirection = data.codeDirection || '1111';
+                    config.codeComptabilite = data.codeComptabilite || '0000';
+                    config.urlDirection = data.urlDirection || 'https://www.netubex.com/direction';
+                    config.urlComptabilite = data.urlComptabilite || 'https://www.netubex.com/schoolcompta';
+                }
+                console.log('✅ Configuration chargée');
+            } catch (error) {
+                console.error("Erreur chargement config:", error);
+            }
+        }
+        
+        // ============================================
+        // CONNEXION
+        // ============================================
+        async function seConnecter() {
+            const code = document.getElementById('loginCode').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('errorMsg');
+            const infoDiv = document.getElementById('infoMsg');
+            
+            // Réinitialiser
+            errorDiv.textContent = '';
+            infoDiv.textContent = '';
+            
+            // Vérification
+            if (!code || code.length < 4) {
+                errorDiv.textContent = '❌ Code invalide (minimum 4 chiffres)';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ VÉRIFICATION...';
+            
+            try {
+                await chargerConfig();
+                
+                // Déterminer le rôle
+                let role = null;
+                let url = '';
+                
+                if (code === config.codeDirection) {
+                    role = 'Direction';
+                    url = config.urlDirection;
+                } else if (code === config.codeComptabilite) {
+                    role = 'Comptabilité';
+                    url = config.urlComptabilite;
+                } else {
+                    errorDiv.textContent = '❌ Code d\'accès incorrect';
+                    btn.disabled = false;
+                    btn.textContent = '🔓 SE CONNECTER';
+                    return;
+                }
+                
+                infoDiv.textContent = `✅ ${role} - Redirection...`;
+                
+                // Redirection
+                setTimeout(() => {
+                    window.location.href = `${url}?ecole=${ecoleId}`;
+                }, 800);
+                
+            } catch (error) {
+                console.error("Erreur:", error);
+                errorDiv.textContent = `❌ Erreur : ${error.message}`;
+                btn.disabled = false;
+                btn.textContent = '🔓 SE CONNECTER';
+            }
+        }
+        
+        // ============================================
+        // ÉVÉNEMENTS
+        // ============================================
+        document.getElementById('loginBtn').onclick = seConnecter;
+        
+        document.getElementById('loginCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') seConnecter();
+        });
+        
+        document.getElementById('loginCode').addEventListener('input', function() {
+            if (this.value.length > 6) this.value = this.value.slice(0, 6);
+            document.getElementById('errorMsg').textContent = '';
+        });
+        
+        // ============================================
+        // INITIALISATION
+        // ============================================
+        await chargerConfig();
+        document.getElementById('loginCode').focus();
+        
+        console.log('✅ Page de login chargée');
+        console.log(`📌 École : ${ecoleId}`);
+        console.log(`🔑 Code Direction : ${config.codeDirection}`);
+        console.log(`🔑 Code Comptabilité : ${config.codeComptabilite}`);
+    </script>
+</body>
+</html>
