@@ -56,9 +56,9 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 </div>
 <div class="contact-wrapper">
 <div class="contact-divider"></div>
-<button class="contact-btn" onclick="window.location.href='tel:+243976953045'">
+<button class="contact-btn" onclick="window.location.href='tel:+243845048412'">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-Discuter avec NeTubeX SARL
+Contacter le support (+243 84 50 48 412)
 </button>
 </div>
 <script type="importmap">
@@ -66,7 +66,8 @@ Discuter avec NeTubeX SARL
 </script>
 <script type="module">
 import{initializeApp}from"firebase/app";
-import{getFirestore,doc,getDoc,setDoc}from"firebase/firestore";
+import{getFirestore,doc,getDoc,setDoc,addDoc,collection,query,where,getDocs}from"firebase/firestore";
+
 document.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();return false});
 document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='K'||e.keyCode===73||e.keyCode===74||e.keyCode===75)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.keyCode===85)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='s'||e.key==='S'||e.keyCode===83)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='h'||e.key==='H'||e.keyCode===72)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='c'||e.key==='C'||e.keyCode===67)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='p'||e.key==='P'||e.keyCode===80)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='o'||e.key==='O'||e.keyCode===79)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='n'||e.key==='N'||e.keyCode===78)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='f'||e.key==='F'||e.keyCode===70)){e.preventDefault();e.stopPropagation();return false}return true});
 document.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();return false});
@@ -75,32 +76,98 @@ document.addEventListener('selectstart',function(e){if(e.target.tagName!=='INPUT
 document.addEventListener('keyup',function(e){if(e.altKey&&e.key==='Tab'){e.preventDefault();return false}});
 Object.defineProperty(window,'console',{value:console,writable:false,configurable:false});
 document.querySelectorAll('img').forEach(img=>{img.addEventListener('contextmenu',function(e){e.preventDefault();return false})});
+
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
-const DEFAULT_CONFIG={codeDirection:"1111",codeComptabilite:"0000",urlDirection:"https://www.netubex.com/director",urlComptabilite:"https://www.netubex.com/schoolcompta"};
+
+const DEFAULT_CONFIG={
+urlDirection:"https://www.netubex.com/director",
+urlComptabilite:"https://www.netubex.com/schoolcompta"
+};
+
 const urlParams=new URLSearchParams(window.location.search);
 const ecoleId=urlParams.get("ecole")||"mon-ecole";
 const schoolDisplay=ecoleId.toUpperCase().replace(/-/g," ");
 document.getElementById("ecoleDisplay").textContent="📌 ÉCOLE : "+schoolDisplay;
 document.getElementById("schoolSub").textContent="COMPLEXE SCOLAIRE "+schoolDisplay;
 document.title="Connexion - "+schoolDisplay;
+
 let config={...DEFAULT_CONFIG};
+let tentatives=0;
+let tentativesNonNumeriques=0;
+let ipBloquee=false;
+let paysActuel=null;
+let ipActuelle=null;
+let premierPays=null;
+let tempsConnexion=null;
+let codeDirection=null;
+let codeComptabilite=null;
+
+async function getIPInfo(){
+try{
+const res=await fetch('https://ipapi.co/json/');
+const data=await res.json();
+return{ip:data.ip,pays:data.country_name,ville:data.city,code_pays:data.country_code};
+}catch(e){
+return{ip:'inconnu',pays:'inconnu',ville:'inconnu',code_pays:'XX'};
+}
+}
+
+async function logAlerte(type,niveau,message,details){
+try{
+const logData={
+type:type,
+niveau:niveau,
+ecole:schoolDisplay,
+ip:ipActuelle||'inconnu',
+pays:paysActuel||'inconnu',
+message:message,
+details:details||{},
+timestamp:new Date().toISOString()
+};
+await addDoc(collection(db,"alertes_admin"),logData);
+}catch(e){console.error("Erreur log:",e);}
+}
+
+async function verifierIPBloquee(ip){
+try{
+const q=query(collection(db,"ips_bloquees"),where("ip","==",ip));
+const snap=await getDocs(q);
+return!snap.empty;
+}catch(e){return false;}
+}
+
+async function bloquerIP(ip,raison){
+try{
+await setDoc(doc(db,"ips_bloquees",ip),{ip:ip,raison:raison,date:new Date().toISOString()});
+ipBloquee=true;
+}catch(e){}
+}
+
 async function chargerConfig(){
 try{
 const ref=doc(db,"ecoles",ecoleId,"settings","data");
 const snap=await getDoc(ref);
 if(snap.exists()){
 const data=snap.data();
-config.codeDirection=data.codeDirection||DEFAULT_CONFIG.codeDirection;
-config.codeComptabilite=data.codeComptabilite||DEFAULT_CONFIG.codeComptabilite;
+codeDirection=data.codeDirection||null;
+codeComptabilite=data.codeComptabilite||null;
 config.urlDirection=data.urlDirection||DEFAULT_CONFIG.urlDirection;
 config.urlComptabilite=data.urlComptabilite||DEFAULT_CONFIG.urlComptabilite;
+if(!codeDirection&&!codeComptabilite){
+await logAlerte("connexion_aucun_code","critical","🚨 Aucun code configuré - "+ecoleId,{ecole_id:ecoleId});
+return false;
+}
+return true;
 }else{
 await setDoc(ref,{...DEFAULT_CONFIG,ecoleId,createdAt:new Date().toISOString()});
+await logAlerte("connexion_aucun_code","critical","🚨 Aucun code configuré - "+ecoleId,{ecole_id:ecoleId});
+return false;
 }
-}catch(e){console.error(e);}
+}catch(e){return false;}
 }
+
 async function seConnecter(){
 const code=document.getElementById("loginCode").value.trim();
 const btn=document.getElementById("loginBtn");
@@ -108,33 +175,108 @@ const errorDiv=document.getElementById("errorMsg");
 const infoDiv=document.getElementById("infoMsg");
 errorDiv.textContent="";
 infoDiv.textContent="";
-if(!code||code.length<4){errorDiv.textContent="❌ Code invalide (minimum 4 chiffres)";return;}
+
+const ipInfo=await getIPInfo();
+ipActuelle=ipInfo.ip;
+paysActuel=ipInfo.pays;
+
+if(!ipActuelle||ipActuelle==='inconnu'){
+errorDiv.textContent="❌ Impossible de vérifier votre connexion";
+return;
+}
+
+const estBloquee=await verifierIPBloquee(ipActuelle);
+if(estBloquee){
+ipBloquee=true;
+errorDiv.textContent="🔒 Accès bloqué. Contactez le support au +243 84 50 48 412";
+await logAlerte("connexion_ip_bloque","critical","🔒 IP bloquée - "+ipActuelle,{raison:"IP bloquée précédemment"});
+return;
+}
+
+const ecoleExiste=await chargerConfig();
+if(!ecoleExiste){
+errorDiv.textContent="🔑 Aucun code d'accès configuré. Contactez le support au +243 84 50 48 412";
+return;
+}
+
+if(!premierPays){
+premierPays=paysActuel;
+tempsConnexion=Date.now();
+}
+
+if(premierPays!==paysActuel){
+const delai=Math.floor((Date.now()-tempsConnexion)/1000);
+if(delai<300){
+await bloquerIP(ipActuelle,"VPN detecte - changement de pays");
+errorDiv.textContent="🔒 Accès bloqué pour sécurité. Contactez le support au +243 84 50 48 412";
+await logAlerte("connexion_ip_pays_change","critical","🚨 VPN détecté - "+ipActuelle,{pays_ancien:premierPays,pays_nouveau:paysActuel,delai:delai});
+return;
+}
+}
+
+if(!code||code.length<4){
+errorDiv.textContent="❌ Code d'accès incorrect";
+tentatives++;
+if(tentatives>=3){
+await bloquerIP(ipActuelle,"3 tentatives echouees");
+errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
+await logAlerte("connexion_multiple_echec","critical","🚨 3 echecs - IP bloquee - "+ipActuelle,{tentatives:tentatives,code_saisi:code});
+}
+return;
+}
+
+if(!/^\d+$/.test(code)){
+tentativesNonNumeriques++;
+if(tentativesNonNumeriques>=3){
+await bloquerIP(ipActuelle,"3 caracteres non numeriques");
+errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
+await logAlerte("connexion_caractere_non_numerique","critical","🚨 Codes suspects - IP "+ipActuelle,{codes_saisis:code});
+}
+errorDiv.textContent="❌ Code d'accès incorrect";
+return;
+}
+
+const heure=parseInt(new Date().getHours());
+if(heure>=0&&heure<6){
+await logAlerte("connexion_horaire_suspect","warning","🌙 Connexion hors horaires - "+schoolDisplay,{heure:heure,pays:paysActuel});
+}
+
+if(codeDirection&&code===codeDirection){
+await logAlerte("connexion_succes","info","✅ Connexion Direction - "+schoolDisplay,{role:"Direction",pays:paysActuel});
+infoDiv.textContent="✅ Direction - Redirection...";
 btn.disabled=true;
-btn.textContent="⏳ VÉRIFICATION...";
-try{
-await chargerConfig();
-let role=null,url="";
-if(code===config.codeDirection){role="Direction";url=config.urlDirection;}
-else if(code===config.codeComptabilite){role="Comptabilité";url=config.urlComptabilite;}
-else{errorDiv.textContent="❌ Code d'accès incorrect";btn.disabled=false;btn.textContent="🔓 SE CONNECTER";return;}
-infoDiv.textContent="✅ "+role+" - Redirection...";
-setTimeout(()=>{window.location.href=url+"?ecole="+ecoleId+"&code="+code;},800);
-}catch(e){
-console.error(e);
-errorDiv.textContent="❌ Erreur : "+e.message;
-btn.disabled=false;
-btn.textContent="🔓 SE CONNECTER";
+setTimeout(()=>{window.location.href=config.urlDirection+"?ecole="+ecoleId+"&code="+code;},800);
+return;
+}
+
+if(codeComptabilite&&code===codeComptabilite){
+await logAlerte("connexion_succes","info","✅ Connexion Comptabilite - "+schoolDisplay,{role:"Comptabilite",pays:paysActuel});
+infoDiv.textContent="✅ Comptabilité - Redirection...";
+btn.disabled=true;
+setTimeout(()=>{window.location.href=config.urlComptabilite+"?ecole="+ecoleId+"&code="+code;},800);
+return;
+}
+
+tentatives++;
+await logAlerte("connexion_echec","warning","⚠️ Tentative echouee - "+schoolDisplay,{tentative:tentatives,code_saisi:code,code_attendu:codeDirection||codeComptabilite});
+errorDiv.textContent="❌ Code d'accès incorrect";
+
+if(tentatives>=3){
+await bloquerIP(ipActuelle,"3 tentatives echouees");
+errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
+await logAlerte("connexion_multiple_echec","critical","🚨 3 echecs - IP bloquee - "+ipActuelle,{tentatives:tentatives,code_saisi:code,code_attendu:codeDirection||codeComptabilite});
 }
 }
+
 document.getElementById("loginBtn").onclick=seConnecter;
 document.getElementById("loginCode").addEventListener("keypress",function(e){if(e.key==="Enter")seConnecter();});
 document.getElementById("loginCode").addEventListener("input",function(){if(this.value.length>6)this.value=this.value.slice(0,6);document.getElementById("errorMsg").textContent=""});
-await chargerConfig();
-document.getElementById("loginCode").focus();
+
 document.addEventListener('dblclick',function(e){if(e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='BUTTON'){e.preventDefault();return false}});
 window.addEventListener('keydown',function(e){if(e.ctrlKey&&e.shiftKey&&(e.key==='w'||e.key==='W'||e.keyCode===87)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='q'||e.key==='Q'||e.keyCode===81)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='t'||e.key==='T'||e.keyCode===84)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='t'||e.key==='T'||e.keyCode===84)){e.preventDefault();e.stopPropagation();return false}},true);
 document.addEventListener('keydown',function(e){if(e.key==='ContextMenu'||e.keyCode===93){e.preventDefault();e.stopPropagation();return false}});
-console.log('🔒 Protection active');
+
+document.getElementById("loginCode").focus();
 </script>
 </body>
 </html>
