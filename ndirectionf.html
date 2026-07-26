@@ -515,30 +515,34 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <div class="card">
 <div class="card-header"><i class="fas fa-lock"></i> Paramètres de sécurité</div>
 <div class="card-body">
-<div style="max-width:400px;margin:0 auto;">
+<div style="max-width:420px;margin:0 auto;">
 <div style="background:#f8fafc;border-radius:14px;padding:20px;border:1px solid #e2e6ea;">
 <div style="text-align:center;margin-bottom:16px;">
 <i class="fas fa-key" style="font-size:34px;color:#2563eb;"></i>
 <h4 style="color:#1a2332;font-size:16px;margin-top:6px;">Changer le code d'accès</h4>
-<p style="color:#6b7280;font-size:12px;">Modifiez le code à 4 chiffres pour sécuriser l'accès</p>
+<p style="color:#6b7280;font-size:12px;">Modifiez le code à 6 chiffres pour sécuriser l'accès</p>
 </div>
 <div style="margin-bottom:12px;">
 <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">
 <i class="fas fa-shield-alt" style="color:#2563eb;"></i> Code actuel
 </label>
-<input type="password" id="currentCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+<input type="password" id="currentCodeInput" maxlength="6" inputmode="numeric" placeholder="• • • • • •" style="width:100%;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
 </div>
 <div style="margin-bottom:12px;">
 <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">
-<i class="fas fa-plus-circle" style="color:#059669;"></i> Nouveau code (4 chiffres)
+<i class="fas fa-plus-circle" style="color:#059669;"></i> Nouveau code (6 chiffres)
 </label>
-<input type="password" id="newCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+<div style="display:flex;gap:10px;align-items:center;">
+<input type="password" id="newCodeInput" maxlength="6" inputmode="numeric" placeholder="• • • • • •" style="flex:1;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;" readonly>
+<button class="btn btn-success" id="generateCodeBtn" style="padding:10px 18px;white-space:nowrap;font-size:12px;">🔄 Générer</button>
+</div>
+<div style="font-size:10px;color:#94a3b8;margin-top:4px;">🔒 Code généré automatiquement pour garantir l'unicité</div>
 </div>
 <div style="margin-bottom:16px;">
 <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">
 <i class="fas fa-check-circle" style="color:#2563eb;"></i> Confirmer le nouveau code
 </label>
-<input type="password" id="confirmCodeInput" maxlength="4" inputmode="numeric" placeholder="• • • •" style="width:100%;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
+<input type="password" id="confirmCodeInput" maxlength="6" inputmode="numeric" placeholder="• • • • • •" style="width:100%;padding:12px 14px;border-radius:10px;background:#fff;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s;">
 </div>
 <div id="settingsError" style="color:#dc2626;font-size:12px;margin-bottom:10px;min-height:18px;text-align:center;"></div>
 <button class="btn btn-primary" id="changeCodeBtn" style="width:100%;justify-content:center;padding:12px;">
@@ -565,7 +569,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <script type="module">
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, query, where, onSnapshot, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, onAuthStateChanged } from "firebase/auth";
 const firebaseConfig = {
     apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
     authDomain: "gesco-67c43.firebaseapp.com",
@@ -597,6 +601,7 @@ const SC = {
     CORBEILLE: "corbeille",
     COMPTA_ELEVES: "compta_eleves"
 };
+let currentAuthUser = null;
 async function verifierCodeDirection() {
     try {
         const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
@@ -612,7 +617,8 @@ async function verifierCodeDirection() {
         }
         if (!codeFound && codeFromUrl) {
             try {
-                await signInWithEmailAndPassword(auth, email, codeFromUrl);
+                const userCred = await signInWithEmailAndPassword(auth, email, codeFromUrl);
+                currentAuthUser = userCred.user;
                 codeFound = true;
                 if (snap.exists() && !snap.data().codeDirection) {
                     await setDoc(ref, {
@@ -624,7 +630,8 @@ async function verifierCodeDirection() {
             } catch (authError) {
                 if (authError.code === 'auth/user-not-found') {
                     try {
-                        await createUserWithEmailAndPassword(auth, email, codeFromUrl);
+                        const userCred = await createUserWithEmailAndPassword(auth, email, codeFromUrl);
+                        currentAuthUser = userCred.user;
                         codeFound = true;
                     } catch (createError) {}
                 }
@@ -643,7 +650,18 @@ async function verifierCodeDirection() {
         return false;
     }
 }
-function genererCodeAcces() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+function genererCodeAcces() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+async function genererCodeUnique() {
+    const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "settings", "data"));
+    let code = genererCodeAcces();
+    let exists = false;
+    for (const docSnap of snap.docs) {
+        const data = docSnap.data();
+        if (data.codeDirection === code) exists = true;
+    }
+    if (exists) return genererCodeUnique();
+    return code;
+}
 function toast(message, type='success') {
     const c = document.getElementById('toastContainer');
     if (!c) return;
@@ -965,13 +983,8 @@ async function restaurerFiche(ficheId, ficheData, nouveauProfId, nouveauProfNom)
         afficherCorbeille();
     } catch(e) { toast('Erreur: '+e.message, 'error'); }
 }
-async function saveAccessCodeToFirebase(newCode) {
-    try {
-        const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "access_code");
-        await setDoc(docRef, { code: newCode, updatedAt: new Date().toISOString(), updatedBy: "Direction" });
-        return true;
-    } catch(error) { console.error(error); return false; }
-}
+let ACCESS_CODE = null;
+let currentUserEmail = null;
 async function loadAccessCodeFromFirebase() {
     try {
         const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "access_code");
@@ -987,43 +1000,79 @@ async function loadAccessCodeFromFirebase() {
         return false;
     } catch(error) { console.error(error); return false; }
 }
-let ACCESS_CODE = null;
-document.getElementById('changeCodeBtn').addEventListener('click', function() {
-    const currentCode = document.getElementById('currentCodeInput').value;
-    const newCode = document.getElementById('newCodeInput').value;
-    const confirmCode = document.getElementById('confirmCodeInput').value;
-    const errorDiv = document.getElementById('settingsError');
-    if(currentCode !== ACCESS_CODE) {
-        errorDiv.textContent = '❌ Code actuel incorrect';
+async function saveAccessCodeToFirebase(newCode) {
+    try {
+        const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "access_code");
+        await setDoc(docRef, { code: newCode, updatedAt: new Date().toISOString(), updatedBy: "Direction" });
+        return true;
+    } catch(error) { console.error(error); return false; }
+}
+document.getElementById('generateCodeBtn').addEventListener('click', async function() {
+    const currentCode = document.getElementById('currentCodeInput').value.trim();
+    if (!currentCode || currentCode.length < 6) {
+        toast('❌ Veuillez d\'abord saisir l\'ancien code (6 chiffres)', 'error');
         document.getElementById('currentCodeInput').focus();
         return;
     }
-    if(!/^\d{4}$/.test(newCode)) {
-        errorDiv.textContent = '❌ Le code doit contenir exactement 4 chiffres';
+    const newCode = await genererCodeUnique();
+    document.getElementById('newCodeInput').value = newCode;
+    document.getElementById('confirmCodeInput').value = newCode;
+    toast('✅ Nouveau code généré : ' + newCode, 'success');
+});
+document.getElementById('changeCodeBtn').addEventListener('click', async function() {
+    const currentCode = document.getElementById('currentCodeInput').value.trim();
+    const newCode = document.getElementById('newCodeInput').value.trim();
+    const confirmCode = document.getElementById('confirmCodeInput').value.trim();
+    const errorDiv = document.getElementById('settingsError');
+    if (!currentCode || currentCode.length < 6) {
+        errorDiv.textContent = '❌ Veuillez saisir l\'ancien code (6 chiffres)';
+        document.getElementById('currentCodeInput').focus();
+        return;
+    }
+    if (currentCode !== ACCESS_CODE) {
+        errorDiv.textContent = '❌ Ancien code incorrect';
+        document.getElementById('currentCodeInput').focus();
+        return;
+    }
+    if (!newCode || newCode.length !== 6 || !/^\d{6}$/.test(newCode)) {
+        errorDiv.textContent = '❌ Le code doit contenir exactement 6 chiffres';
         document.getElementById('newCodeInput').focus();
         return;
     }
-    if(newCode !== confirmCode) {
+    if (newCode !== confirmCode) {
         errorDiv.textContent = '❌ Les codes ne correspondent pas';
         document.getElementById('confirmCodeInput').focus();
         return;
     }
-    if(newCode === ACCESS_CODE) {
+    if (newCode === ACCESS_CODE) {
         errorDiv.textContent = '⚠️ Le nouveau code est identique à l\'ancien';
         return;
     }
     showConfirm('Changement de code', `Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`, async function() {
-        const saved = await saveAccessCodeToFirebase(newCode);
-        if(saved) {
-            ACCESS_CODE = newCode;
-            localStorage.setItem('access_code_direction', newCode);
-            document.getElementById('currentCodeInput').value = '';
-            document.getElementById('newCodeInput').value = '';
-            document.getElementById('confirmCodeInput').value = '';
-            document.getElementById('settingsError').textContent = '';
-            toast('✅ Code changé avec succès', 'success');
-        } else {
-            toast('❌ Erreur lors de l\'enregistrement', 'error');
+        try {
+            const saved = await saveAccessCodeToFirebase(newCode);
+            if (saved) {
+                ACCESS_CODE = newCode;
+                localStorage.setItem('access_code_direction', newCode);
+                if (currentAuthUser) {
+                    try {
+                        await updatePassword(currentAuthUser, newCode);
+                        toast('✅ Mot de passe Firebase Auth mis à jour', 'success');
+                    } catch (authError) {
+                        console.error('Erreur mise à jour Firebase Auth:', authError);
+                        toast('⚠️ Code Firestore mis à jour, mais Firebase Auth nécessite une reconnexion', 'warning');
+                    }
+                }
+                document.getElementById('currentCodeInput').value = '';
+                document.getElementById('newCodeInput').value = '';
+                document.getElementById('confirmCodeInput').value = '';
+                document.getElementById('settingsError').textContent = '';
+                toast('✅ Code changé avec succès', 'success');
+            } else {
+                toast('❌ Erreur lors de l\'enregistrement', 'error');
+            }
+        } catch (error) {
+            toast('❌ Erreur: ' + error.message, 'error');
         }
     });
 });
