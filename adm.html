@@ -144,6 +144,8 @@ body.light-theme .toast{background:rgba(255,255,255,0.95);}
 .badge.exempted{background:rgba(16,185,129,0.15);color:var(--green);}
 .badge.dropout{background:rgba(239,68,68,0.15);color:var(--red);}
 .badge.whitemonth{background:rgba(245,158,11,0.15);color:var(--orange);}
+.badge-auth{background:rgba(59,130,246,0.15);color:var(--blue);}
+.badge-noauth{background:rgba(245,158,11,0.15);color:var(--orange);}
 .status-dot{width:12px;height:12px;border-radius:50%;display:inline-block;transition:all 0.5s;margin-right:4px;vertical-align:middle;}
 .status-dot.on{background:#10b981;box-shadow:0 0 12px rgba(16,185,129,0.3);}
 .status-dot.off{background:#4a5a6a;box-shadow:none;}
@@ -189,7 +191,7 @@ body.light-theme .toast{background:rgba(255,255,255,0.95);}
 .btn-ppt:hover{box-shadow:0 4px 12px rgba(210,71,38,0.25);}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:10000;display:none;align-items:center;justify-content:center;padding:16px;}
 .modal-overlay.show{display:flex;}
-.modal-content{background:var(--bg-card);border-radius:12px;width:92%;max-width:500px;padding:20px 24px;border:1px solid var(--border-color);box-shadow:0 16px 48px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
+.modal-content{background:var(--bg-card);border-radius:12px;width:92%;max-width:550px;padding:20px 24px;border:1px solid var(--border-color);box-shadow:0 16px 48px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto;}
 .modal-content .modal-icon{font-size:36px;margin-bottom:4px;text-align:center;}
 .modal-content h3{color:var(--text-primary);font-size:1.1rem;margin-bottom:4px;text-align:center;}
 .modal-content .modal-subtitle{color:var(--text-muted);font-size:0.8rem;text-align:center;margin-bottom:10px;}
@@ -299,6 +301,8 @@ select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,0.08)
 select option{background:#0a0e1a;color:#e8edf5;padding:4px 8px;}
 select option:hover{background:#1a3a6a;}
 .school-filter-top select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a6f8a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;padding-right:24px;}
+.loading-spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.1);border-top-color:#3b82f6;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;}
+@keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -469,7 +473,9 @@ select option:hover{background:#1a3a6a;}
 <div class="card">
 <div class="card-header"><h3>👨‍🏫 Teachers <span class="count" id="teachersCount">0</span></h3><div class="actions"><button class="btn btn-refresh btn-sm" id="refreshTeachersBtn">⟳</button></div></div>
 <div class="card-body">
-<div class="filter-row"><select id="teacherSchoolFilter"><option value="all">All schools</option></select></div>
+<div class="filter-row"><select id="teacherSchoolFilter"><option value="all">All schools</option></select>
+<button class="btn btn-success btn-sm" id="showAddTeacherBtn">➕ Ajouter Prof</button>
+</div>
 <div id="teachersContainer"></div>
 </div>
 </div>
@@ -543,25 +549,24 @@ select option:hover{background:#1a3a6a;}
 </div>
 </div>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit } from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
-  authDomain: "gesco-67c43.firebaseapp.com",
-  projectId: "gesco-67c43",
-  storageBucket: "gesco-67c43.firebasestorage.app",
-  messagingSenderId: "333004443566",
-  appId: "1:333004443566:web:de41f60000e418dce9023f",
-  measurementId: "G-V7MF88Y5EE"
+apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
+authDomain: "gesco-67c43.firebaseapp.com",
+projectId: "gesco-67c43",
+storageBucket: "gesco-67c43.firebasestorage.app",
+messagingSenderId: "333004443566",
+appId: "1:333004443566:web:de41f60000e418dce9023f",
+measurementId: "G-V7MF88Y5EE"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// --- Variables globales ---
 let allSchools = [], allMembers = [], allTeachers = [], allSheets = [], allCodes = [], allConnections = [], allLab = [], allStudents = [];
 let explorerData = {};
 let chartInstances = {};
@@ -570,34 +575,34 @@ let sidebarCollapsed = false;
 let connPage = 1;
 const connPageSize = 10;
 const SC = {
-  PROFESSEURS: "professeurs",
-  FICHES: "fiches",
-  COMPTA_ELEVES: "compta_eleves",
-  ELEVES: "eleves",
-  PUNITIONS: "punitions",
-  PRESENCES: "presences",
-  HORAIRES: "horaires",
-  CORBEILLE: "corbeille",
-  COMPTEUR: "compteur",
-  CONFIG: "config",
-  ALERTES_ADMIN: "alertes_admin",
-  COMMUNIQUES: "communiques",
-  SETTINGS: "settings"
+PROFESSEURS: "professeurs",
+FICHES: "fiches",
+COMPTA_ELEVES: "compta_eleves",
+ELEVES: "eleves",
+PUNITIONS: "punitions",
+PRESENCES: "presences",
+HORAIRES: "horaires",
+CORBEILLE: "corbeille",
+COMPTEUR: "compteur",
+CONFIG: "config",
+ALERTES_ADMIN: "alertes_admin",
+COMMUNIQUES: "communiques",
+SETTINGS: "settings"
 };
 
-// --- Fonctions utilitaires ---
-function toast(message, type = 'info', duration = 3000) {
-  const container = document.getElementById('toastContainer');
-  if (!container) return;
-  const config = { success: { icon: '✅', title: 'Succès' }, error: { icon: '❌', title: 'Erreur' }, warning: { icon: '⚠️', title: 'Attention' }, info: { icon: 'ℹ️', title: 'Info' } };
-  const c = config[type] || config.info;
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `<div class="toast-icon">${c.icon}</div><div class="toast-content"><div class="toast-title">${c.title}</div><div class="toast-message">${message}</div></div><button class="toast-close">✕</button>`;
-  container.appendChild(el);
-  setTimeout(() => el.classList.add('show'), 10);
-  setTimeout(() => { el.classList.remove('show'); setTimeout(() => { if (el.parentNode) el.remove(); }, 400); }, duration);
-  el.querySelector('.toast-close').addEventListener('click', () => { el.remove(); });
+// --- Utilitaires ---
+function toast(message, type = 'info', duration = 4000) {
+const container = document.getElementById('toastContainer');
+if (!container) return;
+const config = { success: { icon: '✅', title: 'Succès' }, error: { icon: '❌', title: 'Erreur' }, warning: { icon: '⚠️', title: 'Attention' }, info: { icon: 'ℹ️', title: 'Info' } };
+const c = config[type] || config.info;
+const el = document.createElement('div');
+el.className = `toast ${type}`;
+el.innerHTML = `<div class="toast-icon">${c.icon}</div><div class="toast-content"><div class="toast-title">${c.title}</div><div class="toast-message">${message}</div></div><button class="toast-close">✕</button>`;
+container.appendChild(el);
+setTimeout(() => el.classList.add('show'), 10);
+setTimeout(() => { el.classList.remove('show'); setTimeout(() => { if (el.parentNode) el.remove(); }, 400); }, duration);
+el.querySelector('.toast-close').addEventListener('click', () => { el.remove(); });
 }
 
 function escapeHtml(s) { if (!s) return ""; return String(s).replace(/[&<>]/g, m => m === "&" ? "&amp;" : m === "<" ? "&lt;" : ">" ? "&gt;" : ""); }
@@ -605,1026 +610,801 @@ function formatDate(d) { if (!d) return "-"; const dt = new Date(d); return dt.t
 function formatNumber(n) { return new Intl.NumberFormat('en-US').format(n); }
 
 function showConfirm(title, message) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("modalOverlay");
-    if (!modal) return resolve(false);
-    document.getElementById("modalIcon").textContent = "⚠️";
-    document.getElementById("modalTitle").textContent = title || "Confirm";
-    document.getElementById("modalSubtitle").textContent = message || "Are you sure?";
-    document.getElementById("modalBody").innerHTML = "";
-    const close = document.getElementById("modalCloseBtn");
-    close.textContent = "Cancel";
-    close.className = "btn-close-modal";
-    close.style.background = "rgba(255,255,255,0.06)";
-    close.style.color = "var(--text-secondary)";
-    modal.classList.add("show");
-    const yesBtn = document.createElement("button");
-    yesBtn.textContent = "Confirm";
-    yesBtn.className = "btn-close-modal";
-    yesBtn.style.background = "linear-gradient(135deg,#ef4444,#dc2626)";
-    yesBtn.style.color = "#fff";
-    yesBtn.style.border = "none";
-    yesBtn.style.padding = "6px 20px";
-    yesBtn.style.borderRadius = "16px";
-    yesBtn.style.fontWeight = "600";
-    yesBtn.style.cursor = "pointer";
-    const actions = modal.querySelector(".modal-actions");
-    actions.appendChild(yesBtn);
-    const cleanup = () => { modal.classList.remove("show"); close.removeEventListener("click", closeHandler); yesBtn.removeEventListener("click", yesHandler); actions.removeChild(yesBtn); };
-    const closeHandler = () => { cleanup(); resolve(false); };
-    const yesHandler = () => { cleanup(); resolve(true); };
-    close.addEventListener("click", closeHandler);
-    yesBtn.addEventListener("click", yesHandler);
-  });
+return new Promise((resolve) => {
+const modal = document.getElementById("modalOverlay");
+if (!modal) return resolve(false);
+document.getElementById("modalIcon").textContent = "⚠️";
+document.getElementById("modalTitle").textContent = title || "Confirm";
+document.getElementById("modalSubtitle").textContent = message || "Are you sure?";
+document.getElementById("modalBody").innerHTML = "";
+const close = document.getElementById("modalCloseBtn");
+close.textContent = "Cancel";
+close.className = "btn-close-modal";
+close.style.background = "rgba(255,255,255,0.06)";
+close.style.color = "var(--text-secondary)";
+modal.classList.add("show");
+const yesBtn = document.createElement("button");
+yesBtn.textContent = "Confirm";
+yesBtn.className = "btn-close-modal";
+yesBtn.style.background = "linear-gradient(135deg,#ef4444,#dc2626)";
+yesBtn.style.color = "#fff";
+yesBtn.style.border = "none";
+yesBtn.style.padding = "6px 20px";
+yesBtn.style.borderRadius = "16px";
+yesBtn.style.fontWeight = "600";
+yesBtn.style.cursor = "pointer";
+const actions = modal.querySelector(".modal-actions");
+actions.appendChild(yesBtn);
+const cleanup = () => { modal.classList.remove("show"); close.removeEventListener("click", closeHandler); yesBtn.removeEventListener("click", yesHandler); actions.removeChild(yesBtn); };
+const closeHandler = () => { cleanup(); resolve(false); };
+const yesHandler = () => { cleanup(); resolve(true); };
+close.addEventListener("click", closeHandler);
+yesBtn.addEventListener("click", yesHandler);
+});
 }
 
-function showModal(title, body) {
-  const modal = document.getElementById("modalOverlay");
-  if (!modal) return;
-  document.getElementById("modalIcon").textContent = "📋";
-  document.getElementById("modalTitle").textContent = title || "Details";
-  document.getElementById("modalSubtitle").textContent = "";
-  document.getElementById("modalBody").innerHTML = body;
-  const close = document.getElementById("modalCloseBtn");
-  close.textContent = "Close";
-  close.className = "btn-close-modal";
-  close.style.background = "linear-gradient(135deg,#3b82f6,#2563eb)";
-  close.style.color = "#fff";
-  close.onclick = () => modal.classList.remove("show");
-  modal.classList.add("show");
+function showModal(title, body, icon = '📋') {
+const modal = document.getElementById("modalOverlay");
+if (!modal) return;
+document.getElementById("modalIcon").textContent = icon;
+document.getElementById("modalTitle").textContent = title || "Details";
+document.getElementById("modalSubtitle").textContent = "";
+document.getElementById("modalBody").innerHTML = body;
+const close = document.getElementById("modalCloseBtn");
+close.textContent = "Fermer";
+close.className = "btn-close-modal";
+close.style.background = "linear-gradient(135deg,#3b82f6,#2563eb)";
+close.style.color = "#fff";
+close.onclick = () => modal.classList.remove("show");
+modal.classList.add("show");
 }
 
-// --- Génération d'emails ---
+// --- Génération de codes ---
+function generate6DigitCode() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+
 function genererEmailParent(ecoleId) { return `parent.${ecoleId}@gmail.com`; }
 function genererEmailDirection(ecoleId) { return `direction.${ecoleId}@gmail.com`; }
 function genererEmailCompta(ecoleId) { return `compta.${ecoleId}@gmail.com`; }
 function genererEmailProfesseur(nom, ecoleId) { if (!nom) return ''; const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.'); return `prof.${nomPropre}.${ecoleId}@gmail.com`; }
 
-// --- Génération de codes à 6 chiffres ---
-function generate6DigitCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
 async function isCodeExistsInAllSchools(code) {
-  const schoolsSnap = await getDocs(collection(db, "ecoles"));
-  for (const schoolDoc of schoolsSnap.docs) {
-    const teachersSnap = await getDocs(collection(db, "ecoles", schoolDoc.id, "professeurs"));
-    for (const teacherDoc of teachersSnap.docs) {
-      if (teacherDoc.data().code === code) return true;
-    }
-  }
-  return false;
+const schoolsSnap = await getDocs(collection(db, "ecoles"));
+for (const schoolDoc of schoolsSnap.docs) {
+const teachersSnap = await getDocs(collection(db, "ecoles", schoolDoc.id, "professeurs"));
+for (const teacherDoc of teachersSnap.docs) {
+if (teacherDoc.data().code === code) return true;
+}
+}
+return false;
 }
 
 async function generateUniqueTeacherCode() {
-  let code = generate6DigitCode();
-  let attempts = 0;
-  while (attempts < 100) {
-    const exists = await isCodeExistsInAllSchools(code);
-    if (!exists) return code;
-    code = generate6DigitCode();
-    attempts++;
-  }
-  throw new Error("Impossible de générer un code unique");
+let code = generate6DigitCode();
+let attempts = 0;
+while (attempts < 100) {
+const exists = await isCodeExistsInAllSchools(code);
+if (!exists) return code;
+code = generate6DigitCode();
+attempts++;
+}
+throw new Error("Impossible de générer un code unique");
 }
 
-// --- Génération de codes pour la direction et la comptabilité (6 chiffres) ---
-async function genererCodeDirection(ecoleId, code) {
-  try {
-    await setDoc(doc(db, "ecoles", ecoleId, "settings", "data"), {
-      codeDirection: code,
-      codeComptabilite: generate6DigitCode(),
-      emailDirection: genererEmailDirection(ecoleId),
-      emailComptabilite: genererEmailCompta(ecoleId),
-      urlDirection: `https://www.netubex.com/director/${ecoleId}`,
-      urlComptabilite: `https://www.netubex.com/schoolcompta/${ecoleId}`,
-      updatedAt: new Date().toISOString(),
-      updatedBy: "DSI"
-    });
-    return true;
-  } catch (e) { console.error(e); return false; }
+// --- Génération des codes direction/compta/parent ---
+async function genererCodesEcole(ecoleId) {
+const codeDirection = generate6DigitCode();
+const codeCompta = generate6DigitCode();
+const codeParent = generate6DigitCode();
+try {
+await setDoc(doc(db, "ecoles", ecoleId, "settings", "data"), {
+codeDirection: codeDirection,
+codeComptabilite: codeCompta,
+codeParent: codeParent,
+emailDirection: genererEmailDirection(ecoleId),
+emailComptabilite: genererEmailCompta(ecoleId),
+emailParent: genererEmailParent(ecoleId),
+urlDirection: `https://www.netubex.com/director/${ecoleId}`,
+urlComptabilite: `https://www.netubex.com/schoolcompta/${ecoleId}`,
+urlParent: `https://www.netubex.com/parent/${ecoleId}`,
+updatedAt: new Date().toISOString(),
+updatedBy: "DSI"
+});
+return { codeDirection, codeCompta, codeParent };
+} catch (e) { console.error(e); return null; }
 }
 
-// --- Fonctions de chargement ---
+// --- Chargement des données ---
 function updateSelectors() {
-  ['memberSchoolSelect', 'dashboardSchoolFilter', 'memberSchoolFilter', 'teacherSchoolFilter', 'sheetSchoolFilter', 'wmSchoolFilter', 'connSchoolFilter', 'codeSchoolSelect', 'explorerSchoolFilter', 'exportSchoolSelect'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const val = el.value;
-    el.innerHTML = '<option value="all">📊 All schools</option>';
-    allSchools.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.nom || s.id;
-      el.appendChild(opt);
-    });
-    if (val && el.querySelector(`option[value="${val}"]`)) el.value = val;
-  });
+['memberSchoolSelect', 'dashboardSchoolFilter', 'memberSchoolFilter', 'teacherSchoolFilter', 'sheetSchoolFilter', 'wmSchoolFilter', 'connSchoolFilter', 'codeSchoolSelect', 'explorerSchoolFilter', 'exportSchoolSelect'].forEach(id => {
+const el = document.getElementById(id);
+if (!el) return;
+const val = el.value;
+el.innerHTML = '<option value="all">📊 All schools</option>';
+allSchools.forEach(s => {
+const opt = document.createElement("option");
+opt.value = s.id;
+opt.textContent = s.nom || s.id;
+el.appendChild(opt);
+});
+if (val && el.querySelector(`option[value="${val}"]`)) el.value = val;
+});
 }
 
 async function loadAllData() {
-  if (isLoading) return;
-  isLoading = true;
-  try {
-    const snap = await getDocs(collection(db, "ecoles"));
-    allSchools = [];
-    allMembers = [];
-    allTeachers = [];
-    allSheets = [];
-    allCodes = [];
-    allConnections = [];
-    allLab = [];
-    allStudents = [];
+if (isLoading) return;
+isLoading = true;
+try {
+const snap = await getDocs(collection(db, "ecoles"));
+allSchools = [];
+allMembers = [];
+allTeachers = [];
+allSheets = [];
+allCodes = [];
+allConnections = [];
+allLab = [];
+allStudents = [];
 
-    for (const ds of snap.docs) {
-      const id = ds.id;
-      const ecoleData = ds.data();
-      if (ecoleData.actif === false) continue;
-      allSchools.push({ id, ...ecoleData });
+for (const ds of snap.docs) {
+const id = ds.id;
+const ecoleData = ds.data();
+if (ecoleData.actif === false) continue;
+allSchools.push({ id, ...ecoleData });
 
-      try {
-        const mSnap = await getDocs(collection(db, "ecoles", id, SC.COMPTA_ELEVES));
-        mSnap.forEach(d => {
-          const data = d.data();
-          if (data._type === "compta_eleve") {
-            allStudents.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", statut: data.abandon ? "abandon" : data.exonere ? "exempted" : "regular" });
-            if (!data.abandon) {
-              allMembers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", statut: data.exonere ? "exempted" : "regular", dateCreation: data.dateInscription || data.date || null });
-            }
-            if (data.parentCode && data.parentCode.length >= 6) {
-              allCodes.push({ id: d.id, ecole: id, nom: data.nom || "", prenom: data.prenom || "", parentCode: data.parentCode, classe: data.classe || "", option: data.option || "" });
-            }
-          }
-        });
-      } catch (e) {}
+try {
+const mSnap = await getDocs(collection(db, "ecoles", id, SC.COMPTA_ELEVES));
+mSnap.forEach(d => {
+const data = d.data();
+if (data._type === "compta_eleve") {
+allStudents.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", statut: data.abandon ? "abandon" : data.exonere ? "exempted" : "regular" });
+if (!data.abandon) {
+allMembers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", statut: data.exonere ? "exempted" : "regular", dateCreation: data.dateInscription || data.date || null });
+}
+if (data.parentCode && data.parentCode.length >= 6) {
+allCodes.push({ id: d.id, ecole: id, nom: data.nom || "", prenom: data.prenom || "", parentCode: data.parentCode, classe: data.classe || "", option: data.option || "" });
+}
+}
+});
+} catch (e) {}
 
-      try {
-        const pSnap = await getDocs(collection(db, "ecoles", id, SC.PROFESSEURS));
-        pSnap.forEach(d => {
-          const data = d.data();
-          if (data._type === "prof") {
-            allTeachers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", code: data.code || null, email: data.email || data.emailProf || null, actif: data.actif !== false, lastActivity: data.lastActivity || data.createdAt || null, createdAt: data.createdAt || data.dateCreation || null, authCreated: data.authCreated || false });
-          }
-        });
-      } catch (e) {}
+try {
+const pSnap = await getDocs(collection(db, "ecoles", id, SC.PROFESSEURS));
+pSnap.forEach(d => {
+const data = d.data();
+if (data._type === "prof") {
+allTeachers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Unknown", code: data.code || null, email: data.email || data.emailProf || null, actif: data.actif !== false, authCreated: data.authCreated || false, createdAt: data.createdAt || data.dateCreation || null });
+}
+});
+} catch (e) {}
 
-      try {
-        const fSnap = await getDocs(collection(db, "ecoles", id, SC.FICHES));
-        fSnap.forEach(d => {
-          const data = d.data();
-          if (!data._type) {
-            allSheets.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, cours: data.cours || "No subject", classe: data.classe || "", option: data.option || "", titulaire: data.titulaire || "", createdBy: data.createdBy || data.titulaire || "Admin" });
-          }
-        });
-      } catch (e) {}
+try {
+const fSnap = await getDocs(collection(db, "ecoles", id, SC.FICHES));
+fSnap.forEach(d => {
+const data = d.data();
+if (!data._type) {
+allSheets.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, cours: data.cours || "No subject", classe: data.classe || "", option: data.option || "", titulaire: data.titulaire || "", createdBy: data.createdBy || data.titulaire || "Admin" });
+}
+});
+} catch (e) {}
 
-      try {
-        const lSnap = await getDocs(query(collection(db, "ecoles", id, SC.COMPTA_ELEVES), orderBy("date", "desc"), limit(100)));
-        lSnap.forEach(d => {
-          const data = d.data();
-          if (data.action === "connexion_reussie" || data.action === "connexion_echouee" || data.action === "connexion") {
-            const isSuccess = data.action === "connexion" || data.action === "connexion_reussie";
-            allConnections.push({ id: d.id, ecole: id, ecoleNom: ecoleData.nom || id, utilisateur: data.utilisateur || data.nom || "Unknown", date: data.date || new Date().toISOString(), statut: isSuccess ? "success" : "failed" });
-          }
-        });
-      } catch (e) {}
+try {
+const lSnap = await getDocs(query(collection(db, "ecoles", id, SC.COMPTA_ELEVES), orderBy("date", "desc"), limit(100)));
+lSnap.forEach(d => {
+const data = d.data();
+if (data.action === "connexion_reussie" || data.action === "connexion_echouee" || data.action === "connexion") {
+const isSuccess = data.action === "connexion" || data.action === "connexion_reussie";
+allConnections.push({ id: d.id, ecole: id, ecoleNom: ecoleData.nom || id, utilisateur: data.utilisateur || data.nom || "Unknown", date: data.date || new Date().toISOString(), statut: isSuccess ? "success" : "failed" });
+}
+});
+} catch (e) {}
 
-      try {
-        const alertSnap = await getDocs(collection(db, "ecoles", id, "alertes_admin"));
-        alertSnap.forEach(d => {
-          const data = d.data();
-          allConnections.push({ id: d.id, ecole: id, ecoleNom: ecoleData.nom || id, utilisateur: data.alerte || data.message || "Alert", date: data.date || new Date().toISOString(), statut: "alert" });
-        });
-      } catch (e) {}
-    }
+try {
+const alertSnap = await getDocs(collection(db, "ecoles", id, "alertes_admin"));
+alertSnap.forEach(d => {
+const data = d.data();
+allConnections.push({ id: d.id, ecole: id, ecoleNom: ecoleData.nom || id, utilisateur: data.alerte || data.message || "Alert", date: data.date || new Date().toISOString(), statut: "alert" });
+});
+} catch (e) {}
+}
 
-    const labSnap = await getDocs(collection(db, "innovation_lab"));
-    allLab = [];
-    labSnap.forEach(d => allLab.push({ id: d.id, ...d.data() }));
+const labSnap = await getDocs(collection(db, "innovation_lab"));
+allLab = [];
+labSnap.forEach(d => allLab.push({ id: d.id, ...d.data() }));
 
-    allConnections.sort((a, b) => new Date(b.date) - new Date(a.date));
-    allLab.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+allConnections.sort((a, b) => new Date(b.date) - new Date(a.date));
+allLab.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    updateSelectors();
-    updateStudentCounters();
-    updateStats();
-    updateCharts();
-    updateKPIs();
-    updateRecentActivity();
-    updateAlerts();
-    loadNotebookStats();
+updateSelectors();
+updateStudentCounters();
+updateStats();
+updateCharts();
+updateKPIs();
+updateRecentActivity();
+updateAlerts();
+loadNotebookStats();
 
-    const el = id => document.getElementById(id);
-    if (el("schoolCount")) el("schoolCount").textContent = allSchools.length;
-    if (el("membersCount")) el("membersCount").textContent = allMembers.length;
-    if (el("teachersCount")) el("teachersCount").textContent = allTeachers.length;
-    if (el("sheetsCount")) el("sheetsCount").textContent = allSheets.length;
-    if (el("codesCount")) el("codesCount").textContent = allCodes.length;
-    if (el("connCount")) el("connCount").textContent = allConnections.length;
-    if (el("labCount")) el("labCount").textContent = allLab.length;
+const el = id => document.getElementById(id);
+if (el("schoolCount")) el("schoolCount").textContent = allSchools.length;
+if (el("membersCount")) el("membersCount").textContent = allMembers.length;
+if (el("teachersCount")) el("teachersCount").textContent = allTeachers.length;
+if (el("sheetsCount")) el("sheetsCount").textContent = allSheets.length;
+if (el("codesCount")) el("codesCount").textContent = allCodes.length;
+if (el("connCount")) el("connCount").textContent = allConnections.length;
 
-  } catch (e) { console.error("Error:", e); }
-  finally { isLoading = false; }
+} catch (e) { console.error("Error:", e); }
+finally { isLoading = false; }
 }
 
 // --- Fonctions d'affichage ---
 function updateStudentCounters() {
-  const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
-  let filteredMembers = allMembers;
-  if (filter !== "all") filteredMembers = allMembers.filter(m => m.ecoleId === filter);
-  const totalStudents = filteredMembers.length;
-  const abandonedStudents = filteredMembers.filter(m => m.statut === "abandon" || m.statut === "dropout").length;
-  const activeStudents = totalStudents - abandonedStudents;
-  let totalFrais = 0;
-  if (filter !== "all") { const school = allSchools.find(s => s.id === filter); if (school) { const tarif = school.tarifParEleve || 2000; totalFrais = activeStudents * tarif; } } else { allSchools.forEach(school => { const actifs = allMembers.filter(m => m.ecoleId === school.id && m.statut !== "abandon" && m.statut !== "dropout").length; const tarif = school.tarifParEleve || 2000; totalFrais += actifs * tarif; }); }
-  const el = id => document.getElementById(id);
-  if (el("totalStudents")) el("totalStudents").textContent = formatNumber(totalStudents);
-  if (el("activeStudents")) el("activeStudents").textContent = formatNumber(activeStudents);
-  if (el("abandonedStudents")) el("abandonedStudents").textContent = formatNumber(abandonedStudents);
-  if (el("totalSchools")) el("totalSchools").textContent = formatNumber(allSchools.length);
-  if (el("totalFrais")) el("totalFrais").textContent = formatNumber(totalFrais) + " FC";
-  if (el("activeStudentsSub")) el("activeStudentsSub").textContent = activeStudents + " active";
-  if (el("abandonedStudentsSub")) el("abandonedStudentsSub").textContent = abandonedStudents + " abandoned";
-  if (el("totalSchoolsSub")) el("totalSchoolsSub").textContent = allSchools.length + " schools";
-  updateStats();
-  updateCharts();
-  updateKPIs();
-  updateRecentActivity();
-  updateAlerts();
+const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
+let filteredMembers = allMembers;
+if (filter !== "all") filteredMembers = allMembers.filter(m => m.ecoleId === filter);
+const totalStudents = filteredMembers.length;
+const abandonedStudents = filteredMembers.filter(m => m.statut === "abandon" || m.statut === "dropout").length;
+const activeStudents = totalStudents - abandonedStudents;
+let totalFrais = 0;
+if (filter !== "all") { const school = allSchools.find(s => s.id === filter); if (school) { const tarif = school.tarifParEleve || 2000; totalFrais = activeStudents * tarif; } } else { allSchools.forEach(school => { const actifs = allMembers.filter(m => m.ecoleId === school.id && m.statut !== "abandon" && m.statut !== "dropout").length; const tarif = school.tarifParEleve || 2000; totalFrais += actifs * tarif; }); }
+const el = id => document.getElementById(id);
+if (el("totalStudents")) el("totalStudents").textContent = formatNumber(totalStudents);
+if (el("activeStudents")) el("activeStudents").textContent = formatNumber(activeStudents);
+if (el("abandonedStudents")) el("abandonedStudents").textContent = formatNumber(abandonedStudents);
+if (el("totalSchools")) el("totalSchools").textContent = formatNumber(allSchools.length);
+if (el("totalFrais")) el("totalFrais").textContent = formatNumber(totalFrais) + " FC";
+if (el("activeStudentsSub")) el("activeStudentsSub").textContent = activeStudents + " active";
+if (el("abandonedStudentsSub")) el("abandonedStudentsSub").textContent = abandonedStudents + " abandoned";
+if (el("totalSchoolsSub")) el("totalSchoolsSub").textContent = allSchools.length + " schools";
+updateStats();
+updateCharts();
+updateKPIs();
+updateRecentActivity();
+updateAlerts();
 }
 
 function updateStats() {
-  const el = id => document.getElementById(id);
-  const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
-  let filteredMembers = allMembers, filteredSchools = allSchools;
-  if (filter !== "all") { filteredMembers = allMembers.filter(m => m.ecoleId === filter); filteredSchools = allSchools.filter(s => s.id === filter); }
-  if (el("statSchools")) el("statSchools").textContent = filteredSchools.length;
-  if (el("statMembers")) el("statMembers").textContent = filteredMembers.length;
-  if (el("statSheets")) el("statSheets").textContent = allSheets.length;
-  if (el("statConnections")) el("statConnections").textContent = allConnections.length;
-  if (el("statCodes")) el("statCodes").textContent = allCodes.length;
-  if (el("statLab")) el("statLab").textContent = allLab.length;
-  if (el("dashSchools")) el("dashSchools").textContent = filteredSchools.length;
-  if (el("dashMembers")) el("dashMembers").textContent = filteredMembers.length;
-  if (el("dashSheets")) el("dashSheets").textContent = allSheets.length;
-  if (el("dashConnections")) el("dashConnections").textContent = allConnections.length;
-  if (el("dashLab")) el("dashLab").textContent = allLab.length;
+const el = id => document.getElementById(id);
+const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
+let filteredMembers = allMembers, filteredSchools = allSchools;
+if (filter !== "all") { filteredMembers = allMembers.filter(m => m.ecoleId === filter); filteredSchools = allSchools.filter(s => s.id === filter); }
+if (el("statSchools")) el("statSchools").textContent = filteredSchools.length;
+if (el("statMembers")) el("statMembers").textContent = filteredMembers.length;
+if (el("statSheets")) el("statSheets").textContent = allSheets.length;
+if (el("statConnections")) el("statConnections").textContent = allConnections.length;
+if (el("statCodes")) el("statCodes").textContent = allCodes.length;
+if (el("statLab")) el("statLab").textContent = allLab.length;
+if (el("dashSchools")) el("dashSchools").textContent = filteredSchools.length;
+if (el("dashMembers")) el("dashMembers").textContent = filteredMembers.length;
+if (el("dashSheets")) el("dashSheets").textContent = allSheets.length;
+if (el("dashConnections")) el("dashConnections").textContent = allConnections.length;
+if (el("dashLab")) el("dashLab").textContent = allLab.length;
 }
 
 function updateCharts() {
-  const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
-  let filteredSchools = allSchools, filteredMembers = allMembers;
-  if (filter !== "all") { filteredSchools = allSchools.filter(s => s.id === filter); filteredMembers = allMembers.filter(m => m.ecoleId === filter); }
-  // Bar chart
-  const barCtx = document.getElementById('barChartStudents')?.getContext('2d');
-  if (barCtx) {
-    if (chartInstances.bar) chartInstances.bar.destroy();
-    const schoolData = filteredSchools.map(s => { const count = filteredMembers.filter(m => m.ecoleId === s.id && m.statut !== "abandon" && m.statut !== "dropout").length; return { nom: s.nom || s.id, count }; }).sort((a, b) => b.count - a.count);
-    const labels = schoolData.map(s => s.nom.length > 12 ? s.nom.substring(0, 10) + '…' : s.nom);
-    const data = schoolData.map(s => s.count);
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f472b6', '#34d399'];
-    chartInstances.bar = new Chart(barCtx, { type: 'bar', data: { labels, datasets: [{ label: 'Students', data, backgroundColor: colors.slice(0, data.length), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#5a6f8a', font: { size: 8 } } }, x: { ticks: { color: '#5a6f8a', font: { size: 8 }, maxRotation: 30 } } } } });
-  }
-  // Line chart
-  const lineCtx = document.getElementById('lineChartTrend')?.getContext('2d');
-  if (lineCtx) {
-    if (chartInstances.line) chartInstances.line.destroy();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const data = [];
-    for (let i = 0; i < 12; i++) {
-      const count = filteredMembers.filter(m => { const date = new Date(m.dateCreation || m.date || Date.now()); return date.getMonth() === i && m.statut !== "abandon" && m.statut !== "dropout"; }).length;
-      data.push(count || Math.floor(Math.random() * 10) + 2);
-    }
-    chartInstances.line = new Chart(lineCtx, { type: 'line', data: { labels: months, datasets: [{ label: 'Enrollments', data, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.06)', fill: true, tension: 0.3, pointRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#5a6f8a', font: { size: 8 } } }, x: { ticks: { color: '#5a6f8a', font: { size: 8 } } } } } });
-  }
-  // Doughnut chart
-  const doughnutCtx = document.getElementById('doughnutChartStatus')?.getContext('2d');
-  if (doughnutCtx) {
-    if (chartInstances.doughnut) chartInstances.doughnut.destroy();
-    const active = filteredMembers.filter(m => m.statut !== "abandon" && m.statut !== "dropout").length;
-    const abandoned = filteredMembers.filter(m => m.statut === "abandon" || m.statut === "dropout").length;
-    const exempted = filteredMembers.filter(m => m.statut === "exempted").length;
-    chartInstances.doughnut = new Chart(doughnutCtx, { type: 'doughnut', data: { labels: ['Active', 'Abandoned', 'Exempted'], datasets: [{ data: [active, abandoned, exempted], backgroundColor: ['#10b981', '#ef4444', '#f59e0b'], borderColor: '#0a0e1a', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a8b8d0', font: { size: 9 } } } } } });
-  }
-  // Horizontal bar
-  const hbarCtx = document.getElementById('horizontalBarFrais')?.getContext('2d');
-  if (hbarCtx) {
-    if (chartInstances.hbar) chartInstances.hbar.destroy();
-    const schoolFrais = filteredSchools.map(s => { const actifs = filteredMembers.filter(m => m.ecoleId === s.id && m.statut !== "abandon" && m.statut !== "dropout").length; const tarif = s.tarifParEleve || 2000; return { nom: s.nom || s.id, frais: actifs * tarif, actifs }; }).filter(s => s.frais > 0).sort((a, b) => b.frais - a.frais);
-    const labels = schoolFrais.map(s => s.nom.length > 12 ? s.nom.substring(0, 10) + '…' : s.nom);
-    const data = schoolFrais.map(s => s.frais);
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
-    chartInstances.hbar = new Chart(hbarCtx, { type: 'bar', data: { labels, datasets: [{ label: 'Fees (FC)', data, backgroundColor: colors.slice(0, data.length), borderRadius: 3 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#5a6f8a', font: { size: 8 } } }, y: { ticks: { color: '#5a6f8a', font: { size: 8 } } } } } });
-  }
-  // Comparison chart
-  const compCtx = document.getElementById('comparisonChart')?.getContext('2d');
-  if (compCtx) {
-    if (chartInstances.comparison) chartInstances.comparison.destroy();
-    const topSchools = filteredSchools.slice(0, 5);
-    const labels = topSchools.map(s => s.nom || s.id);
-    const students = topSchools.map(s => allMembers.filter(m => m.ecoleId === s.id && m.statut !== "abandon" && m.statut !== "dropout").length);
-    const teachers = topSchools.map(s => allTeachers.filter(t => t.ecoleId === s.id && t.actif !== false).length);
-    chartInstances.comparison = new Chart(compCtx, { type: 'bar', data: { labels, datasets: [{ label: 'Students', data: students, backgroundColor: 'rgba(59,130,246,0.7)', borderRadius: 3 }, { label: 'Teachers', data: teachers, backgroundColor: 'rgba(16,185,129,0.7)', borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#a8b8d0', font: { size: 9 } } } }, scales: { y: { beginAtZero: true, ticks: { color: '#5a6f8a', font: { size: 8 } } }, x: { ticks: { color: '#5a6f8a', font: { size: 8 }, maxRotation: 30 } } } } });
-  }
+// Charts simplifiés pour la version admin
+const filter = document.getElementById("dashboardSchoolFilter")?.value || "all";
+let filteredSchools = allSchools, filteredMembers = allMembers;
+if (filter !== "all") { filteredSchools = allSchools.filter(s => s.id === filter); filteredMembers = allMembers.filter(m => m.ecoleId === filter); }
+const barCtx = document.getElementById('barChartStudents')?.getContext('2d');
+if (barCtx) {
+if (chartInstances.bar) chartInstances.bar.destroy();
+const schoolData = filteredSchools.map(s => { const count = filteredMembers.filter(m => m.ecoleId === s.id && m.statut !== "abandon" && m.statut !== "dropout").length; return { nom: s.nom || s.id, count }; }).sort((a, b) => b.count - a.count);
+const labels = schoolData.map(s => s.nom.length > 12 ? s.nom.substring(0, 10) + '…' : s.nom);
+const data = schoolData.map(s => s.count);
+const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
+chartInstances.bar = new Chart(barCtx, { type: 'bar', data: { labels, datasets: [{ label: 'Students', data, backgroundColor: colors.slice(0, data.length), borderRadius: 3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#5a6f8a', font: { size: 8 } } }, x: { ticks: { color: '#5a6f8a', font: { size: 8 }, maxRotation: 30 } } } } });
+}
+const doughnutCtx = document.getElementById('doughnutChartStatus')?.getContext('2d');
+if (doughnutCtx) {
+if (chartInstances.doughnut) chartInstances.doughnut.destroy();
+const active = filteredMembers.filter(m => m.statut !== "abandon" && m.statut !== "dropout").length;
+const abandoned = filteredMembers.filter(m => m.statut === "abandon" || m.statut === "dropout").length;
+const exempted = filteredMembers.filter(m => m.statut === "exempted").length;
+chartInstances.doughnut = new Chart(doughnutCtx, { type: 'doughnut', data: { labels: ['Active', 'Abandoned', 'Exempted'], datasets: [{ data: [active, abandoned, exempted], backgroundColor: ['#10b981', '#ef4444', '#f59e0b'], borderColor: '#0a0e1a', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#a8b8d0', font: { size: 9 } } } } } });
+}
 }
 
 function updateKPIs() {
-  const total = allMembers.length;
-  const active = allMembers.filter(m => m.statut !== "abandon" && m.statut !== "dropout").length;
-  const teachers = allTeachers.filter(t => t.actif !== false).length;
-  const growth = total > 0 ? Math.round((active / total) * 100) : 0;
-  const retention = total > 0 ? Math.round((active / total) * 100) : 0;
-  const ratio = teachers > 0 ? (total / teachers).toFixed(1) : "0";
-  let revenue = 0;
-  allSchools.forEach(school => { const actifs = allMembers.filter(m => m.ecoleId === school.id && m.statut !== "abandon" && m.statut !== "dropout").length; const tarif = school.tarifParEleve || 2000; revenue += actifs * tarif; });
-  document.getElementById("kpiGrowth").textContent = "+" + growth + "%";
-  document.getElementById("kpiGrowthSub").textContent = growth >= 0 ? "↑ Growth" : "↓ Decline";
-  document.getElementById("kpiRetention").textContent = retention + "%";
-  document.getElementById("kpiRetentionSub").textContent = active + " active students";
-  document.getElementById("kpiRatio").textContent = "1:" + ratio;
-  document.getElementById("kpiRatioSub").textContent = "Student/Teacher ratio";
-  document.getElementById("kpiRevenue").textContent = formatNumber(revenue) + " FC";
+const total = allMembers.length;
+const active = allMembers.filter(m => m.statut !== "abandon" && m.statut !== "dropout").length;
+const teachers = allTeachers.filter(t => t.actif !== false).length;
+const growth = total > 0 ? Math.round((active / total) * 100) : 0;
+const retention = total > 0 ? Math.round((active / total) * 100) : 0;
+const ratio = teachers > 0 ? (total / teachers).toFixed(1) : "0";
+let revenue = 0;
+allSchools.forEach(school => { const actifs = allMembers.filter(m => m.ecoleId === school.id && m.statut !== "abandon" && m.statut !== "dropout").length; const tarif = school.tarifParEleve || 2000; revenue += actifs * tarif; });
+document.getElementById("kpiGrowth").textContent = "+" + growth + "%";
+document.getElementById("kpiGrowthSub").textContent = growth >= 0 ? "↑ Growth" : "↓ Decline";
+document.getElementById("kpiRetention").textContent = retention + "%";
+document.getElementById("kpiRetentionSub").textContent = active + " active students";
+document.getElementById("kpiRatio").textContent = "1:" + ratio;
+document.getElementById("kpiRatioSub").textContent = "Student/Teacher ratio";
+document.getElementById("kpiRevenue").textContent = formatNumber(revenue) + " FC";
 }
 
 function updateRecentActivity() {
-  const container = document.getElementById("recentActivity");
-  if (!container) return;
-  const activities = allConnections.slice(0, 10).map(c => ({ user: c.utilisateur, action: c.statut === "success" ? "Connected" : c.statut === "alert" ? "Alert" : "Failed", time: c.date }));
-  if (activities.length === 0) { container.innerHTML = '<div class="empty-state">No recent activity</div>'; return; }
-  let html = '';
-  activities.forEach(a => {
-    const time = new Date(a.time);
-    const now = new Date();
-    const diff = Math.floor((now - time) / 60000);
-    let timeStr = diff < 1 ? "Just now" : diff < 60 ? diff + " min ago" : diff < 1440 ? Math.floor(diff / 60) + "h ago" : Math.floor(diff / 1440) + "d ago";
-    html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--border-color);font-size:11px;"><span>${escapeHtml(a.user)} - ${escapeHtml(a.action)}</span><span style="color:var(--text-muted);">${timeStr}</span></div>`;
-  });
-  container.innerHTML = html;
+const container = document.getElementById("recentActivity");
+if (!container) return;
+const activities = allConnections.slice(0, 10).map(c => ({ user: c.utilisateur, action: c.statut === "success" ? "Connected" : c.statut === "alert" ? "Alert" : "Failed", time: c.date }));
+if (activities.length === 0) { container.innerHTML = '<div class="empty-state">No recent activity</div>'; return; }
+let html = '';
+activities.forEach(a => {
+const time = new Date(a.time);
+const now = new Date();
+const diff = Math.floor((now - time) / 60000);
+let timeStr = diff < 1 ? "Just now" : diff < 60 ? diff + " min ago" : diff < 1440 ? Math.floor(diff / 60) + "h ago" : Math.floor(diff / 1440) + "d ago";
+html += `<div style="display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--border-color);font-size:11px;"><span>${escapeHtml(a.user)} - ${escapeHtml(a.action)}</span><span style="color:var(--text-muted);">${timeStr}</span></div>`;
+});
+container.innerHTML = html;
 }
 
 function updateAlerts() {
-  const container = document.getElementById("alertContainer");
-  if (!container) return;
-  const alerts = [];
-  const inactiveSchools = allSchools.filter(s => s.actif === false);
-  if (inactiveSchools.length > 0) alerts.push({ type: 'danger', message: inactiveSchools.length + ' schools are inactive' });
-  const teachersWithoutCode = allTeachers.filter(t => !t.code);
-  if (teachersWithoutCode.length > 0) alerts.push({ type: 'warning', message: teachersWithoutCode.length + ' teachers without code' });
-  if (alerts.length === 0) { container.innerHTML = '<div class="empty-state">✅ All systems operational</div>'; return; }
-  let html = '';
-  alerts.forEach(a => {
-    const color = a.type === 'danger' ? 'var(--red)' : a.type === 'warning' ? 'var(--orange)' : 'var(--green)';
-    const bg = a.type === 'danger' ? 'rgba(239,68,68,0.08)' : a.type === 'warning' ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)';
-    const icon = a.type === 'danger' ? '🔴' : a.type === 'warning' ? '🟡' : '🟢';
-    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border-radius:6px;border-left:3px solid ${color};"><span>${icon}</span><span style="font-size:12px;">${a.message}</span></div>`;
-  });
-  container.innerHTML = html;
+const container = document.getElementById("alertContainer");
+if (!container) return;
+const alerts = [];
+const inactiveSchools = allSchools.filter(s => s.actif === false);
+if (inactiveSchools.length > 0) alerts.push({ type: 'danger', message: inactiveSchools.length + ' schools are inactive' });
+const teachersWithoutCode = allTeachers.filter(t => !t.code);
+if (teachersWithoutCode.length > 0) alerts.push({ type: 'warning', message: teachersWithoutCode.length + ' teachers without code' });
+if (alerts.length === 0) { container.innerHTML = '<div class="empty-state">✅ All systems operational</div>'; return; }
+let html = '';
+alerts.forEach(a => {
+const color = a.type === 'danger' ? 'var(--red)' : a.type === 'warning' ? 'var(--orange)' : 'var(--green)';
+const bg = a.type === 'danger' ? 'rgba(239,68,68,0.08)' : a.type === 'warning' ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)';
+const icon = a.type === 'danger' ? '🔴' : a.type === 'warning' ? '🟡' : '🟢';
+html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:${bg};border-radius:6px;border-left:3px solid ${color};"><span>${icon}</span><span style="font-size:12px;">${a.message}</span></div>`;
+});
+container.innerHTML = html;
 }
 
 // --- Chargement des écoles ---
 async function loadSchools() {
-  const container = document.getElementById("schoolsList");
-  if (!container) return;
-  try {
-    if (allSchools.length === 0) await loadAllData();
-    if (allSchools.length === 0) { container.innerHTML = '<div class="empty-state"><span class="empty-icon">🏫</span>No schools found</div>'; return; }
-    let html = '<div class="table-wrapper"><table><thead><tr><th>School</th><th>ID</th><th>Province</th><th>City</th><th>Principal</th><th>📧 Parent</th><th>Code Direction</th><th>Code Compta</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-    for (const s of allSchools) {
-      const count = allStudents.filter(m => m.ecoleId === s.id).length;
-      const parentEmail = s.parentEmail || genererEmailParent(s.id);
-      let codeDir = 'Non défini', codeCompta = 'Non défini';
-      try {
-        const ref = doc(db, "ecoles", s.id, "settings", "data");
-        const snap = await getDoc(ref);
-        if (snap.exists()) { const data = snap.data(); codeDir = data.codeDirection || 'Non défini'; codeCompta = data.codeComptabilite || 'Non défini'; }
-      } catch (e) {}
-      html += `<tr><td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td><td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td style="font-size:10px;color:var(--blue);word-break:break-all;">${escapeHtml(parentEmail)}</td><td style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">${escapeHtml(codeDir)}</td><td style="font-family:monospace;color:var(--green);font-weight:700;font-size:12px;letter-spacing:1px;">${escapeHtml(codeCompta)}</td><td><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "Active" : "Inactive"}</span></td><td><button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button><div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"><button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button><button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "Deactivate" : "Activate"}</button><button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Code</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button></div></td></tr>`;
-    }
-    html += "</tbody></table></div>";
-    container.innerHTML = html;
+const container = document.getElementById("schoolsList");
+if (!container) return;
+try {
+if (allSchools.length === 0) await loadAllData();
+if (allSchools.length === 0) { container.innerHTML = '<div class="empty-state"><span class="empty-icon">🏫</span>No schools found</div>'; return; }
+let html = '<div class="table-wrapper"><table><thead><tr><th>School</th><th>ID</th><th>Province</th><th>City</th><th>Principal</th><th>📧 Parent</th><th>Code Dir</th><th>Code Compta</th><th>Code Parent</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+for (const s of allSchools) {
+const count = allStudents.filter(m => m.ecoleId === s.id).length;
+const parentEmail = s.parentEmail || genererEmailParent(s.id);
+let codeDir = 'Non défini', codeCompta = 'Non défini', codeParent = 'Non défini';
+try {
+const ref = doc(db, "ecoles", s.id, "settings", "data");
+const snap = await getDoc(ref);
+if (snap.exists()) { const data = snap.data(); codeDir = data.codeDirection || 'Non défini'; codeCompta = data.codeComptabilite || 'Non défini'; codeParent = data.codeParent || 'Non défini'; }
+} catch (e) {}
+html += `<tr><td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td><td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td style="font-size:10px;color:var(--blue);word-break:break-all;">${escapeHtml(parentEmail)}</td><td style="font-family:monospace;color:var(--gold);font-weight:700;font-size:11px;letter-spacing:1px;">${escapeHtml(codeDir)}</td><td style="font-family:monospace;color:var(--green);font-weight:700;font-size:11px;letter-spacing:1px;">${escapeHtml(codeCompta)}</td><td style="font-family:monospace;color:var(--purple);font-weight:700;font-size:11px;letter-spacing:1px;">${escapeHtml(codeParent)}</td><td><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "Active" : "Inactive"}</span></td><td><button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button><div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"><button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button><button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "Deactivate" : "Activate"}</button><button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Codes</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button></div></td></tr>`;
+}
+html += "</tbody></table></div>";
+container.innerHTML = html;
 
-    container.querySelectorAll('.action-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.dataset.id;
-        const div = document.getElementById('action-btns-' + id);
-        if (div.style.display === 'none' || div.style.display === '') { div.style.display = 'flex'; this.textContent = '✕ Close'; } else { div.style.display = 'none'; this.textContent = '⚡ Actions'; }
-      });
-    });
-    container.querySelectorAll('.edit-school-btn').forEach(btn => { btn.addEventListener('click', function() { showEditSchool(this.dataset.id); }); });
-    container.querySelectorAll('.change-id-btn').forEach(btn => { btn.addEventListener('click', function() { showChangeId(this.dataset.id); }); });
-    container.querySelectorAll('.export-btn').forEach(btn => { btn.addEventListener('click', function() { exportSchool(this.dataset.id); }); });
-    container.querySelectorAll('.backup-school-btn').forEach(btn => { btn.addEventListener('click', function() { exportSchoolCompleteToExcel(this.dataset.id); }); });
-    container.querySelectorAll('.toggle-school-btn').forEach(btn => { btn.addEventListener('click', function() { toggleSchool(this.dataset.id); }); });
-    container.querySelectorAll('.regenerate-code-btn').forEach(btn => { btn.addEventListener('click', function() { regenererCodeDirection(this.dataset.id); }); });
-    container.querySelectorAll('.delete-school-btn').forEach(btn => { btn.addEventListener('click', function() { deleteSchool(this.dataset.id); }); });
-  } catch (e) { container.innerHTML = '<div class="empty-state">❌ Error</div>'; }
+container.querySelectorAll('.action-toggle-btn').forEach(btn => {
+btn.addEventListener('click', function() {
+const id = this.dataset.id;
+const div = document.getElementById('action-btns-' + id);
+if (div.style.display === 'none' || div.style.display === '') { div.style.display = 'flex'; this.textContent = '✕ Close'; } else { div.style.display = 'none'; this.textContent = '⚡ Actions'; }
+});
+});
+container.querySelectorAll('.edit-school-btn').forEach(btn => { btn.addEventListener('click', function() { showEditSchool(this.dataset.id); }); });
+container.querySelectorAll('.change-id-btn').forEach(btn => { btn.addEventListener('click', function() { showChangeId(this.dataset.id); }); });
+container.querySelectorAll('.export-btn').forEach(btn => { btn.addEventListener('click', function() { exportSchool(this.dataset.id); }); });
+container.querySelectorAll('.backup-school-btn').forEach(btn => { btn.addEventListener('click', function() { exportSchoolCompleteToExcel(this.dataset.id); }); });
+container.querySelectorAll('.toggle-school-btn').forEach(btn => { btn.addEventListener('click', function() { toggleSchool(this.dataset.id); }); });
+container.querySelectorAll('.regenerate-code-btn').forEach(btn => { btn.addEventListener('click', function() { regenererCodesEcole(this.dataset.id); }); });
+container.querySelectorAll('.delete-school-btn').forEach(btn => { btn.addEventListener('click', function() { deleteSchool(this.dataset.id); }); });
+} catch (e) { container.innerHTML = '<div class="empty-state">❌ Error</div>'; }
 }
 
 // --- Chargement des professeurs ---
 async function loadTeachers() {
-  const container = document.getElementById("teachersContainer");
-  if (!container) return;
-  const filter = document.getElementById("teacherSchoolFilter")?.value || "all";
-  let all = allTeachers;
-  if (filter !== "all") all = all.filter(t => t.ecoleId === filter);
-  document.getElementById("teachersCount").textContent = all.length;
-  if (all.length === 0) { container.innerHTML = '<div class="empty-state" style="text-align:center;padding:40px;color:var(--text-muted);">📭 No teachers found</div>'; return; }
-  const grouped = {};
-  all.forEach(t => { const key = t.ecoleId; if (!grouped[key]) grouped[key] = { ecoleNom: t.ecoleNom, teachers: [] }; grouped[key].teachers.push(t); });
-  let html = '';
-  for (const [ecoleId, group] of Object.entries(grouped)) {
-    html += `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:8px;border-left:3px solid var(--blue);margin-bottom:8px;flex-wrap:wrap;gap:4px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">🏫</span><span style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(group.ecoleNom)}</span><span style="font-size:11px;color:var(--text-muted);">(${group.teachers.length} profs)</span></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <span style="font-size:10px;color:var(--blue);">📧 ${genererEmailParent(ecoleId)}</span>
-      <button class="btn btn-sm btn-success add-teacher-btn" data-ecole="${ecoleId}" style="padding:2px 10px;font-size:9px;">➕ Ajouter Prof</button>
-    </div>
-    </div><div style="display:flex;flex-direction:column;gap:6px;padding-left:8px;">`;
-    group.teachers.forEach((t) => {
-      const email = t.email || t.emailProf || null;
-      const isActive = t.actif !== false;
-      const hasEmail = email && email !== '-' && email !== 'null';
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border-color);flex-wrap:wrap;gap:6px;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:120px;"><span style="font-weight:600;font-size:13px;color:var(--text-primary);">${escapeHtml(t.nom)}</span><span style="font-size:10px;color:${hasEmail ? 'var(--green)' : 'var(--orange)'};word-break:break-all;max-width:220px;">📧 ${hasEmail ? escapeHtml(email) : '❌ Aucun email'}</span></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">🔑 ${t.code || '---'}</span><span class="badge ${isActive ? 'active' : 'inactive'}" style="font-size:8px;padding:2px 10px;">${isActive ? '✅ Actif' : '⛔ Inactif'}</span>${!hasEmail ? `<button class="btn btn-sm btn-success generate-email-btn" data-id="${t.id}" data-ecole="${t.ecoleId}" data-nom="${escapeHtml(t.nom)}" data-code="${t.code || ''}" style="padding:2px 8px;font-size:9px;">📧 Générer</button>` : ''}<button class="btn btn-sm btn-danger delete-teacher-btn" data-id="${t.id}" data-ecole="${t.ecoleId}" style="padding:2px 8px;font-size:9px;">🗑️</button></div></div>`;
-    });
-    html += `</div></div>`;
-  }
-  container.innerHTML = html;
+const container = document.getElementById("teachersContainer");
+if (!container) return;
+const filter = document.getElementById("teacherSchoolFilter")?.value || "all";
+let all = allTeachers;
+if (filter !== "all") all = all.filter(t => t.ecoleId === filter);
+document.getElementById("teachersCount").textContent = all.length;
+if (all.length === 0) { container.innerHTML = '<div class="empty-state" style="text-align:center;padding:40px;color:var(--text-muted);">📭 No teachers found</div>'; return; }
+const grouped = {};
+all.forEach(t => { const key = t.ecoleId; if (!grouped[key]) grouped[key] = { ecoleNom: t.ecoleNom, teachers: [] }; grouped[key].teachers.push(t); });
+let html = '';
+for (const [ecoleId, group] of Object.entries(grouped)) {
+html += `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:8px;border-left:3px solid var(--blue);margin-bottom:8px;flex-wrap:wrap;gap:4px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">🏫</span><span style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(group.ecoleNom)}</span><span style="font-size:11px;color:var(--text-muted);">(${group.teachers.length} profs)</span></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<span style="font-size:10px;color:var(--blue);">📧 ${genererEmailParent(ecoleId)}</span>
+</div>
+</div><div style="display:flex;flex-direction:column;gap:6px;padding-left:8px;">`;
+group.teachers.forEach((t) => {
+const email = t.email || t.emailProf || null;
+const isActive = t.actif !== false;
+const hasEmail = email && email !== '-' && email !== 'null';
+const authBadge = t.authCreated ? '<span class="badge badge-auth">✅ Auth</span>' : '<span class="badge badge-noauth">❌ No Auth</span>';
+html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border-color);flex-wrap:wrap;gap:6px;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:120px;"><span style="font-weight:600;font-size:13px;color:var(--text-primary);">${escapeHtml(t.nom)}</span><span style="font-size:10px;color:${hasEmail ? 'var(--green)' : 'var(--orange)'};word-break:break-all;max-width:220px;">📧 ${hasEmail ? escapeHtml(email) : '❌ Aucun email'}</span></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">🔑 ${t.code || '---'}</span>${authBadge}<span class="badge ${isActive ? 'active' : 'inactive'}" style="font-size:8px;padding:2px 10px;">${isActive ? '✅ Actif' : '⛔ Inactif'}</span><button class="btn btn-sm btn-danger delete-teacher-btn" data-id="${t.id}" data-ecole="${t.ecoleId}" data-email="${t.email || ''}" style="padding:2px 8px;font-size:9px;">🗑️</button></div></div>`;
+});
+html += `</div></div>`;
+}
+container.innerHTML = html;
 
-  container.querySelectorAll('.add-teacher-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      showAddTeacherForm(this.dataset.ecole);
-    });
-  });
-
-  container.querySelectorAll('.generate-email-btn').forEach(btn => {
-    btn.addEventListener('click', function() { showGenerateEmailPrompt(this.dataset.id, this.dataset.ecole, this.dataset.nom, this.dataset.code); });
-  });
-  container.querySelectorAll('.delete-teacher-btn').forEach(btn => {
-    btn.addEventListener('click', function() { deleteTeacher(this.dataset.id, this.dataset.ecole); });
-  });
+container.querySelectorAll('.delete-teacher-btn').forEach(btn => {
+btn.addEventListener('click', function() { deleteTeacher(this.dataset.id, this.dataset.ecole, this.dataset.email); });
+});
 }
 
 // --- Formulaire d'ajout de professeur ---
 function showAddTeacherForm(ecoleId) {
-  const school = allSchools.find(s => s.id === ecoleId);
-  const nomEcole = school ? school.nom : ecoleId;
-  
-  const modal = document.getElementById("modalOverlay");
-  document.getElementById("modalIcon").textContent = "👨‍🏫";
-  document.getElementById("modalTitle").textContent = "Ajouter un professeur";
-  document.getElementById("modalSubtitle").textContent = `École: ${escapeHtml(nomEcole)}`;
-  document.getElementById("modalBody").innerHTML = `
-    <div style="padding:4px 0;">
-      <div class="form-group" style="margin-bottom:8px;">
-        <label>Nom complet <span class="required">*</span></label>
-        <input type="text" id="newTeacherName" placeholder="Nom du professeur" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);">
-      </div>
-      <div class="form-group" style="margin-bottom:8px;">
-        <label>Email</label>
-        <input type="email" id="newTeacherEmail" placeholder="email@exemple.com (optionnel)" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);">
-      </div>
-      <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;margin:8px 0;border:1px solid var(--gold);">
-        <div style="font-size:10px;color:var(--text-muted);">🔑 Un code unique à 6 chiffres sera généré automatiquement</div>
-      </div>
-    </div>
-    <div class="modal-actions" style="margin-top:8px;">
-      <button class="btn btn-success" id="saveNewTeacherBtn" style="padding:8px 24px;">✅ Ajouter</button>
-      <button class="btn btn-outline" id="cancelNewTeacherBtn">Annuler</button>
-    </div>
-  `;
-  modal.classList.add("show");
-  
-  document.getElementById("cancelNewTeacherBtn").addEventListener("click", function() {
-    modal.classList.remove("show");
-  });
-  
-  document.getElementById("saveNewTeacherBtn").addEventListener("click", async function() {
-    const nom = document.getElementById("newTeacherName").value.trim();
-    const email = document.getElementById("newTeacherEmail").value.trim();
-    const btn = this;
-    
-    if (!nom) {
-      toast("❌ Le nom est requis", "error");
-      return;
-    }
-    
-    btn.disabled = true;
-    btn.textContent = "⏳ Création...";
-    
-    try {
-      const code = await generateUniqueTeacherCode();
-      const emailProf = email || genererEmailProfesseur(nom, ecoleId);
-      
-      const profData = {
-        nom: nom,
-        code: code,
-        email: emailProf,
-        emailProf: emailProf,
-        _type: "prof",
-        actif: true,
-        authCreated: false,
-        createdAt: new Date().toISOString(),
-        createdBy: "DSI"
-      };
-      
-      if (email) {
-        profData.emailFourni = email;
-      }
-      
-      await setDoc(doc(collection(db, "ecoles", ecoleId, SC.PROFESSEURS)), profData);
-      
-      toast(`✅ Professeur "${nom}" ajouté avec le code ${code}`, "success");
-      modal.classList.remove("show");
-      loadTeachers();
-      loadAllData();
-      
-      showModal("📋 Informations du professeur", `
-        <div style="text-align:center;padding:10px;">
-          <div style="font-size:14px;font-weight:600;">${escapeHtml(nom)}</div>
-          <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;margin:10px 0;border:2px solid var(--gold);">
-            <div style="font-size:11px;color:var(--text-muted);">🔑 Code d'accès</div>
-            <div style="font-size:32px;font-weight:800;color:var(--gold);letter-spacing:6px;font-family:monospace;">${code}</div>
-          </div>
-          <div style="font-size:10px;color:var(--text-muted);">📧 ${escapeHtml(emailProf)}</div>
-          <div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants au professeur</div>
-        </div>
-      `);
-      
-    } catch (error) {
-      toast("❌ Erreur: " + error.message, "error");
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "✅ Ajouter";
-    }
-  });
-}
+const school = allSchools.find(s => s.id === ecoleId);
+const nomEcole = school ? school.nom : ecoleId;
 
-// --- Génération d'email pour professeur existant ---
-function showGenerateEmailPrompt(teacherId, ecoleId, teacherNom, teacherCode) {
-  const emailAuto = genererEmailProfesseur(teacherNom, ecoleId);
-  const code = teacherCode || generate6DigitCode();
-  
-  const modal = document.getElementById("modalOverlay");
-  document.getElementById("modalIcon").textContent = "📧";
-  document.getElementById("modalTitle").textContent = "Créer le compte Firebase Auth";
-  document.getElementById("modalSubtitle").textContent = `Professeur: ${escapeHtml(teacherNom)}`;
-  document.getElementById("modalBody").innerHTML = `
-    <div style="text-align:center;padding:8px 0;">
-      <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;border:2px solid var(--blue);">
-        <div style="font-size:11px;color:var(--text-muted);">📧 Email généré</div>
-        <div style="font-size:18px;font-weight:700;color:var(--blue);font-family:monospace;word-break:break-all;margin-top:4px;">${escapeHtml(emailAuto)}</div>
-      </div>
-      <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;margin:8px 0;border:2px solid var(--gold);">
-        <div style="font-size:11px;color:var(--text-muted);">🔑 Code d'accès</div>
-        <div style="font-size:32px;font-weight:800;color:var(--gold);letter-spacing:6px;font-family:monospace;">${code}</div>
-      </div>
-      <div style="font-size:10px;color:var(--text-muted);">🔒 Format: prof.nom.ecole@gmail.com</div>
-    </div>
-    <div class="modal-actions" style="margin-top:12px;">
-      <button class="btn btn-success" id="saveTeacherEmailBtn" style="padding:8px 20px;">✅ Créer le compte Firebase</button>
-      <button class="btn btn-outline" id="cancelTeacherEmailBtn">Annuler</button>
-    </div>
-  `;
-  modal.classList.add("show");
-  
-  document.getElementById("cancelTeacherEmailBtn").addEventListener("click", function() {
-    modal.classList.remove("show");
-  });
-  
-  document.getElementById("saveTeacherEmailBtn").addEventListener("click", async function() {
-    const btn = this;
-    btn.disabled = true;
-    btn.textContent = "⏳ Création...";
-    
-    try {
-      const profRef = doc(db, "ecoles", ecoleId, SC.PROFESSEURS, teacherId);
-      
-      try {
-        await createUserWithEmailAndPassword(auth, emailAuto, code);
-        console.log(`✅ Compte Firebase Auth créé: ${emailAuto}`);
-      } catch (authError) {
-        if (authError.code === 'auth/email-already-in-use') {
-          toast("ℹ️ Ce compte existe déjà dans Firebase Auth", "info");
-        } else if (authError.code === 'auth/weak-password') {
-          toast("❌ Le code doit contenir au moins 6 caractères", "error");
-          btn.disabled = false;
-          btn.textContent = "✅ Créer le compte Firebase";
-          return;
-        } else {
-          throw authError;
-        }
-      }
-      
-      await updateDoc(profRef, {
-        email: emailAuto,
-        emailProf: emailAuto,
-        authCreated: true,
-        code: code,
-        emailUpdatedAt: new Date().toISOString(),
-        emailUpdatedBy: "DSI"
-      });
-      
-      toast(`✅ Compte Firebase créé avec succès !`, "success");
-      modal.classList.remove("show");
-      loadTeachers();
-      loadAllData();
-      
-      showModal("📋 Informations de connexion", `
-        <div style="text-align:center;padding:10px;">
-          <div style="font-size:14px;font-weight:600;">${escapeHtml(teacherNom)}</div>
-          <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;margin:10px 0;border:2px solid var(--gold);">
-            <div style="font-size:11px;color:var(--text-muted);">🔑 Code d'accès</div>
-            <div style="font-size:32px;font-weight:800;color:var(--gold);letter-spacing:6px;font-family:monospace;">${code}</div>
-          </div>
-          <div style="font-size:10px;color:var(--text-muted);">📧 ${escapeHtml(emailAuto)}</div>
-          <div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants au professeur</div>
-          <div style="font-size:10px;color:var(--green);margin-top:4px;">✅ Compte créé dans Firebase Authentication</div>
-        </div>
-      `);
-      
-    } catch (e) {
-      toast("❌ Erreur: " + e.message, "error");
-      console.error(e);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = "✅ Créer le compte Firebase";
-    }
-  });
-}
+const modal = document.getElementById("modalOverlay");
+document.getElementById("modalIcon").textContent = "👨‍🏫";
+document.getElementById("modalTitle").textContent = "Ajouter un professeur";
+document.getElementById("modalSubtitle").textContent = `École: ${escapeHtml(nomEcole)}`;
+document.getElementById("modalBody").innerHTML = `
+<div style="padding:4px 0;">
+<div class="form-group" style="margin-bottom:8px;">
+<label>Nom complet <span class="required">*</span></label>
+<input type="text" id="newTeacherName" placeholder="Nom du professeur" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);">
+</div>
+<div class="form-group" style="margin-bottom:8px;">
+<label>Email</label>
+<input type="email" id="newTeacherEmail" placeholder="email@exemple.com (optionnel)" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);">
+</div>
+<div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;margin:8px 0;border:1px solid var(--gold);">
+<div style="font-size:10px;color:var(--text-muted);">🔑 Un code unique à 6 chiffres sera généré automatiquement</div>
+<div style="font-size:10px;color:var(--green);margin-top:4px;">✅ Un compte Firebase Authentication sera créé automatiquement</div>
+</div>
+</div>
+<div class="modal-actions" style="margin-top:8px;">
+<button class="btn btn-success" id="saveNewTeacherBtn" style="padding:8px 24px;">✅ Ajouter</button>
+<button class="btn btn-outline" id="cancelNewTeacherBtn">Annuler</button>
+</div>
+`;
+modal.classList.add("show");
 
-// --- Suppression d'un professeur ---
-async function deleteTeacher(id, ecole) {
-  if (!await showConfirm("Delete", "Delete this teacher?")) return;
-  try {
-    await deleteDoc(doc(db, "ecoles", ecole, SC.PROFESSEURS, id));
-    toast("Teacher deleted", "success");
-    loadTeachers();
-    loadAllData();
-  } catch (e) { toast("Error: " + e.message, "error"); }
-}
-
-// --- Régénération des codes direction/compta (6 chiffres) ---
-async function regenererCodeDirection(ecoleId) {
-  if (!await showConfirm("🔄 Régénérer le code", "Voulez-vous régénérer les codes d'accès pour cette école ?")) return;
-  try {
-    const newCode = generate6DigitCode();
-    await genererCodeDirection(ecoleId, newCode);
-    toast(`✅ Codes régénérés : Direction=${newCode}, Compta=${generate6DigitCode()}`, "success");
-    loadSchools();
-    loadAllData();
-  } catch (e) { toast("❌ Erreur: " + e.message, "error"); }
-}
-
-// --- Import/Export ---
-async function exportSchoolCompleteToExcel(id) {
-  try {
-    toast("⏳ Exporting Excel backup...", "info");
-    const schoolDoc = await getDoc(doc(db, "ecoles", id));
-    if (!schoolDoc.exists()) { toast("❌ School not found", "error"); return; }
-    const schoolData = schoolDoc.data();
-    const allData = [];
-    allData.push({ collection: "ecoles", documentId: id, parentPath: "", data: JSON.stringify(schoolData) });
-    const subCollections = ['professeurs', 'fiches', 'compta_eleves', 'eleves', 'punitions', 'presences', 'horaires', 'corbeille', 'compteur', 'config', 'alertes_admin', 'communiques', 'settings'];
-    for (const sub of subCollections) {
-      try {
-        const snap = await getDocs(collection(db, "ecoles", id, sub));
-        snap.forEach(doc => { allData.push({ collection: sub, documentId: doc.id, parentPath: `ecoles/${id}`, data: JSON.stringify(doc.data()) }); });
-      } catch (e) {}
-    }
-    if (allData.length === 0) { toast("❌ No data to export", "warning"); return; }
-    const wb = XLSX.utils.book_new();
-    const excelData = [['collection', 'documentId', 'parentPath', 'data']];
-    allData.forEach(item => { excelData.push([item.collection, item.documentId, item.parentPath, item.data]); });
-    const ws = XLSX.utils.aoa_to_sheet(excelData);
-    ws['!cols'] = [{ wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 60 }];
-    XLSX.utils.book_append_sheet(wb, ws, 'School Data');
-    const summaryData = [['SCHOOL', schoolData.nom || id], ['ID', id], ['Export Date', new Date().toLocaleString('en-US')], ['Total Documents', allData.length]];
-    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-    const fileName = `school_${id}_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    toast(`✅ Excel backup exported! ${allData.length} documents`, "success");
-  } catch (error) { toast("❌ Error: " + error.message, "error"); }
-}
-
-async function exportSchool(id) {
-  const school = allSchools.find(s => s.id === id);
-  if (!school) { toast("School not found", "error"); return; }
-  toast("Exporting...", "info");
-  try {
-    const students = allStudents.filter(m => m.ecoleId === id);
-    const teachers = allTeachers.filter(t => t.ecoleId === id);
-    const sheets = allSheets.filter(s => s.ecoleId === id);
-    const wb = XLSX.utils.book_new();
-    const data = [['NETUBEX - ' + school.nom, ''], ['', ''], ['Total Students', students.length], ['Total Teachers', teachers.length], ['Total Sheets', sheets.length], ['', ''], ['Exported on', new Date().toLocaleString('en-US')]];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, 'Summary');
-    if (students.length > 0) { const stData = [['#', 'Name', 'First Name', 'Class', 'Status']]; students.forEach((s, i) => { stData.push([i + 1, s.nom, s.prenom, s.classe, s.statut]); }); const wsSt = XLSX.utils.aoa_to_sheet(stData); XLSX.utils.book_append_sheet(wb, wsSt, 'Students'); }
-    if (teachers.length > 0) { const tData = [['#', 'Name', 'Code']]; teachers.forEach((t, i) => { tData.push([i + 1, t.nom, t.code]); }); const wsT = XLSX.utils.aoa_to_sheet(tData); XLSX.utils.book_append_sheet(wb, wsT, 'Teachers'); }
-    const fileName = school.nom.replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
-    XLSX.writeFile(wb, fileName);
-    toast("Export complete", "success");
-  } catch (e) { toast("Export error: " + e.message, "error"); }
-}
-
-async function exportSchoolAsPDF(id) {
-  try {
-    toast("⏳ Generating PDF...", "info");
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('l', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 15;
-    let yPos = 25;
-    
-    const schoolDoc = await getDoc(doc(db, "ecoles", id));
-    if (!schoolDoc.exists()) { toast("❌ School not found", "error"); return; }
-    const schoolData = schoolDoc.data();
-    
-    doc.setFontSize(18);
-    doc.setTextColor(41, 128, 185);
-    doc.text('NETUBEX SARL', margin, yPos);
-    yPos += 10;
-    doc.setFontSize(14);
-    doc.setTextColor(44, 62, 80);
-    doc.text('RAPPORT COMPLET - ÉCOLE', margin, yPos);
-    yPos += 10;
-    doc.line(margin, yPos, pageWidth - margin, yPos);
-    yPos += 8;
-    
-    doc.setFontSize(10);
-    doc.setTextColor(44, 62, 80);
-    const info = [
-      `🏫 École: ${schoolData.nom || id}`,
-      `🆔 ID: ${id}`,
-      `📍 Province: ${schoolData.province || '-'}`,
-      `🏙️ Ville: ${schoolData.ville || '-'}`,
-      `👨‍💼 Directeur: ${schoolData.directeur || '-'}`,
-      `📞 Téléphone: ${schoolData.telephone || '-'}`,
-      `💰 Frais: ${schoolData.tarifParEleve || 2000} FC`,
-      `📊 Statut: ${schoolData.actif !== false ? '✅ Active' : '⛔ Inactive'}`,
-      `📅 Export: ${new Date().toLocaleString('fr-FR')}`
-    ];
-    info.forEach(line => { doc.text(line, margin, yPos); yPos += 7; });
-    yPos += 5;
-    
-    const teachersSnap = await getDocs(collection(db, "ecoles", id, "professeurs"));
-    const teachers = [];
-    teachersSnap.forEach(d => { const data = d.data(); if (data._type === "prof" || data.nom) { teachers.push({ nom: data.nom || "Unknown", code: data.code || "-", actif: data.actif !== false ? "Actif" : "Inactif" }); } });
-    
-    if (teachers.length > 0) {
-      doc.setFontSize(12);
-      doc.setTextColor(41, 128, 185);
-      doc.text(`👨‍🏫 PROFESSEURS (${teachers.length})`, margin, yPos);
-      yPos += 8;
-      const teacherData = teachers.map(t => [t.nom, t.code, t.actif]);
-      doc.autoTable({
-        startY: yPos,
-        head: [['Nom', 'Code', 'Statut']],
-        body: teacherData,
-        theme: 'grid',
-        headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontSize: 9 },
-        styles: { fontSize: 8, cellPadding: 3 },
-        margin: { left: margin, right: margin }
-      });
-      yPos = doc.lastAutoTable.finalY + 10;
-    }
-    
-    const fileName = `school_${id}_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
-    toast(`✅ PDF exported`, "success");
-  } catch (error) { toast("❌ Error: " + error.message, "error"); }
-}
-
-// --- Autres fonctions ---
-async function toggleSchool(id) {
-  if (!await showConfirm("Change Status", "Activate/Deactivate this school?")) return;
-  try {
-    const ref = doc(db, "ecoles", id);
-    const snap = await getDoc(ref);
-    if (snap.exists()) { const data = snap.data(); await updateDoc(ref, { actif: data.actif !== false ? false : true }); toast("Status updated", "success"); loadSchools(); loadAllData(); }
-  } catch (e) { toast("Error: " + e.message, "error"); }
-}
-
-async function deleteSchool(id) {
-  if (!await showConfirm("Delete", "Delete this school permanently?")) return;
-  try {
-    const collections = [SC.PROFESSEURS, SC.FICHES, SC.COMPTA_ELEVES, SC.ELEVES, SC.PUNITIONS, SC.PRESENCES, SC.HORAIRES, SC.CORBEILLE, SC.COMPTEUR, SC.CONFIG, SC.ALERTES_ADMIN, SC.COMMUNIQUES, SC.SETTINGS];
-    for (const col of collections) {
-      try { const snap = await getDocs(collection(db, "ecoles", id, col)); for (const ds of snap.docs) { await deleteDoc(ds.ref); } } catch (e) {}
-    }
-    await deleteDoc(doc(db, "ecoles", id));
-    toast("School deleted", "success");
-    loadSchools();
-    loadAllData();
-  } catch (e) { toast("Error: " + e.message, "error"); }
-}
-
-async function showEditSchool(id) {
-  const school = allSchools.find(s => s.id === id);
-  if (!school) { toast("School not found", "error"); return; }
-  const modal = document.getElementById("modalOverlay");
-  document.getElementById("modalIcon").textContent = "✏️";
-  document.getElementById("modalTitle").textContent = "Edit - " + escapeHtml(school.nom);
-  document.getElementById("modalSubtitle").textContent = "Modify school information";
-  document.getElementById("modalBody").innerHTML = `
-    <div class="form-grid">
-      <div class="form-group full-width"><label>Name</label><input type="text" id="editSchoolName" value="${escapeHtml(school.nom)}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-      <div class="form-group"><label>Province</label><input type="text" id="editSchoolProvince" value="${escapeHtml(school.province || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-      <div class="form-group"><label>City</label><input type="text" id="editSchoolCity" value="${escapeHtml(school.ville || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-      <div class="form-group"><label>Principal</label><input type="text" id="editSchoolDirector" value="${escapeHtml(school.directeur || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-      <div class="form-group"><label>Phone</label><input type="text" id="editSchoolPhone" value="${escapeHtml(school.telephone || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-      <div class="form-group full-width"><label>Fee (FC)</label><input type="number" id="editSchoolTarif" value="${school.tarifParEleve || 2000}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
-    </div>
-    <div class="modal-actions" style="margin-top:12px;"><button class="btn btn-primary" id="saveEditSchool">💾 Save</button><button class="btn btn-outline" id="cancelEditSchool">Cancel</button></div>
-  `;
-  modal.classList.add("show");
-  document.getElementById("saveEditSchool").addEventListener("click", async function() {
-    const newNom = document.getElementById("editSchoolName").value.trim();
-    const tarif = parseInt(document.getElementById("editSchoolTarif").value) || 2000;
-    if (!newNom) { toast("Name required", "error"); return; }
-    try {
-      await updateDoc(doc(db, "ecoles", id), { nom: newNom, province: document.getElementById("editSchoolProvince").value.trim(), ville: document.getElementById("editSchoolCity").value.trim(), directeur: document.getElementById("editSchoolDirector").value.trim(), telephone: document.getElementById("editSchoolPhone").value.trim(), tarifParEleve: tarif });
-      toast("School updated", "success");
-      modal.classList.remove("show");
-      loadSchools();
-      loadAllData();
-    } catch (e) { toast("Error: " + e.message, "error"); }
-  });
-  document.getElementById("cancelEditSchool").addEventListener("click", function() { modal.classList.remove("show"); });
-}
-
-async function showChangeId(id) {
-  const school = allSchools.find(s => s.id === id);
-  if (!school) { toast("School not found", "error"); return; }
-  const modal = document.getElementById("modalOverlay");
-  document.getElementById("modalIcon").textContent = "🔄";
-  document.getElementById("modalTitle").textContent = "Change ID";
-  document.getElementById("modalSubtitle").textContent = "Current ID: " + school.id;
-  document.getElementById("modalBody").innerHTML = `
-    <div style="margin-bottom:10px;"><div style="background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:6px;margin-bottom:10px;"><span style="color:var(--text-muted);font-size:10px;">School</span><div style="font-weight:600;">${escapeHtml(school.nom)}</div></div>
-    <div class="form-group"><label>New ID</label><input type="text" id="newSchoolId" placeholder="e.g. college-saint-joseph" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-family:monospace;"></div>
-    <div style="font-size:9px;color:var(--orange);margin-top:4px;">⚠️ All data will be migrated</div></div>
-    <div class="modal-actions"><button class="btn btn-primary" id="confirmChangeId">Confirm</button><button class="btn btn-outline" id="cancelChangeId">Cancel</button></div>
-  `;
-  modal.classList.add("show");
-  document.getElementById("cancelChangeId").addEventListener("click", function() { modal.classList.remove("show"); });
-  document.getElementById("confirmChangeId").addEventListener("click", async function() {
-    const newId = document.getElementById("newSchoolId").value.trim();
-    if (!newId) { toast("Enter an ID", "error"); return; }
-    if (!/^[a-zA-Z0-9-]+$/.test(newId)) { toast("Invalid ID", "error"); return; }
-    if (newId === id) { toast("ID is the same", "warning"); return; }
-    try { const existing = await getDoc(doc(db, "ecoles", newId)); if (existing.exists()) { toast("ID already exists", "error"); return; } } catch (e) { toast("Error: " + e.message, "error"); return; }
-    modal.classList.remove("show");
-    try {
-      const ref = doc(db, "ecoles", id);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const data = snap.data();
-        await setDoc(doc(db, "ecoles", newId), { ...data, id: newId, ancienId: id, dateMigration: new Date().toISOString() });
-        const subCols = ['professeurs', 'fiches', 'compta_eleves', 'eleves', 'punitions', 'presences', 'horaires', 'corbeille', 'compteur', 'config', 'alertes_admin', 'communiques', 'settings'];
-        for (const sub of subCols) {
-          try { const snapSub = await getDocs(collection(db, "ecoles", id, sub)); for (const ds of snapSub.docs) { await setDoc(doc(db, "ecoles", newId, sub, ds.id), ds.data()); } } catch (e) {}
-        }
-        await deleteDoc(doc(db, "ecoles", id));
-        toast("ID changed to " + newId, "success");
-        loadSchools();
-        loadAllData();
-      }
-    } catch (e) { toast("Error: " + e.message, "error"); }
-  });
-}
-
-// --- Écouteurs d'événements ---
-document.getElementById("sidebarToggle")?.addEventListener("click", function() {
-  sidebarCollapsed = !sidebarCollapsed;
-  document.getElementById("sidebar").classList.toggle("collapsed");
-  this.innerHTML = sidebarCollapsed ? '<span id="toggleIcon">▶</span> Expand' : '<span id="toggleIcon">◀</span> Reduce';
+document.getElementById("cancelNewTeacherBtn").addEventListener("click", function() {
+modal.classList.remove("show");
 });
 
-document.getElementById("themeSwitch")?.addEventListener("click", function() {
-  this.classList.toggle("active");
-  document.body.classList.toggle("light-theme");
-  localStorage.setItem("theme", document.body.classList.contains("light-theme") ? "light" : "dark");
+document.getElementById("saveNewTeacherBtn").addEventListener("click", async function() {
+const nom = document.getElementById("newTeacherName").value.trim();
+const email = document.getElementById("newTeacherEmail").value.trim();
+const btn = this;
+
+if (!nom) { toast("❌ Le nom est requis", "error"); return; }
+if (!ecoleId) { toast("❌ Aucune école sélectionnée", "error"); return; }
+
+btn.disabled = true;
+btn.innerHTML = '<span class="loading-spinner"></span> Création...';
+
+try {
+const code = await generateUniqueTeacherCode();
+const emailProf = email || genererEmailProfesseur(nom, ecoleId);
+
+try {
+await createUserWithEmailAndPassword(auth, emailProf, code);
+console.log(`✅ Compte Firebase Auth créé: ${emailProf}`);
+} catch (authError) {
+if (authError.code === 'auth/email-already-in-use') {
+toast("ℹ️ Cet email existe déjà dans Firebase Auth", "warning");
+} else if (authError.code === 'auth/weak-password') {
+toast("❌ Le code doit contenir au moins 6 caractères", "error");
+btn.disabled = false;
+btn.innerHTML = "✅ Ajouter";
+return;
+} else {
+throw authError;
+}
+}
+
+const profData = {
+nom: nom,
+code: code,
+email: emailProf,
+emailProf: emailProf,
+_type: "prof",
+actif: true,
+authCreated: true,
+createdAt: new Date().toISOString(),
+createdBy: "DSI"
+};
+if (email) profData.emailFourni = email;
+
+await setDoc(doc(collection(db, "ecoles", ecoleId, SC.PROFESSEURS)), profData);
+
+toast(`✅ Professeur "${nom}" ajouté avec le code ${code}`, 'success');
+modal.classList.remove("show");
+loadTeachers();
+loadAllData();
+
+showModal("📋 Informations du professeur", `
+<div style="text-align:center;padding:10px;">
+<div style="font-size:16px;font-weight:600;margin-bottom:8px;">${escapeHtml(nom)}</div>
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;margin:10px 0;border:2px solid #fbbf24;">
+<div style="font-size:11px;color:#5a6f8a;">🔑 Code d'accès</div>
+<div style="font-size:32px;font-weight:800;color:#fbbf24;letter-spacing:4px;font-family:monospace;">${code}</div>
+</div>
+<div style="font-size:13px;color:#a8b8d0;">📧 ${escapeHtml(emailProf)}</div>
+<div style="font-size:12px;color:#10b981;margin-top:6px;">✅ Compte créé dans Firebase Authentication</div>
+<div style="font-size:11px;color:#f59e0b;margin-top:8px;">⚠️ Transmettez ces identifiants au professeur</div>
+</div>
+`, '👨‍🏫');
+} catch (error) {
+toast('❌ Erreur: ' + error.message, 'error');
+console.error(error);
+} finally {
+btn.disabled = false;
+btn.innerHTML = "✅ Ajouter";
+}
 });
-if (localStorage.getItem("theme") === "light") {
-  document.body.classList.add("light-theme");
-  document.getElementById("themeSwitch")?.classList.add("active");
+}
+
+// --- Suppression de professeur ---
+async function deleteTeacher(id, ecole, email) {
+if (!await showConfirm("Supprimer", "Supprimer ce professeur ?")) return;
+try {
+await deleteDoc(doc(db, "ecoles", ecole, SC.PROFESSEURS, id));
+if (email) {
+try {
+const user = auth.currentUser;
+if (user && user.email === email) {
+await deleteUser(user);
+}
+} catch (e) { console.log("Erreur suppression auth:", e); }
+}
+toast('✅ Professeur supprimé', 'success');
+loadTeachers();
+loadAllData();
+} catch (e) { toast('❌ Erreur: ' + e.message, 'error'); }
+}
+
+// --- Gestion des écoles ---
+async function regenererCodesEcole(ecoleId) {
+if (!await showConfirm("🔄 Régénérer les codes", "Voulez-vous régénérer tous les codes d'accès pour cette école ?")) return;
+try {
+const codes = await genererCodesEcole(ecoleId);
+if (codes) {
+toast(`✅ Codes régénérés : Dir=${codes.codeDirection}, Compta=${codes.codeCompta}, Parent=${codes.codeParent}`, "success");
+loadSchools();
+loadAllData();
+}
+} catch (e) { toast("❌ Erreur: " + e.message, "error"); }
 }
 
 // --- Ajout d'école ---
-document.getElementById("schoolName")?.addEventListener("input", function() {
-  const val = this.value.trim().toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
-  const id = val || "auto-" + Date.now().toString().slice(-6);
-  document.getElementById("schoolId").value = id;
-  document.getElementById("schoolParentEmail").value = id ? `parent.${id}@gmail.com` : "";
+document.getElementById('schoolName').addEventListener('input', function() {
+const val = this.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+document.getElementById('schoolId').value = val || 'auto-' + Date.now().toString().slice(-6);
+document.getElementById('schoolParentEmail').value = val ? `parent.${val}@gmail.com` : '';
 });
 
-document.getElementById("schoolId")?.addEventListener("input", function() {
-  const id = this.value.trim();
-  document.getElementById("schoolParentEmail").value = id ? `parent.${id}@gmail.com` : "";
+document.getElementById('saveSchoolBtn').addEventListener('click', async function() {
+const nom = document.getElementById('schoolName').value.trim();
+const id = document.getElementById('schoolId').value.trim();
+const tarif = parseInt(document.getElementById('schoolTarif').value) || 2000;
+if (!nom || !id) { toast("Name and ID required", "error"); return; }
+try {
+const existing = await getDoc(doc(db, "ecoles", id));
+if (existing.exists()) { toast("ID already exists", "error"); return; }
+const codeDirection = generate6DigitCode();
+await setDoc(doc(db, "ecoles", id), {
+nom, id,
+province: document.getElementById('schoolProvince').value,
+ville: document.getElementById('schoolCity').value.trim(),
+telephone: document.getElementById('schoolPhone').value.trim(),
+directeur: document.getElementById('schoolDirector').value.trim(),
+adresse: document.getElementById('schoolAddress').value.trim(),
+actif: true,
+tarifParEleve: tarif,
+parentEmail: genererEmailParent(id),
+directionEmail: genererEmailDirection(id),
+comptaEmail: genererEmailCompta(id),
+dateCreation: new Date().toISOString()
+});
+const codes = await genererCodesEcole(id);
+toast(`✅ École ajoutée`, "success");
+document.getElementById('addSchoolForm').style.display = "none";
+loadSchools();
+loadAllData();
+
+showModal("📋 Informations de connexion", `<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:600;">${escapeHtml(nom)}</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0;">
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #fbbf24;"><div style="font-size:10px;color:#5a6f8a;">🔑 Direction</div><div style="font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:2px;font-family:monospace;">${codes.codeDirection}</div></div>
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #10b981;"><div style="font-size:10px;color:#5a6f8a;">🔑 Comptabilité</div><div style="font-size:18px;font-weight:800;color:#10b981;letter-spacing:2px;font-family:monospace;">${codes.codeCompta}</div></div>
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #8b5cf6;"><div style="font-size:10px;color:#5a6f8a;">🔑 Parent</div><div style="font-size:18px;font-weight:800;color:#8b5cf6;letter-spacing:2px;font-family:monospace;">${codes.codeParent}</div></div>
+</div>
+<div style="font-size:10px;color:var(--text-muted);">📧 ${genererEmailDirection(id)}</div>
+<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailCompta(id)}</div>
+<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailParent(id)}</div>
+<div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants</div>
+</div>`);
+} catch (e) { toast("Error: " + e.message, "error"); }
 });
 
-document.getElementById("saveSchoolBtn")?.addEventListener("click", async function() {
-  const nom = document.getElementById("schoolName").value.trim();
-  const id = document.getElementById("schoolId").value.trim();
-  const tarif = parseInt(document.getElementById("schoolTarif").value) || 2000;
-  if (!nom || !id) { toast("Name and ID required", "error"); return; }
-  try {
-    const existing = await getDoc(doc(db, "ecoles", id));
-    if (existing.exists()) { toast("ID already exists", "error"); return; }
-    const codeDirection = generate6DigitCode();
-    await setDoc(doc(db, "ecoles", id), {
-      nom, id,
-      province: document.getElementById("schoolProvince").value,
-      ville: document.getElementById("schoolCity").value.trim(),
-      telephone: document.getElementById("schoolPhone").value.trim(),
-      directeur: document.getElementById("schoolDirector").value.trim(),
-      adresse: document.getElementById("schoolAddress").value.trim(),
-      actif: true,
-      tarifParEleve: tarif,
-      parentEmail: genererEmailParent(id),
-      directionEmail: genererEmailDirection(id),
-      comptaEmail: genererEmailCompta(id),
-      dateCreation: new Date().toISOString()
-    });
-    await genererCodeDirection(id, codeDirection);
-    toast(`✅ École ajoutée`, "success");
-    document.getElementById("addSchoolForm").style.display = "none";
-    loadSchools();
-    loadAllData();
-    
-    const codeCompta = generate6DigitCode();
-    showModal("📋 Informations de connexion", `<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:600;">${escapeHtml(nom)}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;">
-        <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;border:2px solid var(--gold);"><div style="font-size:11px;color:var(--text-muted);">🔑 Code Direction</div><div style="font-size:28px;font-weight:800;color:var(--gold);letter-spacing:4px;font-family:monospace;">${codeDirection}</div></div>
-        <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;border:2px solid var(--green);"><div style="font-size:11px;color:var(--text-muted);">🔑 Code Comptabilité</div><div style="font-size:28px;font-weight:800;color:var(--green);letter-spacing:4px;font-family:monospace;">${codeCompta}</div></div>
-      </div>
-      <div style="font-size:10px;color:var(--text-muted);">📧 ${genererEmailDirection(id)}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailCompta(id)}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailParent(id)}</div>
-      <div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants</div>
-    </div>`);
-  } catch (e) { toast("Error: " + e.message, "error"); }
+document.getElementById('showAddSchool').addEventListener('click', function() {
+document.getElementById('addSchoolForm').style.display = 'block';
+document.getElementById('schoolParentEmail').value = '';
 });
 
-document.getElementById("showAddSchool")?.addEventListener("click", function() {
-  document.getElementById("addSchoolForm").style.display = "block";
-  document.getElementById("schoolParentEmail").value = "";
+// --- Écouteurs ---
+document.getElementById('refreshBtn')?.addEventListener('click', function() { loadAllData(); toast("Data refreshed", "info"); });
+document.getElementById('refreshSchoolsBtn')?.addEventListener('click', loadSchools);
+document.getElementById('refreshTeachersBtn')?.addEventListener('click', loadTeachers);
+document.getElementById('teacherSchoolFilter')?.addEventListener('change', loadTeachers);
+document.getElementById('dashboardSchoolFilter')?.addEventListener('change', function() { updateStudentCounters(); updateStats(); updateCharts(); updateKPIs(); });
+document.getElementById('showAddTeacherBtn')?.addEventListener('click', function() {
+const ecole = document.getElementById('teacherSchoolFilter').value;
+if (ecole === 'all') { toast("Veuillez sélectionner une école spécifique", "warning"); return; }
+showAddTeacherForm(ecole);
 });
 
-// --- Écouteurs divers ---
-document.getElementById("refreshBtn")?.addEventListener("click", function() { loadAllData(); toast("Data refreshed", "info"); });
-document.getElementById("refreshSchoolsBtn")?.addEventListener("click", loadSchools);
-document.getElementById("refreshTeachersBtn")?.addEventListener("click", loadTeachers);
-
-document.getElementById("teacherSchoolFilter")?.addEventListener("change", loadTeachers);
-document.getElementById("dashboardSchoolFilter")?.addEventListener("change", function() { updateStudentCounters(); updateStats(); updateCharts(); updateKPIs(); });
-
-document.getElementById("exportPDFBtn")?.addEventListener("click", function() { const id = document.getElementById("exportSchoolSelect")?.value; if (!id || id === 'all') { toast("Select a school", "warning"); return; } exportSchoolAsPDF(id); });
-document.getElementById("exportExcelBtn")?.addEventListener("click", function() { const id = document.getElementById("exportSchoolSelect")?.value; if (!id || id === 'all') { toast("Select a school", "warning"); return; } exportSchoolCompleteToExcel(id); });
-
-document.querySelectorAll(".nav-item, .tab-btn").forEach(el => {
-  el.addEventListener("click", function() {
-    const target = this.dataset.tab;
-    if (!target) return;
-    document.querySelectorAll(".nav-item, .tab-btn").forEach(t => t.classList.remove("active"));
-    this.classList.add("active");
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-    const container = document.getElementById(target + "-tab");
-    if (container) container.classList.add("active");
-    const bread = document.getElementById("breadcrumb");
-    if (bread) bread.textContent = this.textContent.trim();
-    if (target === "schools") loadSchools();
-    if (target === "teachers") loadTeachers();
-    if (target === "notebook") loadNotebookStats();
-  });
-});
-
-// --- Chargement initial ---
+// --- Initialisation ---
 document.addEventListener('DOMContentLoaded', function() {
-  loadAllData();
-  setTimeout(() => {
-    loadSchools();
-    loadTeachers();
-    loadNotebookStats();
-  }, 500);
+loadAllData();
+setTimeout(() => {
+loadSchools();
+loadTeachers();
+loadNotebookStats();
+}, 500);
 });
 
 async function loadNotebookStats() {
-  try {
-    const schoolsSnap = await getDocs(collection(db, "ecoles"));
-    let totalTeachers = 0, totalSchools = 0, totalCodes = 0, missingCodes = 0;
-    for (const schoolDoc of schoolsSnap.docs) {
-      const schoolData = schoolDoc.data();
-      if (schoolData.actif === false) continue;
-      totalSchools++;
-      const teachersSnap = await getDocs(collection(db, "ecoles", schoolDoc.id, "professeurs"));
-      teachersSnap.forEach(doc => { totalTeachers++; if (doc.data().code) totalCodes++; else missingCodes++; });
-    }
-    document.getElementById("nbTotalTeachers").textContent = totalTeachers;
-    document.getElementById("nbTotalSchools").textContent = totalSchools;
-    document.getElementById("nbTotalCodes").textContent = totalCodes;
-    document.getElementById("nbMissingCodes").textContent = missingCodes;
-  } catch (e) { console.error("Stats error:", e); }
+try {
+const schoolsSnap = await getDocs(collection(db, "ecoles"));
+let totalTeachers = 0, totalSchools = 0, totalCodes = 0, missingCodes = 0;
+for (const schoolDoc of schoolsSnap.docs) {
+const schoolData = schoolDoc.data();
+if (schoolData.actif === false) continue;
+totalSchools++;
+const teachersSnap = await getDocs(collection(db, "ecoles", schoolDoc.id, "professeurs"));
+teachersSnap.forEach(doc => { totalTeachers++; if (doc.data().code) totalCodes++; else missingCodes++; });
+}
+document.getElementById("nbTotalTeachers").textContent = totalTeachers;
+document.getElementById("nbTotalSchools").textContent = totalSchools;
+document.getElementById("nbTotalCodes").textContent = totalCodes;
+document.getElementById("nbMissingCodes").textContent = missingCodes;
+} catch (e) { console.error("Stats error:", e); }
+}
+
+// --- Fonctions d'export simplifiées ---
+async function exportSchoolCompleteToExcel(id) {
+try {
+toast("⏳ Exporting...", "info");
+const schoolDoc = await getDoc(doc(db, "ecoles", id));
+if (!schoolDoc.exists()) { toast("❌ School not found", "error"); return; }
+const schoolData = schoolDoc.data();
+const allData = [];
+allData.push({ collection: "ecoles", documentId: id, parentPath: "", data: JSON.stringify(schoolData) });
+const subCollections = ['professeurs', 'fiches', 'compta_eleves', 'eleves', 'settings'];
+for (const sub of subCollections) {
+try {
+const snap = await getDocs(collection(db, "ecoles", id, sub));
+snap.forEach(doc => { allData.push({ collection: sub, documentId: doc.id, parentPath: `ecoles/${id}`, data: JSON.stringify(doc.data()) }); });
+} catch (e) {}
+}
+const wb = XLSX.utils.book_new();
+const excelData = [['collection', 'documentId', 'parentPath', 'data']];
+allData.forEach(item => { excelData.push([item.collection, item.documentId, item.parentPath, item.data]); });
+const ws = XLSX.utils.aoa_to_sheet(excelData);
+XLSX.utils.book_append_sheet(wb, ws, 'School Data');
+const fileName = `school_${id}_${new Date().toISOString().split('T')[0]}.xlsx`;
+XLSX.writeFile(wb, fileName);
+toast(`✅ Export complete! ${allData.length} documents`, "success");
+} catch (error) { toast("❌ Error: " + error.message, "error"); }
+}
+
+async function exportSchool(id) {
+const school = allSchools.find(s => s.id === id);
+if (!school) { toast("School not found", "error"); return; }
+toast("Exporting...", "info");
+try {
+const students = allStudents.filter(m => m.ecoleId === id);
+const teachers = allTeachers.filter(t => t.ecoleId === id);
+const wb = XLSX.utils.book_new();
+const data = [['NETUBEX - ' + school.nom, ''], ['', ''], ['Total Students', students.length], ['Total Teachers', teachers.length]];
+const ws = XLSX.utils.aoa_to_sheet(data);
+XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+if (students.length > 0) { const stData = [['#', 'Name', 'Class', 'Status']]; students.forEach((s, i) => { stData.push([i + 1, s.nom, s.classe, s.statut]); }); const wsSt = XLSX.utils.aoa_to_sheet(stData); XLSX.utils.book_append_sheet(wb, wsSt, 'Students'); }
+if (teachers.length > 0) { const tData = [['#', 'Name', 'Code']]; teachers.forEach((t, i) => { tData.push([i + 1, t.nom, t.code]); }); const wsT = XLSX.utils.aoa_to_sheet(tData); XLSX.utils.book_append_sheet(wb, wsT, 'Teachers'); }
+const fileName = school.nom.replace(/[^a-zA-Z0-9]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+XLSX.writeFile(wb, fileName);
+toast("Export complete", "success");
+} catch (e) { toast("Export error: " + e.message, "error"); }
+}
+
+async function toggleSchool(id) {
+if (!await showConfirm("Change Status", "Activate/Deactivate this school?")) return;
+try {
+const ref = doc(db, "ecoles", id);
+const snap = await getDoc(ref);
+if (snap.exists()) { const data = snap.data(); await updateDoc(ref, { actif: data.actif !== false ? false : true }); toast("Status updated", "success"); loadSchools(); loadAllData(); }
+} catch (e) { toast("Error: " + e.message, "error"); }
+}
+
+async function deleteSchool(id) {
+if (!await showConfirm("Delete", "Delete this school permanently?")) return;
+try {
+const collections = [SC.PROFESSEURS, SC.FICHES, SC.COMPTA_ELEVES, SC.ELEVES, SC.SETTINGS];
+for (const col of collections) {
+try { const snap = await getDocs(collection(db, "ecoles", id, col)); for (const ds of snap.docs) { await deleteDoc(ds.ref); } } catch (e) {}
+}
+await deleteDoc(doc(db, "ecoles", id));
+toast("School deleted", "success");
+loadSchools();
+loadAllData();
+} catch (e) { toast("Error: " + e.message, "error"); }
+}
+
+async function showEditSchool(id) {
+const school = allSchools.find(s => s.id === id);
+if (!school) { toast("School not found", "error"); return; }
+const modal = document.getElementById("modalOverlay");
+document.getElementById("modalIcon").textContent = "✏️";
+document.getElementById("modalTitle").textContent = "Edit - " + escapeHtml(school.nom);
+document.getElementById("modalSubtitle").textContent = "Modify school information";
+document.getElementById("modalBody").innerHTML = `
+<div class="form-grid">
+<div class="form-group full-width"><label>Name</label><input type="text" id="editSchoolName" value="${escapeHtml(school.nom)}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+<div class="form-group"><label>Province</label><input type="text" id="editSchoolProvince" value="${escapeHtml(school.province || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+<div class="form-group"><label>City</label><input type="text" id="editSchoolCity" value="${escapeHtml(school.ville || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+<div class="form-group"><label>Principal</label><input type="text" id="editSchoolDirector" value="${escapeHtml(school.directeur || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+<div class="form-group"><label>Phone</label><input type="text" id="editSchoolPhone" value="${escapeHtml(school.telephone || "")}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+<div class="form-group full-width"><label>Fee (FC)</label><input type="number" id="editSchoolTarif" value="${school.tarifParEleve || 2000}" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);"></div>
+</div>
+<div class="modal-actions" style="margin-top:12px;"><button class="btn btn-primary" id="saveEditSchool">💾 Save</button><button class="btn btn-outline" id="cancelEditSchool">Cancel</button></div>
+`;
+modal.classList.add("show");
+document.getElementById("saveEditSchool").addEventListener("click", async function() {
+const newNom = document.getElementById("editSchoolName").value.trim();
+const tarif = parseInt(document.getElementById("editSchoolTarif").value) || 2000;
+if (!newNom) { toast("Name required", "error"); return; }
+try {
+await updateDoc(doc(db, "ecoles", id), { nom: newNom, province: document.getElementById("editSchoolProvince").value.trim(), ville: document.getElementById("editSchoolCity").value.trim(), directeur: document.getElementById("editSchoolDirector").value.trim(), telephone: document.getElementById("editSchoolPhone").value.trim(), tarifParEleve: tarif });
+toast("School updated", "success");
+modal.classList.remove("show");
+loadSchools();
+loadAllData();
+} catch (e) { toast("Error: " + e.message, "error"); }
+});
+document.getElementById("cancelEditSchool").addEventListener("click", function() { modal.classList.remove("show"); });
+}
+
+async function showChangeId(id) {
+const school = allSchools.find(s => s.id === id);
+if (!school) { toast("School not found", "error"); return; }
+const modal = document.getElementById("modalOverlay");
+document.getElementById("modalIcon").textContent = "🔄";
+document.getElementById("modalTitle").textContent = "Change ID";
+document.getElementById("modalSubtitle").textContent = "Current ID: " + school.id;
+document.getElementById("modalBody").innerHTML = `
+<div style="margin-bottom:10px;"><div style="background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:6px;margin-bottom:10px;"><span style="color:var(--text-muted);font-size:10px;">School</span><div style="font-weight:600;">${escapeHtml(school.nom)}</div></div>
+<div class="form-group"><label>New ID</label><input type="text" id="newSchoolId" placeholder="e.g. college-saint-joseph" style="width:100%;padding:6px 10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-family:monospace;"></div>
+<div style="font-size:9px;color:var(--orange);margin-top:4px;">⚠️ All data will be migrated</div></div>
+<div class="modal-actions"><button class="btn btn-primary" id="confirmChangeId">Confirm</button><button class="btn btn-outline" id="cancelChangeId">Cancel</button></div>
+`;
+modal.classList.add("show");
+document.getElementById("cancelChangeId").addEventListener("click", function() { modal.classList.remove("show"); });
+document.getElementById("confirmChangeId").addEventListener("click", async function() {
+const newId = document.getElementById("newSchoolId").value.trim();
+if (!newId) { toast("Enter an ID", "error"); return; }
+if (!/^[a-zA-Z0-9-]+$/.test(newId)) { toast("Invalid ID", "error"); return; }
+if (newId === id) { toast("ID is the same", "warning"); return; }
+try { const existing = await getDoc(doc(db, "ecoles", newId)); if (existing.exists()) { toast("ID already exists", "error"); return; } } catch (e) { toast("Error: " + e.message, "error"); return; }
+modal.classList.remove("show");
+try {
+const ref = doc(db, "ecoles", id);
+const snap = await getDoc(ref);
+if (snap.exists()) {
+const data = snap.data();
+await setDoc(doc(db, "ecoles", newId), { ...data, id: newId, ancienId: id, dateMigration: new Date().toISOString() });
+const subCols = ['professeurs', 'fiches', 'compta_eleves', 'eleves', 'settings'];
+for (const sub of subCols) {
+try { const snapSub = await getDocs(collection(db, "ecoles", id, sub)); for (const ds of snapSub.docs) { await setDoc(doc(db, "ecoles", newId, sub, ds.id), ds.data()); } } catch (e) {}
+}
+await deleteDoc(doc(db, "ecoles", id));
+toast("ID changed to " + newId, "success");
+loadSchools();
+loadAllData();
+}
+} catch (e) { toast("Error: " + e.message, "error"); }
+});
 }
 </script>
 </body>
