@@ -10,7 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PptxGenJS/3.12.0/pptxgen.bundle.js"></script>
 <script type="importmap">
-{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
+{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"}}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -538,7 +538,6 @@ select option:hover{background:#1a3a6a;}
 <div class="card"><div class="card-header"><h3>⚙️ Settings</h3></div>
 <div class="card-body">
 
-<!-- ACCÈS CODE DSI -->
 <div style="max-width:400px;margin:0 auto 24px;">
 <div style="background:rgba(0,0,0,0.2);border-radius:8px;padding:16px;border:1px solid var(--border-color);">
 <div style="text-align:center;margin-bottom:12px;"><div style="font-size:32px;color:var(--blue);">🔐</div><h4 style="color:var(--text-primary);font-size:14px;margin-top:4px;">Access Code</h4></div>
@@ -550,7 +549,6 @@ select option:hover{background:#1a3a6a;}
 </div>
 </div>
 
-<!-- GESTION DES CONFIGURATIONS PAR ÉCOLE -->
 <div style="border-top:1px solid var(--border-color);padding-top:20px;">
 <h4 style="color:var(--text-primary);font-size:14px;margin-bottom:12px;">🏫 Gestion des codes par école</h4>
 
@@ -588,10 +586,21 @@ select option:hover{background:#1a3a6a;}
 <input type="url" id="adminUrlCompta" value="https://www.netubex.com/schoolcompta" style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);">
 </div>
 
+<div class="form-group">
+<label>📧 Email Parent (généré automatiquement)</label>
+<input type="text" id="adminParentEmail" readonly style="width:100%;padding:8px 12px;background:rgba(0,0,0,0.2);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:14px;font-family:monospace;">
+<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">🔒 Généré automatiquement: parent-{ecoleId}@netubex.com</div>
+</div>
+
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
 <button class="btn btn-success" id="saveAdminConfigBtn" style="flex:1;">💾 Créer / Mettre à jour</button>
 <button class="btn btn-outline" id="checkAdminConfigBtn" style="flex:1;">🔍 Vérifier</button>
 <button class="btn btn-danger" id="deleteAdminConfigBtn" style="flex:1;">🗑️ Supprimer</button>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+<button class="btn btn-success" id="createParentAccountBtn" style="flex:1;background:linear-gradient(135deg,#8b5cf6,#7c3aed);">📧 Créer compte parent</button>
+<button class="btn btn-outline" id="checkParentAccountBtn" style="flex:1;">🔍 Vérifier compte</button>
 </div>
 
 <div id="adminConfigResult" style="margin-top:12px;padding:10px;border-radius:8px;display:none;"></div>
@@ -657,7 +666,6 @@ select option:hover{background:#1a3a6a;}
 </div>
 </div>
 
-<!-- GUEST PAGE -->
 <div id="guest-page" style="display:block;min-height:100vh;background:var(--bg-primary);padding:20px;">
   <div style="max-width:1200px;margin:0 auto;">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--border-color);">
@@ -736,9 +744,11 @@ document.addEventListener('copy', e => e.preventDefault());
 document.addEventListener('cut', e => e.preventDefault());
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,doc,getDoc,getDocs,setDoc,deleteDoc,updateDoc,query,where,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getAuth,createUserWithEmailAndPassword}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f",measurementId:"G-V7MF88Y5EE"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
+const auth=getAuth(app);
 
 let allSchools=[],allMembers=[],allTeachers=[],allSheets=[],allCodes=[],allConnections=[],allLab=[],allStudents=[];
 let explorerData={};
@@ -2828,7 +2838,6 @@ async function exportSchoolAsPDF(schoolId) {
         const secondaryColor = [52, 73, 94];
         const darkGray = [44, 62, 80];
         
-        // Fonction d'en-tête
         function addPageHeader(pageNum, totalPages) {
             doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
             doc.setLineWidth(2);
@@ -2854,7 +2863,6 @@ async function exportSchoolAsPDF(schoolId) {
             return 28;
         }
         
-        // Fonction de pied de page
         function addPageFooter() {
             const footerY = pageHeight - 12;
             doc.setDrawColor(200, 200, 200);
@@ -2867,18 +2875,15 @@ async function exportSchoolAsPDF(schoolId) {
             doc.text('Document généré automatiquement', pageWidth - margin - 65, footerY);
         }
         
-        // Premier en-tête
         const totalPages = 3 + (teachers.length > 0 ? 1 : 0) + (students.length > 0 ? 1 : 0) + (sheets.length > 0 ? 1 : 0) + (alerts.length > 0 ? 1 : 0);
         let currentPage = 1;
         yPos = addPageHeader(currentPage, totalPages);
         
-        // TITRE
         doc.setFontSize(16);
         doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.text('RAPPORT COMPLET DE L\'ÉCOLE', pageWidth/2, yPos, { align: 'center' });
         yPos += 12;
         
-        // INFOS ÉCOLE
         doc.setFontSize(10);
         doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
         const infoLines = [
@@ -2911,7 +2916,6 @@ async function exportSchoolAsPDF(schoolId) {
         });
         yPos += Math.ceil(infoLines.length / 3) * 7 + 8;
         
-        // STATISTIQUES RAPIDES
         doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
         doc.setLineWidth(0.5);
         doc.rect(margin, yPos - 4, pageWidth - 2 * margin, 20);
@@ -2930,7 +2934,6 @@ async function exportSchoolAsPDF(schoolId) {
         });
         yPos += 24;
         
-        // TABLEAUX
         if (teachers.length > 0) {
             if (yPos > pageHeight - 50) { currentPage++; yPos = addPageHeader(currentPage, totalPages); }
             
@@ -3040,7 +3043,6 @@ async function exportSchoolAsPDF(schoolId) {
             });
         }
         
-        // Pied de page sur toutes les pages
         for (let i = 1; i <= doc.internal.getNumberOfPages(); i++) {
             doc.setPage(i);
             addPageFooter();
@@ -3317,10 +3319,6 @@ document.getElementById("loginBtn")?.addEventListener("click", function() {
     }
 });
 
-// ============================================
-// GESTION DES CONFIGURATIONS PAR ÉCOLE (DSI)
-// ============================================
-
 async function loadAdminSchools() {
     const select = document.getElementById('adminConfigSchoolSelect');
     if (!select) return;
@@ -3343,12 +3341,50 @@ function genererCode(inputId) {
 }
 window.genererCode = genererCode;
 
+function genererEmailParent(ecoleId) {
+    return `parent-${ecoleId}@netubex.com`;
+}
+
+async function creerCompteParent(ecoleId) {
+    const email = genererEmailParent(ecoleId);
+    const password = "Parent2026!";
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        toast(`✅ Compte parent créé: ${email}`, "success");
+        return true;
+    } catch(e) {
+        if (e.code === 'auth/email-already-in-use') {
+            toast(`ℹ️ Compte parent existe déjà: ${email}`, "info");
+            return true;
+        }
+        toast(`❌ Erreur: ${e.message}`, "error");
+        return false;
+    }
+}
+
+async function verifierCompteParent(ecoleId) {
+    const email = genererEmailParent(ecoleId);
+    try {
+        const snap = await getDocs(query(collection(db, "users"), where("email", "==", email)));
+        if (!snap.empty) {
+            toast(`✅ Compte parent existe: ${email}`, "success");
+            return true;
+        }
+        toast(`❌ Compte parent non trouvé: ${email}`, "warning");
+        return false;
+    } catch(e) {
+        toast(`❌ Erreur: ${e.message}`, "error");
+        return false;
+    }
+}
+
 async function loadAdminConfig(ecoleId) {
     if (!ecoleId) {
         document.getElementById('adminConfigForm').style.display = 'none';
         return;
     }
     currentAdminEcoleId = ecoleId;
+    document.getElementById('adminParentEmail').value = genererEmailParent(ecoleId);
     try {
         const ref = doc(db, "ecoles", ecoleId, "settings", "data");
         const snap = await getDoc(ref);
@@ -3492,12 +3528,28 @@ async function deleteAdminConfig() {
 }
 
 document.getElementById('adminConfigSchoolSelect')?.addEventListener('change', function() {
-    loadAdminConfig(this.value);
+    const ecoleId = this.value;
+    if (ecoleId) {
+        document.getElementById('adminParentEmail').value = genererEmailParent(ecoleId);
+    } else {
+        document.getElementById('adminParentEmail').value = '';
+    }
+    loadAdminConfig(ecoleId);
 });
 
 document.getElementById('saveAdminConfigBtn')?.addEventListener('click', saveAdminConfig);
 document.getElementById('checkAdminConfigBtn')?.addEventListener('click', checkAdminConfig);
 document.getElementById('deleteAdminConfigBtn')?.addEventListener('click', deleteAdminConfig);
+document.getElementById('createParentAccountBtn')?.addEventListener('click', function() {
+    const ecoleId = currentAdminEcoleId;
+    if (!ecoleId) { toast('Sélectionnez une école', 'error'); return; }
+    creerCompteParent(ecoleId);
+});
+document.getElementById('checkParentAccountBtn')?.addEventListener('click', function() {
+    const ecoleId = currentAdminEcoleId;
+    if (!ecoleId) { toast('Sélectionnez une école', 'error'); return; }
+    verifierCompteParent(ecoleId);
+});
 
 loadAdminSchools();
 
