@@ -660,7 +660,7 @@ function genererEmailDirection(ecoleId) { return `direction.${ecoleId}@gmail.com
 function genererEmailCompta(ecoleId) { return `compta.${ecoleId}@gmail.com`; }
 function genererEmailProfesseur(nom, ecoleId) { if (!nom) return ''; const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.'); return `prof.${nomPropre}.${ecoleId}@gmail.com`; }
 
-// --- Génération de code à 6 chiffres pour les professeurs ---
+// --- Génération de codes à 6 chiffres ---
 function generate6DigitCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -688,16 +688,12 @@ async function generateUniqueTeacherCode() {
   throw new Error("Impossible de générer un code unique");
 }
 
-// --- Génération de codes pour la direction et la comptabilité ---
-function generate4DigitCode() {
-  return Math.floor(1000 + Math.random() * 9000).toString();
-}
-
+// --- Génération de codes pour la direction et la comptabilité (6 chiffres) ---
 async function genererCodeDirection(ecoleId, code) {
   try {
     await setDoc(doc(db, "ecoles", ecoleId, "settings", "data"), {
       codeDirection: code,
-      codeComptabilite: generate4DigitCode(),
+      codeComptabilite: generate6DigitCode(),
       emailDirection: genererEmailDirection(ecoleId),
       emailComptabilite: genererEmailCompta(ecoleId),
       urlDirection: `https://www.netubex.com/director/${ecoleId}`,
@@ -1002,7 +998,7 @@ async function loadSchools() {
         const snap = await getDoc(ref);
         if (snap.exists()) { const data = snap.data(); codeDir = data.codeDirection || 'Non défini'; codeCompta = data.codeComptabilite || 'Non défini'; }
       } catch (e) {}
-      html += `<tr><td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td><td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td style="font-size:10px;color:var(--blue);word-break:break-all;">${escapeHtml(parentEmail)}</td><td style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;">${escapeHtml(codeDir)}</td><td style="font-family:monospace;color:var(--green);font-weight:700;font-size:12px;">${escapeHtml(codeCompta)}</td><td><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "Active" : "Inactive"}</span></td><td><button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button><div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"><button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button><button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "Deactivate" : "Activate"}</button><button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Code</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button></div></td></tr>`;
+      html += `<tr><td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td><td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td style="font-size:10px;color:var(--blue);word-break:break-all;">${escapeHtml(parentEmail)}</td><td style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">${escapeHtml(codeDir)}</td><td style="font-family:monospace;color:var(--green);font-weight:700;font-size:12px;letter-spacing:1px;">${escapeHtml(codeCompta)}</td><td><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "Active" : "Inactive"}</span></td><td><button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button><div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"><button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button><button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "Deactivate" : "Activate"}</button><button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Code</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button></div></td></tr>`;
     }
     html += "</tbody></table></div>";
     container.innerHTML = html;
@@ -1266,13 +1262,13 @@ async function deleteTeacher(id, ecole) {
   } catch (e) { toast("Error: " + e.message, "error"); }
 }
 
-// --- Régénération des codes direction/compta ---
+// --- Régénération des codes direction/compta (6 chiffres) ---
 async function regenererCodeDirection(ecoleId) {
   if (!await showConfirm("🔄 Régénérer le code", "Voulez-vous régénérer les codes d'accès pour cette école ?")) return;
   try {
-    const newCode = generate4DigitCode();
+    const newCode = generate6DigitCode();
     await genererCodeDirection(ecoleId, newCode);
-    toast(`✅ Codes régénérés : Direction=${newCode}, Compta=${generate4DigitCode()}`, "success");
+    toast(`✅ Codes régénérés : Direction=${newCode}, Compta=${generate6DigitCode()}`, "success");
     loadSchools();
     loadAllData();
   } catch (e) { toast("❌ Erreur: " + e.message, "error"); }
@@ -1535,7 +1531,7 @@ document.getElementById("saveSchoolBtn")?.addEventListener("click", async functi
   try {
     const existing = await getDoc(doc(db, "ecoles", id));
     if (existing.exists()) { toast("ID already exists", "error"); return; }
-    const codeDirection = generate4DigitCode();
+    const codeDirection = generate6DigitCode();
     await setDoc(doc(db, "ecoles", id), {
       nom, id,
       province: document.getElementById("schoolProvince").value,
@@ -1556,7 +1552,7 @@ document.getElementById("saveSchoolBtn")?.addEventListener("click", async functi
     loadSchools();
     loadAllData();
     
-    const codeCompta = generate4DigitCode();
+    const codeCompta = generate6DigitCode();
     showModal("📋 Informations de connexion", `<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:600;">${escapeHtml(nom)}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;">
         <div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:16px;border:2px solid var(--gold);"><div style="font-size:11px;color:var(--text-muted);">🔑 Code Direction</div><div style="font-size:28px;font-weight:800;color:var(--gold);letter-spacing:4px;font-family:monospace;">${codeDirection}</div></div>
