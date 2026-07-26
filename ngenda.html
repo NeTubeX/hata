@@ -976,55 +976,63 @@ async function loadSchools(){
     try{
         if(allSchools.length===0) await loadAllData();
         if(allSchools.length===0){ container.innerHTML='<div class="empty-state"><span class="empty-icon">🏫</span>No schools found</div>'; return; }
-        let html='<div class="table-wrapper"><table><thead><tr><th>School</th><th>ID</th><th>Province</th><th>City</th><th>Principal</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
-        allSchools.forEach(s=>{
-            const count = allStudents.filter(m=>m.ecoleId===s.id).length;
-            html+=`<tr>
-                <td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td>
-                <td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td>
-                <td>${escapeHtml(s.province||"-")}</td>
-                <td>${escapeHtml(s.ville||"-")}</td>
-                <td>${escapeHtml(s.directeur||"-")}</td>
-                <td><span class="badge ${s.actif!==false?"active":"inactive"}">${s.actif!==false?"Active":"Inactive"}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button>
-                    <div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;">
-                        <button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button>
-                        <button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button>
-                        <button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button>
-                        <button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button>
-                        <button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?"Deactivate":"Activate"}</button>
-                        <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button>
-                    </div>
-                </td>
-            </tr>`;
-        });
-        html+="</tbody></table></div>";
-        container.innerHTML=html;
-        container.querySelectorAll('.action-toggle-btn').forEach(btn=>{
-            btn.addEventListener('click', function(){
-                const id=this.dataset.id;
-                const div=document.getElementById('action-btns-'+id);
-                if(div.style.display==='none' || div.style.display===''){
-                    div.style.display='flex';
-                    this.textContent='✕ Close';
-                }else{
-                    div.style.display='none';
-                    this.textContent='⚡ Actions';
+        let html='';
+        for(const s of allSchools){
+            let codeDir='Non défini', codeCompta='Non défini';
+            let emailDir='Non défini', emailCompta='Non défini';
+            try{
+                const ref=doc(db,"ecoles",s.id,"settings","data");
+                const snap=await getDoc(ref);
+                if(snap.exists()){
+                    const data=snap.data();
+                    codeDir=data.codeDirection||'Non défini';
+                    codeCompta=data.codeComptabilite||'Non défini';
+                    emailDir=data.emailDirection||'Non défini';
+                    emailCompta=data.emailComptabilite||'Non défini';
                 }
-            });
-        });
+            }catch(e){}
+            const count=allStudents.filter(m=>m.ecoleId===s.id).length;
+            html+=`
+            <div class="school-card" style="background:var(--bg-card);border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid var(--border-color);">
+                <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px;">
+                    <div>
+                        <div style="font-size:16px;font-weight:700;color:var(--text-primary);">🏫 ${escapeHtml(s.nom)}</div>
+                        <div style="font-size:11px;color:var(--text-muted);">ID: ${escapeHtml(s.id)} | ${count} étudiants</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">📍 ${escapeHtml(s.ville||'')} ${escapeHtml(s.province||'')}</div>
+                    </div>
+                    <span class="badge ${s.actif!==false?'active':'inactive'}">${s.actif!==false?'✅ Actif':'⛔ Inactif'}</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-top:12px;padding:10px;background:rgba(0,0,0,0.15);border-radius:8px;">
+                    <div style="border-left:3px solid #3b82f6;padding-left:10px;">
+                        <div style="font-size:9px;color:var(--text-muted);font-weight:600;">👨‍💼 DIRECTION</div>
+                        <div style="font-size:12px;color:var(--blue);word-break:break-all;">${escapeHtml(emailDir)}</div>
+                    </div>
+                    <div style="border-left:3px solid #10b981;padding-left:10px;">
+                        <div style="font-size:9px;color:var(--text-muted);font-weight:600;">💰 COMPTABILITÉ</div>
+                        <div style="font-size:12px;color:var(--green);word-break:break-all;">${escapeHtml(emailCompta)}</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:8px;padding:10px;background:rgba(0,0,0,0.1);border-radius:8px;">
+                    <div style="text-align:center;">
+                        <div style="font-size:9px;color:var(--text-muted);font-weight:600;">CODE DIRECTION</div>
+                        <div style="font-size:20px;font-weight:800;color:var(--gold);font-family:monospace;letter-spacing:2px;">${escapeHtml(codeDir)}</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:9px;color:var(--text-muted);font-weight:600;">CODE COMPTABILITÉ</div>
+                        <div style="font-size:20px;font-weight:800;color:var(--green);font-family:monospace;letter-spacing:2px;">${escapeHtml(codeCompta)}</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                    <button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">✏️ Modifier</button>
+                    <button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif!==false?'⛔ Désactiver':'▶️ Activer'}</button>
+                    <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️ Supprimer</button>
+                    <button class="btn btn-sm btn-primary regenerate-code-btn" data-id="${s.id}">🔄 Codes</button>
+                </div>
+            </div>`;
+        }
+        container.innerHTML=html;
         container.querySelectorAll('.edit-school-btn').forEach(btn=>{
             btn.addEventListener('click', function(){ showEditSchool(this.dataset.id); });
-        });
-        container.querySelectorAll('.change-id-btn').forEach(btn=>{
-            btn.addEventListener('click', function(){ showChangeId(this.dataset.id); });
-        });
-        container.querySelectorAll('.export-btn').forEach(btn=>{
-            btn.addEventListener('click', function(){ exportSchool(this.dataset.id); });
-        });
-        container.querySelectorAll('.backup-school-btn').forEach(btn=>{
-            btn.addEventListener('click', function(){ exportSchoolCompleteToExcel(this.dataset.id); });
         });
         container.querySelectorAll('.toggle-school-btn').forEach(btn=>{
             btn.addEventListener('click', function(){ toggleSchool(this.dataset.id); });
@@ -1032,7 +1040,49 @@ async function loadSchools(){
         container.querySelectorAll('.delete-school-btn').forEach(btn=>{
             btn.addEventListener('click', function(){ deleteSchool(this.dataset.id); });
         });
+        container.querySelectorAll('.regenerate-code-btn').forEach(btn=>{
+            btn.addEventListener('click', function(){ regenerateSchoolCodes(this.dataset.id); });
+        });
     } catch(e){ container.innerHTML='<div class="empty-state">❌ Error</div>'; }
+}
+async function regenerateSchoolCodes(ecoleId){
+    if(!await showConfirm("🔄 Régénérer les codes","⚠️ Attention ! Cette action va générer de nouveaux codes pour :\n\n- Direction\n- Comptabilité\n\nLes anciens codes ne fonctionneront plus. Continuer ?")) return;
+    try{
+        const codeDirection=Math.floor(100000+Math.random()*900000).toString();
+        const codeCompta=Math.floor(100000+Math.random()*900000).toString();
+        const emailDirection=`direction.${ecoleId}@gmail.com`;
+        const emailCompta=`compta.${ecoleId}@gmail.com`;
+        await setDoc(doc(db,"ecoles",ecoleId,"settings","data"),{
+            codeDirection:codeDirection,
+            codeComptabilite:codeCompta,
+            emailDirection:emailDirection,
+            emailComptabilite:emailCompta,
+            updatedAt:new Date().toISOString(),
+            updatedBy:"DSI"
+        },{merge:true});
+        toast(`✅ Codes régénérés pour ${ecoleId}`,'success');
+        loadSchools();
+        loadAllData();
+        showModal("📋 Nouveaux codes générés",`
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="background:rgba(59,130,246,0.1);border-radius:8px;padding:12px;text-align:center;border:1px solid rgba(59,130,246,0.3);">
+                    <div style="font-size:10px;color:var(--text-muted);">👨‍💼 DIRECTION</div>
+                    <div style="font-size:24px;font-weight:700;color:var(--gold);font-family:monospace;">${codeDirection}</div>
+                    <div style="font-size:10px;color:var(--blue);">${emailDirection}</div>
+                </div>
+                <div style="background:rgba(16,185,129,0.1);border-radius:8px;padding:12px;text-align:center;border:1px solid rgba(16,185,129,0.3);">
+                    <div style="font-size:10px;color:var(--text-muted);">💰 COMPTABILITÉ</div>
+                    <div style="font-size:24px;font-weight:700;color:var(--green);font-family:monospace;">${codeCompta}</div>
+                    <div style="font-size:10px;color:var(--green);">${emailCompta}</div>
+                </div>
+            </div>
+            <div style="margin-top:12px;padding:10px;background:rgba(245,158,11,0.1);border-radius:8px;text-align:center;font-size:12px;color:var(--text-secondary);">
+                ⚠️ Transmettez ces nouveaux identifiants aux responsables concernés
+            </div>
+        `);
+    }catch(error){
+        toast("❌ Erreur: "+error.message,"error");
+    }
 }
 async function loadMembers(){
     const container=document.getElementById("membersBody");
@@ -2191,42 +2241,18 @@ async function exportSchoolCompleteToExcel(schoolId) {
 async function exportSchoolAsPDF(schoolId) {
     try {
         toast("⏳ Generating PDF...", "info");
-        showModal("📤 Export Progress", `
-            <div style="padding:10px;">
-                <div style="text-align:center;margin-bottom:10px;">
-                    <span style="font-size:32px;">📄</span>
-                    <div style="font-size:14px;color:var(--text-primary);" id="exportSchoolName">Exporting...</div>
-                </div>
-                <div class="progress-container">
-                    <div class="progress-bar"><div class="fill" id="exportProgress" style="width:0%;"></div></div>
-                    <div class="progress-text" id="exportProgressText">0%</div>
-                </div>
-                <div id="exportStats" style="margin-top:10px;font-size:12px;color:var(--text-secondary);">Preparing data...</div>
-            </div>
-        `);
         const schoolDoc = await getDoc(doc(db, "ecoles", schoolId));
-        if (!schoolDoc.exists()) { document.getElementById("modalOverlay").classList.remove("show"); toast("❌ School not found", "error"); return; }
+        if (!schoolDoc.exists()) { toast("❌ School not found", "error"); return; }
         const schoolData = schoolDoc.data();
-        document.getElementById("exportSchoolName").textContent = schoolData.nom || schoolId;
-        const teachers = [], students = [], sheets = [], alerts = [];
-        document.getElementById("exportProgress").style.width = "10%";
-        document.getElementById("exportProgressText").textContent = "10% - Loading teachers...";
+        const teachers = [];
         const teachersSnap = await getDocs(collection(db, "ecoles", schoolId, "professeurs"));
         teachersSnap.forEach(d => { const data = d.data(); teachers.push({ nom: data.nom || "Unknown", code: data.code || "-", actif: data.actif !== false ? "Active" : "Inactive" }); });
-        document.getElementById("exportProgress").style.width = "30%";
-        document.getElementById("exportProgressText").textContent = "30% - Loading students...";
+        const students = [];
         const studentsSnap = await getDocs(collection(db, "ecoles", schoolId, "compta_eleves"));
-        studentsSnap.forEach(d => { const data = d.data(); students.push({ nom: data.nom || "Unknown", prenom: data.prenom || "", classe: data.classe || "", sexe: data.sexe === "F" ? "Girl" : "Boy", statut: data.exonere ? "Exempted" : "Regular", parentCode: data.parentCode || "-" }); });
-        document.getElementById("exportProgress").style.width = "50%";
-        document.getElementById("exportProgressText").textContent = "50% - Loading sheets...";
+        studentsSnap.forEach(d => { const data = d.data(); students.push({ nom: data.nom || "Unknown", prenom: data.prenom || "", classe: data.classe || "", sexe: data.sexe === "F" ? "Girl" : "Boy", statut: data.exonere ? "Exempted" : "Regular" }); });
+        const sheets = [];
         const sheetsSnap = await getDocs(collection(db, "ecoles", schoolId, "fiches"));
         sheetsSnap.forEach(d => { const data = d.data(); sheets.push({ cours: data.cours || "No subject", classe: data.classe || "", option: data.option || "-", titulaire: data.titulaire || "-" }); });
-        document.getElementById("exportProgress").style.width = "70%";
-        document.getElementById("exportProgressText").textContent = "70% - Loading alerts...";
-        const alertsSnap = await getDocs(collection(db, "ecoles", schoolId, "alertes_admin"));
-        alertsSnap.forEach(d => { const data = d.data(); alerts.push({ message: data.alerte || data.message || "-", date: data.date ? new Date(data.date).toLocaleString() : "-" }); });
-        document.getElementById("exportProgress").style.width = "90%";
-        document.getElementById("exportProgressText").textContent = "90% - Generating PDF...";
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('l', 'mm', 'a4');
         const blue = [59, 130, 246], dark = [10, 14, 26];
@@ -2244,18 +2270,14 @@ async function exportSchoolAsPDF(schoolId) {
         doc.text(`Status: ${schoolData.actif !== false ? '✅ Active' : '⛔ Inactive'}`, 20, yPos); yPos += 6;
         doc.text(`Export Date: ${new Date().toLocaleString('en-US')}`, 20, yPos); yPos += 12;
         if (teachers.length > 0) { doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`TEACHERS (${teachers.length})`, 20, yPos); yPos += 8; const teacherData = teachers.map(t => [t.nom, t.code, t.actif]); doc.autoTable({ startY: yPos, head: [['Name', 'Code', 'Status']], body: teacherData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 9 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (students.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`STUDENTS (${students.length})`, 20, yPos); yPos += 8; const studentData = students.map(s => [s.nom, s.prenom, s.classe, s.sexe, s.statut, s.parentCode]); doc.autoTable({ startY: yPos, head: [['Last Name', 'First Name', 'Class', 'Gender', 'Status', 'Parent Code']], body: studentData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 8 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (sheets.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`SHEETS (${sheets.length})`, 20, yPos); yPos += 8; const sheetData = sheets.map(s => [s.cours, s.classe, s.option, s.titulaire]); doc.autoTable({ startY: yPos, head: [['Subject', 'Class', 'Option', 'Teacher']], body: sheetData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 9 } }); yPos = doc.lastAutoTable.finalY + 10; }
-        if (alerts.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(245, 158, 11); doc.text(`ALERTS (${alerts.length})`, 20, yPos); yPos += 8; const alertData = alerts.map(a => [a.message, a.date]); doc.autoTable({ startY: yPos, head: [['Message', 'Date']], body: alertData, theme: 'grid', headStyles: { fillColor: [245, 158, 11] }, styles: { fontSize: 9 } }); }
+        if (students.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`STUDENTS (${students.length})`, 20, yPos); yPos += 8; const studentData = students.map(s => [s.nom, s.prenom, s.classe, s.sexe, s.statut]); doc.autoTable({ startY: yPos, head: [['Last Name', 'First Name', 'Class', 'Gender', 'Status']], body: studentData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 8 } }); yPos = doc.lastAutoTable.finalY + 10; }
+        if (sheets.length > 0) { if (yPos > 200) { doc.addPage(); yPos = 20; } doc.setFontSize(14); doc.setTextColor(blue[0], blue[1], blue[2]); doc.text(`SHEETS (${sheets.length})`, 20, yPos); yPos += 8; const sheetData = sheets.map(s => [s.cours, s.classe, s.option, s.titulaire]); doc.autoTable({ startY: yPos, head: [['Subject', 'Class', 'Option', 'Teacher']], body: sheetData, theme: 'grid', headStyles: { fillColor: blue }, styles: { fontSize: 9 } }); }
         const pageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('CONFIDENTIAL - NETUBEX SARL - Unauthorized distribution prohibited', 20, doc.internal.pageSize.height - 10); doc.text(`Page ${i}/${pageCount}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10); }
-        document.getElementById("exportProgress").style.width = "100%";
-        document.getElementById("exportProgressText").textContent = "100% - Done!";
         const fileName = `school_${schoolId}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(fileName);
-        setTimeout(() => { document.getElementById("modalOverlay").classList.remove("show"); }, 500);
         toast(`✅ PDF exported`, "success");
-    } catch (error) { document.getElementById("modalOverlay").classList.remove("show"); toast("❌ Error: " + error.message, "error"); console.error("PDF error:", error); }
+    } catch (error) { toast("❌ Error: " + error.message, "error"); console.error("PDF error:", error); }
 }
 
 async function exportSchoolAsCSV(schoolId) {
@@ -2276,9 +2298,9 @@ async function exportSchoolAsCSV(schoolId) {
         teachersSnap.forEach(d => { const data = d.data(); csvContent.push(`"${data.nom || 'Unknown'}","${data.code || '-'}","${data.actif !== false ? 'Active' : 'Inactive'}"`); });
         csvContent.push('');
         csvContent.push('=== STUDENTS ===');
-        csvContent.push('Last Name,First Name,Class,Gender,Status,Parent Code');
+        csvContent.push('Last Name,First Name,Class,Gender,Status');
         const studentsSnap = await getDocs(collection(db, "ecoles", schoolId, "compta_eleves"));
-        studentsSnap.forEach(d => { const data = d.data(); csvContent.push(`"${data.nom || 'Unknown'}","${data.prenom || ''}","${data.classe || ''}","${data.sexe === 'F' ? 'Girl' : 'Boy'}","${data.exonere ? 'Exempted' : 'Regular'}","${data.parentCode || '-'}"`); });
+        studentsSnap.forEach(d => { const data = d.data(); csvContent.push(`"${data.nom || 'Unknown'}","${data.prenom || ''}","${data.classe || ''}","${data.sexe === 'F' ? 'Girl' : 'Boy'}","${data.exonere ? 'Exempted' : 'Regular'}"`); });
         csvContent.push('');
         csvContent.push('=== SHEETS ===');
         csvContent.push('Subject,Class,Option,Teacher');
