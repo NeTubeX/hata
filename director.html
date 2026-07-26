@@ -95,7 +95,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 .prof-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12px;flex-wrap:wrap;gap:4px}
 .prof-item:last-child{border-bottom:none}
 .prof-item .name{font-weight:500;color:#1a2332}
-.prof-item .code{font-size:9px;color:#9ca3af;font-family:monospace}
+.prof-item .code{font-size:12px;color:#9ca3af;font-family:monospace;letter-spacing:2px;font-weight:700}
 .prof-item .status-badge{font-size:9px;padding:2px 10px;border-radius:30px;font-weight:600}
 .prof-item .status-badge.active{background:#dcfce7;color:#059669}
 .prof-item .status-badge.inactive{background:#fee2e2;color:#dc2626}
@@ -587,10 +587,11 @@ document.getElementById('schoolNameSpan').textContent=SCHOOL_DISPLAY_NAME;
 
 const SC={PROFESSEURS:"professeurs",PUNITIONS:"punitions",FICHES:"fiches",LOGS:"logs",SETTINGS:"settings",CORBEILLE:"corbeille"};
 
+// Email stocké en Firebase MAIS PAS visible par la direction
 function genererEmailDepuisNom(nomComplet){
 if(!nomComplet)return '';
 const nomPropre=nomComplet.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z\s]/g,'').trim().replace(/\s+/g,'.');
-return nomPropre+'@netubex-teacher.com';
+return nomPropre+'@gmail.com';
 }
 
 async function verifierCodeDirection(){const loadingBar=document.getElementById('loadingBar');loadingBar.style.width='30%';try{const ref=doc(db,"ecoles",ECOLET_ID,"settings","data");const snap=await getDoc(ref);loadingBar.style.width='70%';if(snap.exists()){const data=snap.data();const codeAttendu=data.codeDirection;if(!codeAttendu){loadingBar.style.width='100%';setTimeout(()=>{window.location.href=`https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;},500);return false;}if(codeFromUrl===codeAttendu){loadingBar.style.width='100%';setTimeout(()=>{document.getElementById('loadingScreen').style.display='none';document.getElementById('mainContent').classList.add('visible');initApp();demarrerSurveillanceInactiviteDirection();},500);return true;}else{loadingBar.style.width='100%';setTimeout(()=>{window.location.href=`https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;},500);return false;}}else{loadingBar.style.width='100%';setTimeout(()=>{window.location.href=`https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;},500);return false;}}catch(error){console.error("Erreur vérification:",error);loadingBar.style.width='100%';setTimeout(()=>{window.location.href=`https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;},500);return false;}}
@@ -621,27 +622,78 @@ function showConfirm(title,message,onConfirm){const m=showModal(title,'<p>'+mess
 
 async function chargerProfs(){try{const q=query(collection(db,"ecoles",ECOLET_ID,SC.PROFESSEURS),where("_type","==","prof"));const snap=await getDocs(q);const profs=[];snap.forEach(ds=>{const data=ds.data();if(data.nom)profs.push({id:ds.id,...data});});profs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));return profs;}catch(e){return[];}}
 
-function afficherProfs(profs){const c=document.getElementById('profsListContainer');if(!c)return;if(!profs||profs.length===0){c.innerHTML='<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;"><i class="fas fa-chalkboard-teacher" style="font-size:26px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Aucun professeur</p></div>';return;}let html='';profs.forEach(p=>{const estActif=p.actif!==false;html+=`<div class="prof-item"><span class="name">${escapeHtml(p.nom)}</span><span class="code">${p.actif===false?'DESACTIVE':'• • • •'}</span><span class="status-badge ${estActif?'active':'inactive'}">${estActif?'Actif':'Inactif'}</span><button onclick="window.desactiverProf('${p.id}')" style="background:${estActif?'#fee2e2':'#dcfce7'};color:${estActif?'#dc2626':'#059669'};border:1px solid ${estActif?'#fecaca':'#bbf7d0'};padding:2px 10px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">${estActif?'Désactiver':'Réactiver'}</button></div>`;});c.innerHTML=html;}
+function afficherProfs(profs){
+    const c=document.getElementById('profsListContainer');
+    if(!c)return;
+    if(!profs||profs.length===0){
+        c.innerHTML='<div style="text-align:center;padding:16px;color:#9ca3af;font-size:12px;"><i class="fas fa-chalkboard-teacher" style="font-size:26px;display:block;margin-bottom:6px;color:#e5e7eb;"></i><p>Aucun professeur</p></div>';
+        return;
+    }
+    let html='';
+    profs.forEach(p=>{
+        const estActif=p.actif!==false;
+        // ✅ Code masqué avec des points (visible uniquement dans le pop-up à la création)
+        const codeMasque = p.code ? '•'.repeat(p.code.length) : '••••';
+        html+=`
+            <div class="prof-item" style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f1f3f5;flex-wrap:wrap;">
+                <span class="name" style="font-weight:600;font-size:13px;min-width:120px;">${escapeHtml(p.nom)}</span>
+                <span class="code" style="font-weight:700;color:#6b7280;font-size:13px;letter-spacing:3px;background:#f1f3f5;padding:2px 14px;border-radius:30px;">
+                    🔑 ${codeMasque}
+                </span>
+                <span class="status-badge ${estActif?'active':'inactive'}" style="font-size:9px;padding:2px 12px;border-radius:30px;font-weight:600;${estActif?'background:#dcfce7;color:#059669;':'background:#fee2e2;color:#dc2626;'}">
+                    ${estActif?'✅ Actif':'⛔ Inactif'}
+                </span>
+                <button onclick="window.desactiverProf('${p.id}')" style="background:${estActif?'#fee2e2':'#dcfce7'};color:${estActif?'#dc2626':'#059669'};border:1px solid ${estActif?'#fecaca':'#bbf7d0'};padding:2px 10px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">
+                    ${estActif?'Désactiver':'Réactiver'}
+                </button>
+            </div>
+        `;
+    });
+    c.innerHTML=html;
+}
 
 function ecouterProfs(){if(profsUnsubscribe){profsUnsubscribe();profsUnsubscribe=null;}try{const q=query(collection(db,"ecoles",ECOLET_ID,SC.PROFESSEURS),where("_type","==","prof"));profsUnsubscribe=onSnapshot(q,(snapshot)=>{const profs=[];snapshot.forEach(ds=>{const data=ds.data();if(data.nom)profs.push({id:ds.id,...data});});profs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));afficherProfs(profs);},(error)=>console.error("Erreur écoute profs:",error));}catch(e){console.error("Erreur activation écoute:",e);}}
 
 window.desactiverProf=async function(id){showConfirm('Désactiver le professeur','Voulez-vous vraiment désactiver ce professeur ?',async()=>{try{const docRef=doc(db,"ecoles",ECOLET_ID,SC.PROFESSEURS,id);const snap=await getDoc(docRef);const data=snap.data();await updateDoc(docRef,{actif:!data.actif});toast(`✅ Professeur ${data.actif?'désactivé':'réactivé'}`,'success');}catch(e){toast('❌ Erreur: '+e.message,'error');}});};
 
-document.getElementById('addProfBtn').onclick=function(){showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{if(!nom||!nom.trim()){toast('❌ Veuillez entrer un nom','error');return;}
-const email=genererEmailDepuisNom(nom.trim());
-let emailFinal=email;
-const qCheck=query(collection(db,"ecoles",ECOLET_ID,SC.PROFESSEURS),where("email","==",email));
-const snapCheck=await getDocs(qCheck);
-if(!snapCheck.empty){const suffixe=Date.now().toString().slice(-3);emailFinal=email.replace('@netubex-teacher.com',suffixe+'@netubex-teacher.com');toast('⚠️ Email déjà utilisé, nouvel email généré: '+emailFinal,'warning');}
-const code=Math.floor(1000+Math.random()*9000).toString();
-const pid='prof_'+Date.now();
-const data={_type:"prof",id:pid,profId:pid,nom:nom.trim(),email:emailFinal,code:code,createdAt:Date.now(),actif:true,school:ECOLET_ID,authCreated:true};
-try{
-await createUserWithEmailAndPassword(auth,emailFinal,code);
-await setDoc(doc(db,"ecoles",ECOLET_ID,SC.PROFESSEURS,pid),data);
-toast(`✅ ${nom.trim()} ajouté avec succès`,'success');
-showModal('Informations du professeur',`<div style="text-align:center;"><p style="font-weight:600;font-size:16px;">${escapeHtml(nom.trim())}</p><div style="background:#f8fafc;border-radius:12px;padding:14px;border:2px dashed #2563eb;margin:10px 0;"><div style="font-size:12px;font-weight:600;color:#2563eb;">📧 Email de connexion</div><div style="font-size:16px;font-weight:800;letter-spacing:1px;color:#2563eb;">${emailFinal}</div></div><div style="background:#f8fafc;border-radius:12px;padding:14px;border:2px dashed #059669;margin:10px 0;"><div style="font-size:12px;font-weight:600;color:#059669;">🔑 Code d'accès</div><div style="font-size:26px;font-weight:800;letter-spacing:5px;color:#059669;">${code}</div></div><div style="font-size:11px;color:#6b7280;margin-top:8px;">📌 Le professeur se connecte avec son nom + code</div></div>`,'<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');
-}catch(e){toast('❌ Erreur création compte: '+e.message,'error');console.error(e);}});};
+document.getElementById('addProfBtn').onclick=function(){
+    showPrompt('Ajouter un professeur','Entrez le nom complet du professeur','Nom complet',async(nom)=>{
+        if(!nom||!nom.trim()){toast('❌ Veuillez entrer un nom','error');return;}
+        const email=genererEmailDepuisNom(nom.trim());
+        let emailFinal=email;
+        const qCheck=query(collection(db,"ecoles",ECOLET_ID,SC.PROFESSEURS),where("email","==",email));
+        const snapCheck=await getDocs(qCheck);
+        if(!snapCheck.empty){
+            const suffixe=Date.now().toString().slice(-3);
+            emailFinal=email.replace('@gmail.com',suffixe+'@gmail.com');
+        }
+        const code=Math.floor(1000+Math.random()*9000).toString();
+        const pid='prof_'+Date.now();
+        const data={_type:"prof",id:pid,profId:pid,nom:nom.trim(),email:emailFinal,code:code,createdAt:Date.now(),actif:true,school:ECOLET_ID,authCreated:true};
+        try{
+            await createUserWithEmailAndPassword(auth,emailFinal,code);
+            await setDoc(doc(db,"ecoles",ECOLET_ID,SC.PROFESSEURS,pid),data);
+            // ✅ Pas de toast indiquant l'email
+            toast(`✅ ${nom.trim()} ajouté avec succès`,'success');
+            // ✅ Pop-up avec le code (visible UNE FOIS)
+            showModal('Informations du professeur',
+                `<div style="text-align:center;">
+                    <p style="font-weight:600;font-size:16px;color:#1a2332;">${escapeHtml(nom.trim())}</p>
+                    <div style="background:#fef3c7;border-radius:12px;padding:16px;border:2px dashed #d97706;margin:10px 0;">
+                        <div style="font-size:12px;font-weight:600;color:#92400e;">🔑 Code d'accès temporaire</div>
+                        <div style="font-size:32px;font-weight:800;letter-spacing:6px;color:#d97706;font-family:monospace;">${code}</div>
+                        <div style="font-size:10px;color:#92400e;margin-top:4px;">📌 À transmettre au professeur</div>
+                    </div>
+                    <div style="font-size:11px;color:#6b7280;margin-top:8px;">⚠️ Ce code ne sera plus affiché après la fermeture de cette fenêtre</div>
+                </div>`,
+                '<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>'
+            );
+        }catch(e){
+            toast('❌ Erreur: '+e.message,'error');
+            console.error(e);
+        }
+    });
+};
 
 async function envoyerStatut(actif){try{const statusRef=doc(db,"ecoles",ECOLET_ID,"status","direction");await setDoc(statusRef,{actif:actif,date:new Date().toISOString(),ecoleId:ECOLET_ID,ecoleNom:SCHOOL_DISPLAY_NAME,lastUpdate:Date.now()});}catch(e){}}
 
