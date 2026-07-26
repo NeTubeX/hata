@@ -548,10 +548,9 @@ select option:hover{background:#1a3a6a;}
 <div id="searchResults"></div>
 </div>
 </div>
-
 <script type="module">
 // ============================================================
-// ADMIN NETUBEX - VERSION COMPLETE AVEC BOUTONS FONCTIONNELS
+// ADMIN NETUBEX - AVEC CREATION AUTOMATIQUE DIRECTION + COMPTABILITE
 // ============================================================
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit } from "firebase/firestore";
@@ -700,25 +699,62 @@ attempts++;
 throw new Error("Impossible de générer un code unique");
 }
 
-// --- Génération des codes direction/compta/parent ---
+// --- Génération des codes direction/compta/parent avec création Firebase Auth ---
 async function genererCodesEcole(ecoleId) {
 const codeDirection = generate6DigitCode();
 const codeCompta = generate6DigitCode();
 const codeParent = generate6DigitCode();
+const emailDirection = genererEmailDirection(ecoleId);
+const emailCompta = genererEmailCompta(ecoleId);
+const emailParent = genererEmailParent(ecoleId);
+
 try {
+// 1️⃣ Créer les comptes Firebase Authentication pour Direction et Comptabilité
+try {
+await createUserWithEmailAndPassword(auth, emailDirection, codeDirection);
+console.log(`✅ Compte Direction créé: ${emailDirection}`);
+} catch (authError) {
+if (authError.code !== 'auth/email-already-in-use') {
+console.error("Erreur création compte Direction:", authError);
+}
+}
+try {
+await createUserWithEmailAndPassword(auth, emailCompta, codeCompta);
+console.log(`✅ Compte Comptabilité créé: ${emailCompta}`);
+} catch (authError) {
+if (authError.code !== 'auth/email-already-in-use') {
+console.error("Erreur création compte Comptabilité:", authError);
+}
+}
+
+// 2️⃣ Enregistrer les codes dans Firestore
 await setDoc(doc(db, "ecoles", ecoleId, "settings", "data"), {
 codeDirection: codeDirection,
 codeComptabilite: codeCompta,
 codeParent: codeParent,
-emailDirection: genererEmailDirection(ecoleId),
-emailComptabilite: genererEmailCompta(ecoleId),
-emailParent: genererEmailParent(ecoleId),
-urlDirection: `https://www.netubex.com/director/${ecoleId}`,
-urlComptabilite: `https://www.netubex.com/schoolcompta/${ecoleId}`,
-urlParent: `https://www.netubex.com/parent/${ecoleId}`,
+emailDirection: emailDirection,
+emailComptabilite: emailCompta,
+emailParent: emailParent,
+urlDirection: `https://www.netubex.com/direction?ecole=${ecoleId}&code=${codeDirection}`,
+urlComptabilite: `https://www.netubex.com/comptabilite?ecole=${ecoleId}&code=${codeCompta}`,
+urlParent: `https://www.netubex.com/parent?ecole=${ecoleId}&code=${codeParent}`,
+authDirectionCreated: true,
+authComptaCreated: true,
 updatedAt: new Date().toISOString(),
 updatedBy: "DSI"
 });
+
+// 3️⃣ Enregistrer également dans la collection settings/access pour la direction
+await setDoc(doc(db, "ecoles", ecoleId, "settings", "access"), {
+codeDirection: codeDirection,
+codeComptabilite: codeCompta,
+codeParent: codeParent,
+emailDirection: emailDirection,
+emailComptabilite: emailCompta,
+emailParent: emailParent,
+updatedAt: new Date().toISOString()
+});
+
 return { codeDirection, codeCompta, codeParent };
 } catch (e) { console.error(e); return null; }
 }
@@ -1179,7 +1215,7 @@ loadAllData();
 
 // --- Gestion des écoles ---
 async function regenererCodesEcole(ecoleId) {
-if (!await showConfirm("🔄 Régénérer les codes", "Voulez-vous régénérer tous les codes d'accès pour cette école ?")) return;
+if (!await showConfirm("🔄 Régénérer les codes", "Voulez-vous régénérer tous les codes d'accès pour cette école ?\n\nDirection, Comptabilité et Parent seront régénérés.")) return;
 try {
 const codes = await genererCodesEcole(ecoleId);
 if (codes) {
@@ -1190,7 +1226,7 @@ loadAllData();
 } catch (e) { toast("❌ Erreur: " + e.message, "error"); }
 }
 
-// --- Ajout d'école ---
+// --- Ajout d'école avec création des comptes Direction et Comptabilité ---
 document.getElementById('schoolName').addEventListener('input', function() {
 const val = this.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
 document.getElementById('schoolId').value = val || 'auto-' + Date.now().toString().slice(-6);
@@ -1205,7 +1241,8 @@ if (!nom || !id) { toast("Name and ID required", "error"); return; }
 try {
 const existing = await getDoc(doc(db, "ecoles", id));
 if (existing.exists()) { toast("ID already exists", "error"); return; }
-const codeDirection = generate6DigitCode();
+
+// Sauvegarder l'école
 await setDoc(doc(db, "ecoles", id), {
 nom, id,
 province: document.getElementById('schoolProvince').value,
@@ -1220,23 +1257,37 @@ directionEmail: genererEmailDirection(id),
 comptaEmail: genererEmailCompta(id),
 dateCreation: new Date().toISOString()
 });
+
+// Générer les codes et créer les comptes Firebase Auth
 const codes = await genererCodesEcole(id);
-toast(`✅ École ajoutée`, "success");
+toast(`✅ École "${nom}" ajoutée avec les comptes Direction et Comptabilité créés`, "success");
 document.getElementById('addSchoolForm').style.display = "none";
 loadSchools();
 loadAllData();
 
-showModal("📋 Informations de connexion", `<div style="text-align:center;padding:10px;"><div style="font-size:14px;font-weight:600;">${escapeHtml(nom)}</div>
+showModal("📋 Informations de connexion", `
+<div style="text-align:center;padding:10px;">
+<div style="font-size:14px;font-weight:600;margin-bottom:8px;">${escapeHtml(nom)}</div>
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0;">
-<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #fbbf24;"><div style="font-size:10px;color:#5a6f8a;">🔑 Direction</div><div style="font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:2px;font-family:monospace;">${codes.codeDirection}</div></div>
-<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #10b981;"><div style="font-size:10px;color:#5a6f8a;">🔑 Comptabilité</div><div style="font-size:18px;font-weight:800;color:#10b981;letter-spacing:2px;font-family:monospace;">${codes.codeCompta}</div></div>
-<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #8b5cf6;"><div style="font-size:10px;color:#5a6f8a;">🔑 Parent</div><div style="font-size:18px;font-weight:800;color:#8b5cf6;letter-spacing:2px;font-family:monospace;">${codes.codeParent}</div></div>
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #fbbf24;">
+<div style="font-size:10px;color:#5a6f8a;">👨‍💼 Direction</div>
+<div style="font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:2px;font-family:monospace;">${codes.codeDirection}</div>
+<div style="font-size:9px;color:#94a3b8;margin-top:4px;">📧 ${genererEmailDirection(id)}</div>
 </div>
-<div style="font-size:10px;color:var(--text-muted);">📧 ${genererEmailDirection(id)}</div>
-<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailCompta(id)}</div>
-<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">📧 ${genererEmailParent(id)}</div>
-<div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants</div>
-</div>`);
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #10b981;">
+<div style="font-size:10px;color:#5a6f8a;">💰 Comptabilité</div>
+<div style="font-size:18px;font-weight:800;color:#10b981;letter-spacing:2px;font-family:monospace;">${codes.codeCompta}</div>
+<div style="font-size:9px;color:#94a3b8;margin-top:4px;">📧 ${genererEmailCompta(id)}</div>
+</div>
+<div style="background:rgba(0,0,0,0.2);border-radius:12px;padding:12px;border:2px solid #8b5cf6;">
+<div style="font-size:10px;color:#5a6f8a;">👪 Parent</div>
+<div style="font-size:18px;font-weight:800;color:#8b5cf6;letter-spacing:2px;font-family:monospace;">${codes.codeParent}</div>
+<div style="font-size:9px;color:#94a3b8;margin-top:4px;">📧 ${genererEmailParent(id)}</div>
+</div>
+</div>
+<div style="font-size:10px;color:#10b981;margin-top:6px;">✅ Comptes créés dans Firebase Authentication</div>
+<div style="font-size:10px;color:var(--orange);margin-top:8px;">⚠️ Transmettez ces identifiants aux responsables</div>
+</div>`, '🏫');
 } catch (e) { toast("Error: " + e.message, "error"); }
 });
 
@@ -1484,7 +1535,8 @@ loadTeachers();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 };
 
-console.log("✅ Admin NETUBEX chargé avec succès - Tous les boutons sont fonctionnels");
+console.log("✅ Admin NETUBEX chargé avec succès");
+console.log("✅ Création automatique des comptes Direction et Comptabilité");
 </script>
 </body>
 </html>
