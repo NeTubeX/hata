@@ -32,12 +32,6 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 .code-hint{text-align:center;color:#475569;font-size:11px;margin-top:6px}
 .loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,215,0,0.3);border-top-color:#ffd700;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.contact-btn{display:inline-flex;align-items:center;gap:10px;padding:12px 28px;border-radius:50px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all 0.3s;text-decoration:none;margin:20px auto 0;box-shadow:0 4px 20px rgba(37,99,235,0.25)}
-.contact-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(37,99,235,0.35)}
-.contact-btn:active{transform:scale(0.97)}
-.contact-btn svg{width:20px;height:20px;flex-shrink:0}
-.contact-wrapper{text-align:center;padding-top:20px;width:100%;max-width:400px}
-.contact-divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,rgba(255,215,0,0.2),transparent);margin:0 auto}
 </style>
 </head>
 <body>
@@ -49,19 +43,12 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 <div class="form-group">
 <label>🔑 Mot de passe</label>
 <input type="password" id="loginPassword" placeholder="••••" maxlength="6" inputmode="numeric" autofocus>
-<div class="code-hint">Entrez votre code d'accès (4 à 6 chiffres)</div>
+<div class="code-hint">Entrez votre code d'accès (6 chiffres)</div>
 </div>
 <button id="loginBtn">🔓 SE CONNECTER</button>
 <div id="errorMsg" class="error"></div>
 <div id="infoMsg" class="info"></div>
 <div class="footer"><p>© 2026 - Tous droits réservés</p></div>
-</div>
-<div class="contact-wrapper">
-<div class="contact-divider"></div>
-<button class="contact-btn" onclick="window.location.href='tel:+243845048412'">
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-Contacter le support (+243 84 50 48 412)
-</button>
 </div>
 
 <script type="importmap">
@@ -71,12 +58,6 @@ Contacter le support (+243 84 50 48 412)
 import{initializeApp}from"firebase/app";
 import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword}from"firebase/auth";
 import{getFirestore,doc,getDoc}from"firebase/firestore";
-
-document.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();return false});
-document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='K'||e.keyCode===73||e.keyCode===74||e.keyCode===75)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.keyCode===85)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='s'||e.key==='S'||e.keyCode===83)){e.preventDefault();e.stopPropagation();return false}return true});
-document.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();return false});
-document.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();return false});
-document.addEventListener('selectstart',function(e){if(e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();return false}});
 
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);
@@ -92,32 +73,17 @@ document.title="Connexion - "+schoolDisplay;
 
 let tentatives=0;
 
-async function verifierCodeDansFirestore(code){
+async function getSchoolCodes(){
 try{
 const ref=doc(db,"ecoles",ecoleId,"settings","data");
 const snap=await getDoc(ref);
 if(snap.exists()){
-const data=snap.data();
-if(data.codeDirection===code)return {role:'direction',email:data.emailDirection||`direction.${ecoleId}@gmail.com`};
-if(data.codeComptabilite===code)return {role:'comptabilite',email:data.emailComptabilite||`compta.${ecoleId}@gmail.com`};
-if(data.codeParent===code)return {role:'parent',email:data.emailParent||`parent.${ecoleId}@gmail.com`};
+return snap.data();
 }
 return null;
-}catch(e){console.error("Erreur vérification code:",e);return null;}
-}
-
-async function creerCompteSiNecessaire(email,code,role){
-try{
-await createUserWithEmailAndPassword(auth,email,code);
-console.log(`✅ Compte ${role} créé automatiquement: ${email}`);
-return true;
 }catch(e){
-if(e.code==='auth/email-already-in-use'){
-console.log(`ℹ️ Compte ${role} existe déjà: ${email}`);
-return true;
-}
-console.error(`❌ Erreur création compte ${role}:`,e);
-return false;
+console.error("Erreur chargement codes:",e);
+return null;
 }
 }
 
@@ -130,7 +96,7 @@ errorDiv.textContent="";
 infoDiv.textContent="";
 
 if(!password||password.length<4){
-errorDiv.textContent="❌ Veuillez entrer votre code d'accès (4 à 6 chiffres)";
+errorDiv.textContent="❌ Veuillez entrer votre code d'accès";
 tentatives++;
 if(tentatives>=5){
 errorDiv.textContent="❌ Trop de tentatives. Contactez le support.";
@@ -143,8 +109,27 @@ btn.disabled=true;
 btn.innerHTML='<span class="loading-spinner"></span> Vérification...';
 
 try{
-const infoCode=await verifierCodeDansFirestore(password);
-if(!infoCode){
+const codes=await getSchoolCodes();
+if(!codes){
+errorDiv.textContent="❌ École non trouvée";
+btn.disabled=false;
+btn.innerHTML='🔓 SE CONNECTER';
+return;
+}
+
+let role=null;
+let email=null;
+
+if(codes.codeDirection===password){
+role='direction';
+email=codes.emailDirection||`direction.${ecoleId}@gmail.com`;
+}else if(codes.codeComptabilite===password){
+role='comptabilite';
+email=codes.emailComptabilite||`compta.${ecoleId}@gmail.com`;
+}else if(codes.codeParent===password){
+role='parent';
+email=codes.emailParent||`parent.${ecoleId}@gmail.com`;
+}else{
 errorDiv.textContent="❌ Code d'accès incorrect";
 tentatives++;
 btn.disabled=false;
@@ -156,60 +141,46 @@ document.getElementById("loginPassword").disabled=true;
 return;
 }
 
-const {role,email}=infoCode;
-infoDiv.textContent=`✅ Code vérifié pour ${role}. Connexion en cours...`;
+infoDiv.textContent=`✅ Code vérifié pour ${role}. Connexion...`;
 
-const compteCree=await creerCompteSiNecessaire(email,password,role);
-if(!compteCree){
-errorDiv.textContent="❌ Erreur lors de la création du compte. Contactez le support.";
-btn.disabled=false;
-btn.innerHTML='🔓 SE CONNECTER';
-return;
+// Créer le compte Firebase Auth si nécessaire
+try{
+await createUserWithEmailAndPassword(auth,email,password);
+console.log(`✅ Compte ${role} créé: ${email}`);
+}catch(e){
+if(e.code!=='auth/email-already-in-use'){
+console.error("Erreur création compte:",e);
+}
 }
 
+// Se connecter
 try{
-const userCredential=await signInWithEmailAndPassword(auth,email,password);
+await signInWithEmailAndPassword(auth,email,password);
 console.log(`✅ Connexion réussie: ${email}`);
 }catch(authError){
-if(authError.code==='auth/wrong-password'){
-errorDiv.textContent="❌ Code incorrect. Veuillez réessayer.";
-btn.disabled=false;
-btn.innerHTML='🔓 SE CONNECTER';
-return;
-}
 if(authError.code==='auth/user-not-found'){
-const recreated=await creerCompteSiNecessaire(email,password,role);
-if(!recreated){
-errorDiv.textContent="❌ Erreur critique. Contactez le support.";
-btn.disabled=false;
-btn.innerHTML='🔓 SE CONNECTER';
-return;
-}
+await createUserWithEmailAndPassword(auth,email,password);
 await signInWithEmailAndPassword(auth,email,password);
-}
+}else{
 throw authError;
 }
-
-const ref=doc(db,"ecoles",ecoleId,"settings","data");
-const snap=await getDoc(ref);
-let urlDestination='';
-if(snap.exists()){
-const data=snap.data();
-if(role==='direction')urlDestination=data.urlDirection||'https://www.netubex.com/director';
-else if(role==='comptabilite')urlDestination=data.urlComptabilite||'https://www.netubex.com/schoolcompta';
-else if(role==='parent')urlDestination=data.urlParent||'https://www.netubex.com/parent';
-}else{
-if(role==='direction')urlDestination='https://www.netubex.com/director';
-else if(role==='comptabilite')urlDestination='https://www.netubex.com/schoolcompta';
-else if(role==='parent')urlDestination='https://www.netubex.com/parent';
 }
 
-infoDiv.textContent=`✅ Connexion réussie ! Redirection vers ${role}...`;
-btn.disabled=true;
+// Redirection vers la bonne page
+let urlDestination='';
+if(role==='direction'){
+urlDestination='https://www.netubex.com/direction';
+}else if(role==='comptabilite'){
+urlDestination='https://www.netubex.com/comptabilite';
+}else if(role==='parent'){
+urlDestination='https://www.netubex.com/parent';
+}
+
+infoDiv.textContent=`✅ Redirection vers ${role}...`;
 
 setTimeout(()=>{
-window.location.href=urlDestination+"?ecole="+ecoleId+"&code="+password;
-},800);
+window.location.href=`${urlDestination}?ecole=${ecoleId}&code=${password}`;
+},600);
 
 }catch(error){
 console.error("Erreur:",error);
@@ -222,7 +193,6 @@ btn.innerHTML='🔓 SE CONNECTER';
 document.getElementById("loginBtn").onclick=seConnecter;
 document.getElementById("loginPassword").addEventListener("keypress",function(e){if(e.key==="Enter")seConnecter();});
 document.getElementById("loginPassword").addEventListener("input",function(){if(this.value.length>6)this.value=this.value.slice(0,6);document.getElementById("errorMsg").textContent="";});
-
 document.getElementById("loginPassword").focus();
 </script>
 </body>
