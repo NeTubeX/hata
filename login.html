@@ -30,6 +30,8 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 @keyframes fadeIn{from{opacity:0;transform:translateY(20px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .login-box{animation:fadeIn 0.5s ease-out}
 .code-hint{text-align:center;color:#475569;font-size:11px;margin-top:6px}
+.loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,215,0,0.3);border-top-color:#ffd700;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
 .contact-btn{display:inline-flex;align-items:center;gap:10px;padding:12px 28px;border-radius:50px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all 0.3s;text-decoration:none;margin:20px auto 0;box-shadow:0 4px 20px rgba(37,99,235,0.25)}
 .contact-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(37,99,235,0.35)}
 .contact-btn:active{transform:scale(0.97)}
@@ -45,9 +47,9 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 <p class="sub" id="schoolSub">COMPLEXE SCOLAIRE</p>
 <div class="ecole-wrapper"><span class="ecole-id" id="ecoleDisplay">📌 ÉCOLE : CHARGEMENT...</span></div>
 <div class="form-group">
-<label>🔑 Code d'accès</label>
-<input type="password" id="loginCode" placeholder="••••" maxlength="6" inputmode="numeric" autofocus>
-<div class="code-hint">4 à 6 chiffres</div>
+<label>🔑 Mot de passe</label>
+<input type="password" id="loginPassword" placeholder="••••" maxlength="6" inputmode="numeric" autofocus>
+<div class="code-hint">Entrez votre code d'accès (4 à 6 chiffres)</div>
 </div>
 <button id="loginBtn">🔓 SE CONNECTER</button>
 <div id="errorMsg" class="error"></div>
@@ -61,30 +63,25 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0
 Contacter le support (+243 84 50 48 412)
 </button>
 </div>
+
 <script type="importmap">
-{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
+{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
 </script>
 <script type="module">
 import{initializeApp}from"firebase/app";
-import{getFirestore,doc,getDoc,setDoc,addDoc,collection,query,where,getDocs}from"firebase/firestore";
+import{getAuth,signInWithEmailAndPassword}from"firebase/auth";
+import{getFirestore,doc,getDoc}from"firebase/firestore";
 
 document.addEventListener('contextmenu',function(e){e.preventDefault();e.stopPropagation();return false});
-document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='K'||e.keyCode===73||e.keyCode===74||e.keyCode===75)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.keyCode===85)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='s'||e.key==='S'||e.keyCode===83)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='h'||e.key==='H'||e.keyCode===72)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='c'||e.key==='C'||e.keyCode===67)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='p'||e.key==='P'||e.keyCode===80)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='o'||e.key==='O'||e.keyCode===79)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='n'||e.key==='N'||e.keyCode===78)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='f'||e.key==='F'||e.keyCode===70)){e.preventDefault();e.stopPropagation();return false}return true});
+document.addEventListener('keydown',function(e){if(e.key==='F12'||e.keyCode===123){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='K'||e.keyCode===73||e.keyCode===74||e.keyCode===75)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='u'||e.key==='U'||e.keyCode===85)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='s'||e.key==='S'||e.keyCode===83)){e.preventDefault();e.stopPropagation();return false}return true});
 document.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation();return false});
 document.addEventListener('drop',function(e){e.preventDefault();e.stopPropagation();return false});
 document.addEventListener('selectstart',function(e){if(e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();return false}});
-document.addEventListener('keyup',function(e){if(e.altKey&&e.key==='Tab'){e.preventDefault();return false}});
-Object.defineProperty(window,'console',{value:console,writable:false,configurable:false});
-document.querySelectorAll('img').forEach(img=>{img.addEventListener('contextmenu',function(e){e.preventDefault();return false})});
 
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
 const db=getFirestore(app);
-
-const DEFAULT_CONFIG={
-urlDirection:"https://www.netubex.com/director",
-urlComptabilite:"https://www.netubex.com/schoolcompta"
-};
 
 const urlParams=new URLSearchParams(window.location.search);
 const ecoleId=urlParams.get("ecole")||"mon-ecole";
@@ -93,190 +90,104 @@ document.getElementById("ecoleDisplay").textContent="📌 ÉCOLE : "+schoolDispl
 document.getElementById("schoolSub").textContent="COMPLEXE SCOLAIRE "+schoolDisplay;
 document.title="Connexion - "+schoolDisplay;
 
-let config={...DEFAULT_CONFIG};
 let tentatives=0;
-let tentativesNonNumeriques=0;
-let ipBloquee=false;
-let paysActuel=null;
-let ipActuelle=null;
-let premierPays=null;
-let tempsConnexion=null;
-let codeDirection=null;
-let codeComptabilite=null;
-
-async function getIPInfo(){
-try{
-const res=await fetch('https://ipapi.co/json/');
-const data=await res.json();
-return{ip:data.ip,pays:data.country_name,ville:data.city,code_pays:data.country_code};
-}catch(e){
-return{ip:'inconnu',pays:'inconnu',ville:'inconnu',code_pays:'XX'};
-}
-}
-
-async function logAlerte(type,niveau,message,details){
-try{
-const logData={
-type:type,
-niveau:niveau,
-ecole:schoolDisplay,
-ip:ipActuelle||'inconnu',
-pays:paysActuel||'inconnu',
-message:message,
-details:details||{},
-timestamp:new Date().toISOString()
-};
-await addDoc(collection(db,"alertes_admin"),logData);
-}catch(e){console.error("Erreur log:",e);}
-}
-
-async function verifierIPBloquee(ip){
-try{
-const q=query(collection(db,"ips_bloquees"),where("ip","==",ip));
-const snap=await getDocs(q);
-return!snap.empty;
-}catch(e){return false;}
-}
-
-async function bloquerIP(ip,raison){
-try{
-await setDoc(doc(db,"ips_bloquees",ip),{ip:ip,raison:raison,date:new Date().toISOString()});
-ipBloquee=true;
-}catch(e){}
-}
-
-async function chargerConfig(){
-try{
-const ref=doc(db,"ecoles",ecoleId,"settings","data");
-const snap=await getDoc(ref);
-if(snap.exists()){
-const data=snap.data();
-codeDirection=data.codeDirection||null;
-codeComptabilite=data.codeComptabilite||null;
-config.urlDirection=data.urlDirection||DEFAULT_CONFIG.urlDirection;
-config.urlComptabilite=data.urlComptabilite||DEFAULT_CONFIG.urlComptabilite;
-if(!codeDirection&&!codeComptabilite){
-await logAlerte("connexion_aucun_code","critical","🚨 Aucun code configuré - "+ecoleId,{ecole_id:ecoleId});
-return false;
-}
-return true;
-}else{
-await setDoc(ref,{...DEFAULT_CONFIG,ecoleId,createdAt:new Date().toISOString()});
-await logAlerte("connexion_aucun_code","critical","🚨 Aucun code configuré - "+ecoleId,{ecole_id:ecoleId});
-return false;
-}
-}catch(e){return false;}
-}
 
 async function seConnecter(){
-const code=document.getElementById("loginCode").value.trim();
+const password=document.getElementById("loginPassword").value.trim();
 const btn=document.getElementById("loginBtn");
 const errorDiv=document.getElementById("errorMsg");
 const infoDiv=document.getElementById("infoMsg");
 errorDiv.textContent="";
 infoDiv.textContent="";
 
-const ipInfo=await getIPInfo();
-ipActuelle=ipInfo.ip;
-paysActuel=ipInfo.pays;
-
-if(!ipActuelle||ipActuelle==='inconnu'){
-errorDiv.textContent="❌ Impossible de vérifier votre connexion";
+if(!password||password.length<4){
+errorDiv.textContent="❌ Veuillez entrer votre code d'accès (4 à 6 chiffres)";
+tentatives++;
+if(tentatives>=5){
+errorDiv.textContent="❌ Trop de tentatives. Contactez le support.";
+document.getElementById("loginPassword").disabled=true;
+}
 return;
 }
 
-const estBloquee=await verifierIPBloquee(ipActuelle);
-if(estBloquee){
-ipBloquee=true;
-errorDiv.textContent="🔒 Accès bloqué. Contactez le support au +243 84 50 48 412";
-await logAlerte("connexion_ip_bloque","critical","🔒 IP bloquée - "+ipActuelle,{raison:"IP bloquée précédemment"});
-return;
+btn.disabled=true;
+btn.innerHTML='<span class="loading-spinner"></span> Vérification...';
+
+try{
+const emailsADeveniner=[
+`direction.${ecoleId}@gmail.com`,
+`compta.${ecoleId}@gmail.com`
+];
+
+let compteTrouve=null;
+let roleTrouve=null;
+
+for(const email of emailsADeveniner){
+try{
+const userCredential=await signInWithEmailAndPassword(auth,email,password);
+compteTrouve=userCredential.user;
+if(email.includes('direction')){
+roleTrouve='direction';
+}else if(email.includes('compta')){
+roleTrouve='comptabilite';
+}
+break;
+}catch(e){
+if(e.code==='auth/user-not-found' || e.code==='auth/wrong-password'){
+continue;
+}
+throw e;
+}
 }
 
-const ecoleExiste=await chargerConfig();
-if(!ecoleExiste){
-errorDiv.textContent="🔑 Aucun code d'accès configuré. Contactez le support au +243 84 50 48 412";
-return;
-}
-
-if(!premierPays){
-premierPays=paysActuel;
-tempsConnexion=Date.now();
-}
-
-if(premierPays!==paysActuel){
-const delai=Math.floor((Date.now()-tempsConnexion)/1000);
-if(delai<300){
-await bloquerIP(ipActuelle,"VPN detecte - changement de pays");
-errorDiv.textContent="🔒 Accès bloqué pour sécurité. Contactez le support au +243 84 50 48 412";
-await logAlerte("connexion_ip_pays_change","critical","🚨 VPN détecté - "+ipActuelle,{pays_ancien:premierPays,pays_nouveau:paysActuel,delai:delai});
-return;
-}
-}
-
-if(!code||code.length<4){
+if(!compteTrouve){
 errorDiv.textContent="❌ Code d'accès incorrect";
 tentatives++;
-if(tentatives>=3){
-await bloquerIP(ipActuelle,"3 tentatives echouees");
-errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
-await logAlerte("connexion_multiple_echec","critical","🚨 3 echecs - IP bloquee - "+ipActuelle,{tentatives:tentatives,code_saisi:code});
+btn.disabled=false;
+btn.innerHTML='🔓 SE CONNECTER';
+if(tentatives>=5){
+errorDiv.textContent="❌ Trop de tentatives. Contactez le support.";
+document.getElementById("loginPassword").disabled=true;
 }
 return;
 }
 
-if(!/^\d+$/.test(code)){
-tentativesNonNumeriques++;
-if(tentativesNonNumeriques>=3){
-await bloquerIP(ipActuelle,"3 caracteres non numeriques");
-errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
-await logAlerte("connexion_caractere_non_numerique","critical","🚨 Codes suspects - IP "+ipActuelle,{codes_saisis:code});
+const configRef=doc(db,"ecoles",ecoleId,"settings","data");
+const configSnap=await getDoc(configRef);
+let urlDestination='';
+
+if(configSnap.exists()){
+const configData=configSnap.data();
+if(roleTrouve==='direction'){
+urlDestination=configData.urlDirection||'https://www.netubex.com/director';
+}else if(roleTrouve==='comptabilite'){
+urlDestination=configData.urlComptabilite||'https://www.netubex.com/schoolcompta';
 }
-errorDiv.textContent="❌ Code d'accès incorrect";
-return;
+}else{
+if(roleTrouve==='direction')urlDestination='https://www.netubex.com/director';
+else if(roleTrouve==='comptabilite')urlDestination='https://www.netubex.com/schoolcompta';
 }
 
-const heure=parseInt(new Date().getHours());
-if(heure>=0&&heure<6){
-await logAlerte("connexion_horaire_suspect","warning","🌙 Connexion hors horaires - "+schoolDisplay,{heure:heure,pays:paysActuel});
-}
-
-if(codeDirection&&code===codeDirection){
-await logAlerte("connexion_succes","info","✅ Connexion Direction - "+schoolDisplay,{role:"Direction",pays:paysActuel});
-infoDiv.textContent="✅ Direction - Redirection...";
+infoDiv.textContent="✅ Connexion réussie ! Redirection...";
 btn.disabled=true;
-setTimeout(()=>{window.location.href=config.urlDirection+"?ecole="+ecoleId+"&code="+code;},800);
-return;
-}
 
-if(codeComptabilite&&code===codeComptabilite){
-await logAlerte("connexion_succes","info","✅ Connexion Comptabilite - "+schoolDisplay,{role:"Comptabilite",pays:paysActuel});
-infoDiv.textContent="✅ Comptabilité - Redirection...";
-btn.disabled=true;
-setTimeout(()=>{window.location.href=config.urlComptabilite+"?ecole="+ecoleId+"&code="+code;},800);
-return;
-}
+setTimeout(()=>{
+window.location.href=urlDestination+"?ecole="+ecoleId+"&code="+password;
+},800);
 
-tentatives++;
-await logAlerte("connexion_echec","warning","⚠️ Tentative echouee - "+schoolDisplay,{tentative:tentatives,code_saisi:code,code_attendu:codeDirection||codeComptabilite});
-errorDiv.textContent="❌ Code d'accès incorrect";
-
-if(tentatives>=3){
-await bloquerIP(ipActuelle,"3 tentatives echouees");
-errorDiv.textContent="❌ Accès bloqué. Contactez le support au +243 84 50 48 412";
-await logAlerte("connexion_multiple_echec","critical","🚨 3 echecs - IP bloquee - "+ipActuelle,{tentatives:tentatives,code_saisi:code,code_attendu:codeDirection||codeComptabilite});
+}catch(error){
+console.error("Erreur:",error);
+errorDiv.textContent="❌ Erreur de connexion. Veuillez réessayer.";
+btn.disabled=false;
+btn.innerHTML='🔓 SE CONNECTER';
 }
 }
 
 document.getElementById("loginBtn").onclick=seConnecter;
-document.getElementById("loginCode").addEventListener("keypress",function(e){if(e.key==="Enter")seConnecter();});
-document.getElementById("loginCode").addEventListener("input",function(){if(this.value.length>6)this.value=this.value.slice(0,6);document.getElementById("errorMsg").textContent=""});
+document.getElementById("loginPassword").addEventListener("keypress",function(e){if(e.key==="Enter")seConnecter();});
+document.getElementById("loginPassword").addEventListener("input",function(){if(this.value.length>6)this.value=this.value.slice(0,6);document.getElementById("errorMsg").textContent="";});
 
-document.addEventListener('dblclick',function(e){if(e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'&&e.target.tagName!=='BUTTON'){e.preventDefault();return false}});
-window.addEventListener('keydown',function(e){if(e.ctrlKey&&e.shiftKey&&(e.key==='w'||e.key==='W'||e.keyCode===87)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='q'||e.key==='Q'||e.keyCode===81)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&(e.key==='t'||e.key==='T'||e.keyCode===84)){e.preventDefault();e.stopPropagation();return false}if(e.ctrlKey&&e.shiftKey&&(e.key==='t'||e.key==='T'||e.keyCode===84)){e.preventDefault();e.stopPropagation();return false}},true);
-document.addEventListener('keydown',function(e){if(e.key==='ContextMenu'||e.keyCode===93){e.preventDefault();e.stopPropagation();return false}});
-
-document.getElementById("loginCode").focus();
+document.getElementById("loginPassword").focus();
 </script>
 </body>
 </html>
