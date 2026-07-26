@@ -78,6 +78,10 @@
         .modal-box .modal-btn-confirm:hover{background:linear-gradient(135deg,#2a7e4a,#1a5e3a)}
         .modal-box .modal-btn-cancel{background:transparent;border:1px solid rgba(239,68,68,0.3);color:#94a3b8}
         .modal-box .modal-btn-cancel:hover{background:rgba(239,68,68,0.1);color:#ef4444;border-color:#ef4444}
+        .modal-error{background:rgba(239,68,68,0.08);border-left:4px solid #ef4444;padding:10px 14px;border-radius:8px;margin-bottom:8px}
+        .modal-error .error-title{font-weight:700;color:#ef4444;font-size:14px;margin-bottom:4px}
+        .modal-error .error-list{font-size:13px;color:#fca5a5;padding-left:20px;margin:4px 0;list-style-type:disc}
+        .modal-error .error-list li{margin-bottom:2px}
         @media(max-width:768px){.container{padding:14px 12px}.meta-info{grid-template-columns:1fr 1fr;gap:4px 10px;padding:8px 12px}.meta-info .value{font-size:13px}.toolbar{flex-direction:column;align-items:stretch}.btn-pdf{justify-content:center;padding:10px;font-size:13px}.day-selector{justify-content:center}.day-btn{font-size:11px;padding:5px 10px}.question-card{padding:16px}.question-card .qtext{font-size:17px}.question-card .etapes .editable{font-size:15px;min-height:40px}.nav-btn{padding:8px 18px;font-size:13px}.synthese-grid{grid-template-columns:1fr}.espace-links{flex-direction:column;align-items:stretch}.espace-links .btn-espace,.espace-links .btn-espace-compta,.espace-links .btn-espace-direction{justify-content:center;padding:8px}.modal-box{padding:24px 20px}.modal-box .modal-message{font-size:15px}}
         @media(max-width:480px){.meta-info{grid-template-columns:1fr;gap:2px}.container{padding:10px 8px;border-radius:12px}.question-card .qtext{font-size:15px}.question-card .etapes .editable{font-size:14px;min-height:36px}.modal-box{padding:20px 16px}.modal-box .modal-message{font-size:14px}}
     </style>
@@ -94,7 +98,7 @@
 
     <div class="toolbar">
         <div class="day-selector" id="daySelector"></div>
-        <button class="btn-pdf" onclick="ouvrirModalPDF()">📄 EXPORTER EN PDF</button>
+        <button class="btn-pdf" onclick="verifierEtOuvrirModalPDF()">📄 EXPORTER EN PDF</button>
     </div>
     <div class="header">
         <div class="logo">NETUBEX SARL</div>
@@ -109,7 +113,7 @@
 
     <!-- Zone Question -->
     <div id="questionSection">
-        <div class="question-counter" id="questionCounter">QUESTION 1 / 20</div>
+        <div class="question-counter" id="questionCounter">OBJET 1 / 20</div>
         <div id="questionContainer"></div>
         <div class="nav-buttons">
             <button class="nav-btn nav-btn-outline" id="prevBtn" onclick="previousQuestion()">◀ PRÉCÉDENT</button>
@@ -128,11 +132,23 @@
             <div class="synthese-box"><h4>Points à approfondir</h4><p id="approfondir" contenteditable="true"></p></div>
         </div>
         <div style="text-align:center;margin-top:14px;">
-            <button class="nav-btn" onclick="retourQuestions()" style="background:#1a3a6e;">◀ RETOUR AUX QUESTIONS</button>
+            <button class="nav-btn" onclick="retourQuestions()" style="background:#1a3a6e;">◀ RETOUR AUX OBJETS</button>
         </div>
     </div>
 
     <div class="footer">NETUBEX SARL - TOUS DROITS RÉSERVÉS</div>
+</div>
+
+<!-- MODAL D'ERREUR -->
+<div class="modal-overlay" id="errorModal">
+    <div class="modal-box">
+        <div class="modal-icon">⚠️</div>
+        <h3>CHAMPS OBLIGATOIRES</h3>
+        <div id="errorContent" class="modal-message"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn" onclick="fermerModalErreur()" style="background:#1a3a6e;">OK</button>
+        </div>
+    </div>
 </div>
 
 <!-- MODAL DE CONFIRMATION PDF -->
@@ -347,7 +363,7 @@ function renderQuestion(index) {
     const saved = reponses[index] || ['', '', ''];
     
     let html = `<div class="question-card">
-        <div class="qnumber">❓ QUESTION ${index+1} / ${totalQuestions}</div>
+        <div class="qnumber">❓ OBJET ${index+1} / ${totalQuestions}</div>
         <div class="qtext">${q}</div>
         <div class="etapes">
             <div class="etape-block">
@@ -378,7 +394,7 @@ function renderQuestion(index) {
         ta.addEventListener('blur', sauvegarderAuto);
     });
     
-    document.getElementById('questionCounter').textContent = `QUESTION ${index+1} / ${totalQuestions}`;
+    document.getElementById('questionCounter').textContent = `OBJET ${index+1} / ${totalQuestions}`;
     document.getElementById('progressInfo').textContent = `${index+1} / ${totalQuestions}`;
     updateNavButtons();
 }
@@ -419,9 +435,60 @@ function retourQuestions() {
 }
 
 // ============================================================
-// 5. MODAL PDF
+// 5. VALIDATION DES CHAMPS
 // ============================================================
-function ouvrirModalPDF() {
+function verifierChampsObligatoires() {
+    const questions = questionsByDay[currentDay] || questionsByDay[1];
+    const champsManquants = [];
+    
+    for (let idx = 0; idx < questions.length; idx++) {
+        const saved = reponses[idx] || ['', '', ''];
+        for (let step = 0; step < 3; step++) {
+            const valeur = saved[step]?.trim() || '';
+            if (valeur === '') {
+                champsManquants.push(`Objet ${idx+1} - Étape ${step+1}`);
+            }
+        }
+    }
+    
+    return champsManquants;
+}
+
+function afficherErreurChampsManquants(champsManquants) {
+    const errorModal = document.getElementById('errorModal');
+    const errorContent = document.getElementById('errorContent');
+    
+    let html = `<div class="modal-error">
+        <div class="error-title">⚠️ Vous avez oublié de renseigner :</div>
+        <ul class="error-list">`;
+    
+    champsManquants.forEach(champ => {
+        html += `<li>${champ}</li>`;
+    });
+    
+    html += `</ul>
+        <div style="margin-top:8px;font-size:14px;color:#cbd5e1;">
+            Veuillez compléter tous les champs avant de générer le PDF.
+        </div>
+    </div>`;
+    
+    errorContent.innerHTML = html;
+    errorModal.classList.add('show');
+}
+
+function fermerModalErreur() {
+    document.getElementById('errorModal').classList.remove('show');
+}
+
+// ============================================================
+// 6. MODAL PDF
+// ============================================================
+function verifierEtOuvrirModalPDF() {
+    const champsManquants = verifierChampsObligatoires();
+    if (champsManquants.length > 0) {
+        afficherErreurChampsManquants(champsManquants);
+        return;
+    }
     document.getElementById('pdfModal').classList.add('show');
 }
 
@@ -435,7 +502,7 @@ function confirmerGenererPDF() {
 }
 
 // ============================================================
-// 6. PDF - VERSION CORRIGÉE ET PROFESSIONNELLE
+// 7. PDF
 // ============================================================
 function genererPDF() {
     const { jsPDF } = window.jspdf;
@@ -465,7 +532,6 @@ function genererPDF() {
     doc.setFontSize(12);
     doc.setTextColor(60, 60, 80);
     
-    // Nettoyer les libellés pour le PDF
     const jourClean = jour.replace(/JOUR \d+ - /, '').trim();
     const dayNum = jour.match(/\d+/)?.[0] || '1';
     
@@ -478,7 +544,7 @@ function genererPDF() {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(26, 42, 94);
-    doc.text('QUESTIONS ET RÉPONSES', margin, y);
+    doc.text('OBJETS ET RÉPONSES', margin, y);
     y += 10;
 
     // Construction du tableau
@@ -491,12 +557,12 @@ function genererPDF() {
             const displayVal = val.trim() || '?';
             etapesText += 'Étape ' + (i + 1) + ' : ' + displayVal + '\n';
         });
-        rows.push(['Q' + (idx+1), q, etapesText.trim()]);
+        rows.push(['O' + (idx+1), q, etapesText.trim()]);
     });
 
     doc.autoTable({
         startY: y,
-        head: [['N°', 'QUESTION', 'ÉTAPES']],
+        head: [['N°', 'OBJET', 'ÉTAPES']],
         body: rows,
         theme: 'grid',
         styles: { 
@@ -566,7 +632,7 @@ function genererPDF() {
 }
 
 // ============================================================
-// 7. INITIALISATION
+// 8. INITIALISATION
 // ============================================================
 async function init() {
     await openDB();
@@ -592,9 +658,10 @@ window.nextQuestion = nextQuestion;
 window.previousQuestion = previousQuestion;
 window.showSynthese = showSynthese;
 window.retourQuestions = retourQuestions;
-window.ouvrirModalPDF = ouvrirModalPDF;
+window.verifierEtOuvrirModalPDF = verifierEtOuvrirModalPDF;
 window.fermerModalPDF = fermerModalPDF;
 window.confirmerGenererPDF = confirmerGenererPDF;
+window.fermerModalErreur = fermerModalErreur;
 </script>
 </body>
 </html>
