@@ -127,16 +127,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 .toast-content{flex:1}
 .toast-title{font-weight:700;font-size:13px;color:#1a2332}
 .toast-message{font-size:12px;color:#6b7280}
-.login-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#f0f2f5;z-index:10000;display:flex;align-items:center;justify-content:center}
-.login-card{background:#fff;border-radius:24px;padding:32px 28px;width:90%;max-width:380px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.06);border:1px solid #e8ecf0}
-.login-card .icon{font-size:44px;margin-bottom:10px;color:#2563eb}
-.login-card h2{font-size:22px;font-weight:800;color:#1a2332;margin-bottom:4px}
-.login-card p{color:#6b7280;font-size:13px;margin-bottom:20px}
-.login-card input{width:100%;padding:12px;margin-bottom:12px;border-radius:30px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:20px;text-align:center;letter-spacing:8px;font-weight:700;outline:none;transition:border .3s}
-.login-card input:focus{border-color:#2563eb}
-.login-card button{width:100%;padding:12px;border-radius:30px;background:#1a2332;color:#fff;font-weight:700;font-size:15px;border:none;cursor:pointer;transition:all .3s;box-shadow:0 3px 10px rgba(0,0,0,0.06)}
-.login-card button:hover{background:#2a3a4a;transform:translateY(-2px);box-shadow:0 6px 24px rgba(0,0,0,0.10)}
-.login-card .error{color:#dc2626;font-size:12px;margin-top:6px;min-height:18px}
 .modal-fullscreen{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(6px);z-index:20000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all .3s}
 .modal-fullscreen.show{visibility:visible;opacity:1}
 .modal-content{background:#fff;border-radius:16px;width:92%;max-width:440px;padding:24px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.15)}
@@ -269,9 +259,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 .dark-mode .modal-content input,.dark-mode .modal-content textarea{background:#0d1117;border-color:#30363d;color:#e6edf3}
 .dark-mode .modal-content h3{color:#e6edf3}
 .dark-mode .modal-content p{color:#8b949e}
-.dark-mode .login-card input{background:#0d1117;border-color:#30363d;color:#e6edf3}
-.dark-mode .login-card button{background:#238636}
-.dark-mode .login-card button:hover{background:#2ea043}
 .dark-mode .btn-logout{background:#1c2333;border-color:#30363d;color:#f85149}
 .dark-mode .btn-logout:hover{background:#2d1b1b;border-color:#f85149}
 .dark-mode .reco-header{background:#161b22;border-color:#30363d}
@@ -369,16 +356,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </style>
 </head>
 <body>
-<div id="loginOverlay" class="login-overlay">
-<div class="login-card">
-<div class="icon">🔐</div>
-<h2>Espace Direction</h2>
-<p>Veuillez saisir le code d'accès à 4 chiffres</p>
-<input type="password" id="loginCodeInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="• • • •">
-<div class="error" id="loginError"></div>
-<button id="loginBtn">Valider</button>
-</div>
-</div>
 <div id="mainContent">
 <div class="container">
 <div class="school-header">
@@ -621,12 +598,9 @@ const SC = {
     COMPTA_ELEVES: "compta_eleves"
 };
 async function verifierCodeDirection() {
-    const loadingBar = document.getElementById('loadingBar');
-    loadingBar.style.width = '20%';
     try {
         const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
         const snap = await getDoc(ref);
-        loadingBar.style.width = '50%';
         let email = `direction.${ECOLET_ID}@gmail.com`;
         let codeFound = false;
         if (snap.exists()) {
@@ -638,11 +612,8 @@ async function verifierCodeDirection() {
         }
         if (!codeFound && codeFromUrl) {
             try {
-                loadingBar.style.width = '70%';
-                console.log(`🔍 Tentative de connexion avec ${email} et code ${codeFromUrl}`);
                 await signInWithEmailAndPassword(auth, email, codeFromUrl);
                 codeFound = true;
-                console.log('✅ Connexion Firebase Auth réussie !');
                 if (snap.exists() && !snap.data().codeDirection) {
                     await setDoc(ref, {
                         codeDirection: codeFromUrl,
@@ -651,41 +622,24 @@ async function verifierCodeDirection() {
                     }, { merge: true });
                 }
             } catch (authError) {
-                console.error('❌ Erreur Firebase Auth:', authError.code);
                 if (authError.code === 'auth/user-not-found') {
                     try {
                         await createUserWithEmailAndPassword(auth, email, codeFromUrl);
-                        console.log('✅ Compte Direction créé avec succès');
                         codeFound = true;
-                    } catch (createError) {
-                        console.error('❌ Erreur création compte:', createError);
-                    }
+                    } catch (createError) {}
                 }
             }
         }
         if (codeFound) {
-            loadingBar.style.width = '100%';
-            console.log('✅ ACCÈS AUTORISÉ - Direction');
-            setTimeout(() => {
-                document.getElementById('loadingScreen').style.display = 'none';
-                document.getElementById('mainContent').classList.add('visible');
-                initApp();
-                demarrerSurveillanceInactiviteDirection();
-            }, 500);
+            document.getElementById('mainContent').classList.add('visible');
+            initApp();
+            demarrerSurveillanceInactiviteDirection();
             return true;
         }
-        loadingBar.style.width = '100%';
-        console.log('❌ ACCÈS REFUSÉ - Code incorrect');
-        setTimeout(() => {
-            window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
-        }, 800);
+        window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
         return false;
     } catch (error) {
-        console.error('❌ Erreur vérification:', error);
-        loadingBar.style.width = '100%';
-        setTimeout(() => {
-            window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
-        }, 800);
+        window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
         return false;
     }
 }
@@ -1418,9 +1372,7 @@ async function initApp() {
     initReco();
     setTimeout(scrollRecoToBottom, 800);
 }
-document.addEventListener('DOMContentLoaded', function() {
-    verifierCodeDirection();
-});
+verifierCodeDirection();
 document.querySelectorAll('.tab').forEach(btn => {
     btn.onclick = function() {
         if(this.id === 'darkModeBtn') {
