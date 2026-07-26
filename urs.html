@@ -1,408 +1,663 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Formulaire Livrable - Rapport du Service Support</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:#f0f2f5;padding:20px;min-height:100vh;display:flex;justify-content:center;align-items:flex-start}
-.container{max-width:1000px;width:100%;background:#ffffff;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,0.08);padding:40px;margin:20px 0}
-.header{text-align:center;border-bottom:3px solid #1a1a2e;padding-bottom:20px;margin-bottom:24px}
-.header .logo{font-size:12px;font-weight:700;color:#2563eb;letter-spacing:2px;text-transform:uppercase}
-.header h1{font-size:24px;font-weight:800;color:#1a1a2e;margin-top:4px}
-.header .subtitle{font-size:13px;color:#6b7280;margin-top:2px}
-.meta-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:24px;border:1px solid #e8ecf0}
-.meta-info .item{display:flex;flex-direction:column}
-.meta-info .label{font-size:10px;font-weight:600;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px}
-.meta-info .value{font-size:14px;font-weight:600;color:#1a1a2e;margin-top:2px}
-.section-title{font-size:16px;font-weight:700;color:#1a1a2e;padding:10px 0 8px 0;border-bottom:2px solid #e8ecf0;margin-bottom:16px}
-.question-item{display:grid;grid-template-columns:40px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid #f1f3f5}
-.question-item .num{font-weight:700;color:#2563eb;font-size:13px}
-.question-item .qtext{font-weight:500;color:#1a1a2e;font-size:13px}
-.question-item .qtext .etapes{display:block;font-weight:400;color:#6b7280;font-size:12px;margin-top:4px;padding-left:12px;border-left:2px solid #e8ecf0}
-.question-item .qtext .etapes span{display:block}
-.synthese-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
-.synthese-box{background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e8ecf0}
-.synthese-box h4{font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
-.synthese-box p{font-size:13px;color:#6b7280;min-height:40px;line-height:1.6}
-.signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px;padding-top:20px;border-top:2px solid #e8ecf0}
-.signatures .sig-item{display:flex;flex-direction:column}
-.signatures .sig-item .line{width:100%;border-bottom:2px solid #1a1a2e;margin-top:24px}
-.signatures .sig-item .label{font-size:11px;font-weight:600;color:#6b7280}
-.footer{text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #e8ecf0;font-size:11px;color:#9ca3af}
-.btn-pdf{background:#1a1a2e;color:#fff;border:none;padding:14px 32px;border-radius:40px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;display:inline-flex;align-items:center;gap:10px;margin-bottom:24px}
-.btn-pdf:hover{background:#2a2a42;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.12)}
-.btn-pdf:active{transform:scale(0.97)}
-.day-selector{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.day-btn{background:#e8ecf0;border:none;padding:8px 16px;border-radius:30px;font-size:12px;font-weight:600;cursor:pointer;color:#6b7280;transition:all 0.2s;position:relative}
-.day-btn:hover:not(.locked){background:#d1d5db}
-.day-btn.active{background:#1a1a2e;color:#fff}
-.day-btn.locked{opacity:0.4;cursor:not-allowed}
-.day-btn.locked::after{content:'🔒';font-size:10px;margin-left:4px}
-.day-btn.today{background:#2563eb;color:#fff}
-.day-btn.today:hover{background:#1d4ed8}
-.day-btn .day-status{font-size:9px;display:block;margin-top:2px}
-.info-banner{background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#78350f}
-.info-banner .today-highlight{font-weight:700;color:#2563eb}
-@media(max-width:600px){.container{padding:20px}.meta-info{grid-template-columns:1fr}.synthese-grid{grid-template-columns:1fr}.signatures{grid-template-columns:1fr;gap:20px}}
-.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:10000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all 0.3s ease}
-.modal-overlay.show{visibility:visible;opacity:1}
-.modal-content{background:#ffffff;border-radius:24px;width:92%;max-width:440px;padding:32px;box-shadow:0 30px 80px rgba(0,0,0,0.2);text-align:center}
-.modal-content .modal-icon{font-size:56px;margin-bottom:12px}
-.modal-content h3{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:8px}
-.modal-content p{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px}
-.modal-content .whatsapp-info{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:#166534}
-.modal-content .whatsapp-info i{font-size:24px;color:#25D366}
-.modal-footer{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-.modal-footer button{padding:10px 28px;border-radius:40px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;border:none}
-.modal-footer .btn-cancel{background:#e8ecf0;color:#6b7280}
-.modal-footer .btn-cancel:hover{background:#d1d5db}
-.modal-footer .btn-confirm{background:#1a1a2e;color:#fff}
-.modal-footer .btn-confirm:hover{background:#2a2a42;transform:scale(1.02)}
-.modal-footer .btn-whatsapp{background:#25D366;color:#fff}
-.modal-footer .btn-whatsapp:hover{background:#1ebe5c;transform:scale(1.02)}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulaire Livrable - Rapport du Service Support</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:#f0f2f5;padding:20px;min-height:100vh;display:flex;justify-content:center;align-items:flex-start}
+        .container{max-width:1000px;width:100%;background:#ffffff;border-radius:24px;box-shadow:0 20px 60px rgba(0,0,0,0.08);padding:40px;margin:20px 0}
+        .header{text-align:center;border-bottom:3px solid #1a1a2e;padding-bottom:20px;margin-bottom:24px}
+        .header .logo{font-size:12px;font-weight:700;color:#2563eb;letter-spacing:2px;text-transform:uppercase}
+        .header h1{font-size:24px;font-weight:800;color:#1a1a2e;margin-top:4px}
+        .header .subtitle{font-size:13px;color:#6b7280;margin-top:2px}
+        .meta-info{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;border-radius:12px;padding:16px 20px;margin-bottom:24px;border:1px solid #e8ecf0}
+        .meta-info .item{display:flex;flex-direction:column}
+        .meta-info .label{font-size:10px;font-weight:600;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px}
+        .meta-info .value{font-size:14px;font-weight:600;color:#1a1a2e;margin-top:2px}
+        .section-title{font-size:16px;font-weight:700;color:#1a1a2e;padding:10px 0 8px 0;border-bottom:2px solid #e8ecf0;margin-bottom:16px}
+        .question-item{display:grid;grid-template-columns:40px 1fr;gap:12px;padding:8px 0;border-bottom:1px solid #f1f3f5}
+        .question-item .num{font-weight:700;color:#2563eb;font-size:13px}
+        .question-item .qtext{font-weight:500;color:#1a1a2e;font-size:13px}
+        .question-item .qtext .etapes{display:block;font-weight:400;color:#6b7280;font-size:12px;margin-top:4px;padding-left:12px;border-left:2px solid #e8ecf0}
+        .question-item .qtext .etapes .etape-item{display:block;margin-bottom:2px;word-wrap:break-word;white-space:normal;line-height:1.5}
+        .question-item .qtext .etapes .etape-item .etape-label{font-weight:600;color:#2563eb}
+        .question-item .qtext .etapes .etape-item .etape-content{display:inline;word-wrap:break-word;white-space:normal}
+        .synthese-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+        .synthese-box{background:#f8fafc;border-radius:12px;padding:16px;border:1px solid #e8ecf0}
+        .synthese-box h4{font-size:12px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+        .synthese-box p{font-size:13px;color:#6b7280;min-height:40px;line-height:1.6}
+        .signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:24px;padding-top:20px;border-top:2px solid #e8ecf0}
+        .signatures .sig-item{display:flex;flex-direction:column}
+        .signatures .sig-item .line{width:100%;border-bottom:2px solid #1a1a2e;margin-top:24px}
+        .signatures .sig-item .label{font-size:11px;font-weight:600;color:#6b7280}
+        .footer{text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid #e8ecf0;font-size:11px;color:#9ca3af}
+        .btn-pdf{background:#1a1a2e;color:#fff;border:none;padding:14px 32px;border-radius:40px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.3s;display:inline-flex;align-items:center;gap:10px;margin-bottom:24px}
+        .btn-pdf:hover{background:#2a2a42;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.12)}
+        .btn-pdf:active{transform:scale(0.97)}
+        .day-selector{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+        .day-btn{background:#e8ecf0;border:none;padding:8px 16px;border-radius:30px;font-size:12px;font-weight:600;cursor:pointer;color:#6b7280;transition:all 0.2s;position:relative}
+        .day-btn:hover:not(.locked){background:#d1d5db}
+        .day-btn.active{background:#1a1a2e;color:#fff}
+        .day-btn.locked{opacity:0.4;cursor:not-allowed}
+        .day-btn.locked::after{content:'🔒';font-size:10px;margin-left:4px}
+        .day-btn.today{background:#2563eb;color:#fff}
+        .day-btn.today:hover{background:#1d4ed8}
+        .day-btn .day-status{font-size:9px;display:block;margin-top:2px}
+        .info-banner{background:#fef3c7;border:1px solid #f59e0b;border-radius:12px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:#78350f}
+        .info-banner .today-highlight{font-weight:700;color:#2563eb}
+        @media(max-width:600px){.container{padding:20px}.meta-info{grid-template-columns:1fr}.synthese-grid{grid-template-columns:1fr}.signatures{grid-template-columns:1fr;gap:20px}}
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:10000;display:flex;align-items:center;justify-content:center;visibility:hidden;opacity:0;transition:all 0.3s ease}
+        .modal-overlay.show{visibility:visible;opacity:1}
+        .modal-content{background:#ffffff;border-radius:24px;width:92%;max-width:440px;padding:32px;box-shadow:0 30px 80px rgba(0,0,0,0.2);text-align:center}
+        .modal-content .modal-icon{font-size:56px;margin-bottom:12px}
+        .modal-content h3{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:8px}
+        .modal-content p{font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:20px}
+        .modal-content .whatsapp-info{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:#166534}
+        .modal-content .whatsapp-info i{font-size:24px;color:#25D366}
+        .modal-footer{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+        .modal-footer button{padding:10px 28px;border-radius:40px;font-weight:600;font-size:13px;cursor:pointer;transition:all 0.3s;border:none}
+        .modal-footer .btn-cancel{background:#e8ecf0;color:#6b7280}
+        .modal-footer .btn-cancel:hover{background:#d1d5db}
+        .modal-footer .btn-confirm{background:#1a1a2e;color:#fff}
+        .modal-footer .btn-confirm:hover{background:#2a2a42;transform:scale(1.02)}
+        .modal-footer .btn-whatsapp{background:#25D366;color:#fff}
+        .modal-footer .btn-whatsapp:hover{background:#1ebe5c;transform:scale(1.02)}
+    </style>
 </head>
 <body>
 <div class="container" id="livrableContainer">
-<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
-<button class="btn-pdf" onclick="demanderPDF()">📄 EXPORTER EN PDF</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+        <button class="btn-pdf" onclick="demanderPDF()">📄 EXPORTER EN PDF</button>
+    </div>
+    <div class="info-banner" id="infoBanner">
+        <span>📌</span>
+        <span>Seul le <strong class="today-highlight" id="todayHighlight">jour en cours</strong> est accessible. Ouverture du prochain jour à <strong>23h30</strong>.</span>
+    </div>
+    <div class="day-selector" id="daySelector"></div>
+    <div class="header">
+        <div class="logo">NETUBEX SARL</div>
+        <h1>RAPPORT DU SERVICE SUPPORT</h1>
+        <div class="subtitle">SYSTÈME DE GESTION DE SCOLARITÉ</div>
+    </div>
+    <div class="meta-info">
+        <div class="item"><span class="label">Jour</span><span class="value" id="jourDisplay">JOUR 1 - ESPACE PROFESSEUR - PRISE EN MAIN</span></div>
+        <div class="item"><span class="label">Date</span><span class="value" id="dateDisplay">27/07/2026</span></div>
+        <div class="item"><span class="label">Espace</span><span class="value" id="espaceDisplay">PROFESSEUR</span></div>
+        <div class="item"><span class="label">Heure de remise</span><span class="value">16h00</span></div>
+    </div>
+    <div class="section-title">📋 QUESTIONS ET RÉPONSES</div>
+    <div id="questionsContainer"></div>
+    <div class="section-title" style="margin-top:20px">📝 SYNTHÈSE</div>
+    <div class="synthese-grid">
+        <div class="synthese-box"><h4>Difficultés rencontrées</h4><p id="difficultes" contenteditable="true">-</p></div>
+        <div class="synthese-box"><h4>Solutions apportées</h4><p id="solutions" contenteditable="true">-</p></div>
+        <div class="synthese-box"><h4>Questions fréquentes identifiées</h4><p id="qfrequentes" contenteditable="true">-</p></div>
+        <div class="synthese-box"><h4>Points à approfondir</h4><p id="approfondir" contenteditable="true">-</p></div>
+    </div>
+    <div style="margin-top:16px">
+        <div class="synthese-box"><h4>Observations</h4><p id="observations" contenteditable="true" style="min-height:60px">-</p></div>
+    </div>
+    <div class="signatures">
+        <div class="sig-item"><span class="label">Chargée de support</span><div class="line"></div></div>
+        <div class="sig-item"><span class="label">Service Support</span><div class="line"></div></div>
+    </div>
+    <div class="footer">NETUBEX SARL - Tous droits réservés</div>
 </div>
-<div class="info-banner" id="infoBanner">
-<span>📌</span>
-<span>Seul le <strong class="today-highlight" id="todayHighlight">jour en cours</strong> est accessible. Ouverture du prochain jour à <strong>23h30</strong>.</span>
-</div>
-<div class="day-selector" id="daySelector"></div>
-<div class="header">
-<div class="logo">NETUBEX SARL</div>
-<h1>RAPPORT DU SERVICE SUPPORT</h1>
-<div class="subtitle">SYSTÈME DE GESTION DE SCOLARITÉ</div>
-</div>
-<div class="meta-info">
-<div class="item"><span class="label">Jour</span><span class="value" id="jourDisplay">JOUR 1 - ESPACE PROFESSEUR - PRISE EN MAIN</span></div>
-<div class="item"><span class="label">Date</span><span class="value" id="dateDisplay">27/07/2026</span></div>
-<div class="item"><span class="label">Espace</span><span class="value" id="espaceDisplay">PROFESSEUR</span></div>
-<div class="item"><span class="label">Heure de remise</span><span class="value">16h00</span></div>
-</div>
-<div class="section-title">📋 QUESTIONS ET RÉPONSES</div>
-<div id="questionsContainer"></div>
-<div class="section-title" style="margin-top:20px">📝 SYNTHÈSE</div>
-<div class="synthese-grid">
-<div class="synthese-box"><h4>Difficultés rencontrées</h4><p id="difficultes" contenteditable="true">-</p></div>
-<div class="synthese-box"><h4>Solutions apportées</h4><p id="solutions" contenteditable="true">-</p></div>
-<div class="synthese-box"><h4>Questions fréquentes identifiées</h4><p id="qfrequentes" contenteditable="true">-</p></div>
-<div class="synthese-box"><h4>Points à approfondir</h4><p id="approfondir" contenteditable="true">-</p></div>
-</div>
-<div style="margin-top:16px">
-<div class="synthese-box"><h4>Observations</h4><p id="observations" contenteditable="true" style="min-height:60px">-</p></div>
-</div>
-<div class="signatures">
-<div class="sig-item"><span class="label">Chargée de support</span><div class="line"></div></div>
-<div class="sig-item"><span class="label">Formateur</span><div class="line"></div></div>
-</div>
-<div class="footer">NETUBEX SARL - Tous droits réservés</div>
-</div>
+
+<!-- MODAL POPUP "Soyez patiente" -->
 <div class="modal-overlay" id="waitModal">
-<div class="modal-content">
-<div class="modal-icon">⏳</div>
-<h3>Soyez patiente</h3>
-<p>Revenez demain au service pour découvrir votre nouvelle tâche. 🙏</p>
-<div class="modal-footer">
-<button class="btn-confirm" onclick="fermerWaitModal()">D'accord</button>
+    <div class="modal-content">
+        <div class="modal-icon">⏳</div>
+        <h3>Soyez patiente</h3>
+        <p>Revenez demain au service pour découvrir votre nouvelle tâche. 🙏</p>
+        <div class="modal-footer">
+            <button class="btn-confirm" onclick="fermerWaitModal()">D'accord</button>
+        </div>
+    </div>
 </div>
-</div>
-</div>
+
+<!-- MODAL POPUP PDF -->
 <div class="modal-overlay" id="pdfModal">
-<div class="modal-content">
-<div class="modal-icon">📄</div>
-<h3>Validation PDF</h3>
-<p>Veuillez s'il vous plait le transférer à <strong>Monsieur Flory</strong> via son compte WhatsApp :</p>
-<div class="whatsapp-info">
-<i class="fab fa-whatsapp" style="font-family:'Font Awesome 6 Brands'">&#xf232;</i>
-<span><strong>+243 999 999 999</strong></span>
+    <div class="modal-content">
+        <div class="modal-icon">📄</div>
+        <h3>Validation PDF</h3>
+        <p>Veuillez s'il vous plait le transférer à <strong>Monsieur Flory</strong> via son compte WhatsApp :</p>
+        <div class="whatsapp-info">
+            <i class="fab fa-whatsapp" style="font-family:'Font Awesome 6 Brands'">&#xf232;</i>
+            <span><strong>+243 999 999 999</strong></span>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="fermerPdfModal()">Annuler</button>
+            <button class="btn-whatsapp" onclick="confirmerPDF()">✓ D'accord</button>
+        </div>
+    </div>
 </div>
-<div class="modal-footer">
-<button class="btn-cancel" onclick="fermerPdfModal()">Annuler</button>
-<button class="btn-whatsapp" onclick="confirmerPDF()">✓ D'accord</button>
-</div>
-</div>
-</div>
+
 <script>
-const daysData=[
-{id:1,title:'ESPACE PROFESSEUR - PRISE EN MAIN',date:'27/07/2026',espace:'PROFESSEUR'},
-{id:2,title:'ESPACE PROFESSEUR - APPROFONDISSEMENT',date:'28/07/2026',espace:'PROFESSEUR'},
-{id:3,title:'ESPACE COMPTABILITÉ - PRISE EN MAIN',date:'29/07/2026',espace:'COMPTABILITÉ'},
-{id:4,title:'ESPACE COMPTABILITÉ - APPROFONDISSEMENT',date:'30/07/2026',espace:'COMPTABILITÉ'},
-{id:5,title:'ESPACE DIRECTION - PRISE EN MAIN',date:'03/08/2026',espace:'DIRECTION'},
-{id:6,title:'ESPACE DIRECTION - APPROFONDISSEMENT',date:'04/08/2026',espace:'DIRECTION'},
-{id:7,title:'SYNTHÈSE - RELIER LES 3 ESPACES',date:'05/08/2026',espace:'SYNTHÈSE'},
-{id:8,title:'RÉVISION ESPACE PROFESSEUR',date:'06/08/2026',espace:'PROFESSEUR'},
-{id:9,title:'RÉVISION ESPACE COMPTABILITÉ',date:'10/08/2026',espace:'COMPTABILITÉ'},
-{id:10,title:'RÉVISION ESPACE DIRECTION',date:'11/08/2026',espace:'DIRECTION'},
-{id:11,title:'SIMULATION AVANCÉE',date:'12/08/2026',espace:'SIMULATION'},
-{id:12,title:'ÉVALUATION FINALE',date:'13/08/2026',espace:'ÉVALUATION'}
+// Données des jours (12 jours)
+const daysData = [
+    { id: 1, title: 'ESPACE PROFESSEUR - PRISE EN MAIN', date: '27/07/2026', espace: 'PROFESSEUR' },
+    { id: 2, title: 'ESPACE PROFESSEUR - APPROFONDISSEMENT', date: '28/07/2026', espace: 'PROFESSEUR' },
+    { id: 3, title: 'ESPACE COMPTABILITÉ - PRISE EN MAIN', date: '29/07/2026', espace: 'COMPTABILITÉ' },
+    { id: 4, title: 'ESPACE COMPTABILITÉ - APPROFONDISSEMENT', date: '30/07/2026', espace: 'COMPTABILITÉ' },
+    { id: 5, title: 'ESPACE DIRECTION - PRISE EN MAIN', date: '03/08/2026', espace: 'DIRECTION' },
+    { id: 6, title: 'ESPACE DIRECTION - APPROFONDISSEMENT', date: '04/08/2026', espace: 'DIRECTION' },
+    { id: 7, title: 'SYNTHÈSE - RELIER LES 3 ESPACES', date: '05/08/2026', espace: 'SYNTHÈSE' },
+    { id: 8, title: 'RÉVISION ESPACE PROFESSEUR', date: '06/08/2026', espace: 'PROFESSEUR' },
+    { id: 9, title: 'RÉVISION ESPACE COMPTABILITÉ', date: '10/08/2026', espace: 'COMPTABILITÉ' },
+    { id: 10, title: 'RÉVISION ESPACE DIRECTION', date: '11/08/2026', espace: 'DIRECTION' },
+    { id: 11, title: 'SIMULATION AVANCÉE', date: '12/08/2026', espace: 'SIMULATION' },
+    { id: 12, title: 'ÉVALUATION FINALE', date: '13/08/2026', espace: 'ÉVALUATION' }
 ];
-const questionsByDay={
-1:["Accéder à l'espace Professeur.","Créer une nouvelle fiche de cotation.","Modifier une fiche existante.","Supprimer une fiche de cotation.","Ajouter des élèves à une fiche.","Encoder les notes d'un élève.","Modifier une note déjà saisie.","Ajouter une épreuve pour une période.","Consulter l'horaire de cours.","Exporter une fiche de cotation en PDF.","Gérer l'absence d'une classe dans la liste.","Sélectionner l'option pour une classe.","Rafraîchir la liste des fiches.","Visualiser la liste des élèves d'une fiche.","Accéder aux statistiques d'une fiche.","Naviguer entre les onglets de l'espace Professeur.","Renseigner le champ 'Option' dans une fiche.","Modifier le titre du cours.","Consulter l'année scolaire en cours.","Se déconnecter de l'espace Professeur."],
-2:["Utiliser le mode rapide pour saisir les notes.","Utiliser le mode gestuel pour la correction.","Résoudre l'absence d'un élève dans la liste.","Former des groupes d'élèves.","Appliquer une note identique à tout un groupe.","Changer le code d'accès.","Récupérer un code d'accès perdu.","Configurer l'horaire de cours.","Modifier la note maximale d'une période.","Retrouver les fiches de cotation créées.","Ajouter manuellement un nouvel élève.","Réimporter les élèves depuis la comptabilité.","Créer une épreuve.","Supprimer une épreuve.","Consulter une fiche en mode lecture seule.","Personnaliser le barème d'une épreuve.","Trier la liste des élèves par ordre alphabétique.","Visualiser l'effectif total d'une fiche.","Activer le mode sombre.","Signaler un problème technique."],
-3:["Accéder à l'espace Comptabilité.","Consulter la liste complète des élèves.","Rechercher un élève par son nom.","Consulter la situation financière d'un élève.","Enregistrer un paiement de minerval.","Visualiser les mois payés et impayés.","Inscrire un nouvel élève.","Gérer les frais d'inscription.","Marquer un élève comme abandon.","Consulter les statistiques financières.","Filtrer les élèves par classe.","Filtrer les élèves par option.","Identifier la signification des badges.","Trouver le code parent d'un élève.","Consulter l'historique des paiements.","Interpréter le montant 'RESTE À PAYER'.","Modifier le minerval d'un élève.","Exonérer partiellement un élève.","Visualiser les élèves par sexe.","Trouver le matricule d'un élève."],
-4:["Modifier le code parent d'un élève.","Rattacher un élève à une famille existante.","Paramétrer les minervaux par classe et option.","Appliquer les nouveaux tarifs à tous les élèves.","Générer un rapport PDF de recouvrement.","Générer un PDF de la liste noire.","Générer la liste complète des élèves en PDF.","Modifier le code d'accès de la comptabilité.","Gérer les options par classe.","Corriger une erreur de paiement.","Marquer un mois comme 'mois blanc'.","Retirer un mois blanc.","Consulter l'historique détaillé d'un mois.","Modifier le motif d'exonération.","Consulter les cartes d'identité des élèves.","Rechercher un élève par matricule.","Exporter les données des élèves en PDF.","Gérer les frais d'inscription par classe.","Corriger un paiement en double.","Suivre les paiements des frais d'inscription."],
-5:["Accéder à l'espace Direction.","Consulter la liste des professeurs.","Ajouter un nouveau professeur.","Désactiver ou réactiver un professeur.","Visualiser le code d'accès d'un professeur.","Accéder à la corbeille.","Restaurer une fiche supprimée.","Supprimer définitivement une fiche.","Changer le code d'accès de la Direction.","Utiliser l'espace Reco.","Consulter les punitions enregistrées.","Filtrer les punitions par classe.","Visualiser les détails d'une punition.","Changer le thème (clair/sombre).","Se déconnecter de l'espace Direction.","Récupérer un code d'accès Direction oublié.","Consulter les logs d'activité.","Visualiser les professeurs inactifs.","Consulter les informations de l'école.","Modifier les informations de l'école."],
-6:["Ajouter une punition à un élève.","Annuler une punition enregistrée.","Filtrer les punitions par élève.","Répondre à une demande dans l'espace Reco.","Suivre les échanges dans l'espace Reco.","Gérer les droits d'accès des professeurs.","Générer un rapport des activités.","Consulter l'historique des punitions annulées.","Modifier la gravité d'une punition.","Résoudre un problème d'accès d'un professeur.","Consulter les statistiques des professeurs.","Envoyer un communiqué aux utilisateurs.","Gérer les alertes administratives.","Consulter les fiches supprimées par un professeur.","Réinitialiser le code d'accès d'un professeur.","Suivre les modifications effectuées par les professeurs.","Consulter les demandes en attente dans Reco.","Archiver les anciennes demandes Reco.","Gérer les notifications de la Direction.","Préparer un rapport de fin de mois."],
-7:["Suivre un élève de l'inscription à la fiche du professeur.","Visualiser les paiements d'un élève.","Accéder aux informations de paiement depuis l'espace Professeur.","Accéder aux notes d'un enfant depuis l'espace Parental.","Résoudre une discordance entre espaces.","Gérer les exclusions dans l'école.","Synchroniser les données entre espaces.","Gérer un doublon d'élève.","Lier les fiches aux classes.","Gérer les options dans tous les espaces.","Traiter un changement de classe.","Suivre un élève de l'inscription aux résultats.","Faire circuler les informations financières.","Visualiser les punitions dans les différents espaces.","Traiter une demande de réinscription.","Suivre les absences d'un élève.","Gérer le transfert d'un élève.","Consulter les résultats d'un élève par la Direction.","Partager les données entre comptabilité et direction.","Valider les données en fin d'année."],
-8:["Importer automatiquement les élèves depuis la comptabilité.","Paramétrer les notes maximales par période.","Utiliser les filtres de recherche dans la liste des élèves.","Trier la liste des élèves par ordre alphabétique.","Exporter le relevé de notes d'un élève en PDF.","Créer un groupe à partir de la liste des présents.","Optimiser la répartition des élèves en groupes.","Modifier le nom d'une épreuve.","Consulter les notes d'un élève sur toutes les périodes.","Calculer automatiquement les moyennes par période.","Visualiser les appréciations des élèves.","Modifier le sexe d'un élève.","Supprimer un élève d'une fiche.","Exporter le relevé d'un élève.","Consulter l'historique des modifications d'une fiche.","Configurer le nombre de jours dans l'horaire.","Ajouter une pause dans l'horaire.","Supprimer une heure dans l'horaire.","Consulter l'horaire d'un jour spécifique.","Sauvegarder les modifications de l'horaire."],
-9:["Trouver les cartes d'identité des élèves.","Gérer les codes parents par famille.","Marquer un mois blanc.","Modifier l'option d'un élève.","Modifier l'approbateur d'une exonération.","Consulter le détail des paiements d'un élève.","Effectuer une recherche avancée des élèves.","Exporter la liste des élèves en CSV.","Modifier les coordonnées d'un élève.","Réactiver un élève marqué abandon.","Consulter les statistiques par classe.","Visualiser les exonérations par motif.","Gérer les frais d'inscription.","Consulter l'historique des modifications financières.","Valider les paiements.","Gérer les remboursements.","Générer le rapport des frais d'inscription.","Consulter les statistiques des filles et garçons.","Visualiser les élèves en liste noire.","Générer les rapports de fin de mois."],
-10:["Consulter les logs d'activité.","Gérer les communiqués.","Consulter les alertes administratives.","Gérer les professeurs désactivés.","Suivre les demandes dans l'espace Reco.","Consulter les statistiques des punitions.","Modifier une punition.","Archiver les punitions.","Consulter les fiches supprimées.","Restaurer une fiche supprimée par un professeur.","Générer un rapport des professeurs actifs.","Visualiser les statistiques d'utilisation.","Gérer les demandes urgentes dans Reco.","Consulter l'historique des connexions.","Modifier les informations de l'école.","Gérer les accès des professeurs.","Consulter les punitions par gravité.","Générer un rapport des punitions.","Suivre les modifications des professeurs.","Archiver les logs d'activité."],
-11:["Réintégrer un élève absent de la liste du professeur.","Réactiver un code parent non fonctionnel.","Générer la liste des élèves en situation d'impayé.","Réattribuer un code d'accès à un professeur.","Corriger un paiement affecté au mauvais mois.","Transférer un élève d'une classe à une autre.","Exclure un élève du système.","Réintégrer un élève exclu.","Synchroniser les fiches après une modification en comptabilité.","Gérer une demande urgente dans Reco.","Corriger une note mal saisie.","Mettre à jour les minervaux en cours d'année.","Gérer le changement d'option d'un élève.","Traiter une erreur de paiement en double.","Générer un rapport complet des élèves.","Résoudre un problème d'affichage dans l'espace Professeur.","Gérer les absences des élèves.","Transférer les fiches d'un professeur à un autre.","Archiver les fiches de fin d'année.","Générer le rapport de fin de trimestre."],
-12:["Analyser et résoudre un cas pratique complet.","Répondre aux questions de l'équipe support.","Présenter les procédures documentées.","Valider les critères de réussite.","Générer un rapport de fin de formation.","Simuler une demande de support complexe.","Traiter une demande de réinscription.","Gérer un problème de synchronisation des données.","Répondre à un parent mécontent.","Créer un rapport personnalisé.","Gérer une demande d'exonération.","Traiter un problème de code parent.","Corriger une fiche de cotation.","Gérer les notes d'une classe.","Exporter les données d'un élève.","Répondre à une demande du directeur.","Gérer une demande de suppression.","Suivre un dossier de support.","Clôturer une demande de support.","Rédiger le rapport final."]
+
+// Questions par jour
+const questionsByDay = {
+    1: [
+        "Accéder à l'espace Professeur.",
+        "Créer une nouvelle fiche de cotation.",
+        "Modifier une fiche existante.",
+        "Supprimer une fiche de cotation.",
+        "Ajouter des élèves à une fiche.",
+        "Encoder les notes d'un élève.",
+        "Modifier une note déjà saisie.",
+        "Ajouter une épreuve pour une période.",
+        "Consulter l'horaire de cours.",
+        "Exporter une fiche de cotation en PDF.",
+        "Gérer l'absence d'une classe dans la liste.",
+        "Sélectionner l'option pour une classe.",
+        "Rafraîchir la liste des fiches.",
+        "Visualiser la liste des élèves d'une fiche.",
+        "Accéder aux statistiques d'une fiche.",
+        "Naviguer entre les onglets de l'espace Professeur.",
+        "Renseigner le champ 'Option' dans une fiche.",
+        "Modifier le titre du cours.",
+        "Consulter l'année scolaire en cours.",
+        "Se déconnecter de l'espace Professeur."
+    ],
+    2: [
+        "Utiliser le mode rapide pour saisir les notes.",
+        "Utiliser le mode gestuel pour la correction.",
+        "Résoudre l'absence d'un élève dans la liste.",
+        "Former des groupes d'élèves.",
+        "Appliquer une note identique à tout un groupe.",
+        "Changer le code d'accès.",
+        "Récupérer un code d'accès perdu.",
+        "Configurer l'horaire de cours.",
+        "Modifier la note maximale d'une période.",
+        "Retrouver les fiches de cotation créées.",
+        "Ajouter manuellement un nouvel élève.",
+        "Réimporter les élèves depuis la comptabilité.",
+        "Créer une épreuve.",
+        "Supprimer une épreuve.",
+        "Consulter une fiche en mode lecture seule.",
+        "Personnaliser le barème d'une épreuve.",
+        "Trier la liste des élèves par ordre alphabétique.",
+        "Visualiser l'effectif total d'une fiche.",
+        "Activer le mode sombre.",
+        "Signaler un problème technique."
+    ],
+    3: [
+        "Accéder à l'espace Comptabilité.",
+        "Consulter la liste complète des élèves.",
+        "Rechercher un élève par son nom.",
+        "Consulter la situation financière d'un élève.",
+        "Enregistrer un paiement de minerval.",
+        "Visualiser les mois payés et impayés.",
+        "Inscrire un nouvel élève.",
+        "Gérer les frais d'inscription.",
+        "Marquer un élève comme abandon.",
+        "Consulter les statistiques financières.",
+        "Filtrer les élèves par classe.",
+        "Filtrer les élèves par option.",
+        "Identifier la signification des badges.",
+        "Trouver le code parent d'un élève.",
+        "Consulter l'historique des paiements.",
+        "Interpréter le montant 'RESTE À PAYER'.",
+        "Modifier le minerval d'un élève.",
+        "Exonérer partiellement un élève.",
+        "Visualiser les élèves par sexe.",
+        "Trouver le matricule d'un élève."
+    ],
+    4: [
+        "Modifier le code parent d'un élève.",
+        "Rattacher un élève à une famille existante.",
+        "Paramétrer les minervaux par classe et option.",
+        "Appliquer les nouveaux tarifs à tous les élèves.",
+        "Générer un rapport PDF de recouvrement.",
+        "Générer un PDF de la liste noire.",
+        "Générer la liste complète des élèves en PDF.",
+        "Modifier le code d'accès de la comptabilité.",
+        "Gérer les options par classe.",
+        "Corriger une erreur de paiement.",
+        "Marquer un mois comme 'mois blanc'.",
+        "Retirer un mois blanc.",
+        "Consulter l'historique détaillé d'un mois.",
+        "Modifier le motif d'exonération.",
+        "Consulter les cartes d'identité des élèves.",
+        "Rechercher un élève par matricule.",
+        "Exporter les données des élèves en PDF.",
+        "Gérer les frais d'inscription par classe.",
+        "Corriger un paiement en double.",
+        "Suivre les paiements des frais d'inscription."
+    ],
+    5: [
+        "Accéder à l'espace Direction.",
+        "Consulter la liste des professeurs.",
+        "Ajouter un nouveau professeur.",
+        "Désactiver ou réactiver un professeur.",
+        "Visualiser le code d'accès d'un professeur.",
+        "Accéder à la corbeille.",
+        "Restaurer une fiche supprimée.",
+        "Supprimer définitivement une fiche.",
+        "Changer le code d'accès de la Direction.",
+        "Utiliser l'espace Reco.",
+        "Consulter les punitions enregistrées.",
+        "Filtrer les punitions par classe.",
+        "Visualiser les détails d'une punition.",
+        "Changer le thème (clair/sombre).",
+        "Se déconnecter de l'espace Direction.",
+        "Récupérer un code d'accès Direction oublié.",
+        "Consulter les logs d'activité.",
+        "Visualiser les professeurs inactifs.",
+        "Consulter les informations de l'école.",
+        "Modifier les informations de l'école."
+    ],
+    6: [
+        "Ajouter une punition à un élève.",
+        "Annuler une punition enregistrée.",
+        "Filtrer les punitions par élève.",
+        "Répondre à une demande dans l'espace Reco.",
+        "Suivre les échanges dans l'espace Reco.",
+        "Gérer les droits d'accès des professeurs.",
+        "Générer un rapport des activités.",
+        "Consulter l'historique des punitions annulées.",
+        "Modifier la gravité d'une punition.",
+        "Résoudre un problème d'accès d'un professeur.",
+        "Consulter les statistiques des professeurs.",
+        "Envoyer un communiqué aux utilisateurs.",
+        "Gérer les alertes administratives.",
+        "Consulter les fiches supprimées par un professeur.",
+        "Réinitialiser le code d'accès d'un professeur.",
+        "Suivre les modifications effectuées par les professeurs.",
+        "Consulter les demandes en attente dans Reco.",
+        "Archiver les anciennes demandes Reco.",
+        "Gérer les notifications de la Direction.",
+        "Préparer un rapport de fin de mois."
+    ],
+    7: [
+        "Suivre un élève de l'inscription à la fiche du professeur.",
+        "Visualiser les paiements d'un élève.",
+        "Accéder aux informations de paiement depuis l'espace Professeur.",
+        "Accéder aux notes d'un enfant depuis l'espace Parental.",
+        "Résoudre une discordance entre espaces.",
+        "Gérer les exclusions dans l'école.",
+        "Synchroniser les données entre espaces.",
+        "Gérer un doublon d'élève.",
+        "Lier les fiches aux classes.",
+        "Gérer les options dans tous les espaces.",
+        "Traiter un changement de classe.",
+        "Suivre un élève de l'inscription aux résultats.",
+        "Faire circuler les informations financières.",
+        "Visualiser les punitions dans les différents espaces.",
+        "Traiter une demande de réinscription.",
+        "Suivre les absences d'un élève.",
+        "Gérer le transfert d'un élève.",
+        "Consulter les résultats d'un élève par la Direction.",
+        "Partager les données entre comptabilité et direction.",
+        "Valider les données en fin d'année."
+    ],
+    8: [
+        "Importer automatiquement les élèves depuis la comptabilité.",
+        "Paramétrer les notes maximales par période.",
+        "Utiliser les filtres de recherche dans la liste des élèves.",
+        "Trier la liste des élèves par ordre alphabétique.",
+        "Exporter le relevé de notes d'un élève en PDF.",
+        "Créer un groupe à partir de la liste des présents.",
+        "Optimiser la répartition des élèves en groupes.",
+        "Modifier le nom d'une épreuve.",
+        "Consulter les notes d'un élève sur toutes les périodes.",
+        "Calculer automatiquement les moyennes par période.",
+        "Visualiser les appréciations des élèves.",
+        "Modifier le sexe d'un élève.",
+        "Supprimer un élève d'une fiche.",
+        "Exporter le relevé d'un élève.",
+        "Consulter l'historique des modifications d'une fiche.",
+        "Configurer le nombre de jours dans l'horaire.",
+        "Ajouter une pause dans l'horaire.",
+        "Supprimer une heure dans l'horaire.",
+        "Consulter l'horaire d'un jour spécifique.",
+        "Sauvegarder les modifications de l'horaire."
+    ],
+    9: [
+        "Trouver les cartes d'identité des élèves.",
+        "Gérer les codes parents par famille.",
+        "Marquer un mois blanc.",
+        "Modifier l'option d'un élève.",
+        "Modifier l'approbateur d'une exonération.",
+        "Consulter le détail des paiements d'un élève.",
+        "Effectuer une recherche avancée des élèves.",
+        "Exporter la liste des élèves en CSV.",
+        "Modifier les coordonnées d'un élève.",
+        "Réactiver un élève marqué abandon.",
+        "Consulter les statistiques par classe.",
+        "Visualiser les exonérations par motif.",
+        "Gérer les frais d'inscription.",
+        "Consulter l'historique des modifications financières.",
+        "Valider les paiements.",
+        "Gérer les remboursements.",
+        "Générer le rapport des frais d'inscription.",
+        "Consulter les statistiques des filles et garçons.",
+        "Visualiser les élèves en liste noire.",
+        "Générer les rapports de fin de mois."
+    ],
+    10: [
+        "Consulter les logs d'activité.",
+        "Gérer les communiqués.",
+        "Consulter les alertes administratives.",
+        "Gérer les professeurs désactivés.",
+        "Suivre les demandes dans l'espace Reco.",
+        "Consulter les statistiques des punitions.",
+        "Modifier une punition.",
+        "Archiver les punitions.",
+        "Consulter les fiches supprimées.",
+        "Restaurer une fiche supprimée par un professeur.",
+        "Générer un rapport des professeurs actifs.",
+        "Visualiser les statistiques d'utilisation.",
+        "Gérer les demandes urgentes dans Reco.",
+        "Consulter l'historique des connexions.",
+        "Modifier les informations de l'école.",
+        "Gérer les accès des professeurs.",
+        "Consulter les punitions par gravité.",
+        "Générer un rapport des punitions.",
+        "Suivre les modifications des professeurs.",
+        "Archiver les logs d'activité."
+    ],
+    11: [
+        "Réintégrer un élève absent de la liste du professeur.",
+        "Réactiver un code parent non fonctionnel.",
+        "Générer la liste des élèves en situation d'impayé.",
+        "Réattribuer un code d'accès à un professeur.",
+        "Corriger un paiement affecté au mauvais mois.",
+        "Transférer un élève d'une classe à une autre.",
+        "Exclure un élève du système.",
+        "Réintégrer un élève exclu.",
+        "Synchroniser les fiches après une modification en comptabilité.",
+        "Gérer une demande urgente dans Reco.",
+        "Corriger une note mal saisie.",
+        "Mettre à jour les minervaux en cours d'année.",
+        "Gérer le changement d'option d'un élève.",
+        "Traiter une erreur de paiement en double.",
+        "Générer un rapport complet des élèves.",
+        "Résoudre un problème d'affichage dans l'espace Professeur.",
+        "Gérer les absences des élèves.",
+        "Transférer les fiches d'un professeur à un autre.",
+        "Archiver les fiches de fin d'année.",
+        "Générer le rapport de fin de trimestre."
+    ],
+    12: [
+        "Analyser et résoudre un cas pratique complet.",
+        "Répondre aux questions de l'équipe support.",
+        "Présenter les procédures documentées.",
+        "Valider les critères de réussite.",
+        "Générer un rapport de fin de formation.",
+        "Simuler une demande de support complexe.",
+        "Traiter une demande de réinscription.",
+        "Gérer un problème de synchronisation des données.",
+        "Répondre à un parent mécontent.",
+        "Créer un rapport personnalisé.",
+        "Gérer une demande d'exonération.",
+        "Traiter un problème de code parent.",
+        "Corriger une fiche de cotation.",
+        "Gérer les notes d'une classe.",
+        "Exporter les données d'un élève.",
+        "Répondre à une demande du directeur.",
+        "Gérer une demande de suppression.",
+        "Suivre un dossier de support.",
+        "Clôturer une demande de support.",
+        "Rédiger le rapport final."
+    ]
 };
-let currentDay=1;
-let pdfGenerationPending=false;
 
-function getCurrentDayId(){
-const now=new Date();
-const currentDate=now.toLocaleDateString('fr-FR').replace(/\//g,'/');
-const currentTime=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
-// Vérifier si on est après 23h30 -> jour suivant
-if(now.getHours()>=23 && now.getMinutes()>=30){
-for(let i=0;i<daysData.length;i++){
-const d=new Date(daysData[i].date.split('/').reverse().join('-'));
-const nextDay=new Date(d);
-nextDay.setDate(nextDay.getDate()+1);
-const nextDateStr=nextDay.toLocaleDateString('fr-FR');
-if(nextDateStr===currentDate){
-return daysData[i].id;
-}
-}
-}
-// Sinon jour actuel
-for(let i=0;i<daysData.length;i++){
-const d=new Date(daysData[i].date.split('/').reverse().join('-'));
-if(d.toLocaleDateString('fr-FR')===currentDate){
-return daysData[i].id;
-}
-}
-return 1;
-}
+let currentDay = 1;
 
-function getAccessibleDay(){
-const now=new Date();
-// Après 23h30 -> jour suivant
-if(now.getHours()>=23 && now.getMinutes()>=30){
-const tomorrow=new Date(now);
-tomorrow.setDate(tomorrow.getDate()+1);
-const tomorrowStr=tomorrow.toLocaleDateString('fr-FR');
-for(let i=0;i<daysData.length;i++){
-const d=new Date(daysData[i].date.split('/').reverse().join('-'));
-if(d.toLocaleDateString('fr-FR')===tomorrowStr){
-return daysData[i].id;
-}
-}
-}
-// Sinon jour actuel
-const todayStr=now.toLocaleDateString('fr-FR');
-for(let i=0;i<daysData.length;i++){
-const d=new Date(daysData[i].date.split('/').reverse().join('-'));
-if(d.toLocaleDateString('fr-FR')===todayStr){
-return daysData[i].id;
-}
-}
-return 1;
+// Fonction pour déterminer le jour accessible (aujourd'hui ou demain après 23h30)
+function getAccessibleDay() {
+    const now = new Date();
+    const todayStr = now.toLocaleDateString('fr-FR');
+    
+    // Vérifier si on est après 23h30
+    if (now.getHours() >= 23 && now.getMinutes() >= 30) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toLocaleDateString('fr-FR');
+        for (let i = 0; i < daysData.length; i++) {
+            const d = new Date(daysData[i].date.split('/').reverse().join('-'));
+            if (d.toLocaleDateString('fr-FR') === tomorrowStr) {
+                return daysData[i].id;
+            }
+        }
+    }
+    
+    // Sinon, jour actuel
+    for (let i = 0; i < daysData.length; i++) {
+        const d = new Date(daysData[i].date.split('/').reverse().join('-'));
+        if (d.toLocaleDateString('fr-FR') === todayStr) {
+            return daysData[i].id;
+        }
+    }
+    return 1; // Par défaut jour 1
 }
 
-function renderDaySelector(){
-const container=document.getElementById('daySelector');
-const accessibleDay=getAccessibleDay();
-let html='';
-daysData.forEach(d=>{
-const isAccessible=(d.id===accessibleDay);
-const isActive=(d.id===currentDay);
-let btnClass='day-btn';
-if(isActive)btnClass+=' active';
-if(!isAccessible)btnClass+=' locked';
-if(isAccessible && isActive)btnClass+=' today';
-html+=`<button class="${btnClass}" onclick="selectDay(${d.id})" ${!isAccessible?'disabled':''}>
-J${d.id} ${isAccessible?'✅':'🔒'}
-<span class="day-status">${isAccessible?'Disponible':'Verrouillé'}</span>
-</button>`;
-});
-container.innerHTML=html;
-document.getElementById('todayHighlight').textContent='JOUR '+accessibleDay;
+function renderDaySelector() {
+    const container = document.getElementById('daySelector');
+    const accessibleDay = getAccessibleDay();
+    let html = '';
+    daysData.forEach(d => {
+        const isAccessible = (d.id === accessibleDay);
+        const isActive = (d.id === currentDay);
+        let btnClass = 'day-btn';
+        if (isActive) btnClass += ' active';
+        if (!isAccessible) btnClass += ' locked';
+        if (isAccessible && isActive) btnClass += ' today';
+        html += `<button class="${btnClass}" onclick="selectDay(${d.id})" ${!isAccessible ? 'disabled' : ''}>
+            J${d.id} ${isAccessible ? '✅' : '🔒'}
+            <span class="day-status">${isAccessible ? 'Disponible' : 'Verrouillé'}</span>
+        </button>`;
+    });
+    container.innerHTML = html;
+    document.getElementById('todayHighlight').textContent = 'JOUR ' + accessibleDay;
 }
 
-function selectDay(dayId){
-const accessibleDay=getAccessibleDay();
-if(dayId!==accessibleDay){
-afficherWaitPopup();
-return;
-}
-currentDay=dayId;
-renderDaySelector();
-renderQuestions();
-const day=daysData.find(d=>d.id===dayId);
-document.getElementById('jourDisplay').textContent=`JOUR ${day.id} - ${day.title}`;
-document.getElementById('dateDisplay').textContent=day.date;
-document.getElementById('espaceDisplay').textContent=day.espace;
-document.querySelectorAll('.synthese-box p').forEach(p=>p.textContent='-');
-}
-
-function renderQuestions(){
-const container=document.getElementById('questionsContainer');
-const questions=questionsByDay[currentDay]||questionsByDay[1];
-let html='';
-questions.forEach((q,i)=>{
-html+=`<div class="question-item">
-<div class="num">Q${i+1}</div>
-<div class="qtext">${q}
-<div class="etapes">
-<span>Étape 1 : <span contenteditable="true" style="color:#2563eb;font-weight:500">?</span></span>
-<span>Étape 2 : <span contenteditable="true" style="color:#2563eb;font-weight:500">?</span></span>
-<span>Étape 3 : <span contenteditable="true" style="color:#2563eb;font-weight:500">?</span></span>
-</div>
-</div>
-</div>`;
-});
-container.innerHTML=html;
+function selectDay(dayId) {
+    const accessibleDay = getAccessibleDay();
+    if (dayId !== accessibleDay) {
+        afficherWaitPopup();
+        return;
+    }
+    currentDay = dayId;
+    renderDaySelector();
+    renderQuestions();
+    const day = daysData.find(d => d.id === dayId);
+    document.getElementById('jourDisplay').textContent = `JOUR ${day.id} - ${day.title}`;
+    document.getElementById('dateDisplay').textContent = day.date;
+    document.getElementById('espaceDisplay').textContent = day.espace;
+    document.querySelectorAll('.synthese-box p').forEach(p => p.textContent = '-');
 }
 
-function afficherWaitPopup(){
-document.getElementById('waitModal').classList.add('show');
-}
-function fermerWaitModal(){
-document.getElementById('waitModal').classList.remove('show');
-}
-function demanderPDF(){
-const accessibleDay=getAccessibleDay();
-if(currentDay!==accessibleDay){
-afficherWaitPopup();
-return;
-}
-document.getElementById('pdfModal').classList.add('show');
-}
-function fermerPdfModal(){
-document.getElementById('pdfModal').classList.remove('show');
-}
-function confirmerPDF(){
-document.getElementById('pdfModal').classList.remove('show');
-genererPDF();
-}
-function genererPDF(){
-const { jsPDF } = window.jspdf;
-const doc = new jsPDF('p', 'mm', 'a4');
-const pageWidth = 210;
-const margin = 14;
-let y = 16;
-const jour = document.getElementById('jourDisplay').textContent;
-const date = document.getElementById('dateDisplay').textContent;
-const espace = document.getElementById('espaceDisplay').textContent;
-doc.setFillColor(26, 26, 46);
-doc.rect(0, 0, pageWidth, 38, 'F');
-doc.setFont('helvetica', 'bold');
-doc.setFontSize(18);
-doc.setTextColor(255, 255, 255);
-doc.text('NETUBEX SARL', pageWidth / 2, 16, { align: 'center' });
-doc.setFontSize(14);
-doc.setTextColor(255, 215, 0);
-doc.text('RAPPORT DU SERVICE SUPPORT', pageWidth / 2, 28, { align: 'center' });
-y = 46;
-doc.setFont('helvetica', 'normal');
-doc.setFontSize(9);
-doc.setTextColor(80, 80, 80);
-doc.text('Jour : ' + jour, margin, y);
-y += 6;
-doc.text('Date : ' + date, margin, y);
-y += 6;
-doc.text('Espace : ' + espace, margin, y);
-y += 6;
-doc.text('Heure de remise : 16h00', margin, y);
-y += 10;
-doc.setFont('helvetica', 'bold');
-doc.setFontSize(11);
-doc.setTextColor(26, 26, 46);
-doc.text('QUESTIONS ET RÉPONSES', margin, y);
-y += 6;
-const rows = [];
-const qElements = document.querySelectorAll('.question-item');
-qElements.forEach((el, idx) => {
-const num = el.querySelector('.num')?.textContent || 'Q' + (idx + 1);
-const qtext = el.querySelector('.qtext')?.textContent?.replace(/Étape.*/g, '').trim() || '';
-const etapes = el.querySelectorAll('.etapes span');
-let etapesText = '';
-etapes.forEach((e, i) => {
-const val = e.textContent.trim();
-etapesText += 'Étape ' + (i + 1) + ' : ' + (val || '?') + '\n';
-});
-rows.push([num, qtext, etapesText.trim()]);
-});
-doc.autoTable({
-startY: y,
-head: [['N°', 'Question', 'Étapes']],
-body: rows,
-theme: 'grid',
-styles: { fontSize: 8, cellPadding: 2.5, valign: 'top' },
-headStyles: { fillColor: [26, 26, 46], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 70 }, 2: { cellWidth: 60 } },
-margin: { left: margin, right: margin }
-});
-let yFinal = doc.lastAutoTable.finalY + 8;
-doc.setFont('helvetica', 'bold');
-doc.setFontSize(11);
-doc.setTextColor(26, 26, 46);
-doc.text('SYNTHÈSE', margin, yFinal);
-yFinal += 6;
-const difficultes = document.getElementById('difficultes').textContent.trim() || '-';
-const solutions = document.getElementById('solutions').textContent.trim() || '-';
-const qfrequentes = document.getElementById('qfrequentes').textContent.trim() || '-';
-const approfondir = document.getElementById('approfondir').textContent.trim() || '-';
-const observations = document.getElementById('observations').textContent.trim() || '-';
-const synthRows = [
-['Difficultés rencontrées', difficultes],
-['Solutions apportées', solutions],
-['Questions fréquentes', qfrequentes],
-['Points à approfondir', approfondir],
-['Observations', observations]
-];
-doc.autoTable({
-startY: yFinal,
-body: synthRows,
-theme: 'plain',
-styles: { fontSize: 9, cellPadding: 3 },
-columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold', textColor: [37, 99, 235] }, 1: { cellWidth: 100 } },
-margin: { left: margin, right: margin }
-});
-yFinal = doc.lastAutoTable.finalY + 12;
-doc.setFont('helvetica', 'bold');
-doc.setFontSize(10);
-doc.setTextColor(26, 26, 46);
-doc.text('Signatures', margin, yFinal);
-yFinal += 4;
-doc.setFont('helvetica', 'normal');
-doc.setFontSize(9);
-doc.setTextColor(80, 80, 80);
-doc.text('Chargée de support : .........................................', margin, yFinal + 6);
-doc.text('Formateur : .................................................', margin, yFinal + 12);
-doc.setFontSize(8);
-doc.setTextColor(150, 150, 150);
-doc.text('NETUBEX SARL - Tous droits réservés', pageWidth / 2, 280, { align: 'center' });
-const dayNum = jour.match(/\d+/)?.[0] || '1';
-doc.save('Rapport_Support_Jour_' + dayNum + '.pdf');
+function renderQuestions() {
+    const container = document.getElementById('questionsContainer');
+    const questions = questionsByDay[currentDay] || questionsByDay[1];
+    let html = '';
+    questions.forEach((q, i) => {
+        html += `<div class="question-item">
+            <div class="num">Q${i+1}</div>
+            <div class="qtext">${q}
+                <div class="etapes">
+                    <div class="etape-item"><span class="etape-label">Étape 1 :</span> <span class="etape-content" contenteditable="true" style="color:#2563eb;font-weight:500">?</span></div>
+                    <div class="etape-item"><span class="etape-label">Étape 2 :</span> <span class="etape-content" contenteditable="true" style="color:#2563eb;font-weight:500">?</span></div>
+                    <div class="etape-item"><span class="etape-label">Étape 3 :</span> <span class="etape-content" contenteditable="true" style="color:#2563eb;font-weight:500">?</span></div>
+                </div>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
 }
 
-// Vérification automatique à chaque minute pour le changement de jour
-setInterval(function(){
-const newAccessible=getAccessibleDay();
-if(newAccessible!==currentDay){
-currentDay=newAccessible;
-renderDaySelector();
-selectDay(currentDay);
+// POPUPS
+function afficherWaitPopup() {
+    document.getElementById('waitModal').classList.add('show');
 }
+function fermerWaitModal() {
+    document.getElementById('waitModal').classList.remove('show');
+}
+function demanderPDF() {
+    const accessibleDay = getAccessibleDay();
+    if (currentDay !== accessibleDay) {
+        afficherWaitPopup();
+        return;
+    }
+    document.getElementById('pdfModal').classList.add('show');
+}
+function fermerPdfModal() {
+    document.getElementById('pdfModal').classList.remove('show');
+}
+function confirmerPDF() {
+    document.getElementById('pdfModal').classList.remove('show');
+    genererPDF();
+}
+
+// GÉNÉRATION PDF
+function genererPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const margin = 14;
+    let y = 16;
+
+    const jour = document.getElementById('jourDisplay').textContent;
+    const date = document.getElementById('dateDisplay').textContent;
+    const espace = document.getElementById('espaceDisplay').textContent;
+
+    doc.setFillColor(26, 26, 46);
+    doc.rect(0, 0, pageWidth, 38, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text('NETUBEX SARL', pageWidth / 2, 16, { align: 'center' });
+    doc.setFontSize(14);
+    doc.setTextColor(255, 215, 0);
+    doc.text('RAPPORT DU SERVICE SUPPORT', pageWidth / 2, 28, { align: 'center' });
+
+    y = 46;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Jour : ' + jour, margin, y);
+    y += 6;
+    doc.text('Date : ' + date, margin, y);
+    y += 6;
+    doc.text('Espace : ' + espace, margin, y);
+    y += 6;
+    doc.text('Heure de remise : 16h00', margin, y);
+    y += 10;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(26, 26, 46);
+    doc.text('QUESTIONS ET RÉPONSES', margin, y);
+    y += 6;
+
+    const rows = [];
+    const qElements = document.querySelectorAll('.question-item');
+    qElements.forEach((el, idx) => {
+        const num = el.querySelector('.num')?.textContent || 'Q' + (idx + 1);
+        const qtext = el.querySelector('.qtext')?.textContent?.replace(/Étape.*/g, '').trim() || '';
+        const etapes = el.querySelectorAll('.etape-content');
+        let etapesText = '';
+        etapes.forEach((e, i) => {
+            const val = e.textContent.trim();
+            etapesText += 'Étape ' + (i + 1) + ' : ' + (val || '?') + '\n';
+        });
+        rows.push([num, qtext, etapesText.trim()]);
+    });
+
+    doc.autoTable({
+        startY: y,
+        head: [['N°', 'Question', 'Étapes']],
+        body: rows,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 2.5, valign: 'top' },
+        headStyles: { fillColor: [26, 26, 46], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 70 }, 2: { cellWidth: 60 } },
+        margin: { left: margin, right: margin }
+    });
+
+    let yFinal = doc.lastAutoTable.finalY + 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(26, 26, 46);
+    doc.text('SYNTHÈSE', margin, yFinal);
+    yFinal += 6;
+
+    const difficultes = document.getElementById('difficultes').textContent.trim() || '-';
+    const solutions = document.getElementById('solutions').textContent.trim() || '-';
+    const qfrequentes = document.getElementById('qfrequentes').textContent.trim() || '-';
+    const approfondir = document.getElementById('approfondir').textContent.trim() || '-';
+    const observations = document.getElementById('observations').textContent.trim() || '-';
+
+    const synthRows = [
+        ['Difficultés rencontrées', difficultes],
+        ['Solutions apportées', solutions],
+        ['Questions fréquentes', qfrequentes],
+        ['Points à approfondir', approfondir],
+        ['Observations', observations]
+    ];
+
+    doc.autoTable({
+        startY: yFinal,
+        body: synthRows,
+        theme: 'plain',
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold', textColor: [37, 99, 235] }, 1: { cellWidth: 100 } },
+        margin: { left: margin, right: margin }
+    });
+
+    yFinal = doc.lastAutoTable.finalY + 12;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(26, 26, 46);
+    doc.text('Signatures', margin, yFinal);
+    yFinal += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Chargée de support : .........................................', margin, yFinal + 6);
+    doc.text('Service Support : .........................................', margin, yFinal + 12);
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('NETUBEX SARL - Tous droits réservés', pageWidth / 2, 280, { align: 'center' });
+
+    const dayNum = jour.match(/\d+/)?.[0] || '1';
+    doc.save('Rapport_Support_Jour_' + dayNum + '.pdf');
+}
+
+// Vérification automatique toutes les minutes pour le changement de jour à 23h30
+setInterval(function() {
+    const newAccessible = getAccessibleDay();
+    if (newAccessible !== currentDay) {
+        currentDay = newAccessible;
+        renderDaySelector();
+        selectDay(currentDay);
+    }
 }, 60000);
 
-// Initialisation
+// INITIALISATION
 renderDaySelector();
 selectDay(getAccessibleDay());
 </script>
