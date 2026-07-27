@@ -1019,7 +1019,7 @@ async function loadSchools() {
   try {
     if (allSchools.length === 0) await loadAllData();
     if (allSchools.length === 0) { container.innerHTML = '<div class="empty-state"><span class="empty-icon">🏫</span>No schools found</div>'; return; }
-    let html = '<div class="table-wrapper"><table><thead><tr><th>School</th><th>ID</th><th>Province</th><th>City</th><th>Principal</th><th>📧 Parent</th><th>Code</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+    let html = '';
     for (const s of allSchools) {
       const count = allStudents.filter(m => m.ecoleId === s.id).length;
       const parentEmail = s.parentEmail || genererEmailParent(s.id);
@@ -1029,18 +1029,37 @@ async function loadSchools() {
         const snap = await getDoc(ref);
         if (snap.exists()) { const data = snap.data(); codeDir = data.codeDirection || 'Non défini'; }
       } catch (e) {}
-      html += `<tr><td><strong>${escapeHtml(s.nom)}</strong><br><span style="font-size:9px;color:var(--text-muted);">${count} students</span></td><td style="font-family:monospace;color:var(--blue);font-size:10px;">${escapeHtml(s.id)}</td><td>${escapeHtml(s.province||"-")}</td><td>${escapeHtml(s.ville||"-")}</td><td>${escapeHtml(s.directeur||"-")}</td><td style="font-size:10px;color:var(--blue);word-break:break-all;">${escapeHtml(parentEmail)}</td><td style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;">${escapeHtml(codeDir)}</td><td><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "Active" : "Inactive"}</span></td><td><button class="btn btn-sm btn-outline action-toggle-btn" data-id="${s.id}">⚡ Actions</button><div class="action-buttons" id="action-btns-${s.id}" style="display:none;margin-top:4px;gap:4px;flex-wrap:wrap;"><button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">Edit</button><button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">Change ID</button><button class="btn btn-sm btn-export export-btn" data-id="${s.id}">Export</button><button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button><button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "Deactivate" : "Activate"}</button><button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Code</button><button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">Delete</button></div></td></tr>`;
+      html += `
+        <div style="border:1px solid var(--border-color);border-radius:8px;margin-bottom:12px;background:var(--bg-card);overflow:hidden;">
+          <div style="padding:12px 16px;background:linear-gradient(135deg,#0f1f3a,#07152a);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:20px;">🏫</span><span style="font-weight:700;font-size:16px;color:var(--text-primary);">${escapeHtml(s.nom)}</span><span class="badge ${s.actif !== false ? "active" : "inactive"}">${s.actif !== false ? "✅ Actif" : "⛔ Inactif"}</span></div>
+            <div style="font-size:12px;color:var(--text-secondary);">👥 ${count} élèves</div>
+          </div>
+          <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;">
+            <div><span style="color:var(--text-muted);">📍</span> ${escapeHtml(s.province||'-')}, ${escapeHtml(s.ville||'-')}</div>
+            <div><span style="color:var(--text-muted);">🆔</span> ${escapeHtml(s.id)}</div>
+            <div><span style="color:var(--text-muted);">👨‍💼</span> ${escapeHtml(s.directeur||'-')}</div>
+            <div><span style="color:var(--text-muted);">📞</span> ${escapeHtml(s.telephone||'-')}</div>
+            <div style="grid-column:span 2;"><span style="color:var(--text-muted);">📧 PARENT</span> <span style="color:var(--blue);font-size:12px;">${escapeHtml(parentEmail)}</span></div>
+            <div><span style="color:var(--text-muted);">📧 DIRECTION</span> <span style="color:var(--blue);font-size:12px;">${escapeHtml(genererEmailDirection(s.id))}</span></div>
+            <div><span style="color:var(--text-muted);">📧 COMPTABILITE</span> <span style="color:var(--blue);font-size:12px;">${escapeHtml(genererEmailCompta(s.id))}</span></div>
+            <div><span style="color:var(--text-muted);">🔑 CODE DIRECTION</span> <span style="font-family:monospace;color:var(--gold);font-weight:700;font-size:14px;">${escapeHtml(codeDir)}</span></div>
+            <div><span style="color:var(--text-muted);">🔑 CODE COMPTA</span> <span style="font-family:monospace;color:var(--gold);font-weight:700;font-size:14px;">${escapeHtml('789012')}</span></div>
+          </div>
+          <div style="padding:8px 16px;border-top:1px solid var(--border-color);display:flex;gap:6px;flex-wrap:wrap;background:rgba(0,0,0,0.05);">
+            <button class="btn btn-sm btn-edit edit-school-btn" data-id="${s.id}">✏️ Edit</button>
+            <button class="btn btn-sm btn-change-id change-id-btn" data-id="${s.id}">🔄 Change ID</button>
+            <button class="btn btn-sm btn-export export-btn" data-id="${s.id}">📤 Export</button>
+            <button class="btn btn-sm btn-primary backup-school-btn" data-id="${s.id}">💾 Backup</button>
+            <button class="btn btn-sm btn-outline toggle-school-btn" data-id="${s.id}">${s.actif !== false ? "⛔ Deactivate" : "✅ Activate"}</button>
+            <button class="btn btn-sm btn-warning regenerate-code-btn" data-id="${s.id}">🔄 Code</button>
+            <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️ Delete</button>
+          </div>
+        </div>
+      `;
     }
-    html += "</tbody></table></div>";
     container.innerHTML = html;
 
-    container.querySelectorAll('.action-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const id = this.dataset.id;
-        const div = document.getElementById('action-btns-' + id);
-        if (div.style.display === 'none' || div.style.display === '') { div.style.display = 'flex'; this.textContent = '✕ Close'; } else { div.style.display = 'none'; this.textContent = '⚡ Actions'; }
-      });
-    });
     container.querySelectorAll('.edit-school-btn').forEach(btn => { btn.addEventListener('click', function() { showEditSchool(this.dataset.id); }); });
     container.querySelectorAll('.change-id-btn').forEach(btn => { btn.addEventListener('click', function() { showChangeId(this.dataset.id); }); });
     container.querySelectorAll('.export-btn').forEach(btn => { btn.addEventListener('click', function() { exportSchool(this.dataset.id); }); });
@@ -1063,12 +1082,27 @@ async function loadTeachers() {
   all.forEach(t => { const key = t.ecoleId; if (!grouped[key]) grouped[key] = { ecoleNom: t.ecoleNom, teachers: [] }; grouped[key].teachers.push(t); });
   let html = '';
   for (const [ecoleId, group] of Object.entries(grouped)) {
-    html += `<div style="margin-bottom:16px;"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:8px;border-left:3px solid var(--blue);margin-bottom:8px;flex-wrap:wrap;gap:4px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">🏫</span><span style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(group.ecoleNom)}</span><span style="font-size:11px;color:var(--text-muted);">(${group.teachers.length} profs)</span></div><span style="font-size:10px;color:var(--blue);">📧 ${genererEmailParent(ecoleId)}</span></div><div style="display:flex;flex-direction:column;gap:6px;padding-left:8px;">`;
-    group.teachers.forEach((t) => {
+    html += `<div style="border:1px solid var(--border-color);border-radius:8px;margin-bottom:16px;background:var(--bg-card);overflow:hidden;">
+      <div style="padding:8px 14px;background:linear-gradient(135deg,#0f1f3a,#07152a);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;">🏫</span><span style="font-weight:700;font-size:14px;color:var(--text-primary);">${escapeHtml(group.ecoleNom)}</span><span style="font-size:11px;color:var(--text-muted);">(${group.teachers.length} enseignants)</span></div>
+        <span style="font-size:10px;color:var(--blue);">📧 ${genererEmailParent(ecoleId)}</span>
+      </div>
+      <div style="padding:8px 14px;">
+        <div style="display:grid;grid-template-columns:50px 1fr 1fr 1fr 80px 80px;gap:4px;font-size:10px;font-weight:600;color:var(--text-muted);padding:4px 0;border-bottom:1px solid var(--border-color);">
+          <div>N°</div><div>NOM</div><div>EMAIL</div><div>CODE</div><div>STATUT</div><div>ACTIONS</div>
+        </div>`;
+    group.teachers.forEach((t, idx) => {
       const email = t.email || t.emailProf || null;
       const isActive = t.actif !== false;
       const hasEmail = email && email !== '-' && email !== 'null';
-      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border-color);flex-wrap:wrap;gap:6px;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:120px;"><span style="font-weight:600;font-size:13px;color:var(--text-primary);">${escapeHtml(t.nom)}</span><span style="font-size:10px;color:${hasEmail ? 'var(--green)' : 'var(--orange)'};word-break:break-all;max-width:220px;">📧 ${hasEmail ? escapeHtml(email) : '❌ Aucun email'}</span></div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">🔑 ${t.code || '---'}</span><span class="badge ${isActive ? 'active' : 'inactive'}" style="font-size:8px;padding:2px 10px;">${isActive ? '✅ Actif' : '⛔ Inactif'}</span></div></div>`;
+      html += `<div style="display:grid;grid-template-columns:50px 1fr 1fr 1fr 80px 80px;gap:4px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="color:var(--text-muted);">${String(idx+1).padStart(2,'0')}</div>
+        <div style="font-weight:500;color:var(--text-primary);">${escapeHtml(t.nom)}</div>
+        <div style="font-size:10px;color:${hasEmail ? 'var(--green)' : 'var(--orange)'};">${hasEmail ? escapeHtml(email) : '❌ Aucun email'}</div>
+        <div style="font-family:monospace;color:var(--gold);font-weight:700;font-size:12px;letter-spacing:1px;">${t.code || '---'}</div>
+        <div><span class="badge ${isActive ? 'active' : 'inactive'}" style="font-size:8px;padding:2px 8px;">${isActive ? 'Actif' : 'Inactif'}</span></div>
+        <div><button class="btn btn-sm btn-danger delete-teacher-btn" data-id="${t.id}" data-ecole="${t.ecoleId}" style="padding:2px 6px;">🗑️</button></div>
+      </div>`;
     });
     html += `</div></div>`;
   }
