@@ -275,8 +275,8 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 #tabRang .rang-loading .progress-text{font-size:13px;font-weight:600;color:#2563eb;margin-top:8px;display:block}
 #tabRang .rang-loading i.fa-spinner{margin-right:8px;color:#2563eb}
 #tabRang .rang-empty{text-align:center;padding:40px 16px;color:#6b7280;font-size:14px}
-#tabRang .rang-eval-notice{background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;padding:12px 16px;margin-top:12px;border:1px solid #f59e0b;display:flex;align-items:center;gap:10px;font-size:12px;color:#92400e}
-#tabRang .rang-eval-notice i{font-size:16px;color:#d97706;flex-shrink:0}
+#tabRang .rang-eval-notice{background:linear-gradient(135deg,#e0f2fe,#bae6fd);border-radius:12px;padding:12px 16px;margin-bottom:14px;border:1px solid #38bdf8;display:flex;align-items:center;gap:10px;font-size:12px;color:#0369a1}
+#tabRang .rang-eval-notice i{font-size:18px;color:#0284c7;flex-shrink:0}
 #tabProfesseurs .prof-cards{display:flex;flex-direction:column;gap:10px}
 #tabProfesseurs .prof-card{background:rgba(15,23,42,0.6);border-radius:14px;border:1px solid rgba(255,215,0,0.1);padding:14px 16px;transition:all 0.2s;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
 #tabProfesseurs .prof-card:hover{background:rgba(30,41,59,0.8);border-color:rgba(255,215,0,0.3)}
@@ -433,12 +433,12 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <h1><i class="fas fa-trophy"></i> Classement des écoles</h1>
 <span class="badge-live">🔴 EN DIRECT</span>
 </div>
+<div class="rang-eval-notice">
+<i class="fas fa-robot"></i>
+<span><strong>Évaluation annuelle automatique</strong> — Chaque fin d'année, notre algorithme procède à l'évaluation des performances des écoles partenaires. L'établissement le plus méritant reçoit un cadeau 🎁 (tablettes, téléphones, ordinateurs, ou autre équipement, au choix de la société). La performance est mesurée sur la base des résultats académiques, de l'engagement et de la gestion administrative.</span>
+</div>
 <div id="podiumContainer" class="rang-table-wrapper">
 <div class="rang-loading"><i class="fas fa-spinner fa-pulse"></i> Chargement...<div class="progress-container"><div class="progress-bar" id="loadingProgressBar" style="width:0%;"></div></div><span class="progress-text" id="loadingProgressText">0%</span></div>
-</div>
-<div class="rang-eval-notice">
-<i class="fas fa-info-circle"></i>
-<span><strong>Évaluation annuelle NeTubeX</strong> — Chaque fin d'année, notre société procède à l'évaluation des performances des écoles partenaires. Les établissements les plus méritants bénéficient de dons et de soutiens financiers pour l'année suivante. La performance est mesurée sur la base des résultats académiques, de l'engagement et de la gestion administrative.</span>
 </div>
 </div>
 </div>
@@ -1296,18 +1296,60 @@ toast('❌ Erreur: ' + error.message, 'error');
 });
 let classementCharge = false;
 const podiumContainer = document.getElementById('podiumContainer');
-function calculerScore(effectif, profs, fiches, maxEffectif, maxProfs, maxFiches) {
-if(maxEffectif === 0 || maxProfs === 0 || maxFiches === 0) return 0;
-const scoreEffectif = (effectif / maxEffectif) * 70;
-const scoreProfs = (profs / maxProfs) * 25;
-const scoreFiches = (fiches / maxFiches) * 5;
-return Math.round(scoreEffectif + scoreProfs + scoreFiches);
+function calculerScore(effectif, moyenneGenerale, tauxBrillants, tauxReussite, maxEffectif, maxMoyenne, maxBrillants, maxReussite) {
+if(maxEffectif === 0 || maxMoyenne === 0) return 0;
+const scoreEffectif = (effectif / maxEffectif) * 100;
+const scoreMoyenne = (moyenneGenerale / maxMoyenne) * 100;
+const scoreBrillants = (tauxBrillants / maxBrillants) * 100;
+const scoreReussite = (tauxReussite / maxReussite) * 100;
+return Math.round((scoreEffectif * 0.40) + (scoreMoyenne * 0.30) + (scoreBrillants * 0.20) + (scoreReussite * 0.10));
+}
+async function calculerStatsEcole(ecoleId) {
+let totalNotes = 0;
+let sommeNotes = 0;
+let elevesMap = {};
+try {
+const fichesSnap = await getDocs(collection(db, "ecoles", ecoleId, "fiches"));
+fichesSnap.forEach(doc => {
+const fiche = doc.data();
+if (!fiche.eleves || !Array.isArray(fiche.eleves)) return;
+fiche.eleves.forEach(eleve => {
+if (!eleve.nom || !eleve.notes) return;
+if (!elevesMap[eleve.nom]) {
+elevesMap[eleve.nom] = { notes: [], total: 0, count: 0 };
+}
+const notes = Object.values(eleve.notes).filter(n => typeof n === 'number');
+notes.forEach(note => {
+elevesMap[eleve.nom].notes.push(note);
+elevesMap[eleve.nom].total += note;
+elevesMap[eleve.nom].count++;
+totalNotes++;
+sommeNotes += note;
+});
+});
+});
+} catch(e) {
+console.error("Erreur calcul stats école:", e);
+return { moyenneGenerale: 0, tauxBrillants: 0, tauxReussite: 0, totalEleves: 0 };
+}
+const moyenneGenerale = totalNotes > 0 ? (sommeNotes / totalNotes) : 0;
+let elevesBrillants = 0;
+let elevesReussite = 0;
+let totalEleves = Object.keys(elevesMap).length;
+Object.values(elevesMap).forEach(data => {
+const moyenneEleve = data.count > 0 ? (data.total / data.count) : 0;
+if (moyenneEleve >= 16) elevesBrillants++;
+if (moyenneEleve >= 10) elevesReussite++;
+});
+const tauxBrillants = totalEleves > 0 ? (elevesBrillants / totalEleves) * 100 : 0;
+const tauxReussite = totalEleves > 0 ? (elevesReussite / totalEleves) * 100 : 0;
+return { moyenneGenerale, tauxBrillants, tauxReussite, totalEleves, elevesBrillants, elevesReussite };
 }
 async function getAllEcolesAvecStats() {
 try {
 const ecolesSnap = await getDocs(collection(db, "ecoles"));
 const resultats = [];
-let maxEffectif = 0, maxProfs = 0, maxFiches = 0;
+let maxEffectif = 0, maxMoyenne = 0, maxBrillants = 0, maxReussite = 0;
 const raw = [];
 for(const ecoleDoc of ecolesSnap.docs) {
 const ecoleId = ecoleDoc.id;
@@ -1315,8 +1357,6 @@ const ecoleData = ecoleDoc.data();
 if(ecoleData.actif === false) continue;
 const profsSnap = await getDocs(collection(db, "ecoles", ecoleId, "professeurs"));
 const nbProfs = profsSnap.size;
-const fichesSnap = await getDocs(collection(db, "ecoles", ecoleId, "fiches"));
-let nbFiches = fichesSnap.size;
 let nbEleves = 0;
 try {
 const elevesSnap = await getDocs(collection(db, "ecoles", ecoleId, "compta_eleves"));
@@ -1327,20 +1367,25 @@ nbEleves++;
 }
 });
 } catch(e) { nbEleves = 0; }
+const stats = await calculerStatsEcole(ecoleId);
 raw.push({
 id: ecoleId,
 nom: ecoleData.nom || ecoleId,
 ville: ecoleData.ville || "",
 effectif: nbEleves,
 profs: nbProfs,
-fiches: nbFiches
+moyenneGenerale: stats.moyenneGenerale,
+tauxBrillants: stats.tauxBrillants,
+tauxReussite: stats.tauxReussite,
+totalEleves: stats.totalEleves
 });
 if(nbEleves > maxEffectif) maxEffectif = nbEleves;
-if(nbProfs > maxProfs) maxProfs = nbProfs;
-if(nbFiches > maxFiches) maxFiches = nbFiches;
+if(stats.moyenneGenerale > maxMoyenne) maxMoyenne = stats.moyenneGenerale;
+if(stats.tauxBrillants > maxBrillants) maxBrillants = stats.tauxBrillants;
+if(stats.tauxReussite > maxReussite) maxReussite = stats.tauxReussite;
 }
 for(const e of raw) {
-e.score = calculerScore(e.effectif, e.profs, e.fiches, maxEffectif || 1, maxProfs || 1, maxFiches || 1);
+e.score = calculerScore(e.effectif, e.moyenneGenerale, e.tauxBrillants, e.tauxReussite, maxEffectif || 1, maxMoyenne || 1, maxBrillants || 1, maxReussite || 1);
 resultats.push(e);
 }
 resultats.sort((a,b) => b.score - a.score);
@@ -1384,7 +1429,7 @@ const pos = index + 1;
 const medal = index < 3 ? medals[index] : '';
 const posClass = index < 3 ? posClasses[index] : '';
 const isCurrentSchool = ecole.id === ECOLET_ID;
-html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Fiches</span> <span class="stat-value">${ecole.fiches}</span></div></div></div>`;
+html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Moyenne</span> <span class="stat-value">${ecole.moyenneGenerale ? ecole.moyenneGenerale.toFixed(1) : '0.0'}/20</span></div><div class="rang-stat"><span class="stat-label">Brillants</span> <span class="stat-value">${ecole.tauxBrillants ? ecole.tauxBrillants.toFixed(0) : 0}%</span></div><div class="rang-stat"><span class="stat-label">Réussite</span> <span class="stat-value">${ecole.tauxReussite ? ecole.tauxReussite.toFixed(0) : 0}%</span></div></div></div>`;
 });
 html += '</div>';
 podiumContainer.innerHTML = html;
@@ -1406,7 +1451,7 @@ const pos = index + 1;
 const medal = index < 3 ? medals[index] : '';
 const posClass = index < 3 ? posClasses[index] : '';
 const isCurrentSchool = ecole.id === ECOLET_ID;
-html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Fiches</span> <span class="stat-value">${ecole.fiches}</span></div></div></div>`;
+html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Moyenne</span> <span class="stat-value">${ecole.moyenneGenerale ? ecole.moyenneGenerale.toFixed(1) : '0.0'}/20</span></div><div class="rang-stat"><span class="stat-label">Brillants</span> <span class="stat-value">${ecole.tauxBrillants ? ecole.tauxBrillants.toFixed(0) : 0}%</span></div><div class="rang-stat"><span class="stat-label">Réussite</span> <span class="stat-value">${ecole.tauxReussite ? ecole.tauxReussite.toFixed(0) : 0}%</span></div></div></div>`;
 });
 html += '</div>';
 podiumContainer.innerHTML = html;
@@ -1425,23 +1470,6 @@ if(classementCharge) { await afficherClassement(false); }
 let pendingReply = null;
 let botWaitingMessageSent = false;
 let recoMessages = [];
-const RECO_GREETINGS = {
-'bonjour': 'Bonjour cher directeur ! 👋 Comment puis-je vous aider aujourd\'hui ?',
-'salut': 'Salut ! 👋 Content de vous voir.',
-'bonsoir': 'Bonsoir cher directeur ! 🌙',
-'hello': 'Hello ! 👋 Comment puis-je vous être utile ?',
-'coucou': 'Coucou ! 👋 Ravie de vous voir.',
-'merci': 'Avec plaisir ! 🙏',
-'merci beaucoup': 'Merci à vous ! 😊',
-'thanks': 'You\'re welcome ! 😊'
-};
-const SHORT_MESSAGE_REPLIES = [
-'😊 Merci pour votre message, mais pourriez-vous être plus précis ?',
-'🙂 Je ne comprends pas bien votre demande. Pouvez-vous détailler ?',
-'😄 Pour que je puisse vous aider, j\'aurais besoin de plus de détails.',
-'👋 Votre message est un peu court. N\'hésitez pas à développer.',
-'😅 Oups ! Je pense que vous avez oublié d\'écrire votre demande.'
-];
 function getNaturalReply(subject, message) {
 const replies = {
 'amelioration': ['Excellente suggestion ! 💡 Je transmets à l\'équipe.', 'Ah, c\'est une super idée ! 😍', 'Wouah ! 🤩 Votre suggestion est géniale !', '👍 J\'adore cette idée !'],
