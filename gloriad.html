@@ -837,13 +837,27 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
                 </select>
             </div>
         </div>
+        
+        <!-- Champ pour appliquer un code parent existant -->
+        <div class="form-grid" style="margin-top:8px;">
+            <div class="form-group">
+                <label>Code parent existant (optionnel)</label>
+                <input type="text" id="eleveParentCodeInput" placeholder="Laissez vide pour auto-génération" maxlength="6" style="font-family:monospace;letter-spacing:2px;font-size:16px;">
+            </div>
+            <div class="form-group" style="justify-content:flex-end;">
+                <button class="btn btn-sm btn-outline" id="checkParentCodeBtn" style="padding:10px 16px;font-size:12px;">
+                    <i class="fas fa-search"></i> Vérifier le code
+                </button>
+            </div>
+        </div>
+        
         <div class="form-actions">
             <button class="btn btn-success" id="addEleveBtn"><i class="fas fa-plus"></i> Ajouter l'élève</button>
         </div>
         <div style="margin-top:8px;font-size:11px;color:#6b7280;display:flex;gap:12px;flex-wrap:wrap;">
             <span>💡 Le code parent est généré automatiquement</span>
             <span>|</span>
-            <span>🔗 Les frères/sœurs auront le même code parent</span>
+            <span>🔗 Saisissez un code existant pour lier ce nouvel élève à la même famille</span>
         </div>
     </div>
 
@@ -2015,7 +2029,7 @@ async function checkParentCodeExists(code) {
     }
 }
 
-async function ajouterEleve(nom, sexe, classe, option = '') {
+async function ajouterEleve(nom, sexe, classe, option = '', parentCodeSaisi = '') {
     if (!inscriptionActive) {
         toast('❌ L\'inscription des élèves est désactivée', 'error');
         return false;
@@ -2029,17 +2043,37 @@ async function ajouterEleve(nom, sexe, classe, option = '') {
         return false;
     }
     
-    // Génération automatique du code parent
-    let codeParent = genererCode6Chiffres();
+    let codeParent = parentCodeSaisi.trim();
     let codeExists = false;
     
-    // Vérifier si le code existe déjà et générer un autre si nécessaire
-    let attempts = 0;
-    while (attempts < 10) {
+    // Si un code parent a été saisi, vérifier s'il existe
+    if (codeParent && codeParent.length === 6 && /^\d{6}$/.test(codeParent)) {
         const exists = await checkParentCodeExists(codeParent);
-        if (!exists) break;
+        if (exists) {
+            codeExists = true;
+            toast(`🔗 Code parent ${codeParent} trouvé - Nouvel élève lié à cette famille`, 'info');
+        } else {
+            toast('⚠️ Code parent non reconnu, génération d\'un nouveau code', 'warning');
+            codeParent = genererCode6Chiffres();
+            // Vérifier que le nouveau code est unique
+            let attempts = 0;
+            while (attempts < 10) {
+                const exists2 = await checkParentCodeExists(codeParent);
+                if (!exists2) break;
+                codeParent = genererCode6Chiffres();
+                attempts++;
+            }
+        }
+    } else {
+        // Génération automatique d'un code unique
         codeParent = genererCode6Chiffres();
-        attempts++;
+        let attempts = 0;
+        while (attempts < 10) {
+            const exists = await checkParentCodeExists(codeParent);
+            if (!exists) break;
+            codeParent = genererCode6Chiffres();
+            attempts++;
+        }
     }
     
     try {
@@ -2060,7 +2094,10 @@ async function ajouterEleve(nom, sexe, classe, option = '') {
         };
         await setDoc(doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId), data);
         
-        toast(`✅ ${nom.trim()} inscrit(e) - Code parent: ${codeParent}`, 'success');
+        const message = codeExists ? 
+            `✅ ${nom.trim()} inscrit(e) - Lié au code parent: ${codeParent}` :
+            `✅ ${nom.trim()} inscrit(e) - Nouveau code parent: ${codeParent}`;
+        toast(message, 'success');
         return true;
     } catch(e) {
         toast('❌ Erreur: ' + e.message, 'error');
@@ -2068,19 +2105,19 @@ async function ajouterEleve(nom, sexe, classe, option = '') {
     }
 }
 
-async function modifierEleve(eleveId, nouveauNom, nouveauSexe) {
+// Modifier uniquement le sexe et l'option (pas le nom)
+async function modifierEleve(eleveId, nouveauSexe, nouvelleOption) {
     if (!eleveId) return false;
-    if (!nouveauNom || nouveauNom.trim().length < 2) {
-        toast('❌ Nom invalide', 'error');
-        return false;
-    }
     try {
         const ref = doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId);
-        await updateDoc(ref, {
-            nom: nouveauNom.trim(),
+        const updates = {
             sexe: nouveauSexe,
             updatedAt: new Date().toISOString()
-        });
+        };
+        if (nouvelleOption !== undefined) {
+            updates.option = nouvelleOption;
+        }
+        await updateDoc(ref, updates);
         toast(`✅ Élève modifié avec succès`, 'success');
         return true;
     } catch(e) {
@@ -2153,7 +2190,7 @@ async function chargerEleves(filtreClasse = '', searchTerm = '') {
                         </div>
                     </div>
                     <div class="actions">
-                        <button class="btn-icon edit" onclick="window.editerEleve('${e.id}')" title="Modifier"><i class="fas fa-pen"></i></button>
+                        <button class="btn-icon edit" onclick="window.editerEleve('${e.id}')" title="Modifier sexe/option"><i class="fas fa-pen"></i></button>
                     </div>
                 </div>
             `;
@@ -2165,7 +2202,7 @@ async function chargerEleves(filtreClasse = '', searchTerm = '') {
     }
 }
 
-// Fonction d'édition d'élève (modification du nom et du sexe)
+// Fonction d'édition d'élève (modification du sexe et de l'option uniquement)
 window.editerEleve = function(eleveId) {
     const container = document.querySelector(`.eleve-item[data-id="${eleveId}"]`);
     if (!container) return;
@@ -2173,17 +2210,26 @@ window.editerEleve = function(eleveId) {
     const details = container.querySelector('.details');
     const currentNom = nomEl ? nomEl.textContent : '';
     
-    // Trouver le sexe actuel dans les détails
+    // Trouver le sexe actuel
     const detailsText = details ? details.textContent : '';
     const isFille = detailsText.includes('Fille');
     const currentSexe = isFille ? 'F' : 'M';
     
+    // Trouver l'option actuelle
+    const optionEl = container.querySelector('.option');
+    let currentOption = '';
+    if (optionEl) {
+        currentOption = optionEl.textContent.replace('📖 ', '').trim();
+    }
+    
+    // Récupérer la classe pour déterminer si l'option est disponible
+    const classeEl = container.querySelector('.classe');
+    const classe = classeEl ? classeEl.textContent.trim() : '';
+    const classesAvecOption = ['1ère Année', '2ème Année', '3ème Année', '4ème Année'];
+    const hasOption = classesAvecOption.includes(classe);
+    
     const modalHtml = `
-        <p style="margin-bottom:12px;">Modifier les informations de l'élève</p>
-        <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Nom complet</label>
-            <input type="text" id="editEleveNom" value="${escapeHtml(currentNom)}" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:14px;outline:none;font-weight:500;">
-        </div>
+        <p style="margin-bottom:12px;">Modifier les informations de <strong>${escapeHtml(currentNom)}</strong></p>
         <div style="margin-bottom:10px;">
             <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Sexe</label>
             <select id="editEleveSexe" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:14px;outline:none;font-weight:500;">
@@ -2191,6 +2237,21 @@ window.editerEleve = function(eleveId) {
                 <option value="F" ${currentSexe === 'F' ? 'selected' : ''}>👩 Femme</option>
             </select>
         </div>
+        ${hasOption ? `
+        <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Option</label>
+            <select id="editEleveOption" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:14px;outline:none;font-weight:500;">
+                <option value="LATIN-PHILO" ${currentOption === 'LATIN-PHILO' ? 'selected' : ''}>LATIN-PHILO</option>
+                <option value="SCIENCES" ${currentOption === 'SCIENCES' ? 'selected' : ''}>SCIENCES</option>
+                <option value="PEDAGOGIE GENERALE" ${currentOption === 'PEDAGOGIE GENERALE' ? 'selected' : ''}>PEDAGOGIE GENERALE</option>
+                <option value="COMMERCIALE ET GESTION" ${currentOption === 'COMMERCIALE ET GESTION' ? 'selected' : ''}>COMMERCIALE ET GESTION</option>
+                <option value="ELECTRICITE" ${currentOption === 'ELECTRICITE' ? 'selected' : ''}>ELECTRICITE</option>
+                <option value="MECANIQUE GENERALE" ${currentOption === 'MECANIQUE GENERALE' ? 'selected' : ''}>MECANIQUE GENERALE</option>
+                <option value="COUPE ET COUTURE" ${currentOption === 'COUPE ET COUTURE' ? 'selected' : ''}>COUPE ET COUTURE</option>
+                <option value="TOUTES" ${currentOption === 'TOUTES' ? 'selected' : ''}>TOUTES</option>
+            </select>
+        </div>
+        ` : `<p style="font-size:12px;color:#6b7280;margin-bottom:10px;">ℹ️ L'option n'est disponible que pour les classes de 1ère à 4ème Année.</p>`}
         <div class="modal-footer" style="margin-top:12px;">
             <button class="btn btn-sm btn-outline" id="editCancelBtn">Annuler</button>
             <button class="btn btn-sm btn-success" id="editSaveBtn"><i class="fas fa-save"></i> Enregistrer</button>
@@ -2201,13 +2262,12 @@ window.editerEleve = function(eleveId) {
     
     document.getElementById('editCancelBtn').addEventListener('click', () => modal.remove());
     document.getElementById('editSaveBtn').addEventListener('click', async () => {
-        const nouveauNom = document.getElementById('editEleveNom').value.trim();
         const nouveauSexe = document.getElementById('editEleveSexe').value;
-        if (!nouveauNom) {
-            toast('❌ Veuillez entrer un nom valide', 'error');
-            return;
+        let nouvelleOption = '';
+        if (hasOption) {
+            nouvelleOption = document.getElementById('editEleveOption').value;
         }
-        const success = await modifierEleve(eleveId, nouveauNom, nouveauSexe);
+        const success = await modifierEleve(eleveId, nouveauSexe, nouvelleOption);
         if (success) {
             modal.remove();
             const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
@@ -2216,6 +2276,21 @@ window.editerEleve = function(eleveId) {
         }
     });
 };
+
+// Vérifier un code parent existant
+document.getElementById('checkParentCodeBtn').addEventListener('click', async function() {
+    const code = document.getElementById('eleveParentCodeInput').value.trim();
+    if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+        toast('⚠️ Veuillez saisir un code valide de 6 chiffres', 'warning');
+        return;
+    }
+    const exists = await checkParentCodeExists(code);
+    if (exists) {
+        toast(`✅ Code parent ${code} trouvé - Les nouveaux élèves seront liés à cette famille`, 'success');
+    } else {
+        toast(`❌ Code parent ${code} introuvable`, 'error');
+    }
+});
 
 function initGestionEleves() {
     verifierInscriptionActive();
@@ -2243,9 +2318,11 @@ function initGestionEleves() {
         const sexe = document.getElementById('eleveSexeSelect').value;
         const classe = document.getElementById('eleveClasseSelect').value;
         const option = document.getElementById('eleveOptionSelect').value;
-        const success = await ajouterEleve(nom, sexe, classe, option);
+        const parentCode = document.getElementById('eleveParentCodeInput').value.trim();
+        const success = await ajouterEleve(nom, sexe, classe, option, parentCode);
         if (success) {
             document.getElementById('eleveNomInput').value = '';
+            document.getElementById('eleveParentCodeInput').value = '';
             document.getElementById('eleveOptionSelect').value = 'LATIN-PHILO';
             const filtre = document.getElementById('eleveFiltreClasse').value;
             const search = document.getElementById('eleveSearchInput').value;
