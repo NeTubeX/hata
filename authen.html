@@ -14,10 +14,11 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;min-height:100vh;display:
 h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
 .sub{color:#64748b;font-size:11px;letter-spacing:4px;text-transform:uppercase;margin-top:2px}
 .divider{width:50px;height:2px;background:linear-gradient(90deg,#ffd700,#fbbf24);border-radius:2px;margin:14px auto}
-.info-box{background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin:16px 0;font-size:13px;color:#94a3b8;line-height:2;text-align:left}
+.info-box{background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.1);border-radius:12px;padding:14px;margin:16px 0;font-size:13px;color:#94a3b8;line-height:2.2;text-align:left}
 .info-box .label{color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:1px}
 .info-box .value{color:#fff;font-weight:500;float:right}
 .info-box .value.email{color:#60a5fa}
+.info-box .value.pass{color:#f59e0b;font-family:monospace;letter-spacing:2px}
 .btn{width:100%;padding:16px;border-radius:16px;background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;font-weight:700;border:none;cursor:pointer;font-size:16px;transition:all 0.3s;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,215,0,0.3)}
 .btn:active:not(:disabled){transform:scale(0.97)}
@@ -48,7 +49,7 @@ h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbb
         <br><br>
         <div><span class="label">📛 École</span><span class="value"><strong>GLORIA_DEI</strong></span></div>
         <div><span class="label">📧 Email Direction</span><span class="value email">direction.gloriadei@gmail.com</span></div>
-        <div><span class="label">🔑 Mot de passe</span><span class="value" style="color:#f59e0b;">12345678</span></div>
+        <div><span class="label">🔑 Code/Mot de passe</span><span class="value pass">12345678</span></div>
         <div><span class="label">👑 Rôle</span><span class="value" style="color:#ffd700;">DIRECTION</span></div>
     </div>
 
@@ -92,7 +93,7 @@ const db = getFirestore(app);
 
 const SCHOOL_NAME = 'GLORIA_DEI';
 const DIRECTION_EMAIL = 'direction.gloriadei@gmail.com';
-const DIRECTION_PASSWORD = '12345678';
+const DIRECTION_PASSWORD = '12345678'; // 8 chiffres
 
 const authBtn = document.getElementById('authBtn');
 const status = document.getElementById('status');
@@ -112,27 +113,16 @@ async function authenticate() {
 
         // ÉTAPE 1: Essayer de se connecter
         try {
-            setStatus('info', '📧 Tentative de connexion...');
+            setStatus('info', '📧 Connexion à Firebase...');
             const userCredential = await signInWithEmailAndPassword(auth, DIRECTION_EMAIL, DIRECTION_PASSWORD);
             user = userCredential.user;
             setStatus('info', '✅ Connexion réussie !');
         } catch (loginError) {
-            // Si le compte n'existe pas, le créer
             if (loginError.code === 'auth/user-not-found' || loginError.code === 'auth/invalid-credential') {
                 setStatus('info', '📝 Création du compte direction...');
-                try {
-                    const userCredential = await createUserWithEmailAndPassword(auth, DIRECTION_EMAIL, DIRECTION_PASSWORD);
-                    user = userCredential.user;
-                    setStatus('info', '✅ Compte créé avec succès !');
-                } catch (createError) {
-                    if (createError.code === 'auth/email-already-in-use') {
-                        setStatus('info', '⚠️ Le compte existe déjà, tentative de reconnexion...');
-                        const userCredential = await signInWithEmailAndPassword(auth, DIRECTION_EMAIL, DIRECTION_PASSWORD);
-                        user = userCredential.user;
-                    } else {
-                        throw createError;
-                    }
-                }
+                const userCredential = await createUserWithEmailAndPassword(auth, DIRECTION_EMAIL, DIRECTION_PASSWORD);
+                user = userCredential.user;
+                setStatus('info', '✅ Compte créé avec succès !');
             } else {
                 throw loginError;
             }
@@ -141,7 +131,7 @@ async function authenticate() {
         if (!user) throw new Error('Impossible de s\'authentifier');
 
         // ÉTAPE 2: Créer/mettre à jour le document utilisateur
-        setStatus('info', '🔍 Configuration du profil direction...');
+        setStatus('info', '🔍 Configuration du profil...');
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
 
@@ -152,16 +142,6 @@ async function authenticate() {
                 role: 'direction',
                 createdAt: new Date().toISOString()
             });
-        } else {
-            const data = userSnap.data();
-            if (data.role !== 'direction' || data.school !== SCHOOL_NAME) {
-                await setDoc(userRef, {
-                    ...data,
-                    school: SCHOOL_NAME,
-                    role: 'direction',
-                    updatedAt: new Date().toISOString()
-                });
-            }
         }
 
         // ÉTAPE 3: Créer l'école dans Firestore
@@ -204,7 +184,6 @@ async function authenticate() {
                 "3eme Annee": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"],
                 "4eme Annee": ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE"]
             });
-            setStatus('info', '✅ École créée avec succès !');
         }
 
         // SUCCÈS
@@ -238,7 +217,7 @@ async function authenticate() {
         authBtn.style.color = 'white';
 
     } catch (error) {
-        console.error('Erreur détaillée:', error);
+        console.error('Erreur:', error);
         let msg = error.message;
         if (error.code === 'auth/network-request-failed') msg = '❌ Pas de connexion Internet';
         else if (error.code === 'auth/too-many-requests') msg = '❌ Trop de tentatives. Réessayez plus tard.';
@@ -250,15 +229,6 @@ async function authenticate() {
 }
 
 authBtn.addEventListener('click', authenticate);
-
-// Vérifier l'état de connexion
-onAuthStateChanged(auth, (user) => {
-    if (user && user.email === DIRECTION_EMAIL) {
-        console.log('✅ Déjà authentifié');
-    } else {
-        console.log('🔓 Non authentifié');
-    }
-});
 
 // Authentification automatique au chargement
 console.log('🏫 GLORIA DEI - Authentification');
