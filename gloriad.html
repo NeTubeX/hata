@@ -21,16 +21,19 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 .login-sub{color:#64748b;font-size:11px;font-weight:400;letter-spacing:4px;text-transform:uppercase;margin-bottom:4px}
 .login-divider{width:50px;height:2px;background:linear-gradient(90deg,#ffd700,#fbbf24);border-radius:2px;margin:14px auto}
 .login-welcome{color:#94a3b8;font-size:13px;margin-bottom:22px;line-height:1.6}
+.login-email-display{background:rgba(255,215,0,0.08);border-radius:12px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:#94a3b8;border:1px solid rgba(255,215,0,0.1)}
+.login-email-display strong{color:#ffd700}
 .login-input-group{position:relative;margin-bottom:14px}
 .login-input-group .input-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:16px;opacity:0.4;pointer-events:none}
-.login-input-group input{width:100%;padding:14px 16px 14px 48px;border-radius:28px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:18px;font-family:monospace;letter-spacing:6px;transition:all 0.3s;outline:none}
+.login-input-group input{width:100%;padding:14px 16px 14px 48px;border-radius:28px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:18px;font-family:monospace;letter-spacing:4px;transition:all 0.3s;outline:none}
 .login-input-group input:focus{border-color:rgba(255,215,0,0.3);background:rgba(255,255,255,0.06);box-shadow:0 0 0 4px rgba(255,215,0,0.04)}
 .login-input-group input::placeholder{color:#475569;font-size:12px;letter-spacing:2px;font-family:'Inter',sans-serif}
 .login-btn{width:100%;padding:14px;border-radius:28px;background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;font-weight:700;border:none;cursor:pointer;font-size:15px;transition:all 0.3s}
-.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,215,0,0.2)}
-.login-btn:active{transform:scale(0.97)}
+.login-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,215,0,0.2)}
+.login-btn:active:not(:disabled){transform:scale(0.97)}
 .login-btn:disabled{opacity:0.5;transform:none;box-shadow:none;cursor:not-allowed}
-.login-error{color:#ef4444;margin-top:12px;font-size:12px;min-height:18px}
+.login-error{color:#ef4444;margin-top:12px;font-size:13px;min-height:20px;font-weight:500}
+.login-error.success{color:#10b981}
 .login-footer{color:#334155;font-size:10px;margin-top:18px;border-top:1px solid rgba(255,255,255,0.04);padding-top:14px}
 .school-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:20px;padding:20px;text-align:center;margin-bottom:20px;position:relative}
 .school-name{font-size:22px;font-weight:700;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -182,13 +185,16 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 <div class="login-overlay" id="loginOverlay">
     <div class="login-card">
         <div class="login-icon">🏫</div>
-        <h2 id="loginSchoolName">COMPLEXE SCOLAIRE</h2>
+        <h2 id="loginSchoolName">GLORIA DEI</h2>
         <div class="login-divider"></div>
         <div class="login-sub">ESPACE DIRECTION</div>
-        <p class="login-welcome" id="loginSchoolSub">GESTION DE SCOLARITÉ</p>
+        <p class="login-welcome" id="loginSchoolSub">COMPLEXE SCOLAIRE</p>
+        <div class="login-email-display">
+            📧 Connexion avec : <strong>direction.gloriadei@gmail.com</strong>
+        </div>
         <div class="login-input-group">
             <span class="input-icon">🔐</span>
-            <input type="password" id="loginCode" placeholder="CODE D'ACCÈS" inputmode="numeric" maxlength="6" autocomplete="off">
+            <input type="password" id="loginCode" placeholder="MOT DE PASSE" inputmode="numeric" maxlength="8" autocomplete="off">
         </div>
         <button class="login-btn" id="loginBtn">SE CONNECTER</button>
         <div id="loginError" class="login-error"></div>
@@ -198,7 +204,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 
 <div class="container" id="mainApp" style="display:none">
     <div class="school-header">
-        <div class="school-name" id="schoolName">🏫 CHARGEMENT...</div>
+        <div class="school-name" id="schoolName">🏫 GLORIA DEI</div>
         <div class="school-sub" id="schoolSub">DIRECTION - GESTION DE SCOLARITÉ</div>
         <button class="logout-btn" id="logoutBtn" title="Déconnexion">✕</button>
     </div>
@@ -427,6 +433,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 {
     "imports": {
         "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
         "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
     }
 }
@@ -434,7 +441,8 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 
 <script type="module">
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, addDoc, deleteDoc, onSnapshot } from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, query, where, deleteDoc, onSnapshot } from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB_GdmPBnWl3w6g99j1cGO7vxDdxmKr4QA",
@@ -447,20 +455,13 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-const urlParams = new URLSearchParams(window.location.search);
-const schoolId = urlParams.get('ecole');
-if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';throw new Error('Redirection');}
-
-const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g,'_');
-const SCHOOL_DISPLAY_NAME = schoolId;
-
-document.getElementById("schoolName").innerHTML = '🏫 COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME;
-document.getElementById("loginSchoolName").innerHTML = '🏫 COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME;
-document.getElementById("ecoleNom").value = 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME;
-document.getElementById("schoolSub").innerHTML = 'DIRECTION - GESTION DE SCOLARITÉ | Année 2026-2027';
-document.getElementById("loginSchoolSub").innerHTML = "GESTION DE SCOLARITÉ";
+// CONSTANTES
+const DIRECTION_EMAIL = 'direction.gloriadei@gmail.com';
+const SCHOOL_NAME = 'GLORIA_DEI';
+const SCHOOL_DISPLAY = 'GLORIA DEI';
 
 const SC = {
     COMPTA_ELEVES: 'compta_eleves',
@@ -477,297 +478,256 @@ const SC = {
 let currentSchoolConfig = null;
 let localEleves = [];
 let optionsConfig = {};
-let profsUnsubscribe = null;
+let recoUnsubscribe = null;
 
 const classesListe = ["7eme EB","8eme EB","1ere Annee","2eme Annee","3eme Annee","4eme Annee"];
 const optionsParDefaut = {"7eme EB":[],"8eme EB":[],"1ere Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"2eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"3eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"4eme Annee":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"]};
 
-function toast(msg,type="success"){
-    const c=document.getElementById("toastContainer");
-    if(!c)return;
-    const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};
-    const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Info"};
-    const el=document.createElement("div");
-    el.className='toast '+(type||'');
-    el.innerHTML='<div class="toast-icon">'+icons[type]+'</div><div class="toast-content"><div class="toast-title">'+titles[type]+'</div><div class="toast-message">'+msg+'</div></div>';
+// ============================================================
+// TOAST & HELPERS
+// ============================================================
+
+function toast(msg, type = "success") {
+    const c = document.getElementById("toastContainer");
+    if (!c) return;
+    const icons = { success: "✓", error: "✕", warning: "⚠", info: "ℹ" };
+    const titles = { success: "Succès", error: "Erreur", warning: "Attention", info: "Info" };
+    const el = document.createElement("div");
+    el.className = 'toast ' + (type || '');
+    el.innerHTML = '<div class="toast-icon">' + icons[type] + '</div><div class="toast-content"><div class="toast-title">' + titles[type] + '</div><div class="toast-message">' + msg + '</div></div>';
     c.appendChild(el);
-    setTimeout(()=>el.classList.add("show"),10);
-    setTimeout(()=>{el.classList.remove("show");setTimeout(()=>el.remove(),300);},3000);
+    setTimeout(() => el.classList.add("show"), 10);
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 300); }, 3000);
 }
 
-function showConfirm(message){
-    return new Promise((resolve)=>{
-        document.getElementById("confirmMessage").innerHTML=message;
+function showConfirm(message) {
+    return new Promise((resolve) => {
+        document.getElementById("confirmMessage").innerHTML = message;
         document.getElementById("confirmModal").classList.add("show");
-        document.getElementById("confirmYes").onclick=()=>{document.getElementById("confirmModal").classList.remove("show");resolve(true);};
-        document.getElementById("confirmNo").onclick=()=>{document.getElementById("confirmModal").classList.remove("show");resolve(false);};
+        document.getElementById("confirmYes").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); resolve(true); };
+        document.getElementById("confirmNo").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); resolve(false); };
     });
 }
 
-function genererCodeParent(){
-    return Math.floor(100000+Math.random()*900000).toString();
+function genererCodeParent() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-async function genererCodeParentUnique(){
-    const eleves=await getAllComptaEleves();
-    const codesExistants=new Set();
-    eleves.forEach(e=>{if(e.parentCode&&e.parentCode.length===6)codesExistants.add(e.parentCode);});
-    let code;let tentative=0;
-    do{code=Math.floor(100000+Math.random()*900000).toString();tentative++;}while(codesExistants.has(code)&&tentative<100);
+async function genererCodeParentUnique() {
+    const eleves = await getAllComptaEleves();
+    const codesExistants = new Set();
+    eleves.forEach(e => { if (e.parentCode && e.parentCode.length === 6) codesExistants.add(e.parentCode); });
+    let code;
+    let tentative = 0;
+    do { code = Math.floor(100000 + Math.random() * 900000).toString(); tentative++; } while (codesExistants.has(code) && tentative < 100);
     return code;
 }
 
-async function chargerOptions(){
-    try{
-        const ref=doc(db,"ecoles",ECOLET_ID,SC.CONFIG,SC.OPTIONS);
-        const snap=await getDoc(ref);
-        if(snap.exists()){optionsConfig=snap.data();}
-        else{optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));await setDoc(ref,optionsConfig);}
+// ============================================================
+// CHARGEMENT DES DONNÉES
+// ============================================================
+
+async function chargerOptions() {
+    try {
+        const ref = doc(db, "ecoles", SCHOOL_NAME, SC.CONFIG, SC.OPTIONS);
+        const snap = await getDoc(ref);
+        if (snap.exists()) { optionsConfig = snap.data(); } else { optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); await setDoc(ref, optionsConfig); }
         mettreAJourSelectsOptions();
-    }catch(error){console.error("Erreur chargement options:",error);optionsConfig=JSON.parse(JSON.stringify(optionsParDefaut));mettreAJourSelectsOptions();}
+    } catch (error) { console.error("Erreur chargement options:", error); optionsConfig = JSON.parse(JSON.stringify(optionsParDefaut)); mettreAJourSelectsOptions(); }
 }
 
-function mettreAJourSelectsOptions(){
-    const filterOption=document.getElementById("filterOption");
-    const newEleveOption=document.getElementById("newEleveOption");
-    if(filterOption){
-        let optionsHtml='<option value="">Toutes</option>';
-        let optsUniques=new Set();
-        for(let classe of classesListe){let opts=optionsConfig[classe]||[];opts.forEach(o=>optsUniques.add(o));}
-        optsUniques.forEach(opt=>{optionsHtml+='<option value="'+opt+'">'+opt+'</option>';});
-        filterOption.innerHTML=optionsHtml;
+function mettreAJourSelectsOptions() {
+    const filterOption = document.getElementById("filterOption");
+    const newEleveOption = document.getElementById("newEleveOption");
+    if (filterOption) {
+        let optionsHtml = '<option value="">Toutes</option>';
+        let optsUniques = new Set();
+        for (let classe of classesListe) { let opts = optionsConfig[classe] || []; opts.forEach(o => optsUniques.add(o)); }
+        optsUniques.forEach(opt => { optionsHtml += '<option value="' + opt + '">' + opt + '</option>'; });
+        filterOption.innerHTML = optionsHtml;
     }
-    if(newEleveOption){
-        const updateSelect=()=>{
-            let classe=document.getElementById("newEleveClasse").value;
-            let opts=optionsConfig[classe]||[];
-            let optHtml='<option value="">Sélectionner</option>';
-            opts.forEach(opt=>{optHtml+='<option value="'+opt+'">'+opt+'</option>';});
-            newEleveOption.innerHTML=optHtml;
+    if (newEleveOption) {
+        const updateSelect = () => {
+            let classe = document.getElementById("newEleveClasse").value;
+            let opts = optionsConfig[classe] || [];
+            let optHtml = '<option value="">Sélectionner</option>';
+            opts.forEach(opt => { optHtml += '<option value="' + opt + '">' + opt + '</option>'; });
+            newEleveOption.innerHTML = optHtml;
         };
-        let classeSelect=document.getElementById("newEleveClasse");
-        if(classeSelect){classeSelect.onchange=updateSelect;updateSelect();}
+        let classeSelect = document.getElementById("newEleveClasse");
+        if (classeSelect) { classeSelect.onchange = updateSelect; updateSelect(); }
     }
 }
 
-async function chargerConfigEcole(){
-    try{
-        const configRef=doc(db,"ecoles",ECOLET_ID,SC.SETTINGS,"data");
-        const configSnap=await getDoc(configRef);
-        if(configSnap.exists()){currentSchoolConfig=configSnap.data();}
-        else{currentSchoolConfig={nom:'COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME,adresse:"",codeAcces:"123456"};await setDoc(configRef,currentSchoolConfig);}
-        document.getElementById("ecoleNom").value=currentSchoolConfig.nom||'COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME;
-        document.getElementById("ecoleAdresse").value=currentSchoolConfig.adresse||"";
+async function chargerConfigEcole() {
+    try {
+        const configRef = doc(db, "ecoles", SCHOOL_NAME, SC.SETTINGS, "data");
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) { currentSchoolConfig = configSnap.data(); } else {
+            currentSchoolConfig = { nom: 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY, adresse: "", codeAcces: "123456" };
+            await setDoc(configRef, currentSchoolConfig);
+        }
+        document.getElementById("ecoleNom").value = currentSchoolConfig.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY;
+        document.getElementById("ecoleAdresse").value = currentSchoolConfig.adresse || "";
         return currentSchoolConfig;
-    }catch(error){console.error("Erreur chargement config:",error);return null;}
+    } catch (error) { console.error("Erreur chargement config:", error); return null; }
 }
 
-async function sauvegarderInfosEcole(){
-    try{
-        const nouvelleAdresse=document.getElementById("ecoleAdresse").value.trim();
-        if(nouvelleAdresse)currentSchoolConfig.adresse=nouvelleAdresse;
-        const configRef=doc(db,"ecoles",ECOLET_ID,SC.SETTINGS,"data");
-        await setDoc(configRef,currentSchoolConfig);
-        toast("Informations enregistrées","success");
-    }catch(error){toast("Erreur lors de l'enregistrement","error");}
-}
-
-async function getAllComptaEleves(){
-    try{
-        const q=query(collection(db,"ecoles",ECOLET_ID,SC.COMPTA_ELEVES),where("_type","==","compta_eleve"));
-        const snap=await getDocs(q);
-        let eleves=[];
-        for(const ds of snap.docs){
-            const d=ds.data();
-            eleves.push({id:d.eleveId,nom:d.nom,sexe:d.sexe||"M",classe:d.classe,option:d.option||"",parentCode:d.parentCode||"",dateInscription:d.dateInscription||new Date().toISOString(),abandon:d.abandon||false});
+async function getAllComptaEleves() {
+    try {
+        const q = query(collection(db, "ecoles", SCHOOL_NAME, SC.COMPTA_ELEVES), where("_type", "==", "compta_eleve"));
+        const snap = await getDocs(q);
+        let eleves = [];
+        for (const ds of snap.docs) {
+            const d = ds.data();
+            eleves.push({ id: d.eleveId, nom: d.nom, sexe: d.sexe || "M", classe: d.classe, option: d.option || "", parentCode: d.parentCode || "", dateInscription: d.dateInscription || new Date().toISOString(), abandon: d.abandon || false });
         }
-        localEleves=eleves;
+        localEleves = eleves;
         return eleves;
-    }catch(error){console.error("Erreur chargement:",error);return localEleves;}
+    } catch (error) { console.error("Erreur chargement:", error); return localEleves; }
 }
 
-async function ajouterEleveCompta(nom,sexe,classe,option,parentCode){
-    const id="eleve_"+Date.now();
-    const docId='compta_'+id;
-    const dateInscription=new Date().toISOString();
-    const newCompta={_type:"compta_eleve",eleveId:id,nom:nom,sexe:sexe||"M",classe:classe,option:option||"",parentCode:parentCode,dateInscription:dateInscription,abandon:false};
-    await setDoc(doc(db,"ecoles",ECOLET_ID,SC.COMPTA_ELEVES,docId),newCompta);
-    const newEleve={id:id,nom:nom,sexe:sexe||"M",classe:classe,option:option||"",parentCode:parentCode,dateInscription:dateInscription,abandon:false};
-    localEleves.push(newEleve);
-    await ajouterEleveAuxFichesProfesseur(newEleve);
-    return newEleve;
-}
-
-async function ajouterEleveAuxFichesProfesseur(eleve){
-    try{
-        if(!eleve||!eleve.classe)return 0;
-        const classe=eleve.classe;
-        const option=eleve.option||'';
-        const nomComplet=eleve.nom;
-        const fichesRef=collection(db,"ecoles",ECOLET_ID,SC.FICHES);
-        const snap=await getDocs(fichesRef);
-        let fichesAjoutees=0;
-        for(const docSnap of snap.docs){
-            const fiche=docSnap.data();
-            const ficheId=docSnap.id;
-            if(fiche._type==="prof"||fiche._type==="archive")continue;
-            const ficheClasse=fiche.classe||'';
-            const ficheOption=fiche.option||'';
-            if(ficheClasse!==classe)continue;
-            let optionCorrespond=false;
-            if(ficheOption==='TOUTES'||ficheOption===''){optionCorrespond=true;}
-            else if(option&&ficheOption===option){optionCorrespond=true;}
-            if(!optionCorrespond)continue;
-            const elevesExistants=fiche.eleves||[];
-            const existeDeja=elevesExistants.some(e=>(e.nom||'').toLowerCase()===nomComplet.toLowerCase()||(e.eleveId&&e.eleveId===eleve.id));
-            if(existeDeja)continue;
-            const nouvelEleve={id:eleve.id||Date.now()+Math.random(),nom:nomComplet,nomComplet:nomComplet,sexe:eleve.sexe||'M',notes:{p1:[],p2:[],p3:[],p4:[],exam1:0,exam2:0},parentCode:eleve.parentCode||'',eleveId:eleve.id,importeLe:new Date().toISOString(),source:"auto_inscription",dateInscription:eleve.dateInscription||new Date().toISOString()};
-            const ficheRef=doc(db,"ecoles",ECOLET_ID,SC.FICHES,ficheId);
-            await updateDoc(ficheRef,{eleves:[...elevesExistants,nouvelEleve],lastModified:new Date()});
-            fichesAjoutees++;
-        }
-        if(fichesAjoutees>0){toast('✅ '+fichesAjoutees+' fiche(s) professeur mises à jour avec '+eleve.nom,'success');}
-        return fichesAjoutees;
-    }catch(error){console.error("Erreur ajout aux fiches:",error);return 0;}
-}
-
-async function getElevesFiltres(){
-    let res=await getAllComptaEleves();
-    res=res.filter(e=>!e.abandon);
-    const nom=document.getElementById("searchNom")?.value.trim()||"";
-    const cls=document.getElementById("filterClasse")?.value||"";
-    const opt=document.getElementById("filterOption")?.value||"";
-    if(nom)res=res.filter(e=>e.nom.toLowerCase().includes(nom.toLowerCase()));
-    if(cls)res=res.filter(e=>e.classe===cls);
-    if(opt)res=res.filter(e=>e.option===opt);
+async function getElevesFiltres() {
+    let res = await getAllComptaEleves();
+    res = res.filter(e => !e.abandon);
+    const nom = document.getElementById("searchNom")?.value.trim() || "";
+    const cls = document.getElementById("filterClasse")?.value || "";
+    const opt = document.getElementById("filterOption")?.value || "";
+    if (nom) res = res.filter(e => e.nom.toLowerCase().includes(nom.toLowerCase()));
+    if (cls) res = res.filter(e => e.classe === cls);
+    if (opt) res = res.filter(e => e.option === opt);
     return res;
 }
 
-async function afficherListeEleves(){
-    const eleves=await getElevesFiltres();
-    const cont=document.getElementById("elevesContainer");
-    if(!eleves.length){cont.innerHTML='<div class="empty-state"><span class="icon">📭</span>Aucun élève</div>';return;}
-    let html='<div class="eleve-cards">';
-    for(let e of eleves){
-        const sexeBadge=e.sexe==='F'?'<span class="badge badge-fille">👩 Fille</span>':'<span class="badge badge-garcon">👨 Garçon</span>';
-        const codeDisplay=e.parentCode?'<span class="badge badge-code">🔑 '+e.parentCode+'</span>':'';
-        const abandonBadge=e.abandon?'<span class="badge badge-abandon">ABANDON</span>':'';
-        html+='<div class="eleve-card"><div class="eleve-card-header"><div class="eleve-nom">'+e.nom+'</div><div class="eleve-badges">'+sexeBadge+codeDisplay+abandonBadge+'</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">'+e.classe+(e.option?' - '+e.option:'')+'</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode(\''+e.id+'\',\''+e.nom+'\',\''+(e.parentCode||'')+'\')"><span class="item-icon">🔑</span> Code parent</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt(\''+e.id+'\',\''+e.nom+'\')"><span class="item-icon">❌</span> Abandon</div></div></div></div></div>';
+// ============================================================
+// AFFICHAGE DES ÉLÈVES
+// ============================================================
+
+async function afficherListeEleves() {
+    const eleves = await getElevesFiltres();
+    const cont = document.getElementById("elevesContainer");
+    if (!eleves.length) { cont.innerHTML = '<div class="empty-state"><span class="icon">📭</span>Aucun élève</div>'; return; }
+    let html = '<div class="eleve-cards">';
+    for (let e of eleves) {
+        const sexeBadge = e.sexe === 'F' ? '<span class="badge badge-fille">👩 Fille</span>' : '<span class="badge badge-garcon">👨 Garçon</span>';
+        const codeDisplay = e.parentCode ? '<span class="badge badge-code">🔑 ' + e.parentCode + '</span>' : '';
+        const abandonBadge = e.abandon ? '<span class="badge badge-abandon">ABANDON</span>' : '';
+        html += '<div class="eleve-card"><div class="eleve-card-header"><div class="eleve-nom">' + e.nom + '</div><div class="eleve-badges">' + sexeBadge + codeDisplay + abandonBadge + '</div></div><div class="eleve-card-body"><div class="eleve-info-item"><span class="eleve-info-label">📚</span><span class="eleve-info-value">' + e.classe + (e.option ? ' - ' + e.option : '') + '</span></div></div><div class="eleve-card-footer"><div class="dropdown"><button class="dropdown-btn" onclick="event.stopPropagation(); toggleDropdown(this)">⋮ ACTIONS</button><div class="dropdown-content"><div class="dropdown-item" onclick="event.stopPropagation(); ouvrirEditParentCode(\'' + e.id + '\',\'' + e.nom + '\',\'' + (e.parentCode || '') + '\')"><span class="item-icon">🔑</span> Code parent</div><div class="dropdown-item danger" onclick="event.stopPropagation(); marquerAbandonPrompt(\'' + e.id + '\',\'' + e.nom + '\')"><span class="item-icon">❌</span> Abandon</div></div></div></div></div>';
     }
-    html+='</div>';
-    cont.innerHTML=html;
+    html += '</div>';
+    cont.innerHTML = html;
 }
 
-window.toggleDropdown=function(btn){const dropdown=btn.nextElementSibling;const isVisible=dropdown.classList.contains('show');document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));if(!isVisible)dropdown.classList.add('show');};
-document.addEventListener('click',function(e){if(!e.target.closest('.dropdown')){document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));}});
+window.toggleDropdown = function(btn) { const dropdown = btn.nextElementSibling; const isVisible = dropdown.classList.contains('show'); document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show')); if (!isVisible) dropdown.classList.add('show'); };
+document.addEventListener('click', function(e) { if (!e.target.closest('.dropdown')) { document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show')); } });
 
-async function mettreAJourStats(){
-    const eleves=await getAllComptaEleves();
-    const actifs=eleves.filter(e=>!e.abandon);
-    const filles=actifs.filter(e=>e.sexe==='F');
-    const garcons=actifs.filter(e=>e.sexe==='M');
-    document.getElementById("statTotal").innerText=actifs.length;
-    document.getElementById("statFilles").innerText=filles.length;
-    document.getElementById("statGarcons").innerText=garcons.length;
+async function mettreAJourStats() {
+    const eleves = await getAllComptaEleves();
+    const actifs = eleves.filter(e => !e.abandon);
+    const filles = actifs.filter(e => e.sexe === 'F');
+    const garcons = actifs.filter(e => e.sexe === 'M');
+    document.getElementById("statTotal").innerText = actifs.length;
+    document.getElementById("statFilles").innerText = filles.length;
+    document.getElementById("statGarcons").innerText = garcons.length;
 }
 
-async function marquerAbandon(eleveId){
-    const id='compta_'+eleveId;
-    const ref=doc(db,"ecoles",ECOLET_ID,SC.COMPTA_ELEVES,id);
-    await updateDoc(ref,{abandon:true,dateAbandon:new Date().toISOString()});
-    const idx=localEleves.findIndex(e=>e.id===eleveId);
-    if(idx!==-1){localEleves[idx].abandon=true;localEleves[idx].dateAbandon=new Date().toISOString();}
+async function marquerAbandon(eleveId) {
+    const id = 'compta_' + eleveId;
+    const ref = doc(db, "ecoles", SCHOOL_NAME, SC.COMPTA_ELEVES, id);
+    await updateDoc(ref, { abandon: true, dateAbandon: new Date().toISOString() });
+    const idx = localEleves.findIndex(e => e.id === eleveId);
+    if (idx !== -1) { localEleves[idx].abandon = true;
+        localEleves[idx].dateAbandon = new Date().toISOString(); }
     await afficherListeEleves();
     await mettreAJourStats();
     await afficherParentCodes();
 }
 
-window.marquerAbandonPrompt=async function(id,nom){
-    if(await showConfirm('⚠️ Êtes-vous sûr de vouloir abandonner l\'élève '+nom+' ?')){await marquerAbandon(id);toast(nom+' a abandonné',"warning");}
+window.marquerAbandonPrompt = async function(id, nom) {
+    if (await showConfirm('⚠️ Êtes-vous sûr de vouloir abandonner l\'élève ' + nom + ' ?')) { await marquerAbandon(id);
+        toast(nom + ' a abandonné', "warning"); }
 };
 
 // ============================================================
 // CODES PARENTS
 // ============================================================
 
-async function afficherParentCodes(){
-    const eleves=await getAllComptaEleves();
-    const actifs=eleves.filter(e=>!e.abandon);
-    const codesMap=new Map();
-    for(let e of actifs){
-        const code=e.parentCode||'';
-        if(!codesMap.has(code))codesMap.set(code,[]);
+async function afficherParentCodes() {
+    const eleves = await getAllComptaEleves();
+    const actifs = eleves.filter(e => !e.abandon);
+    const codesMap = new Map();
+    for (let e of actifs) {
+        const code = e.parentCode || '';
+        if (!codesMap.has(code)) codesMap.set(code, []);
         codesMap.get(code).push(e);
     }
-    const searchCode=document.getElementById('searchParentCode')?.value.trim()||'';
-    const container=document.getElementById('parentCodesContainer');
-    if(searchCode){
-        const enfants=codesMap.get(searchCode)||[];
-        if(enfants.length===0){container.innerHTML='<div class="empty-state"><span class="icon">🔍</span>Aucun élève trouvé avec ce code</div>';}
-        else{
-            let html='<div style="background:rgba(16,185,129,0.15);border-radius:12px;padding:16px;border-left:3px solid #10b981;"><div style="font-weight:bold;margin-bottom:12px;color:#ffd700;">🔑 Code '+searchCode+' - '+enfants.length+' enfant(s)</div>';
-            for(let e of enfants){
-                const sexeIcon=e.sexe==='F'?'👩':'👨';
-                html+='<div style="background:rgba(15,23,42,0.5);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;"><div><span style="font-weight:600;color:#fff;">'+sexeIcon+' '+e.nom+'</span><span style="color:#94a3b8;font-size:12px;margin-left:10px;">📚 '+e.classe+(e.option?' - '+e.option:'')+'</span></div><button class="btn btn-sm btn-outline" onclick="ouvrirEditParentCode(\''+e.id+'\',\''+e.nom+'\',\''+(e.parentCode||'')+'\')">✏️ Modifier</button></div>';
+    const searchCode = document.getElementById('searchParentCode')?.value.trim() || '';
+    const container = document.getElementById('parentCodesContainer');
+    if (searchCode) {
+        const enfants = codesMap.get(searchCode) || [];
+        if (enfants.length === 0) { container.innerHTML = '<div class="empty-state"><span class="icon">🔍</span>Aucun élève trouvé avec ce code</div>'; } else {
+            let html = '<div style="background:rgba(16,185,129,0.15);border-radius:12px;padding:16px;border-left:3px solid #10b981;"><div style="font-weight:bold;margin-bottom:12px;color:#ffd700;">🔑 Code ' + searchCode + ' - ' + enfants.length + ' enfant(s)</div>';
+            for (let e of enfants) {
+                const sexeIcon = e.sexe === 'F' ? '👩' : '👨';
+                html += '<div style="background:rgba(15,23,42,0.5);border-radius:10px;padding:10px 14px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;"><div><span style="font-weight:600;color:#fff;">' + sexeIcon + ' ' + e.nom + '</span><span style="color:#94a3b8;font-size:12px;margin-left:10px;">📚 ' + e.classe + (e.option ? ' - ' + e.option : '') + '</span></div><button class="btn btn-sm btn-outline" onclick="ouvrirEditParentCode(\'' + e.id + '\',\'' + e.nom + '\',\'' + (e.parentCode || '') + '\')">✏️ Modifier</button></div>';
             }
-            html+='<button class="btn btn-sm btn-outline" onclick="document.getElementById(\'searchParentCode\').value=\'\';afficherParentCodes();" style="margin-top:8px;">✖ Effacer</button></div>';
-            container.innerHTML=html;
+            html += '<button class="btn btn-sm btn-outline" onclick="document.getElementById(\'searchParentCode\').value=\'\';afficherParentCodes();" style="margin-top:8px;">✖ Effacer</button></div>';
+            container.innerHTML = html;
         }
-    }else{
-        container.innerHTML='<div class="empty-state"><span class="icon">🔑</span>Entrez un code parent pour rechercher les enfants liés</div>';
+    } else {
+        container.innerHTML = '<div class="empty-state"><span class="icon">🔑</span>Entrez un code parent pour rechercher les enfants liés</div>';
     }
-    const allCodesContainer=document.getElementById('allParentCodesList');
-    let codesListHtml='';
-    let hasCodes=false;
-    for(let[code,enfants]of codesMap){
-        if(!code)continue;
-        hasCodes=true;
-        const noms=enfants.map(e=>e.nom).join(', ');
-        codesListHtml+='<div style="background:rgba(59,130,246,0.1);border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid #3b82f6;"><div style="font-family:monospace;font-size:16px;font-weight:bold;color:#3b82f6;">🔑 '+code+'</div><div style="font-size:12px;color:#94a3b8;margin-top:5px;">'+enfants.length+' élève(s): '+noms+'</div><button class="btn btn-sm btn-outline" style="margin-top:6px;font-size:10px;padding:4px 12px;" onclick="document.getElementById(\'searchParentCode\').value=\''+code+'\';afficherParentCodes();">🔍 Rechercher cette famille</button></div>';
+    const allCodesContainer = document.getElementById('allParentCodesList');
+    let codesListHtml = '';
+    let hasCodes = false;
+    for (let [code, enfants] of codesMap) {
+        if (!code) continue;
+        hasCodes = true;
+        const noms = enfants.map(e => e.nom).join(', ');
+        codesListHtml += '<div style="background:rgba(59,130,246,0.1);border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid #3b82f6;"><div style="font-family:monospace;font-size:16px;font-weight:bold;color:#3b82f6;">🔑 ' + code + '</div><div style="font-size:12px;color:#94a3b8;margin-top:5px;">' + enfants.length + ' élève(s): ' + noms + '</div><button class="btn btn-sm btn-outline" style="margin-top:6px;font-size:10px;padding:4px 12px;" onclick="document.getElementById(\'searchParentCode\').value=\'' + code + '\';afficherParentCodes();">🔍 Rechercher cette famille</button></div>';
     }
-    if(!hasCodes){allCodesContainer.innerHTML='<div class="empty-state"><span class="icon">👨‍👩‍👧‍👦</span>Aucun code parent attribué</div>';}
-    else{allCodesContainer.innerHTML=codesListHtml;}
+    if (!hasCodes) { allCodesContainer.innerHTML = '<div class="empty-state"><span class="icon">👨‍👩‍👧‍👦</span>Aucun code parent attribué</div>'; } else { allCodesContainer.innerHTML = codesListHtml; }
 }
 
-document.getElementById('searchParentCode').addEventListener('input',function(){afficherParentCodes();});
+document.getElementById('searchParentCode').addEventListener('input', function() { afficherParentCodes(); });
 
-window.ouvrirEditParentCode=function(eleveId,eleveNom,codeActuel){
-    const modal=document.getElementById('addEleveModal');
-    document.querySelector('#addEleveModal h3').textContent='✏️ MODIFIER LE CODE PARENT';
-    document.getElementById('newEleveNom').value=eleveNom;
-    document.getElementById('newEleveNom').disabled=true;
-    document.getElementById('newEleveClasse').disabled=true;
-    document.getElementById('newEleveOption').disabled=true;
-    document.getElementById('newEleveSexe').disabled=true;
-    document.getElementById('newEleveParentCode').value=codeActuel||'';
-    document.getElementById('confirmAddEleve').textContent='💾 ENREGISTRER';
-    document.getElementById('confirmAddEleve').style.background='#3b82f6';
-    document.getElementById('confirmAddEleve').onclick=async function(){
-        const nouveauCode=document.getElementById('newEleveParentCode').value.trim();
-        if(!nouveauCode||nouveauCode.length!==6||isNaN(nouveauCode)){toast("Le code doit contenir exactement 6 chiffres","error");return;}
-        try{
-            const id='compta_'+eleveId;
-            const ref=doc(db,"ecoles",ECOLET_ID,SC.COMPTA_ELEVES,id);
-            await updateDoc(ref,{parentCode:nouveauCode});
-            const idx=localEleves.findIndex(e=>e.id===eleveId);
-            if(idx!==-1){localEleves[idx].parentCode=nouveauCode;}
-            toast('✅ Code parent modifié pour '+eleveNom,'success');
+window.ouvrirEditParentCode = function(eleveId, eleveNom, codeActuel) {
+    const modal = document.getElementById('addEleveModal');
+    document.querySelector('#addEleveModal h3').textContent = '✏️ MODIFIER LE CODE PARENT';
+    document.getElementById('newEleveNom').value = eleveNom;
+    document.getElementById('newEleveNom').disabled = true;
+    document.getElementById('newEleveClasse').disabled = true;
+    document.getElementById('newEleveOption').disabled = true;
+    document.getElementById('newEleveSexe').disabled = true;
+    document.getElementById('newEleveParentCode').value = codeActuel || '';
+    document.getElementById('confirmAddEleve').textContent = '💾 ENREGISTRER';
+    document.getElementById('confirmAddEleve').style.background = '#3b82f6';
+    document.getElementById('confirmAddEleve').onclick = async function() {
+        const nouveauCode = document.getElementById('newEleveParentCode').value.trim();
+        if (!nouveauCode || nouveauCode.length !== 6 || isNaN(nouveauCode)) { toast("Le code doit contenir exactement 6 chiffres", "error"); return; }
+        try {
+            const id = 'compta_' + eleveId;
+            const ref = doc(db, "ecoles", SCHOOL_NAME, SC.COMPTA_ELEVES, id);
+            await updateDoc(ref, { parentCode: nouveauCode });
+            const idx = localEleves.findIndex(e => e.id === eleveId);
+            if (idx !== -1) { localEleves[idx].parentCode = nouveauCode; }
+            toast('✅ Code parent modifié pour ' + eleveNom, 'success');
             document.getElementById('addEleveModal').classList.remove('show');
             await afficherListeEleves();
             await afficherParentCodes();
-        }catch(error){toast('Erreur: '+error.message,'error');}
+        } catch (error) { toast('Erreur: ' + error.message, 'error'); }
     };
-    document.getElementById('cancelAddEleve').textContent='ANNULER';
-    document.getElementById('cancelAddEleve').onclick=function(){
-        document.querySelector('#addEleveModal h3').textContent='➕ AJOUTER UN ÉLÈVE';
-        document.getElementById('newEleveNom').disabled=false;
-        document.getElementById('newEleveClasse').disabled=false;
-        document.getElementById('newEleveOption').disabled=false;
-        document.getElementById('newEleveSexe').disabled=false;
-        document.getElementById('newEleveNom').value='';
-        document.getElementById('newEleveParentCode').value='';
-        document.getElementById('confirmAddEleve').textContent='✅ INSCRIRE';
-        document.getElementById('confirmAddEleve').style.background='#10b981';
+    document.getElementById('cancelAddEleve').textContent = 'ANNULER';
+    document.getElementById('cancelAddEleve').onclick = function() {
+        document.querySelector('#addEleveModal h3').textContent = '➕ AJOUTER UN ÉLÈVE';
+        document.getElementById('newEleveNom').disabled = false;
+        document.getElementById('newEleveClasse').disabled = false;
+        document.getElementById('newEleveOption').disabled = false;
+        document.getElementById('newEleveSexe').disabled = false;
+        document.getElementById('newEleveNom').value = '';
+        document.getElementById('newEleveParentCode').value = '';
+        document.getElementById('confirmAddEleve').textContent = '✅ INSCRIRE';
+        document.getElementById('confirmAddEleve').style.background = '#10b981';
         document.getElementById('addEleveModal').classList.remove('show');
     };
     modal.classList.add('show');
@@ -777,201 +737,204 @@ window.ouvrirEditParentCode=function(eleveId,eleveNom,codeActuel){
 // PUNITIONS
 // ============================================================
 
-async function updatePunitionEleves(){
-    const c=document.getElementById('punitionClasseSelect').value;
-    const es=document.getElementById('punitionEleveSelect');
-    if(!es)return;
-    const cv=es.value;
-    es.innerHTML='<option value="">Tous</option>';
-    try{
-        const snap=await getDocs(collection(db,"ecoles",ECOLET_ID,SC.FICHES));
-        const elevesSet=new Set();
-        snap.forEach(ds=>{
-            const d=ds.data();
-            if(d._type)return;
-            if(c&&d.classe!==c)return;
-            if(d.eleves&&Array.isArray(d.eleves)){
-                d.eleves.forEach(e=>{if(e.nom)elevesSet.add(e.nom);});
+async function updatePunitionEleves() {
+    const c = document.getElementById('punitionClasseSelect').value;
+    const es = document.getElementById('punitionEleveSelect');
+    if (!es) return;
+    const cv = es.value;
+    es.innerHTML = '<option value="">Tous</option>';
+    try {
+        const snap = await getDocs(collection(db, "ecoles", SCHOOL_NAME, SC.FICHES));
+        const elevesSet = new Set();
+        snap.forEach(ds => {
+            const d = ds.data();
+            if (d._type) return;
+            if (c && d.classe !== c) return;
+            if (d.eleves && Array.isArray(d.eleves)) {
+                d.eleves.forEach(e => { if (e.nom) elevesSet.add(e.nom); });
             }
         });
-        const elevesTries=Array.from(elevesSet).sort();
-        if(elevesTries.length===0){es.innerHTML='<option value="">Aucun élève trouvé</option>';return;}
-        elevesTries.forEach(n=>{
-            const opt=document.createElement('option');
-            opt.value=n;
-            opt.textContent=n;
-            if(n===cv)opt.selected=true;
+        const elevesTries = Array.from(elevesSet).sort();
+        if (elevesTries.length === 0) { es.innerHTML = '<option value="">Aucun élève trouvé</option>'; return; }
+        elevesTries.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            if (n === cv) opt.selected = true;
             es.appendChild(opt);
         });
-    }catch(e){console.error("Erreur chargement élèves:",e);es.innerHTML='<option value="">Erreur</option>';}
+    } catch (e) { console.error("Erreur chargement élèves:", e);
+        es.innerHTML = '<option value="">Erreur</option>'; }
 }
 
-async function chargerPunitions(){
-    const c=document.getElementById('punitionClasseSelect').value;
-    const en=document.getElementById('punitionEleveSelect').value;
-    const container=document.getElementById('punitionsListContainer');
-    if(!container)return;
-    container.innerHTML='<div style="text-align:center;padding:14px;color:#64748b;"><span class="icon" style="font-size:20px;display:block;">⏳</span>Chargement...</div>';
-    try{
-        let constraints=[];
-        if(c)constraints.push(where("classe","==",c));
-        if(en)constraints.push(where("eleveNom","==",en));
-        constraints.push(where("statut","==","active"));
-        let q=collection(db,"ecoles",ECOLET_ID,SC.PUNITIONS);
-        let queryRef=constraints.length>0?query(q,...constraints):q;
-        const snap=await getDocs(queryRef);
-        const punitions=[];
-        snap.forEach(ds=>{punitions.push({id:ds.id,...ds.data()})});
-        if(punitions.length===0){container.innerHTML='<div class="empty-state"><span class="icon">⚖️</span>Aucune punition active</div>';return;}
-        let html='';
-        punitions.sort((a,b)=>new Date(b.date)-new Date(a.date));
-        punitions.forEach(p=>{
-            const df=new Date(p.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});
-            const gc=p.gravite==='grave'?'grave':p.gravite==='moyenne'?'moyenne':'legere';
-            html+='<div class="punition-item"><div class="info"><span class="nom">'+p.eleveNom+'</span><span class="motif">'+p.motif+'</span><span class="date">📅 '+df+'</span><span class="gravite '+gc+'">'+(p.gravite==='grave'?'Grave':p.gravite==='moyenne'?'Moyenne':'Légère')+'</span></div><div class="punition-actions"><button onclick="window.annulerPunition(\''+p.id+'\')" style="background:#7f1d1d;color:white;border:none;padding:4px 12px;border-radius:20px;cursor:pointer;font-size:10px;">✕ Annuler</button></div></div>';
+async function chargerPunitions() {
+    const c = document.getElementById('punitionClasseSelect').value;
+    const en = document.getElementById('punitionEleveSelect').value;
+    const container = document.getElementById('punitionsListContainer');
+    if (!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;"><span class="icon" style="font-size:20px;display:block;">⏳</span>Chargement...</div>';
+    try {
+        let constraints = [];
+        if (c) constraints.push(where("classe", "==", c));
+        if (en) constraints.push(where("eleveNom", "==", en));
+        constraints.push(where("statut", "==", "active"));
+        let q = collection(db, "ecoles", SCHOOL_NAME, SC.PUNITIONS);
+        let queryRef = constraints.length > 0 ? query(q, ...constraints) : q;
+        const snap = await getDocs(queryRef);
+        const punitions = [];
+        snap.forEach(ds => { punitions.push({ id: ds.id, ...ds.data() }) });
+        if (punitions.length === 0) { container.innerHTML = '<div class="empty-state"><span class="icon">⚖️</span>Aucune punition active</div>'; return; }
+        let html = '';
+        punitions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        punitions.forEach(p => {
+            const df = new Date(p.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const gc = p.gravite === 'grave' ? 'grave' : p.gravite === 'moyenne' ? 'moyenne' : 'legere';
+            html += '<div class="punition-item"><div class="info"><span class="nom">' + p.eleveNom + '</span><span class="motif">' + p.motif + '</span><span class="date">📅 ' + df + '</span><span class="gravite ' + gc + '">' + (p.gravite === 'grave' ? 'Grave' : p.gravite === 'moyenne' ? 'Moyenne' : 'Légère') + '</span></div><div class="punition-actions"><button onclick="window.annulerPunition(\'' + p.id + '\')" style="background:#7f1d1d;color:white;border:none;padding:4px 12px;border-radius:20px;cursor:pointer;font-size:10px;">✕ Annuler</button></div></div>';
         });
-        container.innerHTML=html;
-    }catch(e){container.innerHTML='<div class="empty-state"><span class="icon">❌</span>Erreur de chargement</div>';}
+        container.innerHTML = html;
+    } catch (e) { container.innerHTML = '<div class="empty-state"><span class="icon">❌</span>Erreur de chargement</div>'; }
 }
 
-window.annulerPunition=async function(id){
-    if(await showConfirm('Annuler la punition ?')){
-        try{await updateDoc(doc(db,"ecoles",ECOLET_ID,SC.PUNITIONS,id),{statut:"annulee"});chargerPunitions();}catch(e){}
+window.annulerPunition = async function(id) {
+    if (await showConfirm('Annuler la punition ?')) {
+        try { await updateDoc(doc(db, "ecoles", SCHOOL_NAME, SC.PUNITIONS, id), { statut: "annulee" });
+            chargerPunitions(); } catch (e) {}
     }
 };
 
-document.getElementById('addPunitionBtn').onclick=function(){
-    const form=document.getElementById('punitionForm');
-    const es=document.getElementById('punitionEleveSelect');
-    if(form.classList.contains('show')){form.classList.remove('show');return;}
-    if(!es.value){toast('Veuillez sélectionner un élève','error');return;}
-    document.getElementById('punitionMotif').value='';
-    document.getElementById('punitionJustification').value='';
+document.getElementById('addPunitionBtn').onclick = function() {
+    const form = document.getElementById('punitionForm');
+    const es = document.getElementById('punitionEleveSelect');
+    if (form.classList.contains('show')) { form.classList.remove('show'); return; }
+    if (!es.value) { toast('Veuillez sélectionner un élève', 'error'); return; }
+    document.getElementById('punitionMotif').value = '';
+    document.getElementById('punitionJustification').value = '';
     form.classList.add('show');
     document.getElementById('punitionMotif').focus();
 };
 
-document.getElementById('cancelPunitionBtn').onclick=function(){document.getElementById('punitionForm').classList.remove('show');};
+document.getElementById('cancelPunitionBtn').onclick = function() { document.getElementById('punitionForm').classList.remove('show'); };
 
-document.getElementById('savePunitionBtn').onclick=async function(){
-    const es=document.getElementById('punitionEleveSelect');
-    const c=document.getElementById('punitionClasseSelect').value;
-    const motif=document.getElementById('punitionMotif').value.trim();
-    const just=document.getElementById('punitionJustification').value.trim();
-    if(!es.value){toast('Veuillez sélectionner un élève','error');return;}
-    if(!motif){toast('Veuillez saisir un motif','error');return;}
-    if(!just){toast('Veuillez saisir une justification','error');return;}
-    const data={eleveNom:es.value,classe:c||'Non spécifiée',motif:motif,justification:just,date:new Date().toISOString(),enregistrePar:'Direction',gravite:'moyenne',statut:'active'};
-    try{
-        const docId='punition_'+Date.now();
-        await setDoc(doc(db,"ecoles",ECOLET_ID,SC.PUNITIONS,docId),data);
+document.getElementById('savePunitionBtn').onclick = async function() {
+    const es = document.getElementById('punitionEleveSelect');
+    const c = document.getElementById('punitionClasseSelect').value;
+    const motif = document.getElementById('punitionMotif').value.trim();
+    const just = document.getElementById('punitionJustification').value.trim();
+    if (!es.value) { toast('Veuillez sélectionner un élève', 'error'); return; }
+    if (!motif) { toast('Veuillez saisir un motif', 'error'); return; }
+    if (!just) { toast('Veuillez saisir une justification', 'error'); return; }
+    const data = { eleveNom: es.value, classe: c || 'Non spécifiée', motif: motif, justification: just, date: new Date().toISOString(), enregistrePar: 'Direction', gravite: 'moyenne', statut: 'active' };
+    try {
+        const docId = 'punition_' + Date.now();
+        await setDoc(doc(db, "ecoles", SCHOOL_NAME, SC.PUNITIONS, docId), data);
         document.getElementById('punitionForm').classList.remove('show');
         chargerPunitions();
-        toast('✅ Punition enregistrée','success');
-    }catch(e){toast('Erreur: '+e.message,'error');}
+        toast('✅ Punition enregistrée', 'success');
+    } catch (e) { toast('Erreur: ' + e.message, 'error'); }
 };
 
-document.getElementById('punitionClasseSelect').onchange=function(){updatePunitionEleves();chargerPunitions();};
-document.getElementById('punitionEleveSelect').onchange=function(){chargerPunitions();};
+document.getElementById('punitionClasseSelect').onchange = function() { updatePunitionEleves();
+    chargerPunitions(); };
+document.getElementById('punitionEleveSelect').onchange = function() { chargerPunitions(); };
 
 // ============================================================
 // PROFESSEURS
 // ============================================================
 
-function genererCodeAcces(){return Math.floor(100000+Math.random()*900000).toString();}
+function genererCodeAcces() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
-function genererEmailProfesseur(nom,ecoleId){
-    if(!nom)return'';
-    const nomPropre=nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z\s]/g,'').trim().replace(/\s+/g,'.');
-    return`prof.${nomPropre}.${ecoleId}@gmail.com`;
+function genererEmailProfesseur(nom) {
+    if (!nom) return '';
+    const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.');
+    return `prof.${nomPropre}.gloriadei@gmail.com`;
 }
 
-async function chargerProfs(){
-    try{
-        const q=query(collection(db,"ecoles",ECOLET_ID,SC.PROFESSEURS),where("_type","==","prof"));
-        const snap=await getDocs(q);
-        const profs=[];
-        snap.forEach(ds=>{const data=ds.data();if(data.nom)profs.push({id:ds.id,...data});});
-        profs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+async function chargerProfs() {
+    try {
+        const q = query(collection(db, "ecoles", SCHOOL_NAME, SC.PROFESSEURS), where("_type", "==", "prof"));
+        const snap = await getDocs(q);
+        const profs = [];
+        snap.forEach(ds => { const data = ds.data(); if (data.nom) profs.push({ id: ds.id, ...data }); });
+        profs.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         return profs;
-    }catch(e){return[];}
+    } catch (e) { return []; }
 }
 
-function afficherProfs(profs){
-    const c=document.getElementById('profsListContainer');
-    if(!c)return;
-    if(!profs||profs.length===0){c.innerHTML='<div class="empty-state"><span class="icon">👨‍🏫</span>Aucun professeur</div>';return;}
-    let html='';
-    profs.forEach(p=>{
-        const estActif=p.actif!==false;
-        const sexe=p.sexe||'M';
-        const sexeLabel=sexe==='F'?'👩 Femme':'👨 Homme';
-        const sexeClass=sexe==='F'?'female':'male';
-        html+='<div class="prof-item"><span class="name">'+p.nom+'</span><span class="sexe-badge '+sexeClass+'">'+sexeLabel+'</span><span class="status-badge '+(estActif?'active':'inactive')+'">'+(estActif?'Actif':'Inactif')+'</span><button onclick="window.desactiverProf(\''+p.id+'\')" style="background:'+(estActif?'#7f1d1d':'#10b981')+';color:white;border:none;padding:2px 10px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">'+(estActif?'Désactiver':'Réactiver')+'</button></div>';
+function afficherProfs(profs) {
+    const c = document.getElementById('profsListContainer');
+    if (!c) return;
+    if (!profs || profs.length === 0) { c.innerHTML = '<div class="empty-state"><span class="icon">👨‍🏫</span>Aucun professeur</div>'; return; }
+    let html = '';
+    profs.forEach(p => {
+        const estActif = p.actif !== false;
+        const sexe = p.sexe || 'M';
+        const sexeLabel = sexe === 'F' ? '👩 Femme' : '👨 Homme';
+        const sexeClass = sexe === 'F' ? 'female' : 'male';
+        html += '<div class="prof-item"><span class="name">' + p.nom + '</span><span class="sexe-badge ' + sexeClass + '">' + sexeLabel + '</span><span class="status-badge ' + (estActif ? 'active' : 'inactive') + '">' + (estActif ? 'Actif' : 'Inactif') + '</span><button onclick="window.desactiverProf(\'' + p.id + '\')" style="background:' + (estActif ? '#7f1d1d' : '#10b981') + ';color:white;border:none;padding:2px 10px;border-radius:30px;cursor:pointer;font-size:9px;font-weight:600;">' + (estActif ? 'Désactiver' : 'Réactiver') + '</button></div>';
     });
-    c.innerHTML=html;
+    c.innerHTML = html;
 }
 
-window.desactiverProf=async function(id){
-    if(await showConfirm('Désactiver ce professeur ?')){
-        try{
-            const docRef=doc(db,"ecoles",ECOLET_ID,SC.PROFESSEURS,id);
-            const snap=await getDoc(docRef);
-            const data=snap.data();
-            await updateDoc(docRef,{actif:!data.actif});
-            toast('✅ Professeur '+(data.actif?'désactivé':'réactivé'),'success');
-        }catch(e){toast('❌ Erreur: '+e.message,'error');}
+window.desactiverProf = async function(id) {
+    if (await showConfirm('Désactiver ce professeur ?')) {
+        try {
+            const docRef = doc(db, "ecoles", SCHOOL_NAME, SC.PROFESSEURS, id);
+            const snap = await getDoc(docRef);
+            const data = snap.data();
+            await updateDoc(docRef, { actif: !data.actif });
+            toast('✅ Professeur ' + (data.actif ? 'désactivé' : 'réactivé'), 'success');
+        } catch (e) { toast('❌ Erreur: ' + e.message, 'error'); }
     }
 };
 
-document.getElementById('addProfBtn').onclick=function(){
-    const modal=document.getElementById('addEleveModal');
-    document.querySelector('#addEleveModal h3').textContent='➕ AJOUTER UN PROFESSEUR';
-    document.getElementById('newEleveNom').value='';
-    document.getElementById('newEleveNom').disabled=false;
-    document.getElementById('newEleveNom').placeholder='Nom complet du professeur';
-    document.getElementById('newEleveClasse').disabled=true;
-    document.getElementById('newEleveClasse').value='';
-    document.getElementById('newEleveOption').disabled=true;
-    document.getElementById('newEleveOption').value='';
-    document.getElementById('newEleveSexe').disabled=false;
-    document.getElementById('newEleveSexe').value='';
-    document.getElementById('newEleveParentCode').value=genererCodeAcces();
-    document.getElementById('newEleveParentCode').style.color='#10b981';
-    document.getElementById('confirmAddEleve').textContent='✅ AJOUTER';
-    document.getElementById('confirmAddEleve').style.background='#10b981';
-    document.getElementById('confirmAddEleve').onclick=async function(){
-        const nom=document.getElementById('newEleveNom').value.trim();
-        const sexe=document.getElementById('newEleveSexe').value;
-        const code=document.getElementById('newEleveParentCode').value.trim();
-        if(!nom){toast('Veuillez entrer le nom','error');return;}
-        if(!sexe){toast('Veuillez sélectionner le sexe','error');return;}
-        if(!code||code.length<4){toast('Code invalide','error');return;}
-        const pid='prof_'+Date.now();
-        const email=genererEmailProfesseur(nom,ECOLET_ID);
-        const data={_type:"prof",id:pid,profId:pid,nom:nom,sexe:sexe,code:code,email:email,emailProf:email,createdAt:Date.now(),actif:true,school:ECOLET_ID};
-        try{
-            await setDoc(doc(db,"ecoles",ECOLET_ID,SC.PROFESSEURS,pid),data);
-            toast('✅ '+nom+' ajouté','success');
+document.getElementById('addProfBtn').onclick = function() {
+    const modal = document.getElementById('addEleveModal');
+    document.querySelector('#addEleveModal h3').textContent = '➕ AJOUTER UN PROFESSEUR';
+    document.getElementById('newEleveNom').value = '';
+    document.getElementById('newEleveNom').disabled = false;
+    document.getElementById('newEleveNom').placeholder = 'Nom complet du professeur';
+    document.getElementById('newEleveClasse').disabled = true;
+    document.getElementById('newEleveClasse').value = '';
+    document.getElementById('newEleveOption').disabled = true;
+    document.getElementById('newEleveOption').value = '';
+    document.getElementById('newEleveSexe').disabled = false;
+    document.getElementById('newEleveSexe').value = '';
+    document.getElementById('newEleveParentCode').value = genererCodeAcces();
+    document.getElementById('newEleveParentCode').style.color = '#10b981';
+    document.getElementById('confirmAddEleve').textContent = '✅ AJOUTER';
+    document.getElementById('confirmAddEleve').style.background = '#10b981';
+    document.getElementById('confirmAddEleve').onclick = async function() {
+        const nom = document.getElementById('newEleveNom').value.trim();
+        const sexe = document.getElementById('newEleveSexe').value;
+        const code = document.getElementById('newEleveParentCode').value.trim();
+        if (!nom) { toast('Veuillez entrer le nom', 'error'); return; }
+        if (!sexe) { toast('Veuillez sélectionner le sexe', 'error'); return; }
+        if (!code || code.length < 4) { toast('Code invalide', 'error'); return; }
+        const pid = 'prof_' + Date.now();
+        const email = genererEmailProfesseur(nom);
+        const data = { _type: "prof", id: pid, profId: pid, nom: nom, sexe: sexe, code: code, email: email, emailProf: email, createdAt: Date.now(), actif: true, school: SCHOOL_NAME };
+        try {
+            await setDoc(doc(db, "ecoles", SCHOOL_NAME, SC.PROFESSEURS, pid), data);
+            toast('✅ ' + nom + ' ajouté', 'success');
             document.getElementById('addEleveModal').classList.remove('show');
-            document.querySelector('#addEleveModal h3').textContent='➕ AJOUTER UN ÉLÈVE';
-            document.getElementById('newEleveNom').placeholder='Ex: KASONGO Jean';
-            document.getElementById('newEleveClasse').disabled=false;
-            document.getElementById('newEleveOption').disabled=false;
-            document.getElementById('newEleveParentCode').style.color='#10b981';
-        }catch(e){toast('Erreur: '+e.message,'error');}
+            document.querySelector('#addEleveModal h3').textContent = '➕ AJOUTER UN ÉLÈVE';
+            document.getElementById('newEleveNom').placeholder = 'Ex: KASONGO Jean';
+            document.getElementById('newEleveClasse').disabled = false;
+            document.getElementById('newEleveOption').disabled = false;
+            document.getElementById('newEleveParentCode').style.color = '#10b981';
+        } catch (e) { toast('Erreur: ' + e.message, 'error'); }
     };
-    document.getElementById('cancelAddEleve').textContent='ANNULER';
-    document.getElementById('cancelAddEleve').onclick=function(){
-        document.querySelector('#addEleveModal h3').textContent='➕ AJOUTER UN ÉLÈVE';
-        document.getElementById('newEleveNom').disabled=false;
-        document.getElementById('newEleveNom').placeholder='Ex: KASONGO Jean';
-        document.getElementById('newEleveClasse').disabled=false;
-        document.getElementById('newEleveOption').disabled=false;
-        document.getElementById('newEleveSexe').disabled=false;
-        document.getElementById('newEleveParentCode').style.color='#10b981';
-        document.getElementById('confirmAddEleve').textContent='✅ INSCRIRE';
-        document.getElementById('confirmAddEleve').style.background='#10b981';
+    document.getElementById('cancelAddEleve').textContent = 'ANNULER';
+    document.getElementById('cancelAddEleve').onclick = function() {
+        document.querySelector('#addEleveModal h3').textContent = '➕ AJOUTER UN ÉLÈVE';
+        document.getElementById('newEleveNom').disabled = false;
+        document.getElementById('newEleveNom').placeholder = 'Ex: KASONGO Jean';
+        document.getElementById('newEleveClasse').disabled = false;
+        document.getElementById('newEleveOption').disabled = false;
+        document.getElementById('newEleveSexe').disabled = false;
+        document.getElementById('newEleveParentCode').style.color = '#10b981';
+        document.getElementById('confirmAddEleve').textContent = '✅ INSCRIRE';
+        document.getElementById('confirmAddEleve').style.background = '#10b981';
         document.getElementById('addEleveModal').classList.remove('show');
     };
     modal.classList.add('show');
@@ -981,151 +944,206 @@ document.getElementById('addProfBtn').onclick=function(){
 // CORBEILLE
 // ============================================================
 
-async function afficherCorbeille(){
-    const c=document.getElementById('corbeilleList');
-    if(!c)return;
-    try{
-        const corbeilleRef=collection(db,"ecoles",ECOLET_ID,SC.CORBEILLE);
-        const snap=await getDocs(corbeilleRef);
-        const corbeille=[];
-        snap.forEach(ds=>{
-            const data=ds.data();
-            if(data.dateExpiration&&new Date(data.dateExpiration)>new Date()){
-                corbeille.push({id:ds.id,...data});
+async function afficherCorbeille() {
+    const c = document.getElementById('corbeilleList');
+    if (!c) return;
+    try {
+        const corbeilleRef = collection(db, "ecoles", SCHOOL_NAME, SC.CORBEILLE);
+        const snap = await getDocs(corbeilleRef);
+        const corbeille = [];
+        snap.forEach(ds => {
+            const data = ds.data();
+            if (data.dateExpiration && new Date(data.dateExpiration) > new Date()) {
+                corbeille.push({ id: ds.id, ...data });
             }
         });
-        if(corbeille.length===0){c.innerHTML='<div class="empty-state"><span class="icon">🗑️</span>Corbeille vide</div>';return;}
-        corbeille.sort((a,b)=>(b.dateSuppression||0)-(a.dateSuppression||0));
-        c.innerHTML='';
-        corbeille.forEach(f=>{
-            const dateSupp=f.dateSuppression?new Date(f.dateSuppression):new Date();
-            const dateExpiration=new Date(dateSupp);dateExpiration.setDate(dateExpiration.getDate()+15);
-            const joursRestants=Math.ceil((dateExpiration-new Date())/(1000*60*60*24));
-            let couleurCls=joursRestants<=5?'urgent':(joursRestants<=10?'moyen':'ok');
-            const d=document.createElement('div');
-            d.className='corbeille-item';
-            d.innerHTML='<div class="header" style="display:flex;justify-content:space-between;margin-bottom:4px;"><span class="ref">'+(f.numeroRef?'F'+String(f.numeroRef).padStart(3,'0'):'???')+'</span><span class="jours '+couleurCls+'">'+joursRestants+' jour(s)</span></div><div class="info"><span class="cours">'+(f.cours||'?')+'</span> - <span>'+(f.classe||'?')+'</span>'+(f.option?'('+f.option+')':'')+'</div><div class="prof">👨‍🏫 '+(f.professeurNom||f.profId||'?')+'</div><button class="btn btn-sm btn-success" onclick="window.restaurerFiche(\''+f.id+'\')" style="margin-top:6px;">♻️ Restaurer</button>';
+        if (corbeille.length === 0) { c.innerHTML = '<div class="empty-state"><span class="icon">🗑️</span>Corbeille vide</div>'; return; }
+        corbeille.sort((a, b) => (b.dateSuppression || 0) - (a.dateSuppression || 0));
+        c.innerHTML = '';
+        corbeille.forEach(f => {
+            const dateSupp = f.dateSuppression ? new Date(f.dateSuppression) : new Date();
+            const dateExpiration = new Date(dateSupp);
+            dateExpiration.setDate(dateExpiration.getDate() + 15);
+            const joursRestants = Math.ceil((dateExpiration - new Date()) / (1000 * 60 * 60 * 24));
+            let couleurCls = joursRestants <= 5 ? 'urgent' : (joursRestants <= 10 ? 'moyen' : 'ok');
+            const d = document.createElement('div');
+            d.className = 'corbeille-item';
+            d.innerHTML = '<div class="header" style="display:flex;justify-content:space-between;margin-bottom:4px;"><span class="ref">' + (f.numeroRef ? 'F' + String(f.numeroRef).padStart(3, '0') : '???') + '</span><span class="jours ' + couleurCls + '">' + joursRestants + ' jour(s)</span></div><div class="info"><span class="cours">' + (f.cours || '?') + '</span> - <span>' + (f.classe || '?') + '</span>' + (f.option ? '(' + f.option + ')' : '') + '</div><div class="prof">👨‍🏫 ' + (f.professeurNom || f.profId || '?') + '</div><button class="btn btn-sm btn-success" onclick="window.restaurerFiche(\'' + f.id + '\')" style="margin-top:6px;">♻️ Restaurer</button>';
             c.appendChild(d);
         });
-    }catch(e){console.error("Erreur corbeille:",e);c.innerHTML='<div class="empty-state"><span class="icon">❌</span>Erreur</div>';}
+    } catch (e) { console.error("Erreur corbeille:", e);
+        c.innerHTML = '<div class="empty-state"><span class="icon">❌</span>Erreur</div>'; }
 }
 
-window.restaurerFiche=async function(ficheId){
-    if(!await showConfirm('Restaurer cette fiche de cotation ?'))return;
-    try{
-        const docRef=doc(db,"ecoles",ECOLET_ID,SC.CORBEILLE,ficheId);
-        const snap=await getDoc(docRef);
-        if(!snap.exists()){toast('Fiche non trouvée','error');return;}
-        const fiche=snap.data();
-        const newData={...fiche};
+window.restaurerFiche = async function(ficheId) {
+    if (!await showConfirm('Restaurer cette fiche de cotation ?')) return;
+    try {
+        const docRef = doc(db, "ecoles", SCHOOL_NAME, SC.CORBEILLE, ficheId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) { toast('Fiche non trouvée', 'error'); return; }
+        const fiche = snap.data();
+        const newData = { ...fiche };
         delete newData.dateSuppression;
         delete newData.dateExpiration;
         delete newData.professeurNom;
         delete newData.supprimePar;
-        newData.school=ECOLET_ID;
-        newData.dateRestoration=new Date().toISOString();
-        await setDoc(doc(db,"ecoles",ECOLET_ID,SC.FICHES,ficheId),newData);
-        await deleteDoc(doc(db,"ecoles",ECOLET_ID,SC.CORBEILLE,ficheId));
-        toast('✅ Fiche restaurée','success');
+        newData.school = SCHOOL_NAME;
+        newData.dateRestoration = new Date().toISOString();
+        await setDoc(doc(db, "ecoles", SCHOOL_NAME, SC.FICHES, ficheId), newData);
+        await deleteDoc(doc(db, "ecoles", SCHOOL_NAME, SC.CORBEILLE, ficheId));
+        toast('✅ Fiche restaurée', 'success');
         afficherCorbeille();
-    }catch(e){toast('Erreur: '+e.message,'error');}
+    } catch (e) { toast('Erreur: ' + e.message, 'error'); }
 };
 
 // ============================================================
 // RECO
 // ============================================================
 
-let recoUnsubscribe=null;
-let recoMessages=[];
-
-function addRecoMessage(sender,nom,message){
-    const container=document.getElementById('recoMessagesContainer');
-    if(!container)return;
-    const empty=container.querySelector('.empty-state');
-    if(empty)empty.remove();
-    const div=document.createElement('div');
-    div.className='reco-message '+sender;
-    const time=new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    div.innerHTML='<div class="bubble"><div class="sender" style="font-size:10px;font-weight:600;color:#94a3b8;margin-bottom:2px;">'+nom+'</div><div>'+message+'</div><div class="time">'+time+'</div></div>';
+function addRecoMessage(sender, nom, message) {
+    const container = document.getElementById('recoMessagesContainer');
+    if (!container) return;
+    const empty = container.querySelector('.empty-state');
+    if (empty) empty.remove();
+    const div = document.createElement('div');
+    div.className = 'reco-message ' + sender;
+    const time = new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = '<div class="bubble"><div class="sender" style="font-size:10px;font-weight:600;color:#94a3b8;margin-bottom:2px;">' + nom + '</div><div>' + message + '</div><div class="time">' + time + '</div></div>';
     container.appendChild(div);
-    const body=document.getElementById('recoBody');
-    if(body)body.scrollTop=body.scrollHeight;
+    const body = document.getElementById('recoBody');
+    if (body) body.scrollTop = body.scrollHeight;
 }
 
-function initReco(){
-    if(recoUnsubscribe)return;
-    const docRef=doc(db,"communication","support_netubex_board");
-    recoUnsubscribe=onSnapshot(docRef,(snap)=>{
-        if(snap.exists()){
-            const data=snap.data();
-            let all=data.messages||[];
-            let filtered=all.filter(m=>m.ecole===SCHOOL_DISPLAY_NAME);
-            filtered.sort((a,b)=>(a.number||0)-(b.number||0));
-            recoMessages=filtered;
-            const container=document.getElementById('recoMessagesContainer');
-            if(container){
-                const empty=container.querySelector('.empty-state');
-                if(empty)empty.remove();
-                const messages=container.querySelectorAll('.reco-message');
-                messages.forEach(el=>el.remove());
-                filtered.forEach(m=>{
-                    const sender=m.expediteur==='direction'?'direction':'support';
-                    const nom=m.expediteur==='direction'?'Direction':'Support NeTubeX';
-                    addRecoMessage(sender,nom,m.contenu||m.message);
+function initReco() {
+    if (recoUnsubscribe) return;
+    const docRef = doc(db, "communication", "support_netubex_board");
+    recoUnsubscribe = onSnapshot(docRef, (snap) => {
+        if (snap.exists()) {
+            const data = snap.data();
+            let all = data.messages || [];
+            let filtered = all.filter(m => m.ecole === SCHOOL_NAME);
+            filtered.sort((a, b) => (a.number || 0) - (b.number || 0));
+            const container = document.getElementById('recoMessagesContainer');
+            if (container) {
+                const empty = container.querySelector('.empty-state');
+                if (empty) empty.remove();
+                const messages = container.querySelectorAll('.reco-message');
+                messages.forEach(el => el.remove());
+                filtered.forEach(m => {
+                    const sender = m.expediteur === 'direction' ? 'direction' : 'support';
+                    const nom = m.expediteur === 'direction' ? 'Direction' : 'Support NeTubeX';
+                    addRecoMessage(sender, nom, m.contenu || m.message);
                 });
-                if(filtered.length===0){
-                    container.innerHTML='<div class="empty-state"><span class="icon">💬</span>Aucun message. Écrivez votre demande.</div>';
+                if (filtered.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><span class="icon">💬</span>Aucun message. Écrivez votre demande.</div>';
                 }
             }
         }
-    },(e)=>console.error(e));
+    }, (e) => console.error(e));
 }
 
-document.getElementById('recoSendBtn').onclick=function(){
-    const input=document.getElementById('recoInput');
-    const message=input.value.trim();
-    if(!message){toast('Veuillez écrire un message','warning');return;}
-    addRecoMessage('direction','Direction',message);
-    input.value='';
+document.getElementById('recoSendBtn').onclick = function() {
+    const input = document.getElementById('recoInput');
+    const message = input.value.trim();
+    if (!message) { toast('Veuillez écrire un message', 'warning'); return; }
+    addRecoMessage('direction', 'Direction', message);
+    input.value = '';
 };
 
-document.getElementById('recoInput').addEventListener('keypress',function(e){if(e.key==='Enter'){e.preventDefault();document.getElementById('recoSendBtn').click();}});
+document.getElementById('recoInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') { e.preventDefault();
+        document.getElementById('recoSendBtn').click(); } });
 
 // ============================================================
 // ONGLETS
 // ============================================================
 
-document.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.onclick=function(){
-        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = function() {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         this.classList.add('active');
         document.getElementById(this.dataset.tab).classList.add('active');
-        if(this.dataset.tab==='tabEleves'){afficherListeEleves();}
-        if(this.dataset.tab==='tabCodesParents'){afficherParentCodes();}
-        if(this.dataset.tab==='tabPunitions'){chargerPunitions();}
-        if(this.dataset.tab==='tabProfesseurs'){afficherCorbeille();}
-        if(this.dataset.tab==='tabReco'){initReco();}
+        if (this.dataset.tab === 'tabEleves') { afficherListeEleves(); }
+        if (this.dataset.tab === 'tabCodesParents') { afficherParentCodes(); }
+        if (this.dataset.tab === 'tabPunitions') { chargerPunitions(); }
+        if (this.dataset.tab === 'tabProfesseurs') { afficherCorbeille(); }
+        if (this.dataset.tab === 'tabReco') { initReco(); }
     };
 });
 
 // ============================================================
-// LOGIN
+// LOGIN - AUTHENTIFICATION FIREBASE
 // ============================================================
 
-document.getElementById("loginBtn").onclick=async function(){
-    const btn=this;
-    const code=document.getElementById("loginCode").value.trim();
-    const errorDiv=document.getElementById("loginError");
-    btn.disabled=true;
-    btn.textContent="⏳ VÉRIFICATION...";
-    try{
-        await chargerOptions();
+document.getElementById("loginBtn").onclick = async function() {
+    const btn = this;
+    const password = document.getElementById("loginCode").value.trim();
+    const errorDiv = document.getElementById("loginError");
+
+    // Vérifier si le mot de passe est saisi
+    if (!password) {
+        errorDiv.innerHTML = "❌ Veuillez entrer le mot de passe";
+        errorDiv.className = "login-error";
+        return;
+    }
+
+    // Vérifier la longueur (8 chiffres)
+    if (password.length !== 8 || !/^\d+$/.test(password)) {
+        errorDiv.innerHTML = "❌ Le mot de passe doit contenir exactement 8 chiffres";
+        errorDiv.className = "login-error";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "⏳ CONNEXION...";
+    errorDiv.innerHTML = "⏳ Authentification en cours...";
+    errorDiv.className = "login-error";
+    errorDiv.style.color = "#60a5fa";
+
+    try {
+        // 1. Authentification avec Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, DIRECTION_EMAIL, password);
+        const user = userCredential.user;
+
+        // 2. Vérifier le rôle dans Firestore
+        const userRef = doc(db, 'users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+            errorDiv.innerHTML = "❌ Compte non configuré. Contactez l'administrateur.";
+            errorDiv.className = "login-error";
+            await signOut(auth);
+            btn.disabled = false;
+            btn.textContent = "SE CONNECTER";
+            return;
+        }
+
+        const userData = userSnap.data();
+        if (userData.role !== 'direction') {
+            errorDiv.innerHTML = "❌ Accès refusé. Ce compte n'a pas le rôle 'direction'.";
+            errorDiv.className = "login-error";
+            await signOut(auth);
+            btn.disabled = false;
+            btn.textContent = "SE CONNECTER";
+            return;
+        }
+
+        // 3. Charger la configuration de l'école
         await chargerConfigEcole();
-        if(currentSchoolConfig&&code===currentSchoolConfig.codeAcces){
-            errorDiv.innerHTML="";
-            document.getElementById("loginOverlay").style.display="none";
-            document.getElementById("mainApp").style.display="block";
+        await chargerOptions();
+
+        // 4. Connexion réussie
+        errorDiv.innerHTML = "✅ Connexion réussie ! Bienvenue " + SCHOOL_DISPLAY;
+        errorDiv.className = "login-error success";
+        toast('Bienvenue à ' + SCHOOL_DISPLAY, "success");
+
+        // 5. Afficher l'application
+        setTimeout(async () => {
+            errorDiv.innerHTML = "";
+            document.getElementById("loginOverlay").style.display = "none";
+            document.getElementById("mainApp").style.display = "block";
+
+            // Charger les données
             await getAllComptaEleves();
             await afficherListeEleves();
             await mettreAJourStats();
@@ -1134,107 +1152,133 @@ document.getElementById("loginBtn").onclick=async function(){
             await afficherParentCodes();
             await afficherCorbeille();
             initReco();
-            toast('Bienvenue à '+currentSchoolConfig.nom,"success");
-        }else{
-            errorDiv.innerHTML="❌ Code d'accès incorrect";
-            toast("Code d'accès incorrect","error");
-            document.getElementById("loginCode").value="";
-            document.getElementById("loginCode").focus();
+        }, 1000);
+
+    } catch (error) {
+        console.error("Erreur connexion:", error);
+        let msg = "❌ Mot de passe incorrect";
+        if (error.code === 'auth/user-not-found') {
+            msg = "❌ Aucun compte avec cet email. Contactez l'administrateur.";
+        } else if (error.code === 'auth/wrong-password') {
+            msg = "❌ Mot de passe incorrect. Réessayez.";
+        } else if (error.code === 'auth/too-many-requests') {
+            msg = "❌ Trop de tentatives. Réessayez dans quelques minutes.";
+        } else if (error.code === 'auth/invalid-credential') {
+            msg = "❌ Mot de passe incorrect. Vérifiez vos identifiants.";
         }
-    }catch(error){
-        errorDiv.innerHTML="❌ Erreur de connexion";
-        toast("Erreur de connexion","error");
-        console.error(error);
-    }finally{
-        btn.disabled=false;
-        btn.textContent="SE CONNECTER";
+        errorDiv.innerHTML = msg;
+        errorDiv.className = "login-error";
+        toast("Erreur de connexion", "error");
+        document.getElementById("loginCode").value = "";
+        document.getElementById("loginCode").focus();
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "SE CONNECTER";
     }
 };
 
-document.getElementById("loginCode").onkeypress=function(e){if(e.key==="Enter")document.getElementById("loginBtn").click();};
+document.getElementById("loginCode").onkeypress = function(e) {
+    if (e.key === "Enter") {
+        document.getElementById("loginBtn").click();
+    }
+};
 
 // ============================================================
 // AJOUT ÉLÈVE
 // ============================================================
 
-document.getElementById("btnAjouterEleve").onclick=function(){
-    const modal=document.getElementById('addEleveModal');
-    document.querySelector('#addEleveModal h3').textContent='➕ AJOUTER UN ÉLÈVE';
-    document.getElementById('newEleveNom').value='';
-    document.getElementById('newEleveNom').disabled=false;
-    document.getElementById('newEleveNom').placeholder='Ex: KASONGO Jean';
-    document.getElementById('newEleveClasse').value='';
-    document.getElementById('newEleveClasse').disabled=false;
-    document.getElementById('newEleveOption').value='';
-    document.getElementById('newEleveOption').disabled=false;
-    document.getElementById('newEleveSexe').value='';
-    document.getElementById('newEleveSexe').disabled=false;
-    document.getElementById('newEleveParentCode').value='';
-    document.getElementById('newEleveParentCode').style.color='#10b981';
-    document.getElementById('confirmAddEleve').textContent='✅ INSCRIRE';
-    document.getElementById('confirmAddEleve').style.background='#10b981';
-    document.getElementById('confirmAddEleve').onclick=async function(){
-        const nom=document.getElementById('newEleveNom').value.trim();
-        const classe=document.getElementById('newEleveClasse').value;
-        const option=document.getElementById('newEleveOption').value;
-        const sexe=document.getElementById('newEleveSexe').value;
-        const parentCode=document.getElementById('newEleveParentCode').value.trim();
-        if(!nom){toast('Veuillez entrer le nom complet','error');return;}
-        if(!classe){toast('Veuillez sélectionner une classe','error');return;}
-        if(!option){toast('Veuillez sélectionner une option','error');return;}
-        if(!sexe){toast('Veuillez sélectionner le sexe','error');return;}
-        if(!parentCode||parentCode.length!==6){toast('Code parent invalide. Générez un code.','error');return;}
-        if(await showConfirm('Confirmer l\'inscription de '+nom+' en '+classe+' ?')){
-            try{
-                await ajouterEleveCompta(nom,sexe,classe,option,parentCode);
+document.getElementById("btnAjouterEleve").onclick = function() {
+    const modal = document.getElementById('addEleveModal');
+    document.querySelector('#addEleveModal h3').textContent = '➕ AJOUTER UN ÉLÈVE';
+    document.getElementById('newEleveNom').value = '';
+    document.getElementById('newEleveNom').disabled = false;
+    document.getElementById('newEleveNom').placeholder = 'Ex: KASONGO Jean';
+    document.getElementById('newEleveClasse').value = '';
+    document.getElementById('newEleveClasse').disabled = false;
+    document.getElementById('newEleveOption').value = '';
+    document.getElementById('newEleveOption').disabled = false;
+    document.getElementById('newEleveSexe').value = '';
+    document.getElementById('newEleveSexe').disabled = false;
+    document.getElementById('newEleveParentCode').value = '';
+    document.getElementById('newEleveParentCode').style.color = '#10b981';
+    document.getElementById('confirmAddEleve').textContent = '✅ INSCRIRE';
+    document.getElementById('confirmAddEleve').style.background = '#10b981';
+    document.getElementById('confirmAddEleve').onclick = async function() {
+        const nom = document.getElementById('newEleveNom').value.trim();
+        const classe = document.getElementById('newEleveClasse').value;
+        const option = document.getElementById('newEleveOption').value;
+        const sexe = document.getElementById('newEleveSexe').value;
+        const parentCode = document.getElementById('newEleveParentCode').value.trim();
+        if (!nom) { toast('Veuillez entrer le nom complet', 'error'); return; }
+        if (!classe) { toast('Veuillez sélectionner une classe', 'error'); return; }
+        if (!option) { toast('Veuillez sélectionner une option', 'error'); return; }
+        if (!sexe) { toast('Veuillez sélectionner le sexe', 'error'); return; }
+        if (!parentCode || parentCode.length !== 6) { toast('Code parent invalide. Générez un code.', 'error'); return; }
+        if (await showConfirm('Confirmer l\'inscription de ' + nom + ' en ' + classe + ' ?')) {
+            try {
+                const id = "eleve_" + Date.now();
+                const docId = 'compta_' + id;
+                const dateInscription = new Date().toISOString();
+                const newCompta = { _type: "compta_eleve", eleveId: id, nom: nom, sexe: sexe || "M", classe: classe, option: option || "", parentCode: parentCode, dateInscription: dateInscription, abandon: false };
+                await setDoc(doc(db, "ecoles", SCHOOL_NAME, SC.COMPTA_ELEVES, docId), newCompta);
+                const newEleve = { id: id, nom: nom, sexe: sexe || "M", classe: classe, option: option || "", parentCode: parentCode, dateInscription: dateInscription, abandon: false };
+                localEleves.push(newEleve);
                 document.getElementById('addEleveModal').classList.remove('show');
                 await afficherListeEleves();
                 await mettreAJourStats();
                 await afficherParentCodes();
                 await updatePunitionEleves();
-                toast('✅ '+nom+' inscrit avec succès. Code: '+parentCode,'success');
-            }catch(e){toast('Erreur: '+e.message,'error');}
+                toast('✅ ' + nom + ' inscrit avec succès. Code: ' + parentCode, 'success');
+            } catch (e) { toast('Erreur: ' + e.message, 'error'); }
         }
     };
-    document.getElementById('cancelAddEleve').textContent='ANNULER';
-    document.getElementById('cancelAddEleve').onclick=function(){document.getElementById('addEleveModal').classList.remove('show');};
-    genererCodeParentUnique().then(code=>{
-        document.getElementById('newEleveParentCode').value=code;
+    document.getElementById('cancelAddEleve').textContent = 'ANNULER';
+    document.getElementById('cancelAddEleve').onclick = function() { document.getElementById('addEleveModal').classList.remove('show'); };
+    genererCodeParentUnique().then(code => {
+        document.getElementById('newEleveParentCode').value = code;
     });
     modal.classList.add('show');
 };
 
-document.getElementById('btnGenerateParentCode').onclick=async function(){
-    const code=await genererCodeParentUnique();
-    document.getElementById('newEleveParentCode').value=code;
-    toast('Code généré : '+code,'success');
+document.getElementById('btnGenerateParentCode').onclick = async function() {
+    const code = await genererCodeParentUnique();
+    document.getElementById('newEleveParentCode').value = code;
+    toast('Code généré : ' + code, 'success');
 };
 
 // ============================================================
 // CHANGEMENT CODE
 // ============================================================
 
-document.getElementById("btnChangeCode").onclick=async function(){
-    const ancienCode=document.getElementById("oldCode").value;
-    const nouveauCode1=document.getElementById("newCode1").value;
-    const nouveauCode2=document.getElementById("newCode2").value;
-    if(ancienCode!==currentSchoolConfig?.codeAcces){toast("Ancien code incorrect","error");return;}
-    if(!nouveauCode1||nouveauCode1!==nouveauCode2){toast("Les nouveaux codes ne correspondent pas","error");return;}
-    if(nouveauCode1.length<4){toast("Le code doit contenir au moins 4 caractères","error");return;}
-    currentSchoolConfig.codeAcces=nouveauCode1;
-    const configRef=doc(db,"ecoles",ECOLET_ID,SC.SETTINGS,"data");
-    await setDoc(configRef,currentSchoolConfig);
-    toast("Code d'accès modifié avec succès","success");
-    document.getElementById("oldCode").value="";
-    document.getElementById("newCode1").value="";
-    document.getElementById("newCode2").value="";
+document.getElementById("btnChangeCode").onclick = async function() {
+    const ancienCode = document.getElementById("oldCode").value;
+    const nouveauCode1 = document.getElementById("newCode1").value;
+    const nouveauCode2 = document.getElementById("newCode2").value;
+    if (ancienCode !== currentSchoolConfig?.codeAcces) { toast("Ancien code incorrect", "error"); return; }
+    if (!nouveauCode1 || nouveauCode1 !== nouveauCode2) { toast("Les nouveaux codes ne correspondent pas", "error"); return; }
+    if (nouveauCode1.length < 4) { toast("Le code doit contenir au moins 4 caractères", "error"); return; }
+    currentSchoolConfig.codeAcces = nouveauCode1;
+    const configRef = doc(db, "ecoles", SCHOOL_NAME, SC.SETTINGS, "data");
+    await setDoc(configRef, currentSchoolConfig);
+    toast("Code d'accès modifié avec succès", "success");
+    document.getElementById("oldCode").value = "";
+    document.getElementById("newCode1").value = "";
+    document.getElementById("newCode2").value = "";
 };
 
-document.getElementById("btnSaveEcoleInfo").onclick=function(){sauvegarderInfosEcole();};
+document.getElementById("btnSaveEcoleInfo").onclick = async function() {
+    try {
+        const nouvelleAdresse = document.getElementById("ecoleAdresse").value.trim();
+        if (nouvelleAdresse) currentSchoolConfig.adresse = nouvelleAdresse;
+        const configRef = doc(db, "ecoles", SCHOOL_NAME, SC.SETTINGS, "data");
+        await setDoc(configRef, currentSchoolConfig);
+        toast("Informations enregistrées", "success");
+    } catch (error) { toast("Erreur lors de l'enregistrement", "error"); }
+};
 
-document.getElementById("btnChangeSchool").onclick=function(){
-    if(await showConfirm('Changer d\'école ?')){
-        window.location.href='https://www.netubex.com/schoolchoice';
+document.getElementById("btnChangeSchool").onclick = function() {
+    if (await showConfirm('Changer d\'école ?')) {
+        window.location.href = 'https://www.netubex.com/schoolchoice';
     }
 };
 
@@ -1242,25 +1286,80 @@ document.getElementById("btnChangeSchool").onclick=function(){
 // LOGOUT
 // ============================================================
 
-document.getElementById("logoutBtn").onclick=function(){
-    if(await showConfirm('Se déconnecter ?')){
-        document.getElementById("mainApp").style.display="none";
-        document.getElementById("loginOverlay").style.display="flex";
-        document.getElementById("loginCode").value="";
-        document.getElementById("loginError").innerHTML="";
-        if(recoUnsubscribe){recoUnsubscribe();recoUnsubscribe=null;}
-        toast('Déconnexion réussie','success');
+document.getElementById("logoutBtn").onclick = async function() {
+    if (await showConfirm('Se déconnecter ?')) {
+        try {
+            await signOut(auth);
+            document.getElementById("mainApp").style.display = "none";
+            document.getElementById("loginOverlay").style.display = "flex";
+            document.getElementById("loginCode").value = "";
+            document.getElementById("loginError").innerHTML = "";
+            document.getElementById("loginError").className = "login-error";
+            if (recoUnsubscribe) { recoUnsubscribe();
+                recoUnsubscribe = null; }
+            toast('Déconnexion réussie', 'success');
+        } catch (e) {
+            toast('Erreur lors de la déconnexion', 'error');
+        }
     }
 };
 
-document.getElementById("searchNom").addEventListener('input',function(){afficherListeEleves();});
-document.getElementById("filterClasse").addEventListener('change',function(){afficherListeEleves();});
-document.getElementById("filterOption").addEventListener('change',function(){afficherListeEleves();});
+// ============================================================
+// RECHERCHE ÉLÈVES
+// ============================================================
 
-document.addEventListener('contextmenu',function(e){e.preventDefault();return false;});
-document.addEventListener('keydown',function(e){if(e.key==='F12'){e.preventDefault();return false;}if(e.ctrlKey&&e.shiftKey&&(e.key==='I'||e.key==='J'||e.key==='K')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='u'||e.key==='U')){e.preventDefault();return false;}if(e.ctrlKey&&(e.key==='s'||e.key==='S')){e.preventDefault();return false;}});
+document.getElementById("searchNom").addEventListener('input', function() { afficherListeEleves(); });
+document.getElementById("filterClasse").addEventListener('change', function() { afficherListeEleves(); });
+document.getElementById("filterOption").addEventListener('change', function() { afficherListeEleves(); });
 
-document.getElementById("loginCode").focus();
+// ============================================================
+// SÉCURITÉ
+// ============================================================
+
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'F12') { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'K')) { e.preventDefault(); return false; }
+    if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) { e.preventDefault(); return false; }
+    if (e.ctrlKey && (e.key === 's' || e.key === 'S')) { e.preventDefault(); return false; }
+});
+
+// ============================================================
+// VÉRIFICATION DE L'AUTHENTIFICATION AU CHARGEMENT
+// ============================================================
+
+onAuthStateChanged(auth, async (user) => {
+    if (user && user.email === DIRECTION_EMAIL) {
+        // L'utilisateur est déjà connecté
+        try {
+            // Vérifier le rôle
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists() && userSnap.data().role === 'direction') {
+                await chargerConfigEcole();
+                await chargerOptions();
+                document.getElementById("loginOverlay").style.display = "none";
+                document.getElementById("mainApp").style.display = "block";
+                await getAllComptaEleves();
+                await afficherListeEleves();
+                await mettreAJourStats();
+                await chargerPunitions();
+                await updatePunitionEleves();
+                await afficherParentCodes();
+                await afficherCorbeille();
+                initReco();
+                toast('Bienvenue à ' + SCHOOL_DISPLAY, "success");
+            }
+        } catch (e) {
+            console.error("Erreur vérification session:", e);
+        }
+    }
+});
+
+console.log('🏫 GLORIA DEI - Espace Direction');
+console.log('📧 Email: direction.gloriadei@gmail.com');
+console.log('🔑 Mot de passe: 8 chiffres');
+console.log('📌 Connectez-vous avec le mot de passe à 8 chiffres');
 </script>
 </body>
 </html>
