@@ -1074,7 +1074,38 @@ function showStyledConfirm(title, message, onConfirm, onCancel) { let d = docume
 async function getDernierCommunique() { try { const q = query(collection(db, "ecoles", ECOLET_ID, SC.COMMUNIQUES), where("actif", "==", true), orderBy("date", "desc"), limit(1)); const snap = await getDocs(q); if (snap.empty) return null; const docSnap = snap.docs[0]; const data = docSnap.data(); const dateComm = new Date(data.date); const aujourdhui = new Date(); const diffJours = Math.floor((aujourdhui - dateComm) / (1000 * 60 * 60 * 24)); if (diffJours > 7) return null; return { id: docSnap.id, titre: data.titre || "Nouveau communiqué", contenu: data.contenu || "", date: data.date, priorite: data.priorite || "moyenne", publiePar: data.publiePar || "Direction", diffJours: diffJours, dateFormatee: dateComm.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), statut: diffJours === 0 ? "Aujourd'hui" : diffJours === 1 ? "Hier" : `Il y a ${diffJours} jours` }; } catch (error) { console.error("Erreur chargement communiqué:", error); return null; } }
 async function chercherPunitionsParNom(nom) { try { const q = query(collection(db, "ecoles", ECOLET_ID, SC.PUNITIONS), where("eleveNom", "==", nom), where("statut", "==", "active")); const snap = await getDocs(q); const punitions = []; snap.forEach(ds => { const data = ds.data(); punitions.push({ motif: data.motif, justification: data.justification, date: data.date, gravite: data.gravite || 'moyenne', classe: data.classe }); }); return punitions; } catch (e) { return []; } }
 async function chercherPresencesParNom(nom) { try { const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PRESENCES)); const presences = []; const maintenant = new Date(); const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60; const aujourdhui = maintenant.toISOString().slice(0, 10); snap.forEach(ds => { const data = ds.data(); if (!data.eleves) return; data.eleves.forEach(e => { if (e.nom === nom) { const dateStr = data.date ? data.date.slice(0, 10) : ''; if (dateStr === aujourdhui) { if (heureActuelle >= 12 && heureActuelle < 17.5) presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, enCours: true, heureActuelle: heureActuelle }); else if (heureActuelle < 12) presences.push({ date: data.date, present: null, classe: data.classe, option: data.option || '', estAujourdhui: true, avantCours: true, heureActuelle: heureActuelle }); else presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: true, apresCours: true, heureActuelle: heureActuelle }); } else presences.push({ date: data.date, present: e.present, classe: data.classe, option: data.option || '', estAujourdhui: false }); } }); }); presences.sort((a, b) => b.date.localeCompare(a.date)); return presences.slice(0, 5); } catch (e) { return []; } }
-async function getAllComptaEleves() { try { const q = query(collection(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES), where("_type", "==", "compta_eleve")); const snap = await getDocs(q); localEleves = []; for (const ds of snap.docs) { const d = ds.data(); const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString(), moisBlancs: d.moisBlancs || [] }); } return localEleves; } catch (error) { console.error("Erreur importation comptabilité:", error); try { const snap2 = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES)); for (const ds of snap2.docs) { const d = ds.data(); if (d._type !== "compta_eleve") continue; const classeNormalisee = normaliserClasse(d.classe); localEleves.push({ id: d.eleveId, nom: d.nom, postnom: d.postnom || "", prenom: d.prenom || "", sexe: d.sexe || "M", classe: classeNormalisee, option: d.option || "", minerval: d.minerval, exonere: d.exonere || false, paiements: d.paiements || {}, parentCode: d.parentCode || "", abandon: d.abandon || false, dateInscription: d.dateInscription || new Date().toISOString(), moisBlancs: d.moisBlancs || [] }); } } catch (e2) { console.error("Erreur fallback:", e2); } return localEleves; } }
+async function getAllComptaEleves() { 
+    try { 
+        const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES)); 
+        localEleves = []; 
+        for (const ds of snap.docs) { 
+            const d = ds.data(); 
+            if (d._type === 'config' || d._type === 'settings' || d._type === 'inscription') continue;
+            if (!d.nom) continue;
+            const classeNormalisee = normaliserClasse(d.classe); 
+            localEleves.push({ 
+                id: d.eleveId || ds.id, 
+                nom: d.nom || '', 
+                postnom: d.postnom || "", 
+                prenom: d.prenom || "", 
+                sexe: d.sexe || "M", 
+                classe: classeNormalisee, 
+                option: d.option || "", 
+                minerval: d.minerval || 45000, 
+                exonere: d.exonere || false, 
+                paiements: d.paiements || {}, 
+                parentCode: d.parentCode || "", 
+                abandon: d.abandon || false, 
+                dateInscription: d.dateInscription || new Date().toISOString(), 
+                moisBlancs: d.moisBlancs || [] 
+            }); 
+        } 
+        return localEleves; 
+    } catch (error) { 
+        console.error("Erreur importation comptabilité:", error); 
+        return []; 
+    } 
+}
 async function getAllFiches() { try { const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.FICHES)); const fiches = []; for (const ds of snap.docs) { const d = ds.data(); if (!d._type && d.eleves) fiches.push({ id: ds.id, cours: d.cours, classe: d.classe, option: d.option || '', eleves: d.eleves || [], epreuvesParPeriode: d.epreuvesParPeriode || {}, p1Max: d.p1Max || 20, titulaire: d.titulaire || '' }); } return fiches; } catch (e) { return []; } }
 function getMoisActuel() {
 const date = new Date();
@@ -1263,9 +1294,17 @@ ajouterSectionVisitee('notes');
 const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
 const notes = eleveData.notes || [];
 const notesValides = notes.filter(n => n.note > 0);
-if (notesValides.length === 0) return `${nomComplet} n'a pas encore de notes enregistrées.`;
-let meilleureNote = null, meilleurScore = 0;
-notesValides.forEach(n => { if (n.note > meilleurScore) { meilleurScore = n.note; meilleureNote = n; } });
+if (notesValides.length === 0) {
+return `${nomComplet} n'a pas encore de notes enregistrées.`;
+}
+let meilleureNote = null, meilleurPourcentage = 0;
+notesValides.forEach(n => { 
+    const pourcentage = (n.note / n.max) * 100;
+    if (pourcentage > meilleurPourcentage) { 
+        meilleurPourcentage = pourcentage; 
+        meilleureNote = n; 
+    } 
+});
 const periodeEnLettres = { 1: 'première', 2: 'deuxième', 3: 'troisième', 4: 'quatrième' };
 const periodeTexte = meilleureNote.periode ? periodeEnLettres[meilleureNote.periode] || `période ${meilleureNote.periode}` : '';
 let reponse = `Résultat de ${nomComplet}\n\n`;
@@ -2545,10 +2584,6 @@ pdf.setTextColor(0, 0, 0);
 pdf.text('Élève: ' + window.nomEleveRechercheTitu, 20, 55);
 pdf.text('Sexe: ' + (window.sexeEleveTitu === 'M' ? 'Masculin' : 'Féminin'), 20, 63);
 pdf.text('Classe(s): ' + window.classesEleveTitu, 20, 71);
-const nbTotal = window.derniersResultatsTitu.length || 0;
-const nbGarcons = window.derniersResultatsTitu.filter(r => r.sexe === 'M').length || 0;
-const nbFilles = window.derniersResultatsTitu.filter(r => r.sexe === 'F').length || 0;
-pdf.text('Effectif de la classe: ' + nbTotal + ' élèves (Garçons: ' + nbGarcons + ', Filles: ' + nbFilles + ')', 20, 79);
 const couleurS1 = [240, 247, 255];
 const couleurS2 = [240, 255, 244];
 const couleurTotal = [255, 253, 231];
@@ -2632,7 +2667,7 @@ body.push([
 pdf.autoTable({ 
 head: headers, 
 body: body, 
-startY: 88, 
+startY: 80, 
 theme: 'grid', 
 styles: { fontSize: 9, cellPadding: 3, halign: 'center' }, 
 headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -2812,8 +2847,9 @@ document.getElementById('creerFicheBtn').addEventListener('click', async functio
         const nnum = await getNextFicheNumero();
         const now = new Date();
         await getAllComptaEleves();
-        const elevesCompta = localEleves;
+        const elevesCompta = localEleves || [];
         let elevesFiltres = elevesCompta.filter(e => {
+            if (!e) return false;
             if (e.abandon) return false;
             if (e.classe !== classe) return false;
             if (fop === 'TOUTES') return true;
@@ -3057,7 +3093,7 @@ const classe = currentFiche.classe;
 const option = currentFiche.option;
 if (!classe) { toast("Veuillez d'abord configurer la classe", 'error'); return; }
 await getAllComptaEleves();
-const elevesCompta = localEleves;
+const elevesCompta = localEleves || [];
 let elevesFiltres = elevesCompta.filter(e => { if (e.abandon) return false; if (e.classe !== classe) return false; if (option === 'TOUTES') return true; if (option && e.option !== option) return false; return true; });
 const nomsExistants = new Set((currentFiche.eleves || []).map(e => e.nom));
 const elevesAAjouter = elevesFiltres.filter(e => { const nomComplet = e.nom + (e.prenom ? ' ' + e.prenom : ''); return !nomsExistants.has(nomComplet); });
