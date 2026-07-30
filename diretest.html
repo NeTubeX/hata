@@ -416,7 +416,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <div class="school-sub">NeTubeX SARL · Année scolaire 2026-2027</div>
 <button class="btn-logout" id="logoutBtn"><i class="fas fa-times"></i></button>
 </div>
-
 <div class="tabs-container">
 <div class="tabs">
 <button class="tab active" data-tab="tabRang"><i class="fas fa-chart-simple"></i>Rang</button>
@@ -429,8 +428,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <button class="tab" id="darkModeBtn"><i class="fas fa-moon"></i>Thème sombre</button>
 </div>
 </div>
-
-<!-- TAB RANG -->
 <div id="tabRang" class="tab-content active">
 <div class="rang-container">
 <div class="rang-header">
@@ -446,8 +443,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </div>
 </div>
 </div>
-
-<!-- TAB PUNITIONS -->
 <div id="tabPunitions" class="tab-content">
 <div class="card">
 <div class="card-header"><i class="fas fa-gavel"></i> Gestion des punitions</div>
@@ -471,8 +466,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </div>
 </div>
 </div>
-
-<!-- TAB PROFESSEURS -->
 <div id="tabProfesseurs" class="tab-content">
 <div class="card">
 <div class="card-header"><i class="fas fa-chalkboard-teacher"></i> Gestion des professeurs</div>
@@ -491,8 +484,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 </div>
 </div>
 </div>
-
-<!-- TAB ELEVES -->
 <div id="tabEleves" class="tab-content">
 <div class="card">
 <div class="card-header">
@@ -501,7 +492,6 @@ Gestion des élèves
 </div>
 <div class="card-body">
 <div class="eleves-wrapper">
-
 <div class="form-section" id="eleveFormContainer">
 <div class="section-title">Ajouter un élève</div>
 <div class="form-grid">
@@ -558,7 +548,6 @@ Gestion des élèves
 <span>Saisissez un code existant pour lier ce nouvel élève à la même famille</span>
 </div>
 </div>
-
 <div class="list-section">
 <div class="list-header">
 <div class="title">
@@ -588,13 +577,10 @@ Liste des élèves
 <div class="empty-state"><p>Chargement...</p></div>
 </div>
 </div>
-
 </div>
 </div>
 </div>
 </div>
-
-<!-- TAB COMMUNIQUES -->
 <div id="tabCommuniques" class="tab-content">
 <div class="card">
 <div class="card-header">Gestion des communiqués</div>
@@ -642,8 +628,6 @@ Liste des élèves
 </div>
 </div>
 </div>
-
-<!-- TAB RECO -->
 <div id="tabReco" class="tab-content">
 <div class="card">
 <div class="reco-header">
@@ -673,8 +657,6 @@ Liste des élèves
 </div>
 </div>
 </div>
-
-<!-- TAB SETTINGS -->
 <div id="tabSettings" class="tab-content">
 <div class="card">
 <div class="card-header"><i class="fas fa-lock"></i> Sécurité</div>
@@ -716,11 +698,9 @@ Liste des élèves
 </div>
 </div>
 </div>
-
 </div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
-
 <script type="importmap">
 {"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"}}
 </script>
@@ -780,7 +760,6 @@ let toastQueue = [];
 let toastActive = false;
 const EXPIRATION_DAYS = 7;
 
-// ============ TOAST ============
 function toast(message, type='success') {
 toastQueue.push({message, type});
 if (!toastActive) processToastQueue();
@@ -821,7 +800,6 @@ overlay.querySelector('#confirmCancel').onclick=()=>overlay.remove();
 overlay.querySelector('#confirmOk').onclick=()=>{overlay.remove();if(onConfirm)onConfirm()};
 }
 
-// ============ CODE ACCES ============
 async function loadAccessCodeFromFirebase() {
 try {
 const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
@@ -878,7 +856,18 @@ while (code.length < 6) code = '0' + code;
 return code;
 }
 
-// ============ AUTH ============
+async function genererCodeUnique() {
+const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data"));
+let code = genererCodeAcces();
+let exists = false;
+for (const docSnap of snap.docs) {
+const data = docSnap.data();
+if (data.codeDirection === code) exists = true;
+}
+if (exists) return genererCodeUnique();
+return code;
+}
+
 async function verifierCodeDirection() {
 try {
 const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
@@ -922,7 +911,6 @@ return false;
 }
 }
 
-// ============ PROFESSEURS ============
 function genererEmailProfesseur(nom, ecoleId) {
 if (!nom) return '';
 const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.');
@@ -1037,7 +1025,6 @@ chargerProfs().then(p => afficherProfs(p));
 document.getElementById('searchProfInput').addEventListener('input', function() { chargerProfs().then(p => afficherProfs(p)); });
 document.getElementById('refreshProfsBtn').addEventListener('click', function() { chargerProfs().then(p => afficherProfs(p)); toast('Professeurs actualisés', 'success'); });
 
-// ============ PUNITIONS ============
 async function chargerPunitions() {
 const c = document.getElementById('punitionClasseSelect').value;
 const en = document.getElementById('punitionEleveSelect').value;
@@ -1127,7 +1114,6 @@ elevesTries.forEach(n => { const opt = document.createElement('option'); opt.val
 document.getElementById('punitionClasseSelect').onchange = function(){ updatePunitionEleves(); chargerPunitions(); };
 document.getElementById('punitionEleveSelect').onchange = function(){ chargerPunitions(); };
 
-// ============ CORBEILLE ============
 async function afficherCorbeille() {
 const c = document.getElementById('corbeilleList');
 if(!c) return;
@@ -1234,7 +1220,6 @@ afficherCorbeille();
 } catch(e) { toast('Erreur: '+e.message, 'error'); }
 }
 
-// ============ CODE ACCES BOUTONS ============
 document.getElementById('generateCodeBtn').addEventListener('click', async function() {
 if (!canGenerateCode) { toast('Vous avez déjà généré un code aujourd\'hui. Revenez demain.', 'warning'); return; }
 const newCode = await genererCodeUnique();
@@ -1249,15 +1234,6 @@ document.getElementById('generateCodeBtn').disabled = true;
 document.getElementById('generateCodeBtn').style.opacity = '0.5';
 toast('Nouveau code généré : ' + newCode, 'success');
 });
-
-async function genererCodeUnique() {
-const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data"));
-let code = genererCodeAcces();
-let exists = false;
-for (const docSnap of snap.docs) { const data = docSnap.data(); if (data.codeDirection === code) exists = true; }
-if (exists) return genererCodeUnique();
-return code;
-}
 
 document.getElementById('changeCodeBtn').addEventListener('click', async function() {
 const currentCode = document.getElementById('currentCodeInput').value.trim();
@@ -1284,7 +1260,6 @@ toast('Code changé avec succès', 'success');
 });
 });
 
-// ============ CLASSEMENT ============
 let classementCharge = false;
 const podiumContainer = document.getElementById('podiumContainer');
 
@@ -1399,7 +1374,6 @@ classementUnsubscribe = onSnapshot(collection(db, "ecoles"), async () => { if(cl
 } catch(e) { console.error('Erreur demarrerEcouteClassement:', e); }
 }
 
-// ============ RECO ============
 let pendingReply = null; let botWaitingMessageSent = false; let recoMessages = [];
 
 function getNaturalReply(subject, message) {
@@ -1508,7 +1482,6 @@ const customReply = getNaturalReply(subject, message);
 showTypingAndAutoReplyWithCustomReply(subject, customReply);
 }
 
-// ============ SURVEILLANCE INACTIVITE ============
 async function envoyerStatut(actif) {
 try { const statusRef = doc(db, "ecoles", ECOLET_ID, "status", "direction"); await setDoc(statusRef, { actif: actif, date: new Date().toISOString(), ecoleId: ECOLET_ID, ecoleNom: SCHOOL_DISPLAY_NAME, lastUpdate: Date.now() }); } catch(e) {}
 }
@@ -1519,7 +1492,6 @@ function detectInteraction() { resetInactivityTimer(); }
 function demarrerSurveillanceInactiviteDirection() { const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus']; events.forEach(event => { document.addEventListener(event, detectInteraction); }); isActive = true; envoyerStatut(true); resetInactivityTimer(); }
 function arreterSurveillanceInactiviteDirection() { const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus']; events.forEach(event => { document.removeEventListener(event, detectInteraction); }); clearTimeout(inactivityTimer); isActive = false; envoyerStatut(false); }
 
-// ============ INSCRIPTION ELEVES ============
 async function verifierInscriptionActive() {
 try {
 const ref = doc(db, "ecoles", ECOLET_ID, "settings", "inscription");
@@ -1592,7 +1564,6 @@ return true;
 } catch(e) { toast('Erreur: ' + e.message, 'error'); return false; }
 }
 
-// ============ CHARGER ELEVES ============
 async function chargerEleves(filtreClasse = '', searchTerm = '') {
 const container = document.getElementById('elevesListContainer');
 if (!container) return;
@@ -1601,7 +1572,7 @@ const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "compta_eleves"))
 let allEleves = [];
 snap.forEach(ds => {
 const data = ds.data();
-if (data._type === "compta_eleve" && data.statut !== 'inactif' && data.abandon !== true) {
+if (data._type === "compta_eleve" || data.nom) {
 if (data.classe === '7ème EB' || data.classe === '8ème EB') { if (!data.option || data.option === '') { data.option = 'TOUTES'; } }
 allEleves.push({ id: ds.id, ...data });
 }
@@ -1610,7 +1581,11 @@ let elevesAffiches = allEleves;
 if (filtreClasse) { elevesAffiches = allEleves.filter(e => e.classe === filtreClasse); }
 if (searchTerm && searchTerm.trim()) {
 const term = searchTerm.trim().toLowerCase();
-elevesAffiches = elevesAffiches.filter(e => { const nom = (e.nom || '').toLowerCase(); const parentCode = (e.parentCode || ''); return nom.includes(term) || parentCode.includes(term); });
+elevesAffiches = elevesAffiches.filter(e => {
+const nom = (e.nom || '').toLowerCase();
+const parentCode = (e.parentCode || '');
+return nom.includes(term) || parentCode.includes(term);
+});
 }
 elevesAffiches.sort((a, b) => a.nom.localeCompare(b.nom));
 document.getElementById('eleveCount').textContent = `(${elevesAffiches.length})`;
@@ -1683,7 +1658,6 @@ if (success) { overlay.remove(); const filtre = document.getElementById('eleveFi
 };
 };
 
-// ============ BARRE DE RECHERCHE ELEVES ============
 const searchInput = document.getElementById('eleveSearchInput');
 const clearBtn = document.getElementById('clearSearchBtn');
 if (searchInput) {
@@ -1715,7 +1689,6 @@ const search = document.getElementById('eleveSearchInput').value;
 chargerEleves(this.value, search);
 });
 
-// ============ CHECK PARENT CODE ============
 document.getElementById('checkParentCodeBtn')?.addEventListener('click', async function() {
 const code = document.getElementById('eleveParentCodeInput').value.trim();
 if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) { toast('Veuillez saisir un code valide de 6 chiffres', 'warning'); return; }
@@ -1723,7 +1696,6 @@ const exists = await checkParentCodeExists(code);
 if (exists) { toast(`Code parent ${code} trouvé - Les nouveaux élèves seront liés à cette famille`, 'success'); } else { toast(`Code parent ${code} introuvable`, 'error'); }
 });
 
-// ============ ADD ELEVE ============
 document.getElementById('addEleveBtn')?.addEventListener('click', async function() {
 if (!inscriptionActive) { toast('L\'inscription des élèves est désactivée', 'error'); return; }
 const nom = document.getElementById('eleveNomInput').value.trim();
@@ -1748,27 +1720,24 @@ const classesAvecOption = ['1ère Année', '2ème Année', '3ème Année', '4èm
 if (classesAvecOption.includes(this.value)) { optionGroup.style.display = 'block'; } else { optionGroup.style.display = 'none'; document.getElementById('eleveOptionSelect').value = 'TOUTES'; }
 });
 
-// ============ EXPORT PDF ELEVES ============
 document.getElementById('exportElevesPdfBtn')?.addEventListener('click', async function() {
 const status = document.getElementById('exportPdfStatus');
+const btn = this;
+btn.disabled = true;
+btn.textContent = 'Génération...';
 if (status) { status.textContent = 'Génération du PDF en cours...'; status.style.color = '#2563eb'; }
 try {
 const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "compta_eleves"));
 const eleves = [];
 snap.forEach(ds => {
 const data = ds.data();
-if (data._type === "compta_eleve" && data.statut !== 'inactif' && data.abandon !== true) {
-eleves.push({ nom: data.nom || '', prenom: data.prenom || '', sexe: data.sexe || 'M', classe: data.classe || '', option: data.option || '', parentCode: data.parentCode || 'Non défini' });
+if (data._type === "compta_eleve" || data.nom) {
+eleves.push({ nom: data.nom || 'Inconnu', prenom: data.prenom || '', sexe: data.sexe || 'M', classe: data.classe || 'Non définie', option: data.option || '', parentCode: data.parentCode || 'Non défini' });
 }
 });
-if (eleves.length === 0) {
-if (status) { status.textContent = 'Aucun élève à exporter'; status.style.color = '#d97706'; }
-toast('Aucun élève à exporter', 'warning'); return;
-}
-eleves.sort((a, b) => {
-if (a.classe !== b.classe) return a.classe.localeCompare(b.classe);
-return a.nom.localeCompare(b.nom);
-});
+if (eleves.length === 0) { if (status) { status.textContent = 'Aucun élève à exporter'; status.style.color = '#d97706'; } toast('Aucun élève à exporter', 'warning'); btn.disabled = false; btn.textContent = 'Exporter PDF'; return; }
+eleves.sort((a, b) => { if (a.classe !== b.classe) return a.classe.localeCompare(b.classe); return a.nom.localeCompare(b.nom); });
+if (typeof window.jspdf === 'undefined') { throw new Error('La bibliothèque jsPDF n\'est pas chargée'); }
 const { jsPDF } = window.jspdf;
 const pdf = new jsPDF('landscape', 'mm', 'a4');
 const pageWidth = 297; const margin = 14; let y = 20;
@@ -1777,7 +1746,7 @@ const schoolName = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPL
 pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.setTextColor(0, 51, 102);
 pdf.text('COMPLEXE SCOLAIRE ' + schoolName, pageWidth / 2, y, { align: 'center' }); y += 8;
 pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(80, 80, 80);
-pdf.text('GESTION SCOLAIRE - LISTE DES ÉLÈVES ET CODES PARENTS', pageWidth / 2, y, { align: 'center' }); y += 6;
+pdf.text('LISTE DES ÉLÈVES ET CODES PARENTS', pageWidth / 2, y, { align: 'center' }); y += 6;
 pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(100, 100, 100);
 pdf.text('Année scolaire: 2026-2027', pageWidth / 2, y, { align: 'center' }); y += 4;
 pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
@@ -1786,7 +1755,8 @@ pdf.text('Exporté le: ' + dateExport, pageWidth / 2, y + 6, { align: 'center' }
 pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10); pdf.setTextColor(0, 51, 102);
 pdf.text('Total élèves: ' + eleves.length, margin, y); y += 8;
 const headers = ['N°', 'Nom complet', 'Sexe', 'Classe', 'Option', 'Code parent'];
-const colWidths = [12, 65, 18, 30, 40, 40]; let startX = margin;
+const colWidths = [12, 70, 18, 30, 45, 45];
+let startX = margin;
 pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(255, 255, 255); pdf.setFillColor(0, 51, 102);
 let currentX = startX;
 headers.forEach((h, i) => { pdf.rect(currentX, y, colWidths[i], 8, 'F'); pdf.text(h, currentX + (colWidths[i] / 2), y + 5.5, { align: 'center' }); currentX += colWidths[i]; }); y += 8;
@@ -1801,7 +1771,7 @@ const parentCode = eleve.parentCode || 'Non défini';
 const rowData = [rowCount, nomComplet, sexeLabel, eleve.classe, optionDisplay, parentCode];
 if (fill) { pdf.setFillColor(245, 245, 245); } else { pdf.setFillColor(255, 255, 255); }
 currentX = startX;
-rowData.forEach((text, i) => { pdf.rect(currentX, y, colWidths[i], 7, 'F'); pdf.setTextColor(0, 0, 0); pdf.text(text, currentX + 2, y + 5); currentX += colWidths[i]; });
+rowData.forEach((text, i) => { pdf.rect(currentX, y, colWidths[i], 7, 'F'); pdf.setTextColor(0, 0, 0); pdf.text(String(text), currentX + 2, y + 5); currentX += colWidths[i]; });
 y += 7; fill = !fill;
 }
 const totalPages = pdf.internal.getNumberOfPages();
@@ -1809,10 +1779,9 @@ for (let i = 1; i <= totalPages; i++) { pdf.setPage(i); pdf.setFont('helvetica',
 pdf.save('Liste_eleves_codes_parents_' + schoolId + '.pdf');
 if (status) { status.textContent = 'PDF exporté avec succès (' + eleves.length + ' élèves)'; status.style.color = '#059669'; }
 toast('PDF exporté avec succès (' + eleves.length + ' élèves)', 'success');
-} catch (e) { console.error('Erreur export PDF:', e); if (status) { status.textContent = 'Erreur lors de l\'export du PDF'; status.style.color = '#dc2626'; } toast('Erreur lors de l\'export du PDF', 'error'); }
+} catch (e) { console.error('Erreur export PDF:', e); if (status) { status.textContent = 'Erreur: ' + (e.message || 'Problème de génération du PDF'); status.style.color = '#dc2626'; } toast('Erreur: ' + (e.message || 'Problème de génération du PDF'), 'error'); } finally { btn.disabled = false; btn.textContent = 'Exporter PDF'; }
 });
 
-// ============ COMMUNIQUES ============
 function miseAJourApercu() {
 const titre = document.getElementById('commTitre').value.trim();
 const contenu = document.getElementById('commContenu').value.trim();
@@ -1917,7 +1886,6 @@ toast('Formulaire réinitialisé', 'info');
 
 document.getElementById('refreshCommBtn')?.addEventListener('click', function() { chargerCommuniques(); toast('Communiqués actualisés', 'success'); });
 
-// ============ INIT ============
 function initGestionEleves() {
 verifierInscriptionActive();
 chargerEleves();
