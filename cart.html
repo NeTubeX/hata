@@ -1308,33 +1308,7 @@ const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
 const presences = eleveData.presences || [];
 const maintenant = new Date();
 const heureActuelle = maintenant.getHours() + maintenant.getMinutes() / 60;
-const jourSemaine = maintenant.getDay();
 let reponse = `Je regarde la présence de ${nomComplet}.`;
-if (jourSemaine === 0 || jourSemaine === 6) {
-reponse += `\n\nAujourd'hui c'est le week-end, il n'y a pas cours.`;
-reponse += await genererPropositions(eleveData);
-return reponse;
-}
-if (heureActuelle < 12) {
-const minutesRestantes = Math.round((12 - heureActuelle) * 60);
-let tempsRestant;
-if (minutesRestantes >= 60) {
-const heures = Math.floor(minutesRestantes / 60);
-const minutes = minutesRestantes % 60;
-if (minutes === 0) tempsRestant = `${heures} heure${heures > 1 ? 's' : ''}`;
-else tempsRestant = `${heures} heure${heures > 1 ? 's' : ''} et ${minutes} minute${minutes > 1 ? 's' : ''}`;
-} else tempsRestant = `${minutesRestantes} minute${minutesRestantes > 1 ? 's' : ''}`;
-reponse += `\n\nLes cours commencent à 12h00. Il reste ${tempsRestant}.`;
-if (presences.length > 0) {
-const derniere = presences[0];
-if (!derniere.estAujourdhui) {
-const dateDerniere = new Date(derniere.date).toLocaleDateString('fr-FR');
-reponse += `\nLa dernière présence enregistrée date du ${dateDerniere}. ${derniere.present?'Présent':'Absent'}`;
-}
-}
-reponse += await genererPropositions(eleveData);
-return reponse;
-}
 if (presences.length === 0) {
 reponse += `\n\nJe n'ai pas d'informations sur sa présence pour le moment.`;
 reponse += await genererPropositions(eleveData);
@@ -1458,116 +1432,151 @@ reponse += `Je peux vous parler de sa situation financière, de ses notes, de sa
 reponse += `Par quoi voulez-vous commencer ?`;
 return reponse;
 }
+async function verifierInscriptionActive() {
+    try {
+        const ref = doc(db, "ecoles", ECOLET_ID, "settings", "inscription");
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+            return snap.data().active === true;
+        }
+        return false;
+    } catch (e) {
+        console.error("Erreur vérification inscription:", e);
+        return false;
+    }
+}
 async function traiterMessage(message) {
-const msg = message.trim().toLowerCase();
-const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-const aujourdhui = new Date();
-const jourSemaine = aujourdhui.getDay();
-if (jourSemaine === 0) return `Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.`;
-if (msg === 'oui' || msg === 'o' || msg === 'ok' || msg === 'd\'accord' || msg === 'vas-y' || msg === 'go') {
-if (dernierEleveData) {
-const sections = ['notes', 'frais', 'presence', 'punitions'];
-const sectionsVisitees = dernierEleveData.sectionsVisitees || [];
-let prochaineSection = null;
-for (const section of sections) { if (!sectionsVisitees.includes(section)) { prochaineSection = section; break; } }
-if (prochaineSection) {
-switch(prochaineSection) {
-case 'notes': return await genererReponseNotes(dernierEleveData);
-case 'frais': return await genererReponseFrais(dernierEleveData);
-case 'presence': return await genererReponsePresence(dernierEleveData);
-case 'punitions': return await genererReponsePunitions(dernierEleveData);
-default: return `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
-}
-} else return `Vous avez vu toutes les informations sur ${dernierEleveData.nom} ${dernierEleveData.prenom||''}.\n\nSi vous avez d'autres questions, n'hésitez pas à les poser. Sinon, vous pouvez entrer un autre code parent.`;
-} else {
-function getSalutation() {
-const h = new Date().getHours();
-if (h < 12) return "Bonjour";
-if (h < 18) return "Bon après-midi";
-return "Bonsoir";
-}
-return `${getSalutation()} cher parent, veuillez d'abord entrer votre code parent.`;
-}
-}
-if (/^\d{6}$/.test(msg)) {
-const code = msg;
-const count = await getQuestionCountForCode(code);
-if (count >= 20) return `⚠️ Limite quotidienne atteinte pour ce code parent. Veuillez revenir demain à partir de 08h00. Si vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
-const infos = await chercherInfosFinancieresParCode(msg);
-if (!infos || infos.length === 0) {
-dernierEleveConsulte = null; dernierEleveData = null;
-return `Code parent "${msg}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
-}
-if (infos.length === 1) {
-currentParentCode = code;
-await incrementQuestionCountForCode(code);
-updateCounterDisplay();
-return await afficherInfosEleve(infos[0]);
-} else {
-listeElevesEnAttente = infos; enAttenteChoixEleve = true;
-let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
-infos.forEach((eleve, index) => {
-const { pronom } = getSexePronom(eleve.sexe);
-reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
-});
-reponse += `\nRépondez avec le numéro de l'élève (1. 2. 3...).`;
-return reponse;
-}
-}
-if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
-const choix = parseInt(msg.trim());
-if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
-const eleveChoisi = listeElevesEnAttente[choix - 1];
-enAttenteChoixEleve = false; listeElevesEnAttente = [];
-if (currentParentCode) { await incrementQuestionCountForCode(currentParentCode); updateCounterDisplay(); }
-return await afficherInfosEleveMulti(eleveChoisi);
-} else {
-let listeNoms = listeElevesEnAttente.map((e, i) => {
-const { pronom } = getSexePronom(e.sexe);
-return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
-}).join('\n');
-return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
-}
-}
-if (dernierEleveConsulte && dernierEleveData) {
-const eleveData = dernierEleveData;
-const texteComplet = msg;
-let typeQuestion = 'generale';
-if (texteComplet.includes('frais') || texteComplet.includes('argent') || texteComplet.includes('payer') || texteComplet.includes('situation financière') || texteComplet.includes('situation financiere') || texteComplet.includes('la finance')) typeQuestion = 'frais';
-else if (texteComplet.includes('note') || texteComplet.includes('résultat') || texteComplet.includes('point')) typeQuestion = 'notes';
-else if (texteComplet.includes('présence') || texteComplet.includes('absent')) typeQuestion = 'presence';
-else if (texteComplet.includes('punition') || texteComplet.includes('sanction')) typeQuestion = 'punitions';
-else if (texteComplet.includes('aide') || texteComplet.includes('conseil')) typeQuestion = 'aide';
-if (currentParentCode) await incrementQuestionCountForCode(currentParentCode);
-const motsBonjour = ['bonjour', 'salut', 'coucou', 'hello', 'hey', 'yo', 'bonsoir', 'bjr', 'slt'];
-const motsMerci = ['merci', 'remerciement', 'remettre', 'je vous remercie', 'je te remercie', 'merci beaucoup', 'merci infiniment', 'merci bien', 'merci pour tout'];
-const motsAurevoir = ['au revoir', 'bye', 'bye bye', 'ciao', 'adieu', 'à bientôt', 'à plus', 'à tout à l\'heure', 'à demain', 'à la prochaine', 'bonne journée', 'bonne soirée', 'bonne nuit'];
-const estBonjour = motsBonjour.some(m => texteComplet.includes(m));
-const estMerci = motsMerci.some(m => texteComplet.includes(m));
-const estAurevoir = motsAurevoir.some(m => texteComplet.includes(m));
-if (estBonjour || estMerci || estAurevoir) {
-const nom = eleveData.nom || ''; const prenom = eleveData.prenom || ''; const nomComplet = `${nom} ${prenom}`.trim();
-if (estBonjour) return `En tout cas! Je suis là à votre service.`;
-if (estMerci) return `De rien, c'est un plaisir de vous aider.`;
-if (estAurevoir) return `Au revoir ! Passez une excellente journée.`;
-}
-const motsFrais = ['frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois', 'la finance', 'situation financière', 'situation financiere'];
-if (motsFrais.some(m => texteComplet.includes(m))) return await genererReponseFrais(eleveData);
-const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
-if (motsNotes.some(m => texteComplet.includes(m))) return await genererReponseNotes(eleveData);
-const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
-if (motsPresence.some(m => texteComplet.includes(m))) return await genererReponsePresence(eleveData);
-const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
-if (motsPunitions.some(m => texteComplet.includes(m))) return await genererReponsePunitions(eleveData);
-return await genererReponseNaturelle(message, eleveData);
-}
-function getSalutation() {
-const h = new Date().getHours();
-if (h < 12) return "Bonjour";
-if (h < 18) return "Bon après-midi";
-return "Bonsoir";
-}
-return `${getSalutation()} ! Entrez votre code parent. Si vous n'en avez pas, contactez la comptabilité de l'école ${nomEcole}.`;
+    const msg = message.trim().toLowerCase();
+    const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    if (msg === 'oui' || msg === 'o' || msg === 'ok' || msg === 'd\'accord' || msg === 'vas-y' || msg === 'go') {
+        if (dernierEleveData) {
+            const sections = ['notes', 'frais', 'presence', 'punitions'];
+            const sectionsVisitees = dernierEleveData.sectionsVisitees || [];
+            let prochaineSection = null;
+            for (const section of sections) {
+                if (!sectionsVisitees.includes(section)) {
+                    prochaineSection = section;
+                    break;
+                }
+            }
+            if (prochaineSection) {
+                switch(prochaineSection) {
+                    case 'notes': return await genererReponseNotes(dernierEleveData);
+                    case 'frais': return await genererReponseFrais(dernierEleveData);
+                    case 'presence': return await genererReponsePresence(dernierEleveData);
+                    case 'punitions': return await genererReponsePunitions(dernierEleveData);
+                    default: return `Je peux vous parler de sa situation financière, de ses notes, de sa présence ou de ses punitions. Par quoi voulez-vous commencer ?`;
+                }
+            } else {
+                return `Vous avez vu toutes les informations sur ${dernierEleveData.nom} ${dernierEleveData.prenom||''}.\n\nSi vous avez d'autres questions, n'hésitez pas à les poser. Sinon, vous pouvez entrer un autre code parent.`;
+            }
+        } else {
+            const h = new Date().getHours();
+            const salutation = h < 12 ? "Bonjour" : (h < 18 ? "Bon après-midi" : "Bonsoir");
+            return `${salutation} cher parent, veuillez d'abord entrer votre code parent.`;
+        }
+    }
+    if (/^\d{6}$/.test(msg)) {
+        const code = msg;
+        const count = await getQuestionCountForCode(code);
+        if (count >= 20) {
+            return `⚠️ Limite quotidienne atteinte pour ce code parent. Veuillez revenir demain à partir de 08h00. Si vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
+        }
+        const infos = await chercherInfosFinancieresParCode(msg);
+        if (!infos || infos.length === 0) {
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `Code parent "${msg}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
+        }
+        if (infos.length === 1) {
+            currentParentCode = code;
+            await incrementQuestionCountForCode(code);
+            updateCounterDisplay();
+            return await afficherInfosEleve(infos[0]);
+        } else {
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
+            infos.forEach((eleve, index) => {
+                const { pronom } = getSexePronom(eleve.sexe);
+                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
+            });
+            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
+            return reponse;
+        }
+    }
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = parseInt(msg.trim());
+        if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
+            const eleveChoisi = listeElevesEnAttente[choix - 1];
+            enAttenteChoixEleve = false;
+            listeElevesEnAttente = [];
+            if (currentParentCode) {
+                await incrementQuestionCountForCode(currentParentCode);
+                updateCounterDisplay();
+            }
+            return await afficherInfosEleveMulti(eleveChoisi);
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => {
+                const { pronom } = getSexePronom(e.sexe);
+                return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
+            }).join('\n');
+            return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
+        }
+    }
+    if (dernierEleveConsulte && dernierEleveData) {
+        const eleveData = dernierEleveData;
+        const texteComplet = msg;
+        const motsFrais = [
+            'frais', 'finance', 'argent', 'dette', 'payer', 'minerval', 'paiement', 
+            'cout', 'prix', 'facture', 'scolarité', 'mensualité', 'reste', 'impayé', 
+            'payé', 'crédit', 'solde', 'montant', 'total', 'annuel', 'mois', 
+            'la finance', 'situation financière', 'situation financiere', 
+            'comptabilité', 'comptabilite', 'financier', 'financiere'
+        ];
+        const estQuestionFinanciere = motsFrais.some(m => texteComplet.toLowerCase().includes(m));
+        if (estQuestionFinanciere) {
+            const inscriptionActive = await verifierInscriptionActive();
+            if (!inscriptionActive) {
+                const nomEleve = eleveData.nom || '';
+                const prenomEleve = eleveData.prenom || '';
+                const nomComplet = `${nomEleve} ${prenomEleve}`.trim();
+                let messageFinal = `Je suis vraiment désolé, les informations financières ne sont pas rendues publiques pour cette école. Veuillez contacter la comptabilité de l'école ${nomEcole} pour toute question sur la finance.\n\n`;
+                messageFinal += `Mais, Je peux toutefois vous aider concernant ses notes, ses punitions ou la présence de ${nomComplet || 'votre enfant'}.\n\n`;
+                messageFinal += `Que souhaitez-vous consulter en premier ?`;
+                return messageFinal;
+            }
+            return await genererReponseFrais(eleveData);
+        }
+        const motsNotes = ['note', 'notes', 'résultat', 'résultats', 'bulletin', 'point', 'points', 'epreuve', 'epreuves', 'devoir', 'devoirs', 'interro', 'interrogation', 'matière', 'matières', 'cours', 'classe', 'contrôle', 'évaluation', 'test', 'noté', 'notation'];
+        if (motsNotes.some(m => texteComplet.includes(m))) {
+            return await genererReponseNotes(eleveData);
+        }
+        const motsPresence = ['présence', 'present', 'présent', 'absent', 'absence', 'assiduité', 'venir', 'viens', 'vient', 'venu', 'école', 'jour', 'aujourd\'hui', 'hier', 'semaine', 'retard', 'retards', 'ponctualité', 'cours'];
+        if (motsPresence.some(m => texteComplet.includes(m))) {
+            return await genererReponsePresence(eleveData);
+        }
+        const motsPunitions = ['punition', 'punitions', 'sanction', 'sanctions', 'puni', 'punie', 'comportement', 'discipline', 'exclusion', 'avertissement', 'retenue', 'blâme', 'conseil', 'mauvaise', 'faute', 'erreur'];
+        if (motsPunitions.some(m => texteComplet.includes(m))) {
+            return await genererReponsePunitions(eleveData);
+        }
+        const motsBonjour = ['bonjour', 'salut', 'coucou', 'hello', 'hey', 'yo', 'bonsoir', 'bjr', 'slt'];
+        const motsMerci = ['merci', 'remerciement', 'remettre', 'je vous remercie', 'je te remercie', 'merci beaucoup', 'merci infiniment', 'merci bien', 'merci pour tout'];
+        const motsAurevoir = ['au revoir', 'bye', 'bye bye', 'ciao', 'adieu', 'à bientôt', 'à plus', 'à tout à l\'heure', 'à demain', 'à la prochaine', 'bonne journée', 'bonne soirée', 'bonne nuit'];
+        if (motsBonjour.some(m => texteComplet.includes(m))) {
+            return `Bonjour ! Je suis là à votre service.`;
+        }
+        if (motsMerci.some(m => texteComplet.includes(m))) {
+            return `De rien, c'est un plaisir de vous aider.`;
+        }
+        if (motsAurevoir.some(m => texteComplet.includes(m))) {
+            return `Au revoir ! Passez une excellente journée.`;
+        }
+        return await genererReponseNaturelle(message, eleveData);
+    }
+    const h = new Date().getHours();
+    const salutation = h < 12 ? "Bonjour" : (h < 18 ? "Bon après-midi" : "Bonsoir");
+    return `${salutation} ! Entrez votre code parent. Si vous n'en avez pas, contactez la comptabilité de l'école ${nomEcole}.`;
 }
 function sauvegarderSession(prof) { if (prof) { localStorage.setItem('gloria_session_prof', JSON.stringify({ id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt, school: ECOLET_ID })); } else localStorage.removeItem('gloria_session_prof'); }
 async function restaurerSession() {
@@ -2216,48 +2225,85 @@ return `<div class="fiche-card" style="background:rgba(15,23,42,0.95);border-rad
 </div>`;
 }
 async function generateFichePDFTitu(cours, classe, option, refNum, eleves, epreuves, pMax, titulaireNom) {
-const { jsPDF } = window.jspdf;
-const pdf = new jsPDF('landscape', 'mm', 'a4');
-pdf.setFillColor(255, 255, 255);
-pdf.rect(0, 0, 297, 210, 'F');
-pdf.setFont('helvetica', 'bold');
-pdf.setFontSize(14);
-pdf.setTextColor(0, 51, 102);
-let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
-pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' });
-pdf.setFont('helvetica', 'normal');
-pdf.setFontSize(10);
-pdf.setTextColor(80, 80, 80);
-pdf.text('GESTION DE SCOLARITÉ', 148, 28, { align: 'center' });
-pdf.setFont('helvetica', 'bold');
-pdf.setFontSize(12);
-pdf.setTextColor(0, 51, 102);
-pdf.text('FICHE DE COTATION', 148, 38, { align: 'center' });
-pdf.setFont('helvetica', 'normal');
-pdf.setFontSize(9);
-pdf.setTextColor(0, 0, 0);
-pdf.text('Année scolaire: 2026-2027', 14, 50);
-pdf.text('Référence: ' + refNum, 14, 57);
-pdf.text('Cours: ' + cours, 14, 64);
-pdf.text('Classe: ' + classe + (option ? ' - ' + (option === 'TOUTES' ? 'TOUTES OPTIONS' : option) : ''), 14, 71);
-pdf.text('Titulaire: ' + titulaireNom, 14, 78);
-const headers = [['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
-const body = [];
-function calcMoyPdf(periode, notes, eps, pM) { let e = eps[periode] || []; if (!e.length || !notes || !notes.length) return 0; let sn = 0, sm = 0; for (let i = 0; i < e.length; i++) { sn += (notes[i] || 0); sm += (e[i].max || 1); } return sm ? Math.min(pM, Math.round((sn / sm) * pM)) : 0; }
-const maxRow = ['MAXIMA', '', '', pMax, pMax, pMax*2, pMax*3, pMax, pMax, pMax*2, pMax*3, pMax*6];
-body.push(maxRow);
-for (let i = 0; i < eleves.length; i++) {
-let e = eleves[i];
-let p1 = calcMoyPdf(1, e.notes?.p1 || [], epreuves, pMax);
-let p2 = calcMoyPdf(2, e.notes?.p2 || [], epreuves, pMax);
-let p3 = calcMoyPdf(3, e.notes?.p3 || [], epreuves, pMax);
-let p4 = calcMoyPdf(4, e.notes?.p4 || [], epreuves, pMax);
-let exam1 = e.notes?.exam1 || 0, exam2 = e.notes?.exam2 || 0;
-body.push([(i + 1).toString().padStart(2, '0'), e.nom || '', e.sexe || '', p1, p2, exam1, p1 + p2 + exam1, p3, p4, exam2, p3 + p4 + exam2, p1 + p2 + exam1 + p3 + p4 + exam2]);
-}
-if (body.length === 1) body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
-pdf.autoTable({ head: headers, body: body, startY: 85, theme: 'grid', styles: { fontSize: 8, cellPadding: 2, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [245, 245, 245] } });
-return pdf;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('landscape', 'mm', 'a4');
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, 297, 210, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.setTextColor(0, 51, 102);
+    let schoolNameForPdf = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(80, 80, 80);
+    pdf.text('GESTION DE SCOLARITÉ', 148, 28, { align: 'center' });
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 51, 102);
+    pdf.text('FICHE DE COTATION', 148, 38, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Année scolaire: 2026-2027', 14, 50);
+    pdf.text('Référence: ' + refNum, 14, 57);
+    pdf.text('Cours: ' + cours, 14, 64);
+    pdf.text('Classe: ' + classe + (option ? ' - ' + (option === 'TOUTES' ? 'TOUTES OPTIONS' : option) : ''), 14, 71);
+    pdf.text('Titulaire: ' + titulaireNom, 14, 78);
+    const examMax = pMax * 2;
+    const totalS1Max = pMax * 4;
+    const totalS2Max = pMax * 4;
+    const totalMax = pMax * 8;
+    const headers = [['N°', 'NOMS', 'SEXE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
+    const body = [];
+    body.push(['MAXIMA', '', '', pMax, pMax, examMax, totalS1Max, pMax, pMax, examMax, totalS2Max, totalMax]);
+    const ficheTemp = {
+        eleves: eleves,
+        epreuvesParPeriode: epreuves,
+        p1Max: pMax
+    };
+    for (let i = 0; i < eleves.length; i++) {
+        let e = eleves[i];
+        let notes = getNotesByPeriodTitu(ficheTemp, e, "all");
+        body.push([
+            (i + 1).toString().padStart(2, '0'), 
+            e.nom || '', 
+            e.sexe || '', 
+            notes.p1,
+            notes.p2,
+            notes.exam1,
+            notes.totalS1,
+            notes.p3,
+            notes.p4,
+            notes.exam2,
+            notes.totalS2,
+            notes.total
+        ]);
+    }
+    if (body.length === 1) {
+        body.push(['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']);
+    }
+    pdf.autoTable({
+        head: headers,
+        body: body,
+        startY: 85,
+        theme: 'grid',
+        styles: {
+            fontSize: 8,
+            cellPadding: 2,
+            halign: 'center',
+            valign: 'middle'
+        },
+        headStyles: {
+            fillColor: [0, 51, 102],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+            fillColor: [245, 245, 245]
+        }
+    });
+    return pdf;
 }
 async function loadAllFichesFromFirebaseTitu() {
 try {
@@ -2608,7 +2654,7 @@ const prioEmoji = dernierComm.priorite === 'haute' ? '🔴' : (dernierComm.prior
 const prioLabel = dernierComm.priorite === 'haute' ? 'Haute priorité' : (dernierComm.priorite === 'moyenne' ? 'Priorité moyenne' : 'Information');
 messageComm = `<div style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);border-radius:12px;padding:14px 16px;margin:8px 0;"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:20px;">📢</span><span style="font-weight:700;color:#ffd700;font-size:15px;">${escapeHtml(dernierComm.titre)}</span><span style="font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.05);padding:2px 12px;border-radius:30px;">${prioEmoji} ${prioLabel}</span><span style="font-size:11px;color:#4ade80;background:rgba(74,222,128,0.1);padding:2px 12px;border-radius:30px;">📅 ${dernierComm.statut}</span></div><div style="color:#e2e8f0;font-size:14px;margin-top:8px;line-height:1.6;">${escapeHtml(dernierComm.contenu)}</div><div style="font-size:10px;color:#64748b;margin-top:6px;border-top:1px solid rgba(255,255,255,0.05);padding-top:6px;">Publié par la Direction</div></div>`;
 }
-parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble" style="padding:16px 20px;max-width:92%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;"><div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;"> ÉCOLE ${nomEcole}</div>${messageComm}<div style="color:#e2e8f0;font-size:17px;margin:8px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div><div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div><div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au samedi</div></div></div>`;
+parentChatMessagesNew.innerHTML = `<div class="parent-msg bot"><div class="bubble" style="padding:16px 20px;max-width:92%;background:linear-gradient(135deg,rgba(18,25,45,0.95),rgba(10,15,30,0.95));border:2px solid rgba(59,130,246,0.3);border-radius:24px;"><div style="font-weight:700;color:#ffd700;font-size:20px;margin-bottom:4px;"> ÉCOLE ${nomEcole}</div>${messageComm}<div style="color:#e2e8f0;font-size:17px;margin:8px 0 10px 0;font-weight:500;">🔑 Entrez votre <strong>code parent</strong> à 6 chiffres</div><div style="color:#fbbf24;font-size:16px;background:rgba(245,158,11,0.1);border-radius:10px;padding:10px 14px;border:1px solid rgba(245,158,11,0.2);">⚠️ <strong>Si vous n'avez pas de code</strong>, contactez la <strong>comptabilité</strong></div><div style="color:#64748b;font-size:13px;margin-top:8px;text-align:center;border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">💡 Service du lundi au dimanche</div></div></div>`;
 parentInfoEleveNew.innerHTML = `   ÉCOLE ${nomEcole}`;
 parentQuestionInputNew.value = '';
 parentQuestionInputNew.focus();
@@ -2624,16 +2670,6 @@ parentSendBtnNew.onclick = async () => {
 if (estEnAttenteReponse) { toast("Veuillez patienter, je suis en train d'écrire", 'warning'); return; }
 const message = parentQuestionInputNew.value.trim();
 if (!message) return;
-const aujourdhui = new Date();
-const jourSemaine = aujourdhui.getDay();
-if (jourSemaine === 0) {
-parentChatMessagesNew.innerHTML += `<div class="parent-msg user"><div class="bubble">${escapeHtml(message)}</div></div>`;
-parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.</div></div>`;
-parentQuestionInputNew.value = '';
-parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
-voixParentale("Désolé, aujourd'hui c'est dimanche. Veuillez revenir un jour ouvrable, entre le lundi et le samedi.");
-return;
-}
 if (!await canAskQuestion()) {
 toast("⚠️ Limite quotidienne atteinte pour ce code parent ! Revenez demain.", "warning");
 parentChatMessagesNew.innerHTML += `<div class="parent-msg bot"><div class="bubble">⚠️ Limite de 20 questions par jour atteinte pour ce code parent. Revenez demain.</div></div>`;
