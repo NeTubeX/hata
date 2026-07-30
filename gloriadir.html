@@ -519,6 +519,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <div class="form-group" id="optionGroup" style="display:none;">
 <label>Option</label>
 <select id="eleveOptionSelect">
+<option value="TOUTES">TOUTES</option>
 <option value="LATIN-PHILO">LATIN-PHILO</option>
 <option value="SCIENCES">SCIENCES</option>
 <option value="PEDAGOGIE GENERALE">PEDAGOGIE GENERALE</option>
@@ -526,7 +527,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <option value="ELECTRICITE">ELECTRICITE</option>
 <option value="MECANIQUE GENERALE">MECANIQUE GENERALE</option>
 <option value="COUPE ET COUTURE">COUPE ET COUTURE</option>
-<option value="TOUTES">TOUTES</option>
 </select>
 </div>
 </div>
@@ -711,62 +711,118 @@ let ACCESS_CODE = null;
 let canGenerateCode = true;
 let toastQueue = [];
 let toastActive = false;
-let localEleves = [];
 
-function toast(message, type = "success") {
-toastQueue.push({ message, type });
-if (!toastActive) processToastQueue();
+// ============ CORRECTION CODE ACCES ============
+
+async function loadAccessCodeFromFirebase() {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+if (data.codeDirection) {
+ACCESS_CODE = data.codeDirection;
+localStorage.setItem('access_code_direction', data.codeDirection);
+document.getElementById('currentCodeDisplay').textContent = data.codeDirection;
+if (data.updatedAt) {
+const date = new Date(data.updatedAt);
+document.getElementById('lastCodeChange').textContent = date.toLocaleDateString('fr-FR', {
+day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+});
+}
+const lastGen = localStorage.getItem('direction_code_gen_date');
+const today = new Date().toISOString().slice(0, 10);
+if (lastGen === today) {
+canGenerateCode = false;
+document.getElementById('codeGenerationInfo').style.display = 'flex';
+document.getElementById('codeInfoText').textContent = '⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.';
+document.getElementById('generateCodeBtn').disabled = true;
+document.getElementById('generateCodeBtn').style.opacity = '0.5';
+}
+return true;
+}
+}
+return false;
+} catch (error) {
+console.error(error);
+return false;
+}
 }
 
-function processToastQueue() {
-if (toastQueue.length === 0) { toastActive = false; return; }
-toastActive = true;
-const { message, type } = toastQueue.shift();
-const c = document.getElementById('toastContainer');
-if (!c) { toastActive = false; processToastQueue(); return; }
-const icons = { success: 'fas fa-check-circle', error: 'fas fa-exclamation-circle', warning: 'fas fa-exclamation-triangle' };
-const colors = { success: '#059669', error: '#dc2626', warning: '#d97706' };
-const e = document.createElement('div');
-e.className = 'toast ' + (type || '');
-e.innerHTML = `<div class="toast-icon" style="color:${colors[type]}"><i class="${icons[type]}"></i></div><div class="toast-content"><div class="toast-title">${type === 'success' ? 'Succès' : type === 'error' ? 'Erreur' : 'Attention'}</div><div class="toast-message">${message}</div></div>`;
-c.appendChild(e);
-setTimeout(() => e.classList.add('show'), 10);
-setTimeout(() => {
-e.classList.remove('show');
-setTimeout(() => {
-if (e.parentNode) e.remove();
-toastActive = false;
-processToastQueue();
-}, 400);
-}, 3500);
+async function saveAccessCodeToFirebase(newCode) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+await setDoc(docRef, {
+codeDirection: newCode,
+updatedAt: new Date().toISOString(),
+updatedBy: "Direction"
+}, { merge: true });
+return true;
+} catch (error) {
+console.error(error);
+return false;
+}
 }
 
-function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m])); }
-
-function showModal(title, bodyHTML, footerHTML) {
-const overlay = document.createElement('div');
-overlay.className = 'modal-fullscreen';
-overlay.innerHTML = `<div class="modal-content"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3>${title}</h3><span style="font-size:22px;cursor:pointer;color:#9ca3af;" onclick="this.closest('.modal-fullscreen').remove()">&times;</span></div>${bodyHTML}<div class="modal-footer">${footerHTML}</div></div>`;
-document.body.appendChild(overlay);
-setTimeout(() => overlay.classList.add('show'), 10);
-return overlay;
+async function verifierCodeAccesDirection(codeSaisi) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+return data.codeDirection === codeSaisi;
+}
+return false;
+} catch (error) {
+console.error("Erreur vérification code:", error);
+return false;
+}
 }
 
-function showConfirm(title, message, onConfirm) {
-const m = showModal(title, `<p>${message}</p>`, '<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');
-m.querySelector('#confirmCancel').onclick = () => m.remove();
-m.querySelector('#confirmOk').onclick = () => { m.remove(); if (onConfirm) onConfirm(); };
+async function verifierCodeDirection() {
+try {
+const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
+const snap = await getDoc(ref);
+let email = `direction.${ECOLET_ID}@gmail.com`;
+let codeFound = false;
+if (snap.exists()) {
+const data = snap.data();
+if (data.emailDirection) email = data.emailDirection;
+if (data.codeDirection === codeFromUrl) codeFound = true;
+}
+if (!codeFound && codeFromUrl) {
+try {
+const userCred = await signInWithEmailAndPassword(auth, email, codeFromUrl);
+currentAuthUser = userCred.user;
+codeFound = true;
+if (snap.exists() && !snap.data().codeDirection) {
+await setDoc(ref, { codeDirection: codeFromUrl, emailDirection: email, updatedAt: new Date().toISOString() }, { merge: true });
+}
+} catch (authError) {
+if (authError.code === 'auth/user-not-found') {
+try {
+const userCred = await createUserWithEmailAndPassword(auth, email, codeFromUrl);
+currentAuthUser = userCred.user;
+codeFound = true;
+} catch (createError) {}
+}
+}
+}
+if (codeFound) {
+document.getElementById('mainContent').classList.add('visible');
+initApp();
+demarrerSurveillanceInactiviteDirection();
+return true;
+}
+window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
+return false;
+} catch (error) {
+window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
+return false;
+}
 }
 
-function showStyledConfirm(title, message, onConfirm, onCancel) {
-let d = document.createElement('div');
-d.className = 'modal-fullscreen';
-d.innerHTML = `<div class="modal-content" style="max-width:420px;text-align:center;padding:32px;border-radius:28px;"><div style="font-size:56px;margin-bottom:16px;">🏫</div><h3 style="color:#f97316;margin-bottom:16px;font-size:20px;font-weight:700;">${title}</h3><p style="color:#6b7280;margin-bottom:24px;line-height:1.6;font-size:14px;">${message}</p><div style="display:flex;gap:14px;justify-content:center;"><button id="styledConfirmCancel" style="background:#e5e7eb;color:#1a2332;border:none;padding:10px 28px;border-radius:40px;cursor:pointer;font-weight:600;font-size:14px;">Annuler</button><button id="styledConfirmOk" style="background:#dc2626;color:#fff;border:none;padding:10px 28px;border-radius:40px;cursor:pointer;font-weight:600;font-size:14px;">Confirmer</button></div></div>`;
-document.body.appendChild(d);
-setTimeout(() => d.classList.add('show'), 10);
-d.querySelector('#styledConfirmOk').onclick = () => { d.remove(); if (onConfirm) onConfirm(); };
-d.querySelector('#styledConfirmCancel').onclick = () => { d.remove(); if (onCancel) onCancel(); };
-}
+function genererCodeAcces() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
 function genererCode6Chiffres() {
 let code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -774,23 +830,1053 @@ while (code.length < 6) code = '0' + code;
 return code;
 }
 
+async function genererCodeUnique() {
+const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "settings", "data"));
+let code = genererCodeAcces();
+let exists = false;
+for (const docSnap of snap.docs) {
+const data = docSnap.data();
+if (data.codeDirection === code) exists = true;
+}
+if (exists) return genererCodeUnique();
+return code;
+}
+
+function toast(message, type='success') {
+toastQueue.push({message, type});
+if (!toastActive) processToastQueue();
+}
+
+function processToastQueue() {
+if (toastQueue.length === 0) { toastActive = false; return; }
+toastActive = true;
+const {message, type} = toastQueue.shift();
+const c = document.getElementById('toastContainer');
+if (!c) { toastActive = false; processToastQueue(); return; }
+const icons = { success: 'fas fa-check-circle', error: 'fas fa-exclamation-circle', warning: 'fas fa-exclamation-triangle' };
+const colors = { success: '#059669', error: '#dc2626', warning: '#d97706' };
+const e = document.createElement('div');
+e.className = 'toast ' + (type||'');
+e.innerHTML = `<div class="toast-icon" style="color:${colors[type]}"><i class="${icons[type]}"></i></div><div class="toast-content"><div class="toast-title">${type === 'success' ? 'Succès' : type === 'error' ? 'Erreur' : 'Attention'}</div><div class="toast-message">${message}</div></div>`;
+c.appendChild(e);
+setTimeout(() => e.classList.add('show'), 10);
+setTimeout(() => {
+e.classList.remove('show');
+setTimeout(() => {
+if(e.parentNode) e.remove();
+toastActive = false;
+processToastQueue();
+}, 400);
+}, 3500);
+}
+
+function escapeHtml(s){if(!s)return'';return s.replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+function showModal(title,bodyHTML,footerHTML){
+const overlay=document.createElement('div');
+overlay.className='modal-fullscreen';
+overlay.innerHTML=`<div class="modal-content"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h3>${title}</h3><span style="font-size:22px;cursor:pointer;color:#9ca3af;" onclick="this.closest('.modal-fullscreen').remove()">&times;</span></div>${bodyHTML}<div class="modal-footer">${footerHTML}</div></div>`;
+document.body.appendChild(overlay);
+setTimeout(()=>overlay.classList.add('show'),10);
+return overlay;
+}
+
+function showPrompt(title,message,placeholder,callback,extraInputs) {
+let extraHtml = extraInputs || '';
+const m=showModal(title,`<p>${message}</p><input type="text" id="modalInput" placeholder="${placeholder}" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:13px;outline:none;">${extraHtml}`,'<button class="btn btn-sm btn-outline" id="promptCancel">Annuler</button><button class="btn btn-sm btn-success" id="promptConfirm">Confirmer</button>');
+m.querySelector('#promptCancel').onclick=()=>m.remove();
+m.querySelector('#promptConfirm').onclick=()=>{
+const val=m.querySelector('#modalInput')?.value || '';
+const sexe=m.querySelector('#modalSexe')?.value || 'M';
+m.remove();
+if(callback) callback(val, sexe);
+};
+setTimeout(()=>{const inp=m.querySelector('#modalInput');if(inp)inp.focus()},100);
+}
+
+function showConfirm(title,message,onConfirm){
+const m=showModal(title,`<p>${message}</p>`,'<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');
+m.querySelector('#confirmCancel').onclick=()=>m.remove();
+m.querySelector('#confirmOk').onclick=()=>{m.remove();if(onConfirm)onConfirm()};
+}
+
 function deconnecterUtilisateur() {
 arreterSurveillanceInactiviteDirection();
-if (profsUnsubscribe) { profsUnsubscribe(); profsUnsubscribe = null; }
-if (recoUnsubscribe) { recoUnsubscribe(); recoUnsubscribe = null; }
-if (classementUnsubscribe) { classementUnsubscribe(); classementUnsubscribe = null; }
-if (elevesUnsubscribe) { elevesUnsubscribe(); elevesUnsubscribe = null; }
-window.location.href = 'https://www.netubex.com/login';
+if(profsUnsubscribe){profsUnsubscribe();profsUnsubscribe=null;}
+if(recoUnsubscribe){recoUnsubscribe();recoUnsubscribe=null;}
+if(classementUnsubscribe){classementUnsubscribe();classementUnsubscribe=null;}
+if(elevesUnsubscribe){elevesUnsubscribe();elevesUnsubscribe=null;}
+window.location.href='https://www.netubex.com/login';
 }
 
 document.getElementById('logoutBtn').addEventListener('click', deconnecterUtilisateur);
 
+// ============ GESTION PROFESSEURS ============
+
+function genererEmailProfesseur(nom, ecoleId) {
+if (!nom) return '';
+const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.');
+return `prof.${nomPropre}.${ecoleId}@gmail.com`;
+}
+
+async function chargerProfs() {
+try {
+const q = query(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS), where("_type", "==", "prof"));
+const snap = await getDocs(q);
+const profs = [];
+snap.forEach(ds => {
+const data = ds.data();
+if(data.nom) profs.push({id: ds.id, ...data});
+});
+profs.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+return profs;
+} catch(e) { return []; }
+}
+
+function afficherProfs(profs) {
+const c = document.getElementById('profsListContainer');
+if(!c) return;
+const searchTerm = document.getElementById('searchProfInput')?.value?.toLowerCase() || '';
+let filtered = profs;
+if(searchTerm) {
+filtered = profs.filter(p => (p.nom||'').toLowerCase().includes(searchTerm));
+}
+if(!filtered || filtered.length === 0) {
+c.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;font-size:13px;"><i class="fas fa-chalkboard-teacher" style="font-size:32px;display:block;margin-bottom:8px;color:#e5e7eb;"></i><p>Aucun professeur trouvé</p></div>';
+return;
+}
+let html = '<div class="prof-cards">';
+filtered.forEach((p, index) => {
+const estActif = p.actif !== false;
+const sexe = p.sexe || 'M';
+const sexeLabel = sexe === 'F' ? '👩 Femme' : '👨 Homme';
+const statusClass = estActif ? 'actif' : 'inactif';
+const statusLabel = estActif ? 'Actif' : 'Inactif';
+html += `<div class="prof-card">
+<span class="prof-numero">#${index + 1}</span>
+<span class="prof-nom">${escapeHtml(p.nom)}</span>
+<span class="prof-sex">${sexeLabel}</span>
+<span class="prof-code">${p.actif===false?'🔒 Désactivé':'🔓 Actif'}</span>
+<span class="prof-status ${statusClass}">${statusLabel}</span>
+<button onclick="window.toggleProfActif('${p.id}')" class="btn btn-sm ${estActif ? 'btn-danger' : 'btn-success'}" style="padding:4px 14px;font-size:10px;">
+${estActif ? '⛔ Désactiver' : '✅ Réactiver'}
+</button>
+</div>`;
+});
+html += '</div>';
+c.innerHTML = html;
+}
+
+window.toggleProfActif = async function(id) {
+showConfirm('Changer le statut', 'Voulez-vous changer le statut de ce professeur ?', async () => {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, id);
+const snap = await getDoc(docRef);
+const data = snap.data();
+await updateDoc(docRef, { actif: !data.actif });
+toast(`✅ Professeur ${data.actif?'désactivé':'réactivé'}`, 'success');
+chargerProfs().then(p => afficherProfs(p));
+} catch(e) { toast('❌ Erreur: '+e.message, 'error'); }
+});
+};
+
+function ecouterProfs() {
+if(profsUnsubscribe){profsUnsubscribe();profsUnsubscribe=null;}
+try {
+const q = query(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS), where("_type", "==", "prof"));
+profsUnsubscribe = onSnapshot(q, async (snapshot) => {
+const profs = [];
+snapshot.forEach(ds => {
+const data = ds.data();
+if(data.nom) profs.push({id: ds.id, ...data});
+});
+profs.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+afficherProfs(profs);
+}, (error) => console.error("Erreur écoute profs:", error));
+} catch(e) { console.error("Erreur activation écoute:", e); }
+}
+
+document.getElementById('addProfBtn').onclick = function() {
+const extraHtml = `
+<div style="margin-top:8px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Sexe</label>
+<select id="modalSexe" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:13px;outline:none;">
+<option value="M">👨 Homme</option>
+<option value="F">👩 Femme</option>
+</select>
+</div>
+`;
+showPrompt('Ajouter un professeur', 'Entrez le nom complet du professeur', 'Nom complet', async (nom, sexe) => {
+if(!nom || !nom.trim()) { toast('❌ Veuillez entrer un nom', 'error'); return; }
+const code = genererCodeAcces();
+const pid = 'prof_' + Date.now();
+const schoolId = ECOLET_ID;
+const nomTrim = nom.trim();
+const sexeValue = sexe || 'M';
+const email = genererEmailProfesseur(nomTrim, schoolId);
+let authCreated = false;
+try {
+await createUserWithEmailAndPassword(auth, email, code);
+authCreated = true;
+} catch (authError) {
+if (authError.code === 'auth/email-already-in-use') {
+authCreated = true;
+} else if (authError.code === 'auth/weak-password') {
+toast('❌ Le code doit faire au moins 6 caractères', 'error');
+return;
+} else {
+toast('⚠️ Erreur Auth: ' + authError.message, 'warning');
+}
+}
+const data = {
+_type: "prof", id: pid, profId: pid, nom: nomTrim,
+sexe: sexeValue, code: code, email: email, emailProf: email,
+authCreated: authCreated, createdAt: Date.now(), actif: true, school: schoolId
+};
+try {
+await setDoc(doc(db, "ecoles", schoolId, SC.PROFESSEURS, pid), data);
+toast(`✅ ${nomTrim} ajouté avec succès`, 'success');
+showModal('✅ Professeur ajouté', `
+<div style="text-align:center;">
+<div style="font-size:48px;margin-bottom:8px;">👨‍🏫</div>
+<p style="font-weight:600;font-size:18px;color:#1a2332;">${escapeHtml(nomTrim)}</p>
+<p style="font-size:13px;color:#6b7280;margin:4px 0 12px 0;">${sexeValue === 'F' ? '👩 Femme' : '👨 Homme'}</p>
+<div style="background:#f0fdf4;border-radius:12px;padding:16px;border:2px solid #059669;margin:8px 0;">
+<div style="font-size:11px;font-weight:600;color:#059669;">🔑 Code d'accès du professeur</div>
+<div style="font-size:32px;font-weight:800;letter-spacing:6px;color:#059669;font-family:monospace;margin:4px 0;">${code}</div>
+</div>
+<div style="background:#fef3c7;border-radius:8px;padding:10px;margin:12px 0;border:1px solid #fde68a;">
+<p style="font-size:11px;color:#92400e;margin:0;"><i class="fas fa-info-circle"></i> <strong>Important :</strong> Transmettez ce code au professeur.<br>Il utilisera son nom et ce code pour se connecter.</p>
+</div>
+</div>
+`, '<button class="btn btn-sm btn-primary" onclick="this.closest(\'.modal-fullscreen\').remove()">Fermer</button>');
+chargerProfs().then(p => afficherProfs(p));
+} catch(e) { toast('❌ Erreur: '+e.message, 'error'); }
+}, extraHtml);
+};
+
+document.getElementById('searchProfInput').addEventListener('input', function() {
+chargerProfs().then(p => afficherProfs(p));
+});
+
+document.getElementById('refreshProfsBtn').addEventListener('click', function() {
+chargerProfs().then(p => afficherProfs(p));
+toast('✅ Professeurs actualisés', 'success');
+});
+
+// ============ GESTION PUNITIONS ============
+
+async function chargerPunitions() {
+const c = document.getElementById('punitionClasseSelect').value;
+const en = document.getElementById('punitionEleveSelect').value;
+const container = document.getElementById('punitionsListContainer');
+if(!container) return;
+container.innerHTML = '<div style="text-align:center;padding:14px;color:#6b7280;"><i class="fas fa-spinner fa-spin"></i> Chargement...</div>';
+try {
+let constraints = [];
+if(c) constraints.push(where("classe", "==", c));
+if(en) constraints.push(where("eleveNom", "==", en));
+constraints.push(where("statut", "==", "active"));
+let q = collection(db, "ecoles", ECOLET_ID, SC.PUNITIONS);
+let queryRef = constraints.length > 0 ? query(q, ...constraints) : q;
+const snap = await getDocs(queryRef);
+const punitions = [];
+snap.forEach(ds => { punitions.push({id: ds.id, ...ds.data()}) });
+if(punitions.length === 0) {
+container.innerHTML = '<div style="text-align:center;padding:20px;color:#6b7280;"><i class="fas fa-check-circle" style="font-size:24px;display:block;margin-bottom:4px;color:#e5e7eb;"></i><p>Aucune punition active</p></div>';
+return;
+}
+let html = '';
+punitions.sort((a,b) => new Date(b.date) - new Date(a.date));
+punitions.forEach(p => {
+const df = new Date(p.date).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'});
+const gc = p.gravite === 'grave' ? 'grave' : p.gravite === 'moyenne' ? 'moyenne' : 'legere';
+html += `<div class="punition-item"><div class="info"><span class="nom">${escapeHtml(p.eleveNom)}</span><span class="classe-tag">${escapeHtml(p.classe||'')}</span><span class="motif">${escapeHtml(p.motif)}</span><span class="date"><i class="far fa-calendar-alt"></i> ${df}</span><span class="gravite ${gc}">${p.gravite==='grave'?'Grave':p.gravite==='moyenne'?'Moyenne':'Légère'}</span></div><div class="punition-actions"><button onclick="window.annulerPunition('${p.id}')"><i class="fas fa-times"></i> Annuler</button></div></div>`;
+});
+container.innerHTML = html;
+} catch(e) {
+container.innerHTML = '<div style="text-align:center;padding:16px;color:#dc2626;"><i class="fas fa-exclamation-circle" style="font-size:24px;display:block;margin-bottom:4px;"></i><p>Erreur de chargement</p></div>';
+console.error(e);
+}
+}
+
+window.annulerPunition = async function(id) {
+showConfirm('Annuler la punition', 'Voulez-vous vraiment annuler cette punition ?', async () => {
+try {
+const snap = await getDoc(doc(db, "ecoles", ECOLET_ID, SC.PUNITIONS, id));
+const data = snap.data();
+await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PUNITIONS, id), { statut: "annulee" }, { merge: true });
+chargerPunitions();
+} catch(e) {}
+});
+};
+
+document.getElementById('addPunitionBtn').onclick = function() {
+const form = document.getElementById('punitionForm');
+const es = document.getElementById('punitionEleveSelect');
+if(form.classList.contains('show')) { form.classList.remove('show'); return; }
+if(!es.value) { toast('Veuillez sélectionner un élève', 'error'); return; }
+document.getElementById('punitionMotif').value = '';
+document.getElementById('punitionJustification').value = '';
+form.classList.add('show');
+document.getElementById('punitionMotif').focus();
+};
+
+document.getElementById('cancelPunitionBtn').onclick = function() {
+document.getElementById('punitionForm').classList.remove('show');
+};
+
+document.getElementById('savePunitionBtn').onclick = async function() {
+const es = document.getElementById('punitionEleveSelect');
+const c = document.getElementById('punitionClasseSelect').value;
+const motif = document.getElementById('punitionMotif').value.trim();
+const just = document.getElementById('punitionJustification').value.trim();
+if(!es.value) { toast('Veuillez sélectionner un élève', 'error'); return; }
+if(!motif) { toast('Veuillez saisir un motif', 'error'); return; }
+if(!just) { toast('Veuillez saisir une justification', 'error'); return; }
+const data = {
+eleveNom: es.value,
+classe: c || 'Non spécifiée',
+motif: motif,
+justification: just,
+date: new Date().toISOString(),
+enregistrePar: 'Direction',
+gravite: 'moyenne',
+statut: 'active'
+};
+try {
+const docId = 'punition_' + Date.now();
+await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PUNITIONS, docId), data);
+document.getElementById('punitionForm').classList.remove('show');
+chargerPunitions();
+} catch(e) { toast('Erreur: '+e.message, 'error'); }
+};
+
+async function updatePunitionEleves() {
+const c = document.getElementById('punitionClasseSelect').value;
+const es = document.getElementById('punitionEleveSelect');
+if(!es) return;
+const cv = es.value;
+es.innerHTML = '<option value="">Tous</option>';
+try {
+const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.FICHES));
+const elevesSet = new Set();
+snap.forEach(ds => {
+const d = ds.data();
+if(d._type) return;
+if(c && d.classe !== c) return;
+if(d.eleves && Array.isArray(d.eleves)) {
+d.eleves.forEach(e => { if(e.nom) elevesSet.add(e.nom); });
+}
+});
+const elevesTries = Array.from(elevesSet).sort((a,b) => a.localeCompare(b));
+if(elevesTries.length === 0) { es.innerHTML = '<option value="">Aucun élève trouvé</option>'; return; }
+elevesTries.forEach(n => {
+const opt = document.createElement('option');
+opt.value = n;
+opt.textContent = n;
+if(n === cv) opt.selected = true;
+es.appendChild(opt);
+});
+} catch(e) { console.error("Erreur chargement élèves:", e); es.innerHTML = '<option value="">Erreur de chargement</option>'; }
+}
+
+document.getElementById('punitionClasseSelect').onchange = function(){ updatePunitionEleves(); chargerPunitions(); };
+document.getElementById('punitionEleveSelect').onchange = function(){ chargerPunitions(); };
+
+// ============ CORRECTION CORBEILLE ============
+
+async function afficherCorbeille() {
+const c = document.getElementById('corbeilleList');
+if(!c) return;
+try {
+const corbeilleRef = collection(db, "ecoles", ECOLET_ID, SC.CORBEILLE);
+const snap = await getDocs(corbeilleRef);
+const corbeille = [];
+snap.forEach(ds => {
+const data = ds.data();
+if(data.dateExpiration && new Date(data.dateExpiration) > new Date()) {
+corbeille.push({id: ds.id, ...data});
+}
+});
+
+if(corbeille.length === 0) {
+c.innerHTML = `
+<div style="text-align:center;padding:30px 20px;color:#9ca3af;font-size:13px;">
+<div style="font-size:40px;margin-bottom:12px;opacity:0.3;">🗑️</div>
+<p style="font-weight:500;color:#6b7280;">Corbeille vide</p>
+<p style="font-size:11px;margin-top:4px;">Les fiches supprimées apparaîtront ici</p>
+</div>
+`;
+return;
+}
+
+corbeille.sort((a, b) => (b.dateSuppression || 0) - (a.dateSuppression || 0));
+
+let html = `
+<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#f8fafc;border-radius:10px;font-size:11px;color:#6b7280;font-weight:600;border:1px solid #e8ecf0;">
+<span>📄 Fiche</span>
+<span>⏳ Expiration</span>
+<span style="text-align:right;">Action</span>
+</div>
+`;
+
+for (const f of corbeille) {
+const dateSupp = f.dateSuppression ? new Date(f.dateSuppression) : new Date();
+const dateExpiration = new Date(dateSupp);
+dateExpiration.setDate(dateExpiration.getDate() + 30);
+const joursRestants = Math.ceil((dateExpiration - new Date()) / (1000 * 60 * 60 * 24));
+
+let statutCouleur = '#10b981';
+let statutTexte = `${joursRestants} jour(s)`;
+if (joursRestants <= 5) {
+statutCouleur = '#dc2626';
+statutTexte = `⚠️ ${joursRestants} jour(s)`;
+} else if (joursRestants <= 10) {
+statutCouleur = '#f59e0b';
+statutTexte = `⚡ ${joursRestants} jour(s)`;
+}
+
+const refNum = f.numeroRef ? 'F' + String(f.numeroRef).padStart(3, '0') : '???';
+const cours = f.cours || 'Sans cours';
+const classe = f.classe || '?';
+const optionDisplay = f.option ? ` (${f.option})` : '';
+const profNom = f.professeurNom || f.profId || 'Inconnu';
+const dateSuppFormatee = new Date(dateSupp).toLocaleDateString('fr-FR', {
+day: '2-digit', month: '2-digit', year: 'numeric'
+});
+
+html += `
+<div style="background:#ffffff;border-radius:12px;padding:12px 16px;border:1px solid #e8ecf0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:180px;">
+<div style="background:#fee2e2;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#dc2626;font-family:monospace;border:1px solid #fecaca;">
+${refNum}
+</div>
+<div>
+<div style="font-weight:600;font-size:14px;color:#1a2332;">${escapeHtml(cours)}</div>
+<div style="font-size:12px;color:#6b7280;">${escapeHtml(classe)}${optionDisplay} · ${escapeHtml(profNom)}</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;">
+<span style="font-size:10px;">🗑️</span>
+<span>${dateSuppFormatee}</span>
+</div>
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:${statutCouleur};">
+<span style="font-size:10px;">⏳</span>
+<span>${statutTexte}</span>
+</div>
+<div style="display:flex;gap:6px;">
+<select id="restaureProf_${f.id}" style="padding:5px 10px;border-radius:30px;background:#f8fafc;color:#1a2332;border:1px solid #e2e6ea;font-size:11px;cursor:pointer;outline:none;">
+<option value="${f.profId}">👨‍🏫 ${escapeHtml(profNom)}</option>
+<option value="autre">🔄 Autre prof</option>
+<option value="nouveau">➕ Nouveau prof</option>
+</select>
+<button onclick="window.confirmerRestauration('${f.id}')" style="background:#059669;color:white;border:none;padding:5px 16px;border-radius:30px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;">
+🔄 Restaurer
+</button>
+</div>
+</div>
+</div>
+`;
+}
+
+html += `</div>`;
+c.innerHTML = html;
+
+} catch (e) {
+console.error("Erreur chargement corbeille:", e);
+c.innerHTML = `
+<div style="text-align:center;padding:20px;color:#dc2626;font-size:13px;">
+<div style="font-size:28px;margin-bottom:8px;">❌</div>
+<p>Erreur de chargement de la corbeille</p>
+</div>
+`;
+}
+}
+
+window.confirmerRestauration = function(ficheId) {
+showConfirm('🔄 Restaurer la fiche de cotation', 'Voulez-vous vraiment restaurer cette <strong>fiche de cotation</strong> ?<br><br>La fiche sera remise dans l\'espace du professeur sélectionné.<br>Les données (élèves, notes, épreuves) seront conservées.', function() {
+window.restaurerFicheCorbeille(ficheId);
+});
+};
+
+window.restaurerFicheCorbeille = async function(ficheId) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, ficheId);
+const snap = await getDoc(docRef);
+if(!snap.exists()) { toast('Fiche non trouvée dans la corbeille', 'error'); return; }
+const fiche = snap.data();
+const select = document.getElementById('restaureProf_'+ficheId);
+const choix = select ? select.value : fiche.profId;
+let nouveauProfId = fiche.profId;
+let nouveauProfNom = fiche.professeurNom;
+if(choix === "nouveau") {
+showPrompt("Nom du nouveau professeur", "Nom complet du professeur", "Nom", async function(nouveauNom){
+if(nouveauNom && nouveauNom.trim()) {
+const code = genererCodeAcces();
+const pid = 'prof_' + Date.now();
+const email = genererEmailProfesseur(nouveauNom.trim(), ECOLET_ID);
+try {
+await createUserWithEmailAndPassword(auth, email, code).catch(() => {});
+const data = { _type: "prof", id: pid, profId: pid, nom: nouveauNom.trim(), code: code, email: email, emailProf: email, createdAt: Date.now(), actif: true, school: ECOLET_ID, authCreated: true };
+await setDoc(doc(db, "ecoles", ECOLET_ID, SC.PROFESSEURS, pid), data);
+nouveauProfId = pid;
+nouveauProfNom = nouveauNom.trim();
+await restaurerFiche(ficheId, fiche, nouveauProfId, nouveauProfNom);
+} catch(e) { toast('Erreur: '+e.message, 'error'); }
+} else { toast('Nom invalide', 'error'); }
+});
+return;
+} else if(choix === "autre") {
+let profs = [];
+try {
+const snapProfs = await getDocs(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS));
+snapProfs.forEach(ds => { const d = ds.data(); if(d._type === 'prof') profs.push(d); });
+} catch(e) { toast('Erreur chargement profs', 'error'); return; }
+if(profs.length === 0) { toast('Aucun professeur disponible', 'error'); return; }
+showPrompt("Nom du professeur", "Entrez le nom du professeur", profs.map(p=>p.nom).join(', '), async function(reponse){
+if(reponse && reponse.trim()) {
+const profTrouve = profs.find(p => p.nom === reponse.trim() || p.id === reponse.trim());
+if(profTrouve) {
+await restaurerFiche(ficheId, fiche, profTrouve.id, profTrouve.nom);
+} else { toast('Professeur non trouvé', 'error'); }
+} else { toast('Nom invalide', 'error'); }
+});
+return;
+}
+await restaurerFiche(ficheId, fiche, nouveauProfId, nouveauProfNom);
+} catch(e) { toast('Erreur: '+e.message, 'error'); }
+};
+
+async function restaurerFiche(ficheId, ficheData, nouveauProfId, nouveauProfNom) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.FICHES, ficheId);
+const newData = { ...ficheData };
+delete newData.dateSuppression;
+delete newData.dateExpiration;
+delete newData.professeurNom;
+delete newData.supprimePar;
+newData.profId = nouveauProfId;
+newData.professeurNom = nouveauProfNom;
+newData.school = ECOLET_ID;
+newData.dateRestoration = new Date().toISOString();
+await setDoc(docRef, newData);
+await deleteDoc(doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, ficheId));
+toast('✅ Fiche de cotation restaurée avec succès', 'success');
+afficherCorbeille();
+} catch(e) { toast('Erreur: '+e.message, 'error'); }
+}
+
+// ============ CORRECTION CODE ACCES BOUTONS ============
+
+document.getElementById('generateCodeBtn').addEventListener('click', async function() {
+if (!canGenerateCode) {
+toast('⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.', 'warning');
+return;
+}
+const newCode = await genererCodeUnique();
+document.getElementById('newCodeInput').value = newCode;
+const today = new Date().toISOString().slice(0,10);
+localStorage.setItem('direction_code_gen_date', today);
+canGenerateCode = false;
+document.getElementById('codeGenerationInfo').style.display = 'flex';
+document.getElementById('codeInfoText').textContent = '✅ Nouveau code généré avec succès ! Code : ' + newCode;
+document.getElementById('codeInfoText').style.color = '#059669';
+document.getElementById('generateCodeBtn').disabled = true;
+document.getElementById('generateCodeBtn').style.opacity = '0.5';
+toast('✅ Nouveau code généré : ' + newCode, 'success');
+});
+
+document.getElementById('changeCodeBtn').addEventListener('click', async function() {
+const currentCode = document.getElementById('currentCodeInput').value.trim();
+const newCode = document.getElementById('newCodeInput').value.trim();
+const errorDiv = document.getElementById('settingsError');
+
+if (!currentCode || currentCode.length < 6) {
+errorDiv.textContent = '❌ Veuillez saisir l\'ancien code (6 chiffres)';
+document.getElementById('currentCodeInput').focus();
+return;
+}
+
+const isValid = await verifierCodeAccesDirection(currentCode);
+if (!isValid) {
+errorDiv.textContent = '❌ Ancien code incorrect';
+document.getElementById('currentCodeInput').focus();
+return;
+}
+
+if (!newCode || newCode.length !== 6 || !/^\d{6}$/.test(newCode)) {
+errorDiv.textContent = '❌ Le code doit contenir exactement 6 chiffres';
+document.getElementById('newCodeInput').focus();
+return;
+}
+
+if (newCode === ACCESS_CODE) {
+errorDiv.textContent = '⚠️ Le nouveau code est identique à l\'ancien';
+return;
+}
+
+showConfirm('Changement de code', `Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`, async function() {
+try {
+const saved = await saveAccessCodeToFirebase(newCode);
+if (saved) {
+ACCESS_CODE = newCode;
+localStorage.setItem('access_code_direction', newCode);
+document.getElementById('currentCodeDisplay').textContent = newCode;
+document.getElementById('lastCodeChange').textContent = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+if (currentAuthUser) {
+try {
+await updatePassword(currentAuthUser, newCode);
+toast('✅ Mot de passe Firebase Auth mis à jour', 'success');
+} catch (authError) {
+console.error('Erreur mise à jour Firebase Auth:', authError);
+toast('⚠️ Code Firestore mis à jour, mais Firebase Auth nécessite une reconnexion', 'warning');
+}
+}
+document.getElementById('currentCodeInput').value = '';
+document.getElementById('newCodeInput').value = '';
+document.getElementById('settingsError').textContent = '';
+document.getElementById('codeGenerationInfo').style.display = 'none';
+toast('✅ Code changé avec succès', 'success');
+} else {
+toast('❌ Erreur lors de l\'enregistrement', 'error');
+}
+} catch (error) {
+toast('❌ Erreur: ' + error.message, 'error');
+}
+});
+});
+
+// ============ CLASSEMENT ============
+
+let classementCharge = false;
+const podiumContainer = document.getElementById('podiumContainer');
+
+function calculerScore(effectif, moyenneGenerale, tauxBrillants, tauxReussite, maxEffectif, maxMoyenne, maxBrillants, maxReussite) {
+if(maxEffectif === 0 || maxMoyenne === 0) return 0;
+const scoreEffectif = (effectif / maxEffectif) * 100;
+const scoreMoyenne = (moyenneGenerale / maxMoyenne) * 100;
+const scoreBrillants = (tauxBrillants / maxBrillants) * 100;
+const scoreReussite = (tauxReussite / maxReussite) * 100;
+return Math.round((scoreEffectif * 0.40) + (scoreMoyenne * 0.30) + (scoreBrillants * 0.20) + (scoreReussite * 0.10));
+}
+
+async function calculerStatsEcole(ecoleId) {
+let totalNotes = 0;
+let sommeNotes = 0;
+let elevesMap = {};
+try {
+const fichesSnap = await getDocs(collection(db, "ecoles", ecoleId, "fiches"));
+fichesSnap.forEach(doc => {
+const fiche = doc.data();
+if (!fiche.eleves || !Array.isArray(fiche.eleves)) return;
+fiche.eleves.forEach(eleve => {
+if (!eleve.nom || !eleve.notes) return;
+if (!elevesMap[eleve.nom]) {
+elevesMap[eleve.nom] = { notes: [], total: 0, count: 0 };
+}
+const notes = Object.values(eleve.notes).filter(n => typeof n === 'number');
+notes.forEach(note => {
+elevesMap[eleve.nom].notes.push(note);
+elevesMap[eleve.nom].total += note;
+elevesMap[eleve.nom].count++;
+totalNotes++;
+sommeNotes += note;
+});
+});
+});
+} catch(e) {
+console.error("Erreur calcul stats école:", e);
+return { moyenneGenerale: 0, tauxBrillants: 0, tauxReussite: 0, totalEleves: 0 };
+}
+const moyenneGenerale = totalNotes > 0 ? (sommeNotes / totalNotes) : 0;
+let elevesBrillants = 0;
+let elevesReussite = 0;
+let totalEleves = Object.keys(elevesMap).length;
+Object.values(elevesMap).forEach(data => {
+const moyenneEleve = data.count > 0 ? (data.total / data.count) : 0;
+if (moyenneEleve >= 16) elevesBrillants++;
+if (moyenneEleve >= 10) elevesReussite++;
+});
+const tauxBrillants = totalEleves > 0 ? (elevesBrillants / totalEleves) * 100 : 0;
+const tauxReussite = totalEleves > 0 ? (elevesReussite / totalEleves) * 100 : 0;
+return { moyenneGenerale, tauxBrillants, tauxReussite, totalEleves, elevesBrillants, elevesReussite };
+}
+
+async function getAllEcolesAvecStats() {
+try {
+const ecolesSnap = await getDocs(collection(db, "ecoles"));
+const resultats = [];
+let maxEffectif = 0, maxMoyenne = 0, maxBrillants = 0, maxReussite = 0;
+const raw = [];
+for(const ecoleDoc of ecolesSnap.docs) {
+const ecoleId = ecoleDoc.id;
+const ecoleData = ecoleDoc.data();
+if(ecoleData.actif === false) continue;
+const profsSnap = await getDocs(collection(db, "ecoles", ecoleId, "professeurs"));
+const nbProfs = profsSnap.size;
+let nbEleves = 0;
+try {
+const elevesSnap = await getDocs(collection(db, "ecoles", ecoleId, "compta_eleves"));
+elevesSnap.forEach(ds => {
+const data = ds.data();
+if (data.abandon !== true && data.statut !== 'inactif') {
+nbEleves++;
+}
+});
+} catch(e) { nbEleves = 0; }
+const stats = await calculerStatsEcole(ecoleId);
+raw.push({
+id: ecoleId,
+nom: ecoleData.nom || ecoleId,
+ville: ecoleData.ville || "",
+effectif: nbEleves,
+profs: nbProfs,
+moyenneGenerale: stats.moyenneGenerale,
+tauxBrillants: stats.tauxBrillants,
+tauxReussite: stats.tauxReussite,
+totalEleves: stats.totalEleves
+});
+if(nbEleves > maxEffectif) maxEffectif = nbEleves;
+if(stats.moyenneGenerale > maxMoyenne) maxMoyenne = stats.moyenneGenerale;
+if(stats.tauxBrillants > maxBrillants) maxBrillants = stats.tauxBrillants;
+if(stats.tauxReussite > maxReussite) maxReussite = stats.tauxReussite;
+}
+for(const e of raw) {
+e.score = calculerScore(e.effectif, e.moyenneGenerale, e.tauxBrillants, e.tauxReussite, maxEffectif || 1, maxMoyenne || 1, maxBrillants || 1, maxReussite || 1);
+resultats.push(e);
+}
+resultats.sort((a,b) => b.score - a.score);
+return resultats;
+} catch(e) { console.error("Erreur getAllEcolesAvecStats:", e); return []; }
+}
+
+async function afficherClassement(showLoader = true) {
+if(!podiumContainer) return;
+if(showLoader) {
+const progressBar = document.getElementById('loadingProgressBar');
+const progressText = document.getElementById('loadingProgressText');
+if(progressBar && progressText) {
+progressBar.style.width = '0%';
+progressText.textContent = '0%';
+}
+podiumContainer.innerHTML = `<div class="rang-loading"><i class="fas fa-spinner fa-pulse"></i> Chargement...<div class="progress-container"><div class="progress-bar" id="loadingProgressBar" style="width:0%;"></div></div><span class="progress-text" id="loadingProgressText">0%</span></div>`;
+const pb = document.getElementById('loadingProgressBar');
+const pt = document.getElementById('loadingProgressText');
+let progress = 0;
+const interval = setInterval(() => {
+progress += Math.random() * 12 + 4;
+if(progress > 95) progress = 95;
+if(pb) pb.style.width = progress + '%';
+if(pt) pt.textContent = Math.round(progress) + '%';
+}, 120);
+try {
+const ecoles = await getAllEcolesAvecStats();
+clearInterval(interval);
+if(pb) pb.style.width = '100%';
+if(pt) pt.textContent = '100%';
+await new Promise(r => setTimeout(r, 250));
+if(!ecoles || ecoles.length === 0) {
+podiumContainer.innerHTML = '<div class="rang-empty">📭 Aucune école trouvée</div>';
+return;
+}
+const medals = ['🥇', '🥈', '🥉'];
+const posClasses = ['gold', 'silver', 'bronze'];
+let html = `<div class="rang-cards-container">`;
+ecoles.forEach((ecole, index) => {
+const pos = index + 1;
+const medal = index < 3 ? medals[index] : '';
+const posClass = index < 3 ? posClasses[index] : '';
+const isCurrentSchool = ecole.id === ECOLET_ID;
+html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Moyenne</span> <span class="stat-value">${ecole.moyenneGenerale ? ecole.moyenneGenerale.toFixed(1) : '0.0'}/20</span></div><div class="rang-stat"><span class="stat-label">Brillants</span> <span class="stat-value">${ecole.tauxBrillants ? ecole.tauxBrillants.toFixed(0) : 0}%</span></div><div class="rang-stat"><span class="stat-label">Réussite</span> <span class="stat-value">${ecole.tauxReussite ? ecole.tauxReussite.toFixed(0) : 0}%</span></div></div></div>`;
+});
+html += '</div>';
+podiumContainer.innerHTML = html;
+classementCharge = true;
+} catch(e) {
+clearInterval(interval);
+console.error("Erreur affichage classement:", e);
+podiumContainer.innerHTML = '<div class="rang-empty">❌ Erreur de chargement du classement</div>';
+}
+} else {
+try {
+const ecoles = await getAllEcolesAvecStats();
+if(!ecoles || ecoles.length === 0) return;
+const medals = ['🥇', '🥈', '🥉'];
+const posClasses = ['gold', 'silver', 'bronze'];
+let html = `<div class="rang-cards-container">`;
+ecoles.forEach((ecole, index) => {
+const pos = index + 1;
+const medal = index < 3 ? medals[index] : '';
+const posClass = index < 3 ? posClasses[index] : '';
+const isCurrentSchool = ecole.id === ECOLET_ID;
+html += `<div class="rang-card ${isCurrentSchool ? 'current-school' : ''}"><div class="rang-card-top"><div class="rang-pos ${posClass}">${pos}</div><div class="rang-medal">${medal}</div><div class="rang-ecole">${escapeHtml(ecole.nom)}${isCurrentSchool ? ' <span class="badge-current">Votre école</span>' : ''}</div><div class="rang-score">${ecole.score}%</div></div><div class="rang-stats"><div class="rang-stat"><span class="stat-label">Élèves</span> <span class="stat-value">${ecole.effectif}</span></div><div class="rang-stat"><span class="stat-label">Profs</span> <span class="stat-value">${ecole.profs}</span></div><div class="rang-stat"><span class="stat-label">Moyenne</span> <span class="stat-value">${ecole.moyenneGenerale ? ecole.moyenneGenerale.toFixed(1) : '0.0'}/20</span></div><div class="rang-stat"><span class="stat-label">Brillants</span> <span class="stat-value">${ecole.tauxBrillants ? ecole.tauxBrillants.toFixed(0) : 0}%</span></div><div class="rang-stat"><span class="stat-label">Réussite</span> <span class="stat-value">${ecole.tauxReussite ? ecole.tauxReussite.toFixed(0) : 0}%</span></div></div></div>`;
+});
+html += '</div>';
+podiumContainer.innerHTML = html;
+classementCharge = true;
+} catch(e) { console.error("Erreur mise à jour classement:", e); }
+}
+}
+
+function demarrerEcouteClassement() {
+if(classementUnsubscribe) { classementUnsubscribe(); classementUnsubscribe = null; }
+try {
+classementUnsubscribe = onSnapshot(collection(db, "ecoles"), async () => {
+if(classementCharge) { await afficherClassement(false); }
+}, (error) => { console.error('Erreur écoute classement:', error); });
+} catch(e) { console.error('Erreur demarrerEcouteClassement:', e); }
+}
+
+// ============ RECO ============
+
+let pendingReply = null;
+let botWaitingMessageSent = false;
+let recoMessages = [];
+
+function getNaturalReply(subject, message) {
+const replies = {
+'amelioration': ['Excellente suggestion ! 💡 Je transmets à l\'équipe.', 'Ah, c\'est une super idée ! 😍', 'Wouah ! 🤩 Votre suggestion est géniale !', '👍 J\'adore cette idée !'],
+'correction': ['Oups ! 🐛 Je note ce bug. L\'équipe va le corriger.', 'Merci pour ce signalement ! 🙏', 'Bien vu ! 👀 Ce problème est corrigé.', '😮 Ah, effectivement, c\'est un problème !'],
+'suppression': ['Votre demande de suppression a été prise en compte. 🗑️', 'C\'est noté ! 📝', 'Parfait ! 👍', '✅ Demande de suppression validée.'],
+'nouveaute': ['Oh, quelle excellente idée ! ✨', 'C\'est une très belle proposition ! 🎨', 'Impressionnant ! 🚀', '😲 Waouh ! Super idée !'],
+'autre': ['Merci pour votre message ! 📝 Je le transmets à l\'équipe.', 'J\'ai bien reçu votre demande. 🤗', 'Parfait ! ✅ J\'ai enregistré votre demande.', '😊 Votre message a bien été reçu.']
+};
+let type = 'autre';
+if(subject.includes('amelioration')) type = 'amelioration';
+else if(subject.includes('correction')) type = 'correction';
+else if(subject.includes('suppression')) type = 'suppression';
+else if(subject.includes('nouveaute')) type = 'nouveaute';
+const possibleReplies = replies[type] || replies['autre'];
+const index = Math.floor(Math.random() * possibleReplies.length);
+return possibleReplies[index];
+}
+
+function scrollRecoToBottom() {
+const recoBody = document.getElementById('recoBody');
+if(recoBody) {
+requestAnimationFrame(() => { recoBody.scrollTop = recoBody.scrollHeight; });
+setTimeout(() => { recoBody.scrollTop = recoBody.scrollHeight; }, 100);
+setTimeout(() => { recoBody.scrollTop = recoBody.scrollHeight; }, 300);
+}
+}
+
+function addRecoMessage(sender, nom, message) {
+const container = document.getElementById('recoMessagesContainer');
+if(!container) return;
+const empty = container.querySelector('.reco-empty');
+if(empty) empty.remove();
+const div = document.createElement('div');
+div.className = `reco-message ${sender}`;
+const time = new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+div.innerHTML = `<div class="bubble"><div class="sender">${nom}</div><div class="text">${escapeHtml(message)}</div><div class="time">${time}</div></div>`;
+container.appendChild(div);
+setTimeout(scrollRecoToBottom, 50);
+}
+
+function addTypingIndicator() {
+const container = document.getElementById('recoMessagesContainer');
+if(!container) return;
+removeTypingIndicator();
+const div = document.createElement('div');
+div.className = 'typing-indicator';
+div.id = 'typingIndicator';
+div.innerHTML = `<div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div><span class="typing-text">L'assistant support écrit...</span>`;
+container.appendChild(div);
+setTimeout(scrollRecoToBottom, 50);
+}
+
+function removeTypingIndicator() {
+const el = document.getElementById('typingIndicator');
+if(el) el.remove();
+}
+
+function showTypingAndAutoReplyWithCustomReply(subject, customReply) {
+if(pendingReply) { clearTimeout(pendingReply); removeTypingIndicator(); }
+botWaitingMessageSent = false;
+addTypingIndicator();
+const delay = 1500 + Math.random() * 2000;
+pendingReply = setTimeout(() => {
+removeTypingIndicator();
+addRecoMessage('support', 'Support NeTubeX', customReply);
+if(!botWaitingMessageSent) {
+const secondDelay = 2000 + Math.random() * 1500;
+setTimeout(() => {
+if(!botWaitingMessageSent) {
+addRecoMessage('support', 'Support NeTubeX', 'Merci, veuillez patienter le message du support dans moins de quelques heures. ⏳');
+botWaitingMessageSent = true;
+}
+}, secondDelay);
+}
+pendingReply = null;
+}, delay);
+}
+
+function initReco() {
+if(recoUnsubscribe) return;
+const docRef = doc(db, "communication", "support_netubex_board");
+recoUnsubscribe = onSnapshot(docRef, (snap) => {
+if(snap.exists()) {
+const data = snap.data();
+let all = data.messages || [];
+let filtered = all.filter(m => m.ecole === SCHOOL_DISPLAY_NAME);
+filtered.sort((a,b) => (a.number||0) - (b.number||0));
+recoMessages = filtered;
+updateRecoUI();
+setTimeout(scrollRecoToBottom, 200);
+}
+}, (e) => console.error(e));
+document.getElementById('recoSendBtn').addEventListener('click', sendRecoMessage);
+document.getElementById('recoInput').addEventListener('keypress', function(e) {
+if(e.key === 'Enter') sendRecoMessage();
+});
+document.getElementById('recoSubjectSelect').addEventListener('change', function() {
+this.classList.remove('error');
+});
+}
+
+function updateRecoUI() {
+const container = document.getElementById('recoMessagesContainer');
+if(!container) return;
+const empty = container.querySelector('.reco-empty');
+if(empty) empty.remove();
+}
+
+function sendRecoMessage() {
+const input = document.getElementById('recoInput');
+const subjectSelect = document.getElementById('recoSubjectSelect');
+const message = input.value.trim();
+const subject = subjectSelect.value;
+if(!message) { toast('Veuillez écrire un message', 'warning'); return; }
+if(!subject || subject === '') { subjectSelect.classList.add('error'); toast('Veuillez sélectionner un sujet', 'warning'); return; }
+subjectSelect.classList.remove('error');
+addRecoMessage('direction', 'Direction', message);
+input.value = '';
+const customReply = getNaturalReply(subject, message);
+showTypingAndAutoReplyWithCustomReply(subject, customReply);
+}
+
+// ============ SURVEILLANCE INACTIVITE ============
+
+async function envoyerStatut(actif) {
+try {
+const statusRef = doc(db, "ecoles", ECOLET_ID, "status", "direction");
+await setDoc(statusRef, {
+actif: actif,
+date: new Date().toISOString(),
+ecoleId: ECOLET_ID,
+ecoleNom: SCHOOL_DISPLAY_NAME,
+lastUpdate: Date.now()
+});
+} catch(e) {}
+}
+
+const INACTIVITY_TIMEOUT = 300;
+let inactivityTimer = null;
+let isActive = false;
+
+function resetInactivityTimer() {
+clearTimeout(inactivityTimer);
+if(!isActive) { isActive = true; envoyerStatut(true); }
+inactivityTimer = setTimeout(() => {
+if(isActive) { isActive = false; envoyerStatut(false); }
+}, INACTIVITY_TIMEOUT * 1000);
+}
+
+function detectInteraction() { resetInactivityTimer(); }
+
+function demarrerSurveillanceInactiviteDirection() {
+const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
+events.forEach(event => { document.addEventListener(event, detectInteraction); });
+isActive = true;
+envoyerStatut(true);
+resetInactivityTimer();
+}
+
+function arreterSurveillanceInactiviteDirection() {
+const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
+events.forEach(event => { document.removeEventListener(event, detectInteraction); });
+clearTimeout(inactivityTimer);
+isActive = false;
+envoyerStatut(false);
+}
+
+// ============ CORRECTION INSCRIPTION ELEVES ============
+
+async function verifierInscriptionActive() {
+try {
+const ref = doc(db, "ecoles", ECOLET_ID, "settings", "inscription");
+const snap = await getDoc(ref);
+if (snap.exists()) {
+inscriptionActive = snap.data().active === true;
+} else {
+inscriptionActive = false;
+await setDoc(ref, {
+active: false,
+dateCreation: new Date().toISOString(),
+options: ["LATIN-PHILO", "SCIENCES", "PEDAGOGIE GENERALE", "COMMERCIALE ET GESTION", "ELECTRICITE", "MECANIQUE GENERALE", "COUPE ET COUTURE", "TOUTES"]
+});
+}
+updateInscriptionUI();
+return inscriptionActive;
+} catch(e) {
+console.error("Erreur vérification inscription:", e);
+inscriptionActive = false;
+updateInscriptionUI();
+return false;
+}
+}
+
+function updateInscriptionUI() {
+const badge = document.getElementById('inscriptionStatusBadge');
+const formContainer = document.getElementById('eleveFormContainer');
+if (!badge) return;
+if (inscriptionActive) {
+badge.style.background = '#dcfce7';
+badge.style.color = '#059669';
+badge.innerHTML = '<i class="fas fa-check-circle"></i> Inscription active';
+if (formContainer) {
+formContainer.style.display = 'block';
+formContainer.style.opacity = '1';
+formContainer.style.pointerEvents = 'auto';
+}
+} else {
+badge.style.background = '#fee2e2';
+badge.style.color = '#dc2626';
+badge.innerHTML = '<i class="fas fa-lock"></i> Inscription désactivée';
+if (formContainer) {
+formContainer.style.display = 'block';
+formContainer.style.opacity = '0.5';
+formContainer.style.pointerEvents = 'none';
+const originalContent = formContainer.innerHTML;
+if (!formContainer.querySelector('.inscription-desactive')) {
+formContainer.innerHTML = `
+<div class="inscription-desactive">
+<i class="fas fa-lock"></i>
+<p>L'inscription des élèves est désactivée pour cette école</p>
+<div class="sub">Contactez l'administrateur pour activer cette fonctionnalité</div>
+</div>
+<div style="display:none;">${originalContent}</div>
+`;
+}
+}
+}
+}
+
 async function checkParentCodeExists(code) {
 try {
-const q = query(collection(db, "ecoles", ECOLET_ID, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
+const q = query(
+collection(db, "ecoles", ECOLET_ID, "compta_eleves"),
+where("parentCode", "==", code),
+where("_type", "==", "compta_eleve")
+);
 const snap = await getDocs(q);
 return !snap.empty;
-} catch (e) { return false; }
+} catch(e) {
+return false;
+}
 }
 
 async function ajouterEleve(nom, sexe, classe, option = '', parentCodeSaisi = '') {
@@ -807,25 +1893,20 @@ toast('❌ Veuillez sélectionner une classe', 'error');
 return false;
 }
 
-let optionFinale = option;
+let optionFinale = option || '';
 if (classe === '7ème EB' || classe === '8ème EB') {
 optionFinale = 'TOUTES';
 }
 
 let codeParent = parentCodeSaisi.trim();
-if (!codeParent || codeParent.length !== 6 || !/^\d{6}$/.test(codeParent)) {
-codeParent = genererCode6Chiffres();
-let attempts = 0;
-while (attempts < 10) {
+let codeExists = false;
+if (codeParent && codeParent.length === 6 && /^\d{6}$/.test(codeParent)) {
 const exists = await checkParentCodeExists(codeParent);
-if (!exists) break;
-codeParent = genererCode6Chiffres();
-attempts++;
-}
+if (exists) {
+codeExists = true;
+toast(`🔗 Code parent ${codeParent} trouvé - Nouvel élève lié à cette famille`, 'info');
 } else {
-const exists = await checkParentCodeExists(codeParent);
-if (!exists) {
-toast('⚠️ Code parent non reconnu, génération d\'un nouveau', 'warning');
+toast('⚠️ Code parent non reconnu, génération d\'un nouveau code', 'warning');
 codeParent = genererCode6Chiffres();
 let attempts = 0;
 while (attempts < 10) {
@@ -834,6 +1915,15 @@ if (!exists2) break;
 codeParent = genererCode6Chiffres();
 attempts++;
 }
+}
+} else {
+codeParent = genererCode6Chiffres();
+let attempts = 0;
+while (attempts < 10) {
+const exists = await checkParentCodeExists(codeParent);
+if (!exists) break;
+codeParent = genererCode6Chiffres();
+attempts++;
 }
 }
 
@@ -876,24 +1966,10 @@ createdAt: Date.now()
 
 await setDoc(doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId), data);
 
-localEleves.push({
-id: eleveId,
-nom: nom.trim(),
-postnom: "",
-prenom: "",
-sexe: sexe || 'M',
-classe: classe,
-option: optionFinale,
-minerval: 45000,
-exonere: false,
-paiements: {},
-parentCode: codeParent,
-abandon: false,
-dateInscription: new Date().toISOString(),
-moisBlancs: []
-});
-
-toast(`✅ ${nom.trim()} inscrit(e) en ${classe}${optionFinale !== 'TOUTES' ? ' ('+optionFinale+')' : ''} - Code: ${codeParent}`, 'success');
+const message = codeExists ?
+`✅ ${nom.trim()} inscrit(e) - Lié au code parent: ${codeParent}` :
+`✅ ${nom.trim()} inscrit(e) - Nouveau code parent: ${codeParent}`;
+toast(message, 'success');
 
 const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
 const search = document.getElementById('eleveSearchInput')?.value || '';
@@ -901,134 +1977,30 @@ chargerEleves(filtre, search);
 
 return true;
 
-} catch (e) {
+} catch(e) {
 toast('❌ Erreur: ' + e.message, 'error');
-console.error("Erreur ajout élève:", e);
 return false;
 }
 }
 
-async function loadAccessCodeFromFirebase() {
+async function modifierEleve(eleveId, nouveauSexe, nouvelleOption) {
+if (!eleveId) return false;
 try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
-const docSnap = await getDoc(docRef);
-if (docSnap.exists()) {
-const data = docSnap.data();
-if (data.codeDirection) {
-ACCESS_CODE = data.codeDirection;
-localStorage.setItem('access_code_direction', data.codeDirection);
-document.getElementById('currentCodeDisplay').textContent = data.codeDirection;
-if (data.updatedAt) {
-const date = new Date(data.updatedAt);
-document.getElementById('lastCodeChange').textContent = date.toLocaleDateString('fr-FR', {
-day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-});
+const ref = doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId);
+const updates = {
+sexe: nouveauSexe,
+updatedAt: new Date().toISOString()
+};
+if (nouvelleOption !== undefined) {
+updates.option = nouvelleOption;
 }
+await updateDoc(ref, updates);
+toast(`✅ Élève modifié avec succès`, 'success');
 return true;
-}
-}
-return false;
-} catch (error) {
-console.error("Erreur chargement code:", error);
+} catch(e) {
+toast('❌ Erreur: ' + e.message, 'error');
 return false;
 }
-}
-
-async function saveAccessCodeToFirebase(newCode) {
-try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
-await setDoc(docRef, {
-codeDirection: newCode,
-updatedAt: new Date().toISOString(),
-updatedBy: "Direction"
-}, { merge: true });
-return true;
-} catch (error) {
-console.error("Erreur sauvegarde code:", error);
-return false;
-}
-}
-
-async function verifierCodeAccesDirection(codeSaisi) {
-try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
-const docSnap = await getDoc(docRef);
-if (docSnap.exists()) {
-const data = docSnap.data();
-return data.codeDirection === codeSaisi;
-}
-return false;
-} catch (error) {
-console.error("Erreur vérification code:", error);
-return false;
-}
-}
-
-async function verifierCodeDirection() {
-try {
-const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
-const snap = await getDoc(ref);
-
-if (snap.exists()) {
-const data = snap.data();
-if (data.codeDirection === codeFromUrl) {
-document.getElementById('mainContent').classList.add('visible');
-initApp();
-demarrerSurveillanceInactiviteDirection();
-return true;
-}
-}
-
-window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
-return false;
-} catch (error) {
-console.error("Erreur vérification direction:", error);
-window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=code_incorrect`;
-return false;
-}
-}
-
-const INACTIVITY_TIMEOUT = 300;
-let inactivityTimer = null;
-let isActive = false;
-
-function resetInactivityTimer() {
-clearTimeout(inactivityTimer);
-if (!isActive) { isActive = true; envoyerStatut(true); }
-inactivityTimer = setTimeout(() => {
-if (isActive) { isActive = false; envoyerStatut(false); }
-}, INACTIVITY_TIMEOUT * 1000);
-}
-
-function detectInteraction() { resetInactivityTimer(); }
-
-function demarrerSurveillanceInactiviteDirection() {
-const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
-events.forEach(event => { document.addEventListener(event, detectInteraction); });
-isActive = true;
-envoyerStatut(true);
-resetInactivityTimer();
-}
-
-function arreterSurveillanceInactiviteDirection() {
-const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
-events.forEach(event => { document.removeEventListener(event, detectInteraction); });
-clearTimeout(inactivityTimer);
-isActive = false;
-envoyerStatut(false);
-}
-
-async function envoyerStatut(actif) {
-try {
-const statusRef = doc(db, "ecoles", ECOLET_ID, "status", "direction");
-await setDoc(statusRef, {
-actif: actif,
-date: new Date().toISOString(),
-ecoleId: ECOLET_ID,
-ecoleNom: SCHOOL_DISPLAY_NAME,
-lastUpdate: Date.now()
-});
-} catch (e) {}
 }
 
 async function chargerEleves(filtreClasse = '', searchTerm = '') {
@@ -1041,6 +2013,11 @@ let allEleves = [];
 snap.forEach(ds => {
 const data = ds.data();
 if (data._type === "compta_eleve" && data.statut !== 'inactif' && data.abandon !== true) {
+if (data.classe === '7ème EB' || data.classe === '8ème EB') {
+if (!data.option || data.option === '') {
+data.option = 'TOUTES';
+}
+}
 allEleves.push({ id: ds.id, ...data });
 }
 });
@@ -1057,12 +2034,19 @@ const parentCode = (e.parentCode || '');
 return nom.includes(term) || parentCode.includes(term);
 });
 }
-elevesAffiches.sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+elevesAffiches.sort((a, b) => a.nom.localeCompare(b.nom));
 
 document.getElementById('eleveCount').textContent = `(${elevesAffiches.length})`;
 
 if (elevesAffiches.length === 0) {
-container.innerHTML = `<div class="empty-state"><i class="fas fa-search"></i><p>Aucun élève trouvé</p></div>`;
+container.innerHTML = `
+<div class="empty-state">
+<i class="fas fa-search"></i>
+<p>Aucun élève trouvé</p>
+${searchTerm ? `<p style="font-size:12px;">Aucun résultat pour "${escapeHtml(searchTerm)}"</p>` : ''}
+${inscriptionActive ? '<p style="font-size:12px;">Utilisez le formulaire ci-dessus pour ajouter des élèves</p>' : ''}
+</div>
+`;
 return;
 }
 
@@ -1070,83 +2054,116 @@ let html = '';
 elevesAffiches.forEach((e, index) => {
 const sexeClass = e.sexe === 'F' ? 'F' : 'M';
 const sexeIcon = e.sexe === 'F' ? '👩' : '👨';
+const sexeLabel = e.sexe === 'F' ? 'Fille' : 'Garçon';
 const parentCode = e.parentCode || 'Non défini';
 const date = new Date(e.dateInscription).toLocaleDateString('fr-FR');
-html += `<div class="eleve-item" data-id="${e.eleveId || e.id}">
+let optionDisplay = e.option || '';
+if ((e.classe === '7ème EB' || e.classe === '8ème EB') && !optionDisplay) {
+optionDisplay = 'TOUTES';
+}
+html += `
+<div class="eleve-item" data-id="${e.id}">
 <div class="avatar ${sexeClass}">${e.nom ? e.nom.charAt(0).toUpperCase() : '?'}</div>
 <div class="info">
 <div class="nom">${escapeHtml(e.nom)}</div>
 <div class="details">
 <span class="classe">${escapeHtml(e.classe)}</span>
-${e.option && e.option !== 'TOUTES' ? `<span class="option">📖 ${escapeHtml(e.option)}</span>` : ''}
+${optionDisplay ? `<span class="option">📖 ${escapeHtml(optionDisplay)}</span>` : ''}
 <span class="parent-code">🔑 ${escapeHtml(parentCode)}</span>
 <span>📅 ${date}</span>
 </div>
 </div>
 <div class="actions">
-<button class="btn-icon edit" onclick="window.editerEleve('${e.eleveId || e.id}')" title="Modifier"><i class="fas fa-pen"></i></button>
-<button class="btn-icon delete" onclick="window.supprimerEleve('${e.eleveId || e.id}')" title="Supprimer"><i class="fas fa-trash"></i></button>
+<button class="btn-icon edit" onclick="window.editerEleve('${e.id}')" title="Modifier sexe/option"><i class="fas fa-pen"></i></button>
 </div>
-</div>`;
+</div>
+`;
 });
 container.innerHTML = html;
-} catch (e) {
+} catch(e) {
 console.error("Erreur chargement élèves:", e);
 container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Erreur de chargement</p></div>';
 }
 }
 
 window.editerEleve = function(eleveId) {
-toast('Fonction d\'édition à implémenter', 'info');
-};
-
-window.supprimerEleve = function(eleveId) {
-showConfirm('Supprimer l\'élève', 'Voulez-vous vraiment supprimer cet élève ?', async () => {
-try {
-await deleteDoc(doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId));
-toast('✅ Élève supprimé', 'success');
+const container = document.querySelector(`.eleve-item[data-id="${eleveId}"]`);
+if (!container) return;
+const nomEl = container.querySelector('.nom');
+const details = container.querySelector('.details');
+const currentNom = nomEl ? nomEl.textContent : '';
+const detailsText = details ? details.textContent : '';
+const isFille = detailsText.includes('Fille');
+const currentSexe = isFille ? 'F' : 'M';
+const optionEl = container.querySelector('.option');
+let currentOption = '';
+if (optionEl) {
+currentOption = optionEl.textContent.replace('📖 ', '').trim();
+}
+const classeEl = container.querySelector('.classe');
+const classe = classeEl ? classeEl.textContent.trim() : '';
+const classesAvecOption = ['1ère Année', '2ème Année', '3ème Année', '4ème Année'];
+const hasOption = classesAvecOption.includes(classe);
+const modalHtml = `
+<p style="margin-bottom:12px;">Modifier les informations de <strong>${escapeHtml(currentNom)}</strong></p>
+<div style="margin-bottom:10px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Sexe</label>
+<select id="editEleveSexe" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:14px;outline:none;font-weight:500;">
+<option value="M" ${currentSexe === 'M' ? 'selected' : ''}>👨 Homme</option>
+<option value="F" ${currentSexe === 'F' ? 'selected' : ''}>👩 Femme</option>
+</select>
+</div>
+${hasOption ? `
+<div style="margin-bottom:10px;">
+<label style="display:block;font-size:11px;font-weight:600;color:#6b7280;margin-bottom:3px;">Option</label>
+<select id="editEleveOption" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:14px;outline:none;font-weight:500;">
+<option value="LATIN-PHILO" ${currentOption === 'LATIN-PHILO' ? 'selected' : ''}>LATIN-PHILO</option>
+<option value="SCIENCES" ${currentOption === 'SCIENCES' ? 'selected' : ''}>SCIENCES</option>
+<option value="PEDAGOGIE GENERALE" ${currentOption === 'PEDAGOGIE GENERALE' ? 'selected' : ''}>PEDAGOGIE GENERALE</option>
+<option value="COMMERCIALE ET GESTION" ${currentOption === 'COMMERCIALE ET GESTION' ? 'selected' : ''}>COMMERCIALE ET GESTION</option>
+<option value="ELECTRICITE" ${currentOption === 'ELECTRICITE' ? 'selected' : ''}>ELECTRICITE</option>
+<option value="MECANIQUE GENERALE" ${currentOption === 'MECANIQUE GENERALE' ? 'selected' : ''}>MECANIQUE GENERALE</option>
+<option value="COUPE ET COUTURE" ${currentOption === 'COUPE ET COUTURE' ? 'selected' : ''}>COUPE ET COUTURE</option>
+<option value="TOUTES" ${currentOption === 'TOUTES' ? 'selected' : ''}>TOUTES</option>
+</select>
+</div>
+` : `<p style="font-size:12px;color:#6b7280;margin-bottom:10px;">ℹ️ L'option n'est disponible que pour les classes de 1ère à 4ème Année.</p>`}
+<div class="modal-footer" style="margin-top:12px;">
+<button class="btn btn-sm btn-outline" id="editCancelBtn">Annuler</button>
+<button class="btn btn-sm btn-success" id="editSaveBtn"><i class="fas fa-save"></i> Enregistrer</button>
+</div>
+`;
+const modal = showModal('✏️ Modifier l\'élève', modalHtml, '');
+document.getElementById('editCancelBtn').addEventListener('click', () => modal.remove());
+document.getElementById('editSaveBtn').addEventListener('click', async () => {
+const nouveauSexe = document.getElementById('editEleveSexe').value;
+let nouvelleOption = '';
+if (hasOption) {
+nouvelleOption = document.getElementById('editEleveOption').value;
+}
+const success = await modifierEleve(eleveId, nouveauSexe, nouvelleOption);
+if (success) {
+modal.remove();
 const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
 const search = document.getElementById('eleveSearchInput')?.value || '';
 chargerEleves(filtre, search);
-} catch (e) {
-toast('❌ Erreur: ' + e.message, 'error');
 }
 });
 };
 
-async function verifierInscriptionActive() {
-try {
-const ref = doc(db, "ecoles", ECOLET_ID, "settings", "inscription");
-const snap = await getDoc(ref);
-if (snap.exists()) {
-inscriptionActive = snap.data().active === true;
+document.getElementById('checkParentCodeBtn').addEventListener('click', async function() {
+const code = document.getElementById('eleveParentCodeInput').value.trim();
+if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+toast('⚠️ Veuillez saisir un code valide de 6 chiffres', 'warning');
+return;
+}
+const exists = await checkParentCodeExists(code);
+if (exists) {
+toast(`✅ Code parent ${code} trouvé - Les nouveaux élèves seront liés à cette famille`, 'success');
 } else {
-inscriptionActive = false;
-await setDoc(ref, { active: false, dateCreation: new Date().toISOString() });
+toast(`❌ Code parent ${code} introuvable`, 'error');
 }
-updateInscriptionUI();
-return inscriptionActive;
-} catch (e) {
-console.error("Erreur vérification inscription:", e);
-inscriptionActive = false;
-updateInscriptionUI();
-return false;
-}
-}
-
-function updateInscriptionUI() {
-const badge = document.getElementById('inscriptionStatusBadge');
-if (!badge) return;
-if (inscriptionActive) {
-badge.style.background = '#dcfce7';
-badge.style.color = '#059669';
-badge.innerHTML = '<i class="fas fa-check-circle"></i> Inscription active';
-} else {
-badge.style.background = '#fee2e2';
-badge.style.color = '#dc2626';
-badge.innerHTML = '<i class="fas fa-lock"></i> Inscription désactivée';
-}
-}
+});
 
 function initGestionEleves() {
 verifierInscriptionActive();
@@ -1162,7 +2179,7 @@ const search = document.getElementById('eleveSearchInput')?.value || '';
 chargerEleves(filtre, search);
 }
 );
-} catch (e) {
+} catch(e) {
 console.error("Erreur écoute élèves:", e);
 }
 
@@ -1181,6 +2198,16 @@ const success = await ajouterEleve(nom, sexe, classe, option, parentCode);
 if (success) {
 document.getElementById('eleveNomInput').value = '';
 document.getElementById('eleveParentCodeInput').value = '';
+document.getElementById('eleveOptionSelect').value = 'TOUTES';
+const filtre = document.getElementById('eleveFiltreClasse').value;
+const search = document.getElementById('eleveSearchInput').value;
+chargerEleves(filtre, search);
+}
+});
+
+document.getElementById('eleveNomInput').addEventListener('keypress', function(e) {
+if (e.key === 'Enter') {
+document.getElementById('addEleveBtn').click();
 }
 });
 
@@ -1191,6 +2218,7 @@ if (classesAvecOption.includes(this.value)) {
 optionGroup.style.display = 'block';
 } else {
 optionGroup.style.display = 'none';
+document.getElementById('eleveOptionSelect').value = 'TOUTES';
 }
 });
 
@@ -1213,6 +2241,7 @@ searchInput.value = '';
 clearBtn.style.display = 'none';
 const filtre = document.getElementById('eleveFiltreClasse').value;
 chargerEleves(filtre, '');
+toast('🔍 Recherche réinitialisée', 'info');
 });
 
 document.getElementById('resetSearchBtn').addEventListener('click', function() {
@@ -1220,161 +2249,50 @@ searchInput.value = '';
 clearBtn.style.display = 'none';
 document.getElementById('eleveFiltreClasse').value = '';
 chargerEleves('', '');
-});
-
-document.getElementById('checkParentCodeBtn').addEventListener('click', async function() {
-const code = document.getElementById('eleveParentCodeInput').value.trim();
-if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-toast('⚠️ Veuillez saisir un code valide de 6 chiffres', 'warning');
-return;
-}
-const exists = await checkParentCodeExists(code);
-if (exists) {
-toast(`✅ Code parent ${code} trouvé`, 'success');
-} else {
-toast(`❌ Code parent ${code} introuvable`, 'error');
-}
+toast('🔍 Recherche réinitialisée', 'info');
 });
 }
 
-function initTabsEvents() {
-const tabs = document.querySelectorAll(".tab");
-tabs.forEach(btn => {
-btn.removeEventListener("click", handleTabClick);
-btn.addEventListener("click", handleTabClick);
-});
-}
-
-async function handleTabClick() {
-const tabId = this.dataset.tab;
-document.querySelectorAll(".tab").forEach(btn => btn.classList.remove("active"));
-this.classList.add("active");
-document.querySelectorAll(".tab-content").forEach(panel => panel.classList.remove("active"));
-const activePanel = document.getElementById(tabId);
-if (activePanel) activePanel.classList.add("active");
-
-if (tabId === "tabEleves") {
-verifierInscriptionActive();
-const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
-const search = document.getElementById('eleveSearchInput')?.value || '';
-chargerEleves(filtre, search);
-}
-
-if (this.id === 'darkModeBtn') {
-document.body.classList.toggle('dark-mode');
-}
-}
+// ============ INIT APP ============
 
 async function initApp() {
 await loadAccessCodeFromFirebase();
-await verifierInscriptionActive();
+await updatePunitionEleves();
+await chargerPunitions();
+ecouterProfs();
+await afficherCorbeille();
+await afficherClassement(true);
+demarrerEcouteClassement();
+initReco();
 initGestionEleves();
-initTabsEvents();
-
-const lastGen = localStorage.getItem('direction_code_gen_date');
-const today = new Date().toISOString().slice(0, 10);
-if (lastGen === today) {
-canGenerateCode = false;
-document.getElementById('generateCodeBtn').disabled = true;
-document.getElementById('generateCodeBtn').style.opacity = '0.5';
-document.getElementById('codeGenerationInfo').style.display = 'flex';
-document.getElementById('codeInfoText').textContent = '⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.';
-document.getElementById('codeInfoText').style.color = '#f59e0b';
+setTimeout(scrollRecoToBottom, 800);
 }
 
-document.getElementById('generateCodeBtn').addEventListener('click', async function() {
-if (!canGenerateCode) {
-toast('⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.', 'warning');
-return;
-}
+// ============ LANCEMENT ============
 
-const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-document.getElementById('newCodeInput').value = newCode;
-
-const today = new Date().toISOString().slice(0, 10);
-localStorage.setItem('direction_code_gen_date', today);
-canGenerateCode = false;
-
-document.getElementById('codeGenerationInfo').style.display = 'flex';
-document.getElementById('codeInfoText').textContent = '✅ Nouveau code généré : ' + newCode;
-document.getElementById('codeInfoText').style.color = '#10b981';
-document.getElementById('generateCodeBtn').disabled = true;
-document.getElementById('generateCodeBtn').style.opacity = '0.5';
-
-toast('✅ Code généré : ' + newCode, 'success');
-});
-
-document.getElementById('changeCodeBtn').addEventListener('click', async function() {
-const currentCode = document.getElementById('currentCodeInput').value.trim();
-const newCode = document.getElementById('newCodeInput').value.trim();
-const errorDiv = document.getElementById('settingsError');
-
-if (!currentCode || currentCode.length < 6) {
-errorDiv.textContent = '❌ Veuillez saisir l\'ancien code (6 chiffres)';
-document.getElementById('currentCodeInput').focus();
-return;
-}
-
-const isValid = await verifierCodeAccesDirection(currentCode);
-if (!isValid) {
-errorDiv.textContent = '❌ Ancien code incorrect';
-document.getElementById('currentCodeInput').focus();
-return;
-}
-
-if (!newCode || newCode.length !== 6 || !/^\d{6}$/.test(newCode)) {
-errorDiv.textContent = '❌ Le code doit contenir exactement 6 chiffres';
-document.getElementById('newCodeInput').focus();
-return;
-}
-
-if (newCode === ACCESS_CODE) {
-errorDiv.textContent = '⚠️ Le nouveau code est identique à l\'ancien';
-return;
-}
-
-showStyledConfirm(
-"🔐 Changement de code",
-`Ancien code : <strong>${ACCESS_CODE}</strong><br><br>Nouveau code : <strong style="color:#10b981;font-size:24px;letter-spacing:4px;">${newCode}</strong><br><br>⚠️ Ce code sera utilisé pour accéder à l'espace Direction.`,
-async function() {
-try {
-const saved = await saveAccessCodeToFirebase(newCode);
-if (saved) {
-ACCESS_CODE = newCode;
-localStorage.setItem('access_code_direction', newCode);
-document.getElementById('currentCodeDisplay').textContent = newCode;
-document.getElementById('lastCodeChange').textContent = new Date().toLocaleDateString('fr-FR', {
-day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
-});
-document.getElementById('currentCodeInput').value = '';
-document.getElementById('newCodeInput').value = '';
-document.getElementById('settingsError').textContent = '';
-document.getElementById('codeGenerationInfo').style.display = 'none';
-toast('✅ Code changé avec succès', 'success');
-} else {
-toast('❌ Erreur lors de l\'enregistrement', 'error');
-}
-} catch (error) {
-toast('❌ Erreur: ' + error.message, 'error');
-}
-}
-);
-});
-}
+verifierCodeDirection();
 
 document.querySelectorAll('.tab').forEach(btn => {
 btn.onclick = function() {
-if (this.id === 'darkModeBtn') {
+if(this.id === 'darkModeBtn') {
 document.body.classList.toggle('dark-mode');
-localStorage.setItem('gloria_dark_mode', document.body.classList.contains('dark-mode') ? 'true' : 'false');
 return;
 }
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 this.classList.add('active');
 document.getElementById(this.dataset.tab).classList.add('active');
-
-if (this.dataset.tab === 'tabEleves') {
+if(this.dataset.tab === 'tabReco') {
+initReco();
+document.body.classList.add('reco-fullscreen');
+} else {
+document.body.classList.remove('reco-fullscreen');
+}
+if(this.dataset.tab === 'tabProfesseurs') {
+chargerProfs().then(p => afficherProfs(p));
+afficherCorbeille();
+}
+if(this.dataset.tab === 'tabEleves') {
 verifierInscriptionActive();
 const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
 const search = document.getElementById('eleveSearchInput')?.value || '';
@@ -1383,11 +2301,21 @@ chargerEleves(filtre, search);
 };
 });
 
-if (localStorage.getItem('gloria_dark_mode') === 'true') {
-document.body.classList.add('dark-mode');
-}
+document.getElementById('recoBackBtn').addEventListener('click', function() {
+document.body.classList.remove('reco-fullscreen');
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+document.querySelector('.tab[data-tab="tabRang"]').classList.add('active');
+document.getElementById('tabRang').classList.add('active');
+});
 
-verifierCodeDirection();
+setInterval(() => {
+if(document.getElementById('tabPunitions').classList.contains('active')) chargerPunitions();
+if(document.getElementById('tabProfesseurs').classList.contains('active')) {
+chargerProfs().then(p => afficherProfs(p));
+afficherCorbeille();
+}
+}, 300000);
 
 console.log('✅ Espace Direction chargé avec succès');
 </script>
