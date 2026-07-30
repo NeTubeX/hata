@@ -228,7 +228,7 @@ body{overscroll-behavior:none;-webkit-overscroll-behavior:none;}
 .titulaire-container .eleve-info div{font-size:14px;}
 .titulaire-container .eleve-info div span:first-child{color:#94a3b8;font-weight:500;}
 .titulaire-container .eleve-info div span:last-child{font-weight:700;margin-left:12px;color:#ffd700;}
-.titulaire-container .releve-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;}
+.titulaire-container .releve-table{width:100%;border-collapse:collapse;font-size:12px;min-width:700px;}
 .titulaire-container .releve-table th{background:linear-gradient(135deg,#1e293b,#0f172a);color:white;padding:12px 10px;border-bottom:2px solid #3b82f6;font-size:11px;font-weight:600;text-align:center;}
 .titulaire-container .releve-table td{padding:10px 10px;border-bottom:1px solid rgba(59,130,246,0.15);color:#e2e8f0;text-align:center;}
 .titulaire-container .releve-table td:first-child{text-align:left;font-weight:600;}
@@ -2534,21 +2534,111 @@ pdf.text('COMPLEXE SCOLAIRE ' + schoolNameForPdf, 148, 20, { align: 'center' });
 pdf.setFont('helvetica', 'normal');
 pdf.setFontSize(10);
 pdf.setTextColor(80, 80, 80);
-pdf.text('GESTION SCOLAIRE', 148, 28, { align: 'center' });
+pdf.text('SYSTÈME DE GESTION DE SCOLARITÉ', 148, 28, { align: 'center' });
 pdf.setFont('helvetica', 'bold');
 pdf.setFontSize(12);
 pdf.setTextColor(0, 51, 102);
-pdf.text('RELEVÉ DE NOTES INDIVIDUEL', 148, 38, { align: 'center' });
+pdf.text('EXTRAIT DU BULLETIN', 148, 38, { align: 'center' });
 pdf.setFont('helvetica', 'normal');
 pdf.setFontSize(9);
 pdf.setTextColor(0, 0, 0);
 pdf.text('Élève: ' + window.nomEleveRechercheTitu, 20, 55);
 pdf.text('Sexe: ' + (window.sexeEleveTitu === 'M' ? 'Masculin' : 'Féminin'), 20, 63);
 pdf.text('Classe(s): ' + window.classesEleveTitu, 20, 71);
-const headers = [['MATIÈRE', 'CLASSE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
-const body = window.derniersResultatsTitu.map(r => [r.cours, `${r.classe}`, r.p1, r.p2, r.exam1, r.totalS1, r.p3, r.p4, r.exam2, r.totalS2, r.total]);
-pdf.autoTable({ head: headers, body: body, startY: 80, theme: 'grid', styles: { fontSize: 9, cellPadding: 3, halign: 'center' }, headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' } });
-pdf.save('Releve_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
+const nbTotal = window.derniersResultatsTitu.length || 0;
+const nbGarcons = window.derniersResultatsTitu.filter(r => r.sexe === 'M').length || 0;
+const nbFilles = window.derniersResultatsTitu.filter(r => r.sexe === 'F').length || 0;
+pdf.text('Effectif de la classe: ' + nbTotal + ' élèves (Garçons: ' + nbGarcons + ', Filles: ' + nbFilles + ')', 20, 79);
+const couleurS1 = [240, 247, 255];
+const couleurS2 = [240, 255, 244];
+const couleurTotal = [255, 253, 231];
+const couleurOr = [249, 168, 37];
+const couleurRouge = [183, 28, 28];
+const couleurVert = [27, 94, 32];
+const headers = [['MATIÈRE', 'P1', 'P2', 'EXAM S1', 'TOT S1', 'P3', 'P4', 'EXAM S2', 'TOT S2', 'TOTAL']];
+const body = [];
+for (const r of window.derniersResultatsTitu) {
+const pMaxMatiere = r.pMax || 20;
+const examMaxMatiere = pMaxMatiere * 2;
+const totalSMaxMatiere = pMaxMatiere * 4;
+const totalMaxMatiere = pMaxMatiere * 8;
+body.push([
+{ content: 'MAXIMA', styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: pMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: pMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: examMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: totalSMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: pMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: pMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: examMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: totalSMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } },
+{ content: totalMaxMatiere, styles: { textColor: couleurRouge, fontStyle: 'bold' } }
+]);
+body.push([
+{ content: r.cours, styles: { fontStyle: 'bold' } },
+{ content: r.p1, styles: { fillColor: couleurS1 } },
+{ content: r.p2, styles: { fillColor: couleurS1 } },
+{ content: r.exam1, styles: { fillColor: couleurS1 } },
+{ content: r.totalS1, styles: { fillColor: couleurS1, fontStyle: 'bold' } },
+{ content: r.p3, styles: { fillColor: couleurS2 } },
+{ content: r.p4, styles: { fillColor: couleurS2 } },
+{ content: r.exam2, styles: { fillColor: couleurS2 } },
+{ content: r.totalS2, styles: { fillColor: couleurS2, fontStyle: 'bold' } },
+{ content: r.total, styles: { fillColor: couleurTotal, fontStyle: 'bold' } }
+]);
+}
+const totalP1 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.p1 || 0), 0);
+const totalP2 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.p2 || 0), 0);
+const totalExam1 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.exam1 || 0), 0);
+const totalTotS1 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.totalS1 || 0), 0);
+const totalP3 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.p3 || 0), 0);
+const totalP4 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.p4 || 0), 0);
+const totalExam2 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.exam2 || 0), 0);
+const totalTotS2 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.totalS2 || 0), 0);
+const totalGeneral = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.total || 0), 0);
+const totalMaxP1 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.pMax || 20), 0);
+const totalMaxP2 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.pMax || 20), 0);
+const totalMaxExam1 = window.derniersResultatsTitu.reduce((sum, r) => sum + ((r.pMax || 20) * 2), 0);
+const totalMaxTotS1 = window.derniersResultatsTitu.reduce((sum, r) => sum + ((r.pMax || 20) * 4), 0);
+const totalMaxP3 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.pMax || 20), 0);
+const totalMaxP4 = window.derniersResultatsTitu.reduce((sum, r) => sum + (r.pMax || 20), 0);
+const totalMaxExam2 = window.derniersResultatsTitu.reduce((sum, r) => sum + ((r.pMax || 20) * 2), 0);
+const totalMaxTotS2 = window.derniersResultatsTitu.reduce((sum, r) => sum + ((r.pMax || 20) * 4), 0);
+const totalMaxGeneral = window.derniersResultatsTitu.reduce((sum, r) => sum + ((r.pMax || 20) * 8), 0);
+body.push([
+{ content: 'TOTAL POINTS', styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalP1, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalP2, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalExam1, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalTotS1, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalP3, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalP4, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalExam2, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalTotS2, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } },
+{ content: totalGeneral, styles: { fillColor: couleurOr, textColor: [0, 0, 0], fontStyle: 'bold' } }
+]);
+body.push([
+{ content: 'MAX TOTAL', styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxP1, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxP2, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxExam1, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxTotS1, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxP3, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxP4, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxExam2, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxTotS2, styles: { textColor: couleurVert, fontStyle: 'bold' } },
+{ content: totalMaxGeneral, styles: { textColor: couleurVert, fontStyle: 'bold' } }
+]);
+pdf.autoTable({ 
+head: headers, 
+body: body, 
+startY: 88, 
+theme: 'grid', 
+styles: { fontSize: 9, cellPadding: 3, halign: 'center' }, 
+headStyles: { fillColor: [0, 51, 102], textColor: [255, 255, 255], fontStyle: 'bold' },
+alternateRowStyles: { fillColor: [245, 245, 245] }
+});
+pdf.save('Extrait_Bulletin_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
 toast("PDF exporté avec succès");
 } else toast("Aucun résultat à exporter", 'error');
 });
