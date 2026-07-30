@@ -11,7 +11,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 <style>
-/* ===== STYLES EXISTANTS ===== */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
 html{height:100%;background:#f0f2f5}
 body{min-height:100vh;background:#f0f2f5;font-family:'Inter',sans-serif;overflow-y:auto!important;overflow-x:hidden;-webkit-overflow-scrolling:touch;color:#1a2332;margin:0;padding:0;position:relative;width:100%;font-size:17px}
@@ -714,8 +713,6 @@ let toastQueue = [];
 let toastActive = false;
 let localEleves = [];
 
-// ============ FONCTIONS DE BASE ============
-
 function toast(message, type = "success") {
 toastQueue.push({ message, type });
 if (!toastActive) processToastQueue();
@@ -788,8 +785,6 @@ window.location.href = 'https://www.netubex.com/login';
 
 document.getElementById('logoutBtn').addEventListener('click', deconnecterUtilisateur);
 
-// ============ CORRECTION 1 : FONCTION AJOUTER ELEVE (avec tous les champs) ============
-
 async function checkParentCodeExists(code) {
 try {
 const q = query(collection(db, "ecoles", ECOLET_ID, "compta_eleves"), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
@@ -798,10 +793,6 @@ return !snap.empty;
 } catch (e) { return false; }
 }
 
-/**
- * ✅ CORRECTION : Ajoute un élève avec TOUS les champs nécessaires
- * pour être compatible avec l'espace Professeur et la création de fiches
- */
 async function ajouterEleve(nom, sexe, classe, option = '', parentCodeSaisi = '') {
 if (!inscriptionActive) {
 toast('❌ L\'inscription des élèves est désactivée', 'error');
@@ -816,7 +807,11 @@ toast('❌ Veuillez sélectionner une classe', 'error');
 return false;
 }
 
-// Générer ou valider le code parent
+let optionFinale = option;
+if (classe === '7ème EB' || classe === '8ème EB') {
+optionFinale = 'TOUTES';
+}
+
 let codeParent = parentCodeSaisi.trim();
 if (!codeParent || codeParent.length !== 6 || !/^\d{6}$/.test(codeParent)) {
 codeParent = genererCode6Chiffres();
@@ -845,8 +840,6 @@ attempts++;
 try {
 const eleveId = 'eleve_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
 
-// ✅ TOUS les champs sont créés automatiquement ici
-// Identique à la structure de la comptabilité
 const data = {
 _type: "compta_eleve",
 eleveId: eleveId,
@@ -861,7 +854,7 @@ adresse: "",
 sexe: sexe || 'M',
 phone: "",
 classe: classe,
-option: option || '',
+option: optionFinale,
 minerval: 45000,
 fraisInscriptionTotal: 45000,
 exonere: false,
@@ -883,7 +876,6 @@ createdAt: Date.now()
 
 await setDoc(doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId), data);
 
-// Mettre à jour le cache local
 localEleves.push({
 id: eleveId,
 nom: nom.trim(),
@@ -891,7 +883,7 @@ postnom: "",
 prenom: "",
 sexe: sexe || 'M',
 classe: classe,
-option: option || '',
+option: optionFinale,
 minerval: 45000,
 exonere: false,
 paiements: {},
@@ -901,9 +893,8 @@ dateInscription: new Date().toISOString(),
 moisBlancs: []
 });
 
-toast(`✅ ${nom.trim()} inscrit(e) - Code: ${codeParent}`, 'success');
+toast(`✅ ${nom.trim()} inscrit(e) en ${classe}${optionFinale !== 'TOUTES' ? ' ('+optionFinale+')' : ''} - Code: ${codeParent}`, 'success');
 
-// Rafraîchir la liste
 const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
 const search = document.getElementById('eleveSearchInput')?.value || '';
 chargerEleves(filtre, search);
@@ -917,11 +908,8 @@ return false;
 }
 }
 
-// ============ CORRECTION 2 : GESTION DU CODE D'ACCES ============
-
 async function loadAccessCodeFromFirebase() {
 try {
-// ✅ Utiliser le bon chemin : settings/data
 const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
 const docSnap = await getDoc(docRef);
 if (docSnap.exists()) {
@@ -948,7 +936,6 @@ return false;
 
 async function saveAccessCodeToFirebase(newCode) {
 try {
-// ✅ Utiliser le même chemin que pour la vérification
 const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
 await setDoc(docRef, {
 codeDirection: newCode,
@@ -984,7 +971,6 @@ const snap = await getDoc(ref);
 
 if (snap.exists()) {
 const data = snap.data();
-// ✅ Vérifier avec le bon champ
 if (data.codeDirection === codeFromUrl) {
 document.getElementById('mainContent').classList.add('visible');
 initApp();
@@ -1001,8 +987,6 @@ window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=co
 return false;
 }
 }
-
-// ============ SURVEILLANCE INACTIVITE ============
 
 const INACTIVITY_TIMEOUT = 300;
 let inactivityTimer = null;
@@ -1046,8 +1030,6 @@ lastUpdate: Date.now()
 });
 } catch (e) {}
 }
-
-// ============ GESTION ELEVES ============
 
 async function chargerEleves(filtreClasse = '', searchTerm = '') {
 const container = document.getElementById('elevesListContainer');
@@ -1096,7 +1078,7 @@ html += `<div class="eleve-item" data-id="${e.eleveId || e.id}">
 <div class="nom">${escapeHtml(e.nom)}</div>
 <div class="details">
 <span class="classe">${escapeHtml(e.classe)}</span>
-${e.option ? `<span class="option">📖 ${escapeHtml(e.option)}</span>` : ''}
+${e.option && e.option !== 'TOUTES' ? `<span class="option">📖 ${escapeHtml(e.option)}</span>` : ''}
 <span class="parent-code">🔑 ${escapeHtml(parentCode)}</span>
 <span>📅 ${date}</span>
 </div>
@@ -1115,7 +1097,6 @@ container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-cir
 }
 
 window.editerEleve = function(eleveId) {
-// Fonction d'édition simplifiée
 toast('Fonction d\'édition à implémenter', 'info');
 };
 
@@ -1132,8 +1113,6 @@ toast('❌ Erreur: ' + e.message, 'error');
 }
 });
 };
-
-// ============ VERIFICATION INSCRIPTION ============
 
 async function verifierInscriptionActive() {
 try {
@@ -1169,8 +1148,6 @@ badge.innerHTML = '<i class="fas fa-lock"></i> Inscription désactivée';
 }
 }
 
-// ============ INITIALISATION ============
-
 function initGestionEleves() {
 verifierInscriptionActive();
 chargerEleves();
@@ -1189,7 +1166,6 @@ chargerEleves(filtre, search);
 console.error("Erreur écoute élèves:", e);
 }
 
-// Ajouter un élève
 document.getElementById('addEleveBtn').addEventListener('click', async function() {
 if (!inscriptionActive) {
 toast('❌ L\'inscription des élèves est désactivée', 'error');
@@ -1208,7 +1184,6 @@ document.getElementById('eleveParentCodeInput').value = '';
 }
 });
 
-// Classe change -> afficher/masquer options
 document.getElementById('eleveClasseSelect').addEventListener('change', function() {
 const optionGroup = document.getElementById('optionGroup');
 const classesAvecOption = ['1ère Année', '2ème Année', '3ème Année', '4ème Année'];
@@ -1219,7 +1194,6 @@ optionGroup.style.display = 'none';
 }
 });
 
-// Filtres
 document.getElementById('eleveFiltreClasse').addEventListener('change', function() {
 const search = document.getElementById('eleveSearchInput').value;
 chargerEleves(this.value, search);
@@ -1263,8 +1237,6 @@ toast(`❌ Code parent ${code} introuvable`, 'error');
 });
 }
 
-// ============ INITIALISATION DES ONDGLETS ============
-
 function initTabsEvents() {
 const tabs = document.querySelectorAll(".tab");
 tabs.forEach(btn => {
@@ -1288,13 +1260,10 @@ const search = document.getElementById('eleveSearchInput')?.value || '';
 chargerEleves(filtre, search);
 }
 
-// Dark mode toggle
 if (this.id === 'darkModeBtn') {
 document.body.classList.toggle('dark-mode');
 }
 }
-
-// ============ INITIALISATION ============
 
 async function initApp() {
 await loadAccessCodeFromFirebase();
@@ -1302,7 +1271,6 @@ await verifierInscriptionActive();
 initGestionEleves();
 initTabsEvents();
 
-// Récupérer le compteur de génération de code
 const lastGen = localStorage.getItem('direction_code_gen_date');
 const today = new Date().toISOString().slice(0, 10);
 if (lastGen === today) {
@@ -1314,7 +1282,6 @@ document.getElementById('codeInfoText').textContent = '⚠️ Vous avez déjà g
 document.getElementById('codeInfoText').style.color = '#f59e0b';
 }
 
-// ============ CORRECTION 2 : BOUTON GENERER CODE ============
 document.getElementById('generateCodeBtn').addEventListener('click', async function() {
 if (!canGenerateCode) {
 toast('⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.', 'warning');
@@ -1337,7 +1304,6 @@ document.getElementById('generateCodeBtn').style.opacity = '0.5';
 toast('✅ Code généré : ' + newCode, 'success');
 });
 
-// ============ CORRECTION 2 : BOUTON CHANGER CODE ============
 document.getElementById('changeCodeBtn').addEventListener('click', async function() {
 const currentCode = document.getElementById('currentCodeInput').value.trim();
 const newCode = document.getElementById('newCodeInput').value.trim();
@@ -1349,7 +1315,6 @@ document.getElementById('currentCodeInput').focus();
 return;
 }
 
-// ✅ Vérifier avec la bonne fonction
 const isValid = await verifierCodeAccesDirection(currentCode);
 if (!isValid) {
 errorDiv.textContent = '❌ Ancien code incorrect';
@@ -1397,18 +1362,11 @@ toast('❌ Erreur: ' + error.message, 'error');
 });
 }
 
-// ============ LANCEMENT ============
-
-// Récupérer les éléments du DOM pour la recherche
-document.getElementById('searchProfInput')?.addEventListener('input', function() {
-// Fonction simplifiée pour la recherche de professeurs
-});
-
-// Initialiser les événements de base
 document.querySelectorAll('.tab').forEach(btn => {
 btn.onclick = function() {
 if (this.id === 'darkModeBtn') {
 document.body.classList.toggle('dark-mode');
+localStorage.setItem('gloria_dark_mode', document.body.classList.contains('dark-mode') ? 'true' : 'false');
 return;
 }
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1425,20 +1383,13 @@ chargerEleves(filtre, search);
 };
 });
 
-// Lancer l'application
-verifierCodeDirection();
-
-// Restaurer le thème sombre
 if (localStorage.getItem('gloria_dark_mode') === 'true') {
 document.body.classList.add('dark-mode');
 }
 
-// Écouter le thème sombre
-document.getElementById('darkModeBtn')?.addEventListener('click', function() {
-localStorage.setItem('gloria_dark_mode', document.body.classList.contains('dark-mode') ? 'true' : 'false');
-});
+verifierCodeDirection();
 
-console.log('✅ Espace Direction chargé avec succès (version corrigée)');
+console.log('✅ Espace Direction chargé avec succès');
 </script>
 </body>
 </html>
