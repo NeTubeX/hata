@@ -519,6 +519,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <div class="form-group" id="optionGroup" style="display:none;">
 <label>Option</label>
 <select id="eleveOptionSelect">
+<option value="TOUTES">TOUTES</option>
 <option value="LATIN-PHILO">LATIN-PHILO</option>
 <option value="SCIENCES">SCIENCES</option>
 <option value="PEDAGOGIE GENERALE">PEDAGOGIE GENERALE</option>
@@ -526,7 +527,6 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 <option value="ELECTRICITE">ELECTRICITE</option>
 <option value="MECANIQUE GENERALE">MECANIQUE GENERALE</option>
 <option value="COUPE ET COUTURE">COUPE ET COUTURE</option>
-<option value="TOUTES">TOUTES</option>
 </select>
 </div>
 </div>
@@ -662,6 +662,7 @@ body.reco-fullscreen #recoMessagesContainer{flex:1;display:flex;flex-direction:c
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, query, where, onSnapshot, addDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, onAuthStateChanged } from "firebase/auth";
+
 const firebaseConfig = {
 apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
 authDomain: "gesco-67c43.firebaseapp.com",
@@ -671,19 +672,25 @@ messagingSenderId: "333004443566",
 appId: "1:333004443566:web:de41f60000e418dce9023f",
 measurementId: "G-V7MF88Y5EE"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
 const urlParams = new URLSearchParams(window.location.search);
 const schoolId = urlParams.get('ecole');
 const codeFromUrl = urlParams.get('code');
+
 if (!schoolId) {
 window.location.href = 'https://www.netubex.com/login?error=ecole_requise';
 throw new Error('Redirection');
 }
+
 const ECOLET_ID = schoolId.replace(/[^a-zA-Z0-9]/g, '_');
 const SCHOOL_DISPLAY_NAME = schoolId;
+
 document.getElementById('schoolNameSpan').textContent = SCHOOL_DISPLAY_NAME;
+
 const SC = {
 PROFESSEURS: "professeurs",
 PUNITIONS: "punitions",
@@ -693,6 +700,7 @@ SETTINGS: "settings",
 CORBEILLE: "corbeille",
 COMPTA_ELEVES: "compta_eleves"
 };
+
 let currentAuthUser = null;
 let profsUnsubscribe = null;
 let elevesUnsubscribe = null;
@@ -703,6 +711,74 @@ let ACCESS_CODE = null;
 let canGenerateCode = true;
 let toastQueue = [];
 let toastActive = false;
+
+// ============ CORRECTION CODE ACCES ============
+
+async function loadAccessCodeFromFirebase() {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+if (data.codeDirection) {
+ACCESS_CODE = data.codeDirection;
+localStorage.setItem('access_code_direction', data.codeDirection);
+document.getElementById('currentCodeDisplay').textContent = data.codeDirection;
+if (data.updatedAt) {
+const date = new Date(data.updatedAt);
+document.getElementById('lastCodeChange').textContent = date.toLocaleDateString('fr-FR', {
+day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+});
+}
+const lastGen = localStorage.getItem('direction_code_gen_date');
+const today = new Date().toISOString().slice(0, 10);
+if (lastGen === today) {
+canGenerateCode = false;
+document.getElementById('codeGenerationInfo').style.display = 'flex';
+document.getElementById('codeInfoText').textContent = '⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.';
+document.getElementById('generateCodeBtn').disabled = true;
+document.getElementById('generateCodeBtn').style.opacity = '0.5';
+}
+return true;
+}
+}
+return false;
+} catch (error) {
+console.error(error);
+return false;
+}
+}
+
+async function saveAccessCodeToFirebase(newCode) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+await setDoc(docRef, {
+codeDirection: newCode,
+updatedAt: new Date().toISOString(),
+updatedBy: "Direction"
+}, { merge: true });
+return true;
+} catch (error) {
+console.error(error);
+return false;
+}
+}
+
+async function verifierCodeAccesDirection(codeSaisi) {
+try {
+const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "data");
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+return data.codeDirection === codeSaisi;
+}
+return false;
+} catch (error) {
+console.error("Erreur vérification code:", error);
+return false;
+}
+}
+
 async function verifierCodeDirection() {
 try {
 const ref = doc(db, "ecoles", ECOLET_ID, "settings", "data");
@@ -745,12 +821,15 @@ window.location.href = `https://www.netubex.com/login?ecole=${schoolId}&error=co
 return false;
 }
 }
+
 function genererCodeAcces() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+
 function genererCode6Chiffres() {
 let code = Math.floor(100000 + Math.random() * 900000).toString();
 while (code.length < 6) code = '0' + code;
 return code;
 }
+
 async function genererCodeUnique() {
 const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "settings", "data"));
 let code = genererCodeAcces();
@@ -762,10 +841,12 @@ if (data.codeDirection === code) exists = true;
 if (exists) return genererCodeUnique();
 return code;
 }
+
 function toast(message, type='success') {
 toastQueue.push({message, type});
 if (!toastActive) processToastQueue();
 }
+
 function processToastQueue() {
 if (toastQueue.length === 0) { toastActive = false; return; }
 toastActive = true;
@@ -788,7 +869,9 @@ processToastQueue();
 }, 400);
 }, 3500);
 }
+
 function escapeHtml(s){if(!s)return'';return s.replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
 function showModal(title,bodyHTML,footerHTML){
 const overlay=document.createElement('div');
 overlay.className='modal-fullscreen';
@@ -797,6 +880,7 @@ document.body.appendChild(overlay);
 setTimeout(()=>overlay.classList.add('show'),10);
 return overlay;
 }
+
 function showPrompt(title,message,placeholder,callback,extraInputs) {
 let extraHtml = extraInputs || '';
 const m=showModal(title,`<p>${message}</p><input type="text" id="modalInput" placeholder="${placeholder}" style="width:100%;padding:10px 14px;border-radius:12px;background:#f8fafc;border:2px solid #e2e6ea;color:#1a2332;font-size:13px;outline:none;">${extraHtml}`,'<button class="btn btn-sm btn-outline" id="promptCancel">Annuler</button><button class="btn btn-sm btn-success" id="promptConfirm">Confirmer</button>');
@@ -809,11 +893,13 @@ if(callback) callback(val, sexe);
 };
 setTimeout(()=>{const inp=m.querySelector('#modalInput');if(inp)inp.focus()},100);
 }
+
 function showConfirm(title,message,onConfirm){
 const m=showModal(title,`<p>${message}</p>`,'<button class="btn btn-sm btn-outline" id="confirmCancel">Annuler</button><button class="btn btn-sm btn-danger" id="confirmOk">Confirmer</button>');
 m.querySelector('#confirmCancel').onclick=()=>m.remove();
 m.querySelector('#confirmOk').onclick=()=>{m.remove();if(onConfirm)onConfirm()};
 }
+
 function deconnecterUtilisateur() {
 arreterSurveillanceInactiviteDirection();
 if(profsUnsubscribe){profsUnsubscribe();profsUnsubscribe=null;}
@@ -822,12 +908,17 @@ if(classementUnsubscribe){classementUnsubscribe();classementUnsubscribe=null;}
 if(elevesUnsubscribe){elevesUnsubscribe();elevesUnsubscribe=null;}
 window.location.href='https://www.netubex.com/login';
 }
+
 document.getElementById('logoutBtn').addEventListener('click', deconnecterUtilisateur);
+
+// ============ GESTION PROFESSEURS ============
+
 function genererEmailProfesseur(nom, ecoleId) {
 if (!nom) return '';
 const nomPropre = nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z\s]/g, '').trim().replace(/\s+/g, '.');
 return `prof.${nomPropre}.${ecoleId}@gmail.com`;
 }
+
 async function chargerProfs() {
 try {
 const q = query(collection(db, "ecoles", ECOLET_ID, SC.PROFESSEURS), where("_type", "==", "prof"));
@@ -841,6 +932,7 @@ profs.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 return profs;
 } catch(e) { return []; }
 }
+
 function afficherProfs(profs) {
 const c = document.getElementById('profsListContainer');
 if(!c) return;
@@ -874,6 +966,7 @@ ${estActif ? '⛔ Désactiver' : '✅ Réactiver'}
 html += '</div>';
 c.innerHTML = html;
 }
+
 window.toggleProfActif = async function(id) {
 showConfirm('Changer le statut', 'Voulez-vous changer le statut de ce professeur ?', async () => {
 try {
@@ -886,6 +979,7 @@ chargerProfs().then(p => afficherProfs(p));
 } catch(e) { toast('❌ Erreur: '+e.message, 'error'); }
 });
 };
+
 function ecouterProfs() {
 if(profsUnsubscribe){profsUnsubscribe();profsUnsubscribe=null;}
 try {
@@ -901,6 +995,7 @@ afficherProfs(profs);
 }, (error) => console.error("Erreur écoute profs:", error));
 } catch(e) { console.error("Erreur activation écoute:", e); }
 }
+
 document.getElementById('addProfBtn').onclick = function() {
 const extraHtml = `
 <div style="margin-top:8px;">
@@ -959,13 +1054,18 @@ chargerProfs().then(p => afficherProfs(p));
 } catch(e) { toast('❌ Erreur: '+e.message, 'error'); }
 }, extraHtml);
 };
+
 document.getElementById('searchProfInput').addEventListener('input', function() {
 chargerProfs().then(p => afficherProfs(p));
 });
+
 document.getElementById('refreshProfsBtn').addEventListener('click', function() {
 chargerProfs().then(p => afficherProfs(p));
 toast('✅ Professeurs actualisés', 'success');
 });
+
+// ============ GESTION PUNITIONS ============
+
 async function chargerPunitions() {
 const c = document.getElementById('punitionClasseSelect').value;
 const en = document.getElementById('punitionEleveSelect').value;
@@ -999,6 +1099,7 @@ container.innerHTML = '<div style="text-align:center;padding:16px;color:#dc2626;
 console.error(e);
 }
 }
+
 window.annulerPunition = async function(id) {
 showConfirm('Annuler la punition', 'Voulez-vous vraiment annuler cette punition ?', async () => {
 try {
@@ -1009,6 +1110,7 @@ chargerPunitions();
 } catch(e) {}
 });
 };
+
 document.getElementById('addPunitionBtn').onclick = function() {
 const form = document.getElementById('punitionForm');
 const es = document.getElementById('punitionEleveSelect');
@@ -1019,9 +1121,11 @@ document.getElementById('punitionJustification').value = '';
 form.classList.add('show');
 document.getElementById('punitionMotif').focus();
 };
+
 document.getElementById('cancelPunitionBtn').onclick = function() {
 document.getElementById('punitionForm').classList.remove('show');
 };
+
 document.getElementById('savePunitionBtn').onclick = async function() {
 const es = document.getElementById('punitionEleveSelect');
 const c = document.getElementById('punitionClasseSelect').value;
@@ -1047,6 +1151,7 @@ document.getElementById('punitionForm').classList.remove('show');
 chargerPunitions();
 } catch(e) { toast('Erreur: '+e.message, 'error'); }
 };
+
 async function updatePunitionEleves() {
 const c = document.getElementById('punitionClasseSelect').value;
 const es = document.getElementById('punitionEleveSelect');
@@ -1075,8 +1180,12 @@ es.appendChild(opt);
 });
 } catch(e) { console.error("Erreur chargement élèves:", e); es.innerHTML = '<option value="">Erreur de chargement</option>'; }
 }
+
 document.getElementById('punitionClasseSelect').onchange = function(){ updatePunitionEleves(); chargerPunitions(); };
 document.getElementById('punitionEleveSelect').onchange = function(){ chargerPunitions(); };
+
+// ============ CORRECTION CORBEILLE ============
+
 async function afficherCorbeille() {
 const c = document.getElementById('corbeilleList');
 if(!c) return;
@@ -1090,34 +1199,109 @@ if(data.dateExpiration && new Date(data.dateExpiration) > new Date()) {
 corbeille.push({id: ds.id, ...data});
 }
 });
+
 if(corbeille.length === 0) {
-c.innerHTML = '<div style="text-align:center;padding:14px;color:#9ca3af;font-size:12px;"><i class="fas fa-trash-alt" style="font-size:22px;display:block;margin-bottom:4px;color:#e5e7eb;"></i><p>Corbeille vide</p></div>';
+c.innerHTML = `
+<div style="text-align:center;padding:30px 20px;color:#9ca3af;font-size:13px;">
+<div style="font-size:40px;margin-bottom:12px;opacity:0.3;">🗑️</div>
+<p style="font-weight:500;color:#6b7280;">Corbeille vide</p>
+<p style="font-size:11px;margin-top:4px;">Les fiches supprimées apparaîtront ici</p>
+</div>
+`;
 return;
 }
-corbeille.sort((a,b) => (b.dateSuppression||0) - (a.dateSuppression||0));
-c.innerHTML = '';
-corbeille.forEach(f => {
+
+corbeille.sort((a, b) => (b.dateSuppression || 0) - (a.dateSuppression || 0));
+
+let html = `
+<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#f8fafc;border-radius:10px;font-size:11px;color:#6b7280;font-weight:600;border:1px solid #e8ecf0;">
+<span>📄 Fiche</span>
+<span>⏳ Expiration</span>
+<span style="text-align:right;">Action</span>
+</div>
+`;
+
+for (const f of corbeille) {
 const dateSupp = f.dateSuppression ? new Date(f.dateSuppression) : new Date();
 const dateExpiration = new Date(dateSupp);
-dateExpiration.setDate(dateExpiration.getDate() + 15);
-const joursRestants = Math.ceil((dateExpiration - new Date()) / (1000*60*60*24));
-let couleurCls = joursRestants <= 5 ? 'urgent' : (joursRestants <= 10 ? 'moyen' : 'ok');
-let joursText = joursRestants > 0 ? `${joursRestants} jour(s) restant(s)` : 'Expirée';
-const d = document.createElement('div');
-d.className = 'corbeille-item';
-d.innerHTML = `<div class="header"><span class="ref">${f.numeroRef ? 'F'+String(f.numeroRef).padStart(3,'0') : '???'}</span><span class="jours ${couleurCls}">${joursText}</span></div><div class="info"><span class="cours">${escapeHtml(f.cours||'?')}</span> - <span class="classe">${escapeHtml(f.classe||'?')}</span>${f.option?`(${escapeHtml(f.option)})`:''}</div><div class="prof">Professeur: ${escapeHtml(f.professeurNom||f.profId||'?')}</div><div class="actions"><select id="restaureProf_${f.id}" style="padding:3px 8px;border-radius:30px;background:#ffffff;color:#1a2332;border:1px solid #e2e6ea;font-size:11px;"><option value="${f.profId}">Restaurer chez ${escapeHtml(f.professeurNom||'ancien')}</option><option value="autre">Restaurer chez autre prof</option><option value="nouveau">Créer nouveau professeur</option></select><button class="btn btn-sm btn-success" onclick="window.confirmerRestauration('${f.id}')">RESTAURER</button></div>`;
-c.appendChild(d);
+dateExpiration.setDate(dateExpiration.getDate() + 30);
+const joursRestants = Math.ceil((dateExpiration - new Date()) / (1000 * 60 * 60 * 24));
+
+let statutCouleur = '#10b981';
+let statutTexte = `${joursRestants} jour(s)`;
+if (joursRestants <= 5) {
+statutCouleur = '#dc2626';
+statutTexte = `⚠️ ${joursRestants} jour(s)`;
+} else if (joursRestants <= 10) {
+statutCouleur = '#f59e0b';
+statutTexte = `⚡ ${joursRestants} jour(s)`;
+}
+
+const refNum = f.numeroRef ? 'F' + String(f.numeroRef).padStart(3, '0') : '???';
+const cours = f.cours || 'Sans cours';
+const classe = f.classe || '?';
+const optionDisplay = f.option ? ` (${f.option})` : '';
+const profNom = f.professeurNom || f.profId || 'Inconnu';
+const dateSuppFormatee = new Date(dateSupp).toLocaleDateString('fr-FR', {
+day: '2-digit', month: '2-digit', year: 'numeric'
 });
-} catch(e) {
+
+html += `
+<div style="background:#ffffff;border-radius:12px;padding:12px 16px;border:1px solid #e8ecf0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:180px;">
+<div style="background:#fee2e2;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;color:#dc2626;font-family:monospace;border:1px solid #fecaca;">
+${refNum}
+</div>
+<div>
+<div style="font-weight:600;font-size:14px;color:#1a2332;">${escapeHtml(cours)}</div>
+<div style="font-size:12px;color:#6b7280;">${escapeHtml(classe)}${optionDisplay} · ${escapeHtml(profNom)}</div>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6b7280;">
+<span style="font-size:10px;">🗑️</span>
+<span>${dateSuppFormatee}</span>
+</div>
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:${statutCouleur};">
+<span style="font-size:10px;">⏳</span>
+<span>${statutTexte}</span>
+</div>
+<div style="display:flex;gap:6px;">
+<select id="restaureProf_${f.id}" style="padding:5px 10px;border-radius:30px;background:#f8fafc;color:#1a2332;border:1px solid #e2e6ea;font-size:11px;cursor:pointer;outline:none;">
+<option value="${f.profId}">👨‍🏫 ${escapeHtml(profNom)}</option>
+<option value="autre">🔄 Autre prof</option>
+<option value="nouveau">➕ Nouveau prof</option>
+</select>
+<button onclick="window.confirmerRestauration('${f.id}')" style="background:#059669;color:white;border:none;padding:5px 16px;border-radius:30px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;white-space:nowrap;">
+🔄 Restaurer
+</button>
+</div>
+</div>
+</div>
+`;
+}
+
+html += `</div>`;
+c.innerHTML = html;
+
+} catch (e) {
 console.error("Erreur chargement corbeille:", e);
-c.innerHTML = '<div style="text-align:center;padding:14px;color:#dc2626;font-size:12px;">Erreur de chargement de la corbeille</div>';
+c.innerHTML = `
+<div style="text-align:center;padding:20px;color:#dc2626;font-size:13px;">
+<div style="font-size:28px;margin-bottom:8px;">❌</div>
+<p>Erreur de chargement de la corbeille</p>
+</div>
+`;
 }
 }
+
 window.confirmerRestauration = function(ficheId) {
 showConfirm('🔄 Restaurer la fiche de cotation', 'Voulez-vous vraiment restaurer cette <strong>fiche de cotation</strong> ?<br><br>La fiche sera remise dans l\'espace du professeur sélectionné.<br>Les données (élèves, notes, épreuves) seront conservées.', function() {
 window.restaurerFicheCorbeille(ficheId);
 });
 };
+
 window.restaurerFicheCorbeille = async function(ficheId) {
 try {
 const docRef = doc(db, "ecoles", ECOLET_ID, SC.CORBEILLE, ficheId);
@@ -1165,6 +1349,7 @@ return;
 await restaurerFiche(ficheId, fiche, nouveauProfId, nouveauProfNom);
 } catch(e) { toast('Erreur: '+e.message, 'error'); }
 };
+
 async function restaurerFiche(ficheId, ficheData, nouveauProfId, nouveauProfNom) {
 try {
 const docRef = doc(db, "ecoles", ECOLET_ID, SC.FICHES, ficheId);
@@ -1183,47 +1368,9 @@ toast('✅ Fiche de cotation restaurée avec succès', 'success');
 afficherCorbeille();
 } catch(e) { toast('Erreur: '+e.message, 'error'); }
 }
-async function loadAccessCodeFromFirebase() {
-try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "access_code");
-const docSnap = await getDoc(docRef);
-if(docSnap.exists()) {
-const data = docSnap.data();
-if(data.code) {
-ACCESS_CODE = data.code;
-localStorage.setItem('access_code_direction', data.code);
-document.getElementById('currentCodeDisplay').textContent = data.code;
-if(data.lastModified) {
-const date = new Date(data.lastModified);
-document.getElementById('lastCodeChange').textContent = date.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-}
-const lastGen = localStorage.getItem('direction_code_gen_date');
-const today = new Date().toISOString().slice(0,10);
-if(lastGen === today) {
-canGenerateCode = false;
-document.getElementById('codeGenerationInfo').style.display = 'flex';
-document.getElementById('codeInfoText').textContent = '⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.';
-document.getElementById('generateCodeBtn').disabled = true;
-document.getElementById('generateCodeBtn').style.opacity = '0.5';
-}
-return true;
-}
-}
-return false;
-} catch(error) { console.error(error); return false; }
-}
-async function saveAccessCodeToFirebase(newCode) {
-try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.SETTINGS, "access_code");
-await setDoc(docRef, {
-code: newCode,
-updatedAt: new Date().toISOString(),
-updatedBy: "Direction",
-lastModified: new Date().toISOString()
-});
-return true;
-} catch(error) { console.error(error); return false; }
-}
+
+// ============ CORRECTION CODE ACCES BOUTONS ============
+
 document.getElementById('generateCodeBtn').addEventListener('click', async function() {
 if (!canGenerateCode) {
 toast('⚠️ Vous avez déjà généré un code aujourd\'hui. Revenez demain.', 'warning');
@@ -1241,29 +1388,36 @@ document.getElementById('generateCodeBtn').disabled = true;
 document.getElementById('generateCodeBtn').style.opacity = '0.5';
 toast('✅ Nouveau code généré : ' + newCode, 'success');
 });
+
 document.getElementById('changeCodeBtn').addEventListener('click', async function() {
 const currentCode = document.getElementById('currentCodeInput').value.trim();
 const newCode = document.getElementById('newCodeInput').value.trim();
 const errorDiv = document.getElementById('settingsError');
+
 if (!currentCode || currentCode.length < 6) {
 errorDiv.textContent = '❌ Veuillez saisir l\'ancien code (6 chiffres)';
 document.getElementById('currentCodeInput').focus();
 return;
 }
-if (currentCode !== ACCESS_CODE) {
+
+const isValid = await verifierCodeAccesDirection(currentCode);
+if (!isValid) {
 errorDiv.textContent = '❌ Ancien code incorrect';
 document.getElementById('currentCodeInput').focus();
 return;
 }
+
 if (!newCode || newCode.length !== 6 || !/^\d{6}$/.test(newCode)) {
 errorDiv.textContent = '❌ Le code doit contenir exactement 6 chiffres';
 document.getElementById('newCodeInput').focus();
 return;
 }
+
 if (newCode === ACCESS_CODE) {
 errorDiv.textContent = '⚠️ Le nouveau code est identique à l\'ancien';
 return;
 }
+
 showConfirm('Changement de code', `Êtes-vous sûr de vouloir changer le code d'accès ?\n\nAncien code : ${ACCESS_CODE}\nNouveau code : ${newCode}`, async function() {
 try {
 const saved = await saveAccessCodeToFirebase(newCode);
@@ -1294,8 +1448,12 @@ toast('❌ Erreur: ' + error.message, 'error');
 }
 });
 });
+
+// ============ CLASSEMENT ============
+
 let classementCharge = false;
 const podiumContainer = document.getElementById('podiumContainer');
+
 function calculerScore(effectif, moyenneGenerale, tauxBrillants, tauxReussite, maxEffectif, maxMoyenne, maxBrillants, maxReussite) {
 if(maxEffectif === 0 || maxMoyenne === 0) return 0;
 const scoreEffectif = (effectif / maxEffectif) * 100;
@@ -1304,6 +1462,7 @@ const scoreBrillants = (tauxBrillants / maxBrillants) * 100;
 const scoreReussite = (tauxReussite / maxReussite) * 100;
 return Math.round((scoreEffectif * 0.40) + (scoreMoyenne * 0.30) + (scoreBrillants * 0.20) + (scoreReussite * 0.10));
 }
+
 async function calculerStatsEcole(ecoleId) {
 let totalNotes = 0;
 let sommeNotes = 0;
@@ -1345,6 +1504,7 @@ const tauxBrillants = totalEleves > 0 ? (elevesBrillants / totalEleves) * 100 : 
 const tauxReussite = totalEleves > 0 ? (elevesReussite / totalEleves) * 100 : 0;
 return { moyenneGenerale, tauxBrillants, tauxReussite, totalEleves, elevesBrillants, elevesReussite };
 }
+
 async function getAllEcolesAvecStats() {
 try {
 const ecolesSnap = await getDocs(collection(db, "ecoles"));
@@ -1392,6 +1552,7 @@ resultats.sort((a,b) => b.score - a.score);
 return resultats;
 } catch(e) { console.error("Erreur getAllEcolesAvecStats:", e); return []; }
 }
+
 async function afficherClassement(showLoader = true) {
 if(!podiumContainer) return;
 if(showLoader) {
@@ -1459,6 +1620,7 @@ classementCharge = true;
 } catch(e) { console.error("Erreur mise à jour classement:", e); }
 }
 }
+
 function demarrerEcouteClassement() {
 if(classementUnsubscribe) { classementUnsubscribe(); classementUnsubscribe = null; }
 try {
@@ -1467,9 +1629,13 @@ if(classementCharge) { await afficherClassement(false); }
 }, (error) => { console.error('Erreur écoute classement:', error); });
 } catch(e) { console.error('Erreur demarrerEcouteClassement:', e); }
 }
+
+// ============ RECO ============
+
 let pendingReply = null;
 let botWaitingMessageSent = false;
 let recoMessages = [];
+
 function getNaturalReply(subject, message) {
 const replies = {
 'amelioration': ['Excellente suggestion ! 💡 Je transmets à l\'équipe.', 'Ah, c\'est une super idée ! 😍', 'Wouah ! 🤩 Votre suggestion est géniale !', '👍 J\'adore cette idée !'],
@@ -1487,6 +1653,7 @@ const possibleReplies = replies[type] || replies['autre'];
 const index = Math.floor(Math.random() * possibleReplies.length);
 return possibleReplies[index];
 }
+
 function scrollRecoToBottom() {
 const recoBody = document.getElementById('recoBody');
 if(recoBody) {
@@ -1495,6 +1662,7 @@ setTimeout(() => { recoBody.scrollTop = recoBody.scrollHeight; }, 100);
 setTimeout(() => { recoBody.scrollTop = recoBody.scrollHeight; }, 300);
 }
 }
+
 function addRecoMessage(sender, nom, message) {
 const container = document.getElementById('recoMessagesContainer');
 if(!container) return;
@@ -1507,6 +1675,7 @@ div.innerHTML = `<div class="bubble"><div class="sender">${nom}</div><div class=
 container.appendChild(div);
 setTimeout(scrollRecoToBottom, 50);
 }
+
 function addTypingIndicator() {
 const container = document.getElementById('recoMessagesContainer');
 if(!container) return;
@@ -1518,10 +1687,12 @@ div.innerHTML = `<div class="dots"><span class="dot"></span><span class="dot"></
 container.appendChild(div);
 setTimeout(scrollRecoToBottom, 50);
 }
+
 function removeTypingIndicator() {
 const el = document.getElementById('typingIndicator');
 if(el) el.remove();
 }
+
 function showTypingAndAutoReplyWithCustomReply(subject, customReply) {
 if(pendingReply) { clearTimeout(pendingReply); removeTypingIndicator(); }
 botWaitingMessageSent = false;
@@ -1542,6 +1713,7 @@ botWaitingMessageSent = true;
 pendingReply = null;
 }, delay);
 }
+
 function initReco() {
 if(recoUnsubscribe) return;
 const docRef = doc(db, "communication", "support_netubex_board");
@@ -1564,12 +1736,14 @@ document.getElementById('recoSubjectSelect').addEventListener('change', function
 this.classList.remove('error');
 });
 }
+
 function updateRecoUI() {
 const container = document.getElementById('recoMessagesContainer');
 if(!container) return;
 const empty = container.querySelector('.reco-empty');
 if(empty) empty.remove();
 }
+
 function sendRecoMessage() {
 const input = document.getElementById('recoInput');
 const subjectSelect = document.getElementById('recoSubjectSelect');
@@ -1583,6 +1757,9 @@ input.value = '';
 const customReply = getNaturalReply(subject, message);
 showTypingAndAutoReplyWithCustomReply(subject, customReply);
 }
+
+// ============ SURVEILLANCE INACTIVITE ============
+
 async function envoyerStatut(actif) {
 try {
 const statusRef = doc(db, "ecoles", ECOLET_ID, "status", "direction");
@@ -1595,9 +1772,11 @@ lastUpdate: Date.now()
 });
 } catch(e) {}
 }
+
 const INACTIVITY_TIMEOUT = 300;
 let inactivityTimer = null;
 let isActive = false;
+
 function resetInactivityTimer() {
 clearTimeout(inactivityTimer);
 if(!isActive) { isActive = true; envoyerStatut(true); }
@@ -1605,7 +1784,9 @@ inactivityTimer = setTimeout(() => {
 if(isActive) { isActive = false; envoyerStatut(false); }
 }, INACTIVITY_TIMEOUT * 1000);
 }
+
 function detectInteraction() { resetInactivityTimer(); }
+
 function demarrerSurveillanceInactiviteDirection() {
 const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
 events.forEach(event => { document.addEventListener(event, detectInteraction); });
@@ -1613,6 +1794,7 @@ isActive = true;
 envoyerStatut(true);
 resetInactivityTimer();
 }
+
 function arreterSurveillanceInactiviteDirection() {
 const events = ['click', 'mousemove', 'scroll', 'keydown', 'touchstart', 'touchmove', 'focus'];
 events.forEach(event => { document.removeEventListener(event, detectInteraction); });
@@ -1620,6 +1802,9 @@ clearTimeout(inactivityTimer);
 isActive = false;
 envoyerStatut(false);
 }
+
+// ============ CORRECTION INSCRIPTION ELEVES ============
+
 async function verifierInscriptionActive() {
 try {
 const ref = doc(db, "ecoles", ECOLET_ID, "settings", "inscription");
@@ -1643,6 +1828,7 @@ updateInscriptionUI();
 return false;
 }
 }
+
 function updateInscriptionUI() {
 const badge = document.getElementById('inscriptionStatusBadge');
 const formContainer = document.getElementById('eleveFormContainer');
@@ -1678,6 +1864,7 @@ formContainer.innerHTML = `
 }
 }
 }
+
 async function checkParentCodeExists(code) {
 try {
 const q = query(
@@ -1691,6 +1878,7 @@ return !snap.empty;
 return false;
 }
 }
+
 async function ajouterEleve(nom, sexe, classe, option = '', parentCodeSaisi = '') {
 if (!inscriptionActive) {
 toast('❌ L\'inscription des élèves est désactivée', 'error');
@@ -1704,6 +1892,12 @@ if (!classe) {
 toast('❌ Veuillez sélectionner une classe', 'error');
 return false;
 }
+
+let optionFinale = option || '';
+if (classe === '7ème EB' || classe === '8ème EB') {
+optionFinale = 'TOUTES';
+}
+
 let codeParent = parentCodeSaisi.trim();
 let codeExists = false;
 if (codeParent && codeParent.length === 6 && /^\d{6}$/.test(codeParent)) {
@@ -1732,33 +1926,63 @@ codeParent = genererCode6Chiffres();
 attempts++;
 }
 }
+
 try {
 const eleveId = 'eleve_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
 const data = {
 _type: "compta_eleve",
+eleveId: eleveId,
 nom: nom.trim(),
+postnom: "",
+prenom: "",
+dateNaiss: "",
+lieuNaiss: "",
+nomPere: "",
+nomMere: "",
+adresse: "",
 sexe: sexe || 'M',
+phone: "",
 classe: classe,
-option: option || '',
-parentCode: codeParent,
-dateInscription: new Date().toISOString(),
-inscritPar: 'direction',
-statut: 'actif',
+option: optionFinale,
+minerval: 45000,
+fraisInscriptionTotal: 45000,
+exonere: false,
+motifExon: "",
+approbateur: "",
 abandon: false,
+dateAbandon: null,
+parentCode: codeParent,
+fraisInscriptionPaye: 0,
+dateInscription: new Date().toISOString(),
+paiements: {},
+moisBlancs: [],
+anneeScolaire: "2026-2027",
+statut: 'actif',
+inscritPar: 'direction',
 ecoleId: ECOLET_ID,
 createdAt: Date.now()
 };
+
 await setDoc(doc(db, "ecoles", ECOLET_ID, "compta_eleves", eleveId), data);
+
 const message = codeExists ?
 `✅ ${nom.trim()} inscrit(e) - Lié au code parent: ${codeParent}` :
 `✅ ${nom.trim()} inscrit(e) - Nouveau code parent: ${codeParent}`;
 toast(message, 'success');
+
+const filtre = document.getElementById('eleveFiltreClasse')?.value || '';
+const search = document.getElementById('eleveSearchInput')?.value || '';
+chargerEleves(filtre, search);
+
 return true;
+
 } catch(e) {
 toast('❌ Erreur: ' + e.message, 'error');
 return false;
 }
 }
+
 async function modifierEleve(eleveId, nouveauSexe, nouvelleOption) {
 if (!eleveId) return false;
 try {
@@ -1778,18 +2002,26 @@ toast('❌ Erreur: ' + e.message, 'error');
 return false;
 }
 }
+
 async function chargerEleves(filtreClasse = '', searchTerm = '') {
 const container = document.getElementById('elevesListContainer');
 if (!container) return;
+
 try {
 const snap = await getDocs(collection(db, "ecoles", ECOLET_ID, "compta_eleves"));
 let allEleves = [];
 snap.forEach(ds => {
 const data = ds.data();
 if (data._type === "compta_eleve" && data.statut !== 'inactif' && data.abandon !== true) {
+if (data.classe === '7ème EB' || data.classe === '8ème EB') {
+if (!data.option || data.option === '') {
+data.option = 'TOUTES';
+}
+}
 allEleves.push({ id: ds.id, ...data });
 }
 });
+
 let elevesAffiches = allEleves;
 if (filtreClasse) {
 elevesAffiches = allEleves.filter(e => e.classe === filtreClasse);
@@ -1803,7 +2035,9 @@ return nom.includes(term) || parentCode.includes(term);
 });
 }
 elevesAffiches.sort((a, b) => a.nom.localeCompare(b.nom));
+
 document.getElementById('eleveCount').textContent = `(${elevesAffiches.length})`;
+
 if (elevesAffiches.length === 0) {
 container.innerHTML = `
 <div class="empty-state">
@@ -1815,6 +2049,7 @@ ${inscriptionActive ? '<p style="font-size:12px;">Utilisez le formulaire ci-dess
 `;
 return;
 }
+
 let html = '';
 elevesAffiches.forEach((e, index) => {
 const sexeClass = e.sexe === 'F' ? 'F' : 'M';
@@ -1822,6 +2057,10 @@ const sexeIcon = e.sexe === 'F' ? '👩' : '👨';
 const sexeLabel = e.sexe === 'F' ? 'Fille' : 'Garçon';
 const parentCode = e.parentCode || 'Non défini';
 const date = new Date(e.dateInscription).toLocaleDateString('fr-FR');
+let optionDisplay = e.option || '';
+if ((e.classe === '7ème EB' || e.classe === '8ème EB') && !optionDisplay) {
+optionDisplay = 'TOUTES';
+}
 html += `
 <div class="eleve-item" data-id="${e.id}">
 <div class="avatar ${sexeClass}">${e.nom ? e.nom.charAt(0).toUpperCase() : '?'}</div>
@@ -1829,7 +2068,7 @@ html += `
 <div class="nom">${escapeHtml(e.nom)}</div>
 <div class="details">
 <span class="classe">${escapeHtml(e.classe)}</span>
-${e.option ? `<span class="option">📖 ${escapeHtml(e.option)}</span>` : ''}
+${optionDisplay ? `<span class="option">📖 ${escapeHtml(optionDisplay)}</span>` : ''}
 <span class="parent-code">🔑 ${escapeHtml(parentCode)}</span>
 <span>📅 ${date}</span>
 </div>
@@ -1846,6 +2085,7 @@ console.error("Erreur chargement élèves:", e);
 container.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Erreur de chargement</p></div>';
 }
 }
+
 window.editerEleve = function(eleveId) {
 const container = document.querySelector(`.eleve-item[data-id="${eleveId}"]`);
 if (!container) return;
@@ -1910,6 +2150,7 @@ chargerEleves(filtre, search);
 }
 });
 };
+
 document.getElementById('checkParentCodeBtn').addEventListener('click', async function() {
 const code = document.getElementById('eleveParentCodeInput').value.trim();
 if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
@@ -1923,9 +2164,11 @@ toast(`✅ Code parent ${code} trouvé - Les nouveaux élèves seront liés à c
 toast(`❌ Code parent ${code} introuvable`, 'error');
 }
 });
+
 function initGestionEleves() {
 verifierInscriptionActive();
 chargerEleves();
+
 if (elevesUnsubscribe) elevesUnsubscribe();
 try {
 elevesUnsubscribe = onSnapshot(
@@ -1939,6 +2182,7 @@ chargerEleves(filtre, search);
 } catch(e) {
 console.error("Erreur écoute élèves:", e);
 }
+
 document.getElementById('addEleveBtn').addEventListener('click', async function() {
 if (!inscriptionActive) {
 toast('❌ L\'inscription des élèves est désactivée', 'error');
@@ -1949,21 +2193,24 @@ const sexe = document.getElementById('eleveSexeSelect').value;
 const classe = document.getElementById('eleveClasseSelect').value;
 const option = document.getElementById('eleveOptionSelect').value;
 const parentCode = document.getElementById('eleveParentCodeInput').value.trim();
+
 const success = await ajouterEleve(nom, sexe, classe, option, parentCode);
 if (success) {
 document.getElementById('eleveNomInput').value = '';
 document.getElementById('eleveParentCodeInput').value = '';
-document.getElementById('eleveOptionSelect').value = 'LATIN-PHILO';
+document.getElementById('eleveOptionSelect').value = 'TOUTES';
 const filtre = document.getElementById('eleveFiltreClasse').value;
 const search = document.getElementById('eleveSearchInput').value;
 chargerEleves(filtre, search);
 }
 });
+
 document.getElementById('eleveNomInput').addEventListener('keypress', function(e) {
 if (e.key === 'Enter') {
 document.getElementById('addEleveBtn').click();
 }
 });
+
 document.getElementById('eleveClasseSelect').addEventListener('change', function() {
 const optionGroup = document.getElementById('optionGroup');
 const classesAvecOption = ['1ère Année', '2ème Année', '3ème Année', '4ème Année'];
@@ -1971,13 +2218,15 @@ if (classesAvecOption.includes(this.value)) {
 optionGroup.style.display = 'block';
 } else {
 optionGroup.style.display = 'none';
-document.getElementById('eleveOptionSelect').value = 'LATIN-PHILO';
+document.getElementById('eleveOptionSelect').value = 'TOUTES';
 }
 });
+
 document.getElementById('eleveFiltreClasse').addEventListener('change', function() {
 const search = document.getElementById('eleveSearchInput').value;
 chargerEleves(this.value, search);
 });
+
 const searchInput = document.getElementById('eleveSearchInput');
 const clearBtn = document.getElementById('clearSearchBtn');
 searchInput.addEventListener('input', function() {
@@ -1986,6 +2235,7 @@ const filtre = document.getElementById('eleveFiltreClasse').value;
 chargerEleves(filtre, term);
 clearBtn.style.display = term ? 'block' : 'none';
 });
+
 clearBtn.addEventListener('click', function() {
 searchInput.value = '';
 clearBtn.style.display = 'none';
@@ -1993,6 +2243,7 @@ const filtre = document.getElementById('eleveFiltreClasse').value;
 chargerEleves(filtre, '');
 toast('🔍 Recherche réinitialisée', 'info');
 });
+
 document.getElementById('resetSearchBtn').addEventListener('click', function() {
 searchInput.value = '';
 clearBtn.style.display = 'none';
@@ -2001,6 +2252,9 @@ chargerEleves('', '');
 toast('🔍 Recherche réinitialisée', 'info');
 });
 }
+
+// ============ INIT APP ============
+
 async function initApp() {
 await loadAccessCodeFromFirebase();
 await updatePunitionEleves();
@@ -2013,7 +2267,11 @@ initReco();
 initGestionEleves();
 setTimeout(scrollRecoToBottom, 800);
 }
+
+// ============ LANCEMENT ============
+
 verifierCodeDirection();
+
 document.querySelectorAll('.tab').forEach(btn => {
 btn.onclick = function() {
 if(this.id === 'darkModeBtn') {
@@ -2042,6 +2300,7 @@ chargerEleves(filtre, search);
 }
 };
 });
+
 document.getElementById('recoBackBtn').addEventListener('click', function() {
 document.body.classList.remove('reco-fullscreen');
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -2049,6 +2308,7 @@ document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('activ
 document.querySelector('.tab[data-tab="tabRang"]').classList.add('active');
 document.getElementById('tabRang').classList.add('active');
 });
+
 setInterval(() => {
 if(document.getElementById('tabPunitions').classList.contains('active')) chargerPunitions();
 if(document.getElementById('tabProfesseurs').classList.contains('active')) {
@@ -2056,6 +2316,7 @@ chargerProfs().then(p => afficherProfs(p));
 afficherCorbeille();
 }
 }, 300000);
+
 console.log('✅ Espace Direction chargé avec succès');
 </script>
 </body>
