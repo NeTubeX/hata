@@ -411,7 +411,16 @@ body.light-mode #periodeIndicator.annee{background:rgba(16,185,129,0.1);color:#0
 </span>
 </div>
 </div>
-<div class="tabs"><button class="tab-btn active" data-tab="tab1">ÉLÈVES</button><button class="tab-btn" data-tab="tab2">PAIEMENTS</button><button class="tab-btn" data-tab="tab3">ABANDONS</button><button class="tab-btn" data-tab="tab4">CARTES ÉLÈVES</button><button class="tab-btn" data-tab="tab5">CODES PARENTS</button><button class="tab-btn" data-tab="tab6">RAPPORTS PDF</button><button class="tab-btn" data-tab="tab7">CONFIG</button><button class="tab-btn" data-tab="tab8">INSCRIPTION</button></div>
+<div class="tabs">
+<button class="tab-btn active" data-tab="tab1" onclick="switchTab('tab1')">ÉLÈVES</button>
+<button class="tab-btn" data-tab="tab2" onclick="switchTab('tab2')">PAIEMENTS</button>
+<button class="tab-btn" data-tab="tab3" onclick="switchTab('tab3')">ABANDONS</button>
+<button class="tab-btn" data-tab="tab4" onclick="switchTab('tab4')">CARTES ÉLÈVES</button>
+<button class="tab-btn" data-tab="tab5" onclick="switchTab('tab5')">CODES PARENTS</button>
+<button class="tab-btn" data-tab="tab6" onclick="switchTab('tab6')">RAPPORTS PDF</button>
+<button class="tab-btn" data-tab="tab7" onclick="switchTab('tab7')">CONFIG</button>
+<button class="tab-btn" data-tab="tab8" onclick="switchTab('tab8')">INSCRIPTION</button>
+</div>
 <div id="tab1" class="tab-panel active"><div class="card"><div class="card-header">LISTE DES ÉLÈVES</div><div class="p-16">
 <button class="btn-inscrire-top" id="btnInscrirePrincipal">+ INSCRIRE UN ÉLÈVE</button>
 <div class="graph-container">
@@ -442,7 +451,7 @@ body.light-mode #periodeIndicator.annee{background:rgba(16,185,129,0.1);color:#0
 <div class="form-group"><label>NOM</label><input type="text" id="searchNom" placeholder="Nom de l'élève"></div>
 <div class="form-group"><label>CLASSE</label><select id="filterClasse"><option value="">Toutes</option><option value="7ème EB">7ème EB</option><option value="8ème EB">8ème EB</option><option value="1ère Année">1ère Année</option><option value="2ème Année">2ème Année</option><option value="3ème Année">3ème Année</option><option value="4ème Année">4ème Année</option></select></div>
 <div class="form-group"><label>OPTION</label><select id="filterOption"><option value="">Toutes</option></select></div>
-<div class="filter-scroll"><button class="filter-btn active" data-filter="all">TOUS</button><button class="filter-btn" data-filter="normal">RÉGULIERS</button><button class="filter-btn" data-filter="exonere">EXONÉRÉS</button><button class="filter-btn" data-filter="listenoir">LISTE NOIRE</button><button class="filter-btn" data-filter="enordre">EN ORDRE</button></div>
+<div class="filter-scroll"><button class="filter-btn active" data-filter="all" onclick="setFilter('all')">TOUS</button><button class="filter-btn" data-filter="normal" onclick="setFilter('normal')">RÉGULIERS</button><button class="filter-btn" data-filter="exonere" onclick="setFilter('exonere')">EXONÉRÉS</button><button class="filter-btn" data-filter="listenoir" onclick="setFilter('listenoir')">LISTE NOIRE</button><button class="filter-btn" data-filter="enordre" onclick="setFilter('enordre')">EN ORDRE</button></div>
 <div id="elevesContainer"></div>
 </div></div></div>
 <div id="tab2" class="tab-panel"><div class="card"><div class="card-header">RELEVÉ DE PAIEMENTS (MINERVAL MENSUEL)</div><div class="p-16" id="releveContainer"><div class="empty-state">Sélectionnez un élève</div></div></div></div>
@@ -552,10 +561,38 @@ body.light-mode #periodeIndicator.annee{background:rgba(16,185,129,0.1);color:#0
 </div>
 
 <script>
-window.ouvrirModalInscription=function(){document.getElementById('addEleveModal').classList.add('show');};
-window.toggleDropdown=function(btn){const dropdown=btn.nextElementSibling;const isVisible=dropdown.classList.contains('show');document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));if(!isVisible)dropdown.classList.add('show');};
-window.selectFamilyMember=function(eleveId){const eleve=familySearchResults.find(e=>e.id===eleveId);if(eleve){document.getElementById('newEleveFamilyCodeSelect').value=eleveId;applyFamilyCode(eleve);}};
-window.selectFamilyMemberRattacher=function(eleveId){const eleve=rattacherSearchResults.find(e=>e.id===eleveId);if(eleve){document.getElementById('rattacherFamilyCodeSelect').value=eleveId;previewRattachement(eleve);}};
+// Fonction pour changer d'onglet
+function switchTab(tabId) {
+    // Masquer tous les panneaux
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    // Désactiver tous les boutons
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    // Afficher le panneau sélectionné
+    document.getElementById(tabId).classList.add('active');
+    // Activer le bouton correspondant
+    document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+    
+    // Rafraîchir le contenu si nécessaire
+    if(tabId === 'tab4') { afficherCartesIdentite(); }
+    if(tabId === 'tab5') { afficherParentCodes(); }
+    if(tabId === 'tab8') { window.afficherFraisInscription(); }
+}
+
+// Fonction pour changer le filtre
+function setFilter(filter) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.filter-btn[data-filter="${filter}"]`).classList.add('active');
+    currentFilter = filter;
+    afficherListeEleves();
+}
+
+// Exposer les fonctions globalement
+window.switchTab = switchTab;
+window.setFilter = setFilter;
+window.ouvrirModalInscription = function(){document.getElementById('addEleveModal').classList.add('show');};
+window.toggleDropdown = function(btn){const dropdown=btn.nextElementSibling;const isVisible=dropdown.classList.contains('show');document.querySelectorAll('.dropdown-content').forEach(d=>d.classList.remove('show'));if(!isVisible)dropdown.classList.add('show');};
+window.selectFamilyMember = function(eleveId){const eleve=familySearchResults.find(e=>e.id===eleveId);if(eleve){document.getElementById('newEleveFamilyCodeSelect').value=eleveId;applyFamilyCode(eleve);}};
+window.selectFamilyMemberRattacher = function(eleveId){const eleve=rattacherSearchResults.find(e=>e.id===eleveId);if(eleve){document.getElementById('rattacherFamilyCodeSelect').value=eleveId;previewRattachement(eleve);}};
 </script>
 
 <script type="importmap">
@@ -729,7 +766,7 @@ window.demanderMarquerBlanc=function(eleveId,mois){const eleves=localEleves;cons
 document.getElementById('confirmMoisBlanc').onclick=async function(){const action=window._moisBlancAction;const data=window._moisBlancData;if(!data){toast('Erreur','error');return;}document.getElementById('moisBlancModal').classList.remove('show');if(action==='marquer'){await marquerMoisBlanc(data.eleveId,data.mois);}else if(action==='retirer'){await enleverMoisBlanc(data.eleveId,data.mois);}await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStatsDetaillees();window._moisBlancData=null;window._moisBlancAction=null;};
 document.getElementById('cancelMoisBlanc').onclick=function(){document.getElementById('moisBlancModal').classList.remove('show');window._moisBlancData=null;window._moisBlancAction=null;};
 
-window.voirDetails=async function(id,nom,classe,option){const eleves=await getAllComptaEleves(true);currentEleve=eleves.find(e=>e.id===id);await afficherReleve(currentEleve);document.querySelectorAll(".tab-btn").forEach(btn=>btn.classList.remove("active"));document.querySelectorAll(".tab-panel").forEach(panel=>panel.classList.remove("active"));document.querySelector('.tab-btn[data-tab="tab2"]').classList.add("active");document.getElementById("tab2").classList.add("active");};
+window.voirDetails=async function(id,nom,classe,option){const eleves=await getAllComptaEleves(true);currentEleve=eleves.find(e=>e.id===id);await afficherReleve(currentEleve);switchTab('tab2');};
 
 window.voirMoisPayes=function(eleveId){afficherMoisPayes(eleveId);};
 
@@ -849,9 +886,9 @@ document.getElementById('btnSaveFraisInscription').onclick=async()=>{await sauve
 
 document.getElementById('btnApplyTarifsToEleves').onclick=async function(){if(!await showConfirm('Attention : Cela va mettre à jour le minerval et les frais d\'inscription de TOUS les élèves existants selon leur classe et option. Continuer ?'))return;try{const eleves=await getAllComptaEleves(true);let compteurMinerval=0,compteurFrais=0;for(const eleve of eleves){if(eleve.abandon)continue;const nouveauMinerval=await getMinervalEleve(eleve.classe,eleve.option);const nouveauFrais=await getFraisInscriptionEleve(eleve.classe,eleve.option);const updates={};if(eleve.minerval!==nouveauMinerval){updates.minerval=nouveauMinerval;compteurMinerval++;}if(eleve.fraisInscriptionTotal!==nouveauFrais){updates.fraisInscriptionTotal=nouveauFrais;compteurFrais++;}if(Object.keys(updates).length>0){const docId='compta_'+eleve.id;const ref=doc(db,"ecoles",ECOLET_ID,"compta_eleves",docId);await updateDoc(ref,updates);const idx=localEleves.findIndex(e=>e.id===eleve.id);if(idx!==-1){if(updates.minerval!==undefined)localEleves[idx].minerval=updates.minerval;if(updates.fraisInscriptionTotal!==undefined)localEleves[idx].fraisInscriptionTotal=updates.fraisInscriptionTotal;}}}toast(''+compteurMinerval+' minervaux et '+compteurFrais+' frais d\'inscription mis à jour','success');await afficherListeEleves();if(currentEleve)await afficherReleve(currentEleve);await window.afficherFraisInscription();}catch(error){toast('Erreur lors de la mise à jour','error');console.error(error);}};
 
-function initTabsEvents(){document.querySelectorAll(".tab-btn").forEach(btn=>{btn.addEventListener("click",function(){const tabId=this.dataset.tab;document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));document.getElementById(tabId).classList.add("active");if(tabId==="tab4"){afficherCartesIdentite();}if(tabId==="tab5"){afficherParentCodes();}if(tabId==="tab8"){window.afficherFraisInscription();}});});}
+function initTabsEvents(){document.querySelectorAll(".tab-btn").forEach(btn=>{btn.addEventListener("click",function(){const tabId=this.dataset.tab;switchTab(tabId);});});}
 
-function initFilterEvents(){document.querySelectorAll(".filter-btn").forEach(btn=>{btn.onclick=()=>{document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");currentFilter=btn.dataset.filter;afficherListeEleves();};});}
+function initFilterEvents(){document.querySelectorAll(".filter-btn").forEach(btn=>{btn.onclick=()=>{setFilter(btn.dataset.filter);};});}
 
 document.getElementById("searchCarte").oninput=()=>afficherCartesIdentite();
 document.getElementById("searchParentCode").oninput=()=>afficherParentCodes();
