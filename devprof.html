@@ -1054,12 +1054,87 @@ function createTypingIndicator() { const div = document.createElement('div'); di
 async function typeWriterEffect(element, text, speed = 15) { element.innerHTML = ''; for (let i = 0; i < text.length; i++) { element.innerHTML += text.charAt(i); await new Promise(r => setTimeout(r, speed)); } }
 function getCacheKey(question, eleveData) { const hash = getDataHash(eleveData); if (!hash) return null; const normalizedQuestion = question.toLowerCase().trim().replace(/\s+/g, ' '); return `${hash}_${normalizedQuestion}`; }
 function getDataHash(eleveData) { if (!eleveData) return null; const dataStr = JSON.stringify({ nom: eleveData.nom, prenom: eleveData.prenom, sexe: eleveData.sexe, classe: eleveData.classe, notes: eleveData.notes, frais: eleveData.frais, punitions: eleveData.punitions, presences: eleveData.presences }); let hash = 0; for (let i = 0; i < dataStr.length; i++) { const char = dataStr.charCodeAt(i); hash = ((hash << 5) - hash) + char; hash = hash & hash; } return hash.toString(); }
-async function getQuestionCountForCode(code) { if (!code || code.length !== 6) return 0; const today = new Date().toISOString().slice(0, 10); const cacheKey = 'parent_counter_' + ECOLET_ID + '_' + code; try { const cached = localStorage.getItem(cacheKey); if (cached) { const data = JSON.parse(cached); if (data.date === today) return data.count || 0; } } catch (e) {} return await getQuestionCountFromFirebase(code); }
-function updateCounterDisplay() { const counterSpan = document.getElementById('parentQuestionCounter'); if (!counterSpan) return; if (currentParentCode) { getQuestionCountForCode(currentParentCode).then(count => { counterSpan.textContent = count + '/20'; counterSpan.style.background = count >= 20 ? '#ef4444' : '#10b981'; }); } else { counterSpan.textContent = '0/20'; counterSpan.style.background = '#10b981'; } }
-async function getQuestionCountFromFirebase(code) { if (!code || code.length !== 6) return 0; try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code); const docSnap = await getDoc(docRef); if (docSnap.exists()) { const data = docSnap.data(); const today = new Date().toISOString().slice(0, 10); if (data.date === today) return data.count || 0; else { await setDoc(docRef, { code: code, count: 0, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() }); return 0; } } return 0; } catch (e) { console.error("Erreur récupération compteur:", e); return 0; } }
-async function incrementQuestionCountForCode(code) { if (!code || code.length !== 6) return 0; const newCount = await incrementQuestionCountInFirebase(code); updateCounterDisplay(); return newCount; }
-async function incrementQuestionCountInFirebase(code) { if (!code || code.length !== 6) return 0; const today = new Date().toISOString().slice(0, 10); try { const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code); const docSnap = await getDoc(docRef); let currentCount = 0; if (docSnap.exists()) { const data = docSnap.data(); if (data.date === today) currentCount = data.count || 0; else currentCount = 0; } const newCount = currentCount + 1; await setDoc(docRef, { code: code, count: newCount, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() }); const cacheKey = 'parent_counter_' + ECOLET_ID + '_' + code; try { localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount })); } catch (e) {} return newCount; } catch (e) { console.error("Erreur incrémentation compteur:", e); return 0; } }
-function isCacheValid(eleveData) { const currentHash = getDataHash(eleveData); if (!currentHash) return false; return lastDataHash === currentHash; }
+async function getQuestionCountFromFirebase(code) {
+    if (!code || code.length !== 6) return 0;
+    try {
+        const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code);
+        const docSnap = await getDoc(docRef);
+        const today = new Date().toISOString().slice(0, 10);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.date === today) {
+                return data.count || 0;
+            } else {
+                await setDoc(docRef, { code: code, count: 0, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
+                return 0;
+            }
+        } else {
+            await setDoc(docRef, { code: code, count: 0, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
+            return 0;
+        }
+    } catch (e) {
+        console.error("Erreur récupération compteur:", e);
+        return 0;
+    }
+}
+async function incrementQuestionCountInFirebase(code) {
+    if (!code || code.length !== 6) return 0;
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+        const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code);
+        const docSnap = await getDoc(docRef);
+        let currentCount = 0;
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.date === today) {
+                currentCount = data.count || 0;
+            }
+        }
+        const newCount = currentCount + 1;
+        await setDoc(docRef, { code: code, count: newCount, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
+        const cacheKey = 'parent_counter_' + ECOLET_ID + '_' + code;
+        try {
+            localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount }));
+        } catch (e) {}
+        return newCount;
+    } catch (e) {
+        console.error("Erreur incrémentation compteur:", e);
+        return 0;
+    }
+}
+async function getQuestionCountForCode(code) {
+    if (!code || code.length !== 6) return 0;
+    try {
+        return await getQuestionCountFromFirebase(code);
+    } catch (e) {
+        return 0;
+    }
+}
+async function incrementQuestionCountForCode(code) {
+    if (!code || code.length !== 6) return 0;
+    try {
+        return await incrementQuestionCountInFirebase(code);
+    } catch (e) {
+        return 0;
+    }
+}
+function updateCounterDisplay() {
+    const counterSpan = document.getElementById('parentQuestionCounter');
+    if (!counterSpan) return;
+    if (currentParentCode) {
+        getQuestionCountForCode(currentParentCode).then(count => {
+            const safeCount = typeof count === 'number' ? count : 0;
+            counterSpan.textContent = safeCount + '/20';
+            counterSpan.style.background = safeCount >= 20 ? '#ef4444' : '#10b981';
+        }).catch(() => {
+            counterSpan.textContent = '?/20';
+            counterSpan.style.background = '#ef4444';
+        });
+    } else {
+        counterSpan.textContent = '0/20';
+        counterSpan.style.background = '#10b981';
+    }
+}
 function getWeekNumber(date) { const d = new Date(date); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7); const week1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7); }
 function getSessionId() { if (!sessionId) { sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6); sessionStorage.setItem('parental_session_id', sessionId); } return sessionId; }
 async function logParentalActivity(type, code, data = {}) { try { const now = new Date(); const logData = { _type: "parental_analytics", timestamp: now.toISOString(), date: now.toISOString().slice(0, 10), hour: now.getHours(), week: getWeekNumber(now), month: now.getMonth() + 1, year: now.getFullYear(), type: type, parentCode: code || 'unknown', ecole: ECOLET_ID, sessionId: getSessionId(), details: data, count: 1 }; if (navigator.onLine) { try { await setDoc(doc(db, "analytics_parental", Date.now().toString() + Math.random().toString(36).substr(2, 4)), logData); } catch (e) { } } return true; } catch (e) { return false; } }
@@ -1206,6 +1281,12 @@ return eleves;
 async function chercherNotesParNom(nom) { const fiches = await getAllFiches(); const resultats = []; const searchTerm = nom.toLowerCase().trim(); for (const fiche of fiches) { for (const eleve of (fiche.eleves || [])) { const nomEleve = (eleve.nom || '').toLowerCase(); if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) { const punitions = await chercherPunitionsParNom(eleve.nom); const presences = await chercherPresencesParNom(eleve.nom); const epreuvesList = []; if (eleve.notes) { for (let periode = 1; periode <= 4; periode++) { const epreuves = fiche.epreuvesParPeriode?.[periode] || []; const notesPeriode = eleve.notes[`p${periode}`] || []; for (let i = 0; i < epreuves.length; i++) { const nomEpreuve = epreuves[i].nom || "Epreuve"; if (!nomEpreuve.toLowerCase().includes("examen")) { let note = notesPeriode[i] || 0; let max = epreuves[i].max || 1; if (note > 0) epreuvesList.push({ matiere: fiche.cours, epreuve: nomEpreuve, note: note, max: max, periode: periode, titulaire: fiche.titulaire || null, classe: fiche.classe, option: fiche.option || '' }); } } } } resultats.push({ eleveNom: eleve.nom, sexe: eleve.sexe || 'M', classe: fiche.classe, option: fiche.option || '', titulaire: fiche.titulaire || null, epreuves: epreuvesList, nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0, punitions: punitions, presences: presences }); } } } return resultats; }
 async function chargerInstructionsIA() { if (iaInstructions) return iaInstructions; const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE'; try { const response = await fetch('https://www.netubex.com/ecole-config.txt'); if (response.ok) iaInstructions = await response.text(); else iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } catch (e) { iaInstructions = `Tu es un système intelligent de l'école ${nomEcole}. Règles IMPÉRATIVES : 1. Utilise le nom de l'école ${nomEcole} dans tes réponses 2. Ne JAMAIS utiliser de pourcentages 3. Ne JAMAIS parler de moyenne générale 4. Ne JAMAIS parler de proclamation 5. Utilise UNIQUEMENT les points (ex: 18/20, 15/20) 6. Maximum 3 phrases par réponse 7. Sois chaleureux et bienveillant 8. Ne demande JAMAIS le nom de l'élève 9. N'affiche PAS les notes à 0 10. Reste factuel : donne seulement les notes telles quelles`; } return iaInstructions; }
 function getSexePronom(sexe) { if (sexe === 'F' || sexe === 'Féminin' || sexe === 'fille') return { genre: 'fille', pronom: 'elle', possessif: 'sa' }; return { genre: 'garçon', pronom: 'il', possessif: 'son' }; }
+function getGreeting() {
+    const h = new Date().getHours();
+    if (h < 12) return "Bonjour";
+    if (h < 18) return "Bon après-midi";
+    return "Bonsoir";
+}
 async function genererReponseNaturelle(question, eleveData) {
 const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
 const msg = question.toLowerCase();
@@ -1263,9 +1344,9 @@ const notesEnPoints = eleveData.notes.filter(ep => ep.note > 0).map(ep => `${ep.
 if (notesEnPoints) contexte += notesEnPoints;
 }
 if (eleveData.frais) {
-contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval.toLocaleString()} FC/mois, `;
-contexte += `total payé ${eleveData.frais.totalPaye.toLocaleString()} FC, `;
-contexte += `reste à payer ${eleveData.frais.reste.toLocaleString()} FC. `;
+contexte += `Frais scolaires : Minerval de ${eleveData.frais.minerval} FC/mois, `;
+contexte += `total payé ${eleveData.frais.totalPaye} FC, `;
+contexte += `reste à payer ${eleveData.frais.reste} FC. `;
 if (eleveData.frais.moisImpayes && eleveData.frais.moisImpayes.length > 0) contexte += `Mois impayés : ${eleveData.frais.moisImpayes.join(", ")}. `;
 }
 if (eleveData.presences && eleveData.presences.length > 0) {
@@ -1281,10 +1362,15 @@ const prompt = `${instructions} CONTEXTE DE L'ÉLÈVE : ${contexte} QUESTION DU 
 try {
 const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt }) });
 const data = await response.json();
-reponse = data.answer || "Je suis désolé, je n'ai pas pu traiter votre demande.";
+reponse = data.answer || `Je prends le temps de rassembler les informations concernant ${eleveData.nom} ${eleveData.prenom||''}. En attendant, je peux vous renseigner sur ses notes, sa situation financière, sa présence aux cours et ses punitions éventuelles. Dites-moi ce que vous souhaitez consulter en premier.`;
 reponse = reponse.replace(/\d+%/g, ''); reponse = reponse.replace(/\d+,\d+%/g, ''); reponse = reponse.replace(/pourcent/g, 'points'); reponse = reponse.replace(/pour cent/g, 'points'); reponse = reponse.replace(/pourcentage/g, 'points'); reponse = reponse.replace(/moyenne générale/g, ''); reponse = reponse.replace(/moyenne/g, ''); reponse = reponse.replace(/proclamation/g, '');
 if (!reponse.toLowerCase().includes(nomEcole.toLowerCase())) reponse = `À l'école ${nomEcole}, ${reponse.toLowerCase()}`;
-} catch (e) { reponse = `Je suis désolé, vous avez un problème de connexion. Veuillez réessayer. En attendant, je peux vous parler des frais, des notes, de la présence ou des punitions de ${eleveData.nom} ${eleveData.prenom||''}.`; }
+} catch (e) { 
+    const salutation = getGreeting();
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+    const { pronom } = getSexePronom(eleveData.sexe);
+    reponse = `${salutation} cher parent. Je prends le temps de rassembler les informations concernant ${nomComplet}. ${pronom === 'il' ? 'Il' : 'Elle'} est en ${eleveData.classe}${eleveData.option ? ' option ' + eleveData.option : ''}. En attendant, je peux vous renseigner sur ses notes, sa situation financière, sa présence aux cours et ses punitions éventuelles. Dites-moi ce que vous souhaitez consulter en premier.`;
+}
 }
 if (questionKey && reponse) reponseCache.set(questionKey, reponse);
 return reponse;
@@ -1322,24 +1408,43 @@ reponse += `.`;
 return reponse;
 }
 async function genererReponseFrais(eleveData) {
-ajouterSectionVisitee('frais');
-const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
-const minerval = eleveData.frais.minerval;
-const totalPaye = eleveData.frais.totalPaye;
-const reste = eleveData.frais.reste;
-const moisImpayes = eleveData.frais.moisImpayes || [];
-let reponse = `Alors, parlons des frais de ${nomComplet}.\n\n`;
-reponse += `Le minerval est de ${minerval.toLocaleString()} francs congolais par mois.\n`;
-reponse += `${totalPaye.toLocaleString()} francs ont déjà été payés.\n`;
-reponse += `Il reste ${reste.toLocaleString()} francs à payer.\n`;
-const nbImpayes = moisImpayes.length;
-if (totalPaye === 0 && nbImpayes === 0) reponse += `\nVotre enfant n'a pas encore de mois à payer.`;
-else if (nbImpayes === 0) reponse += `\nVotre enfant est en ordre.`;
-else if (nbImpayes === 1) reponse += `\nIl manque 1 mois : ${moisImpayes[0]}.`;
-else if (nbImpayes === 2) reponse += `\nIl manque 2 mois : ${moisImpayes.join(' et ')}.`;
-else if (nbImpayes >= 3) reponse += `\nURGENT : Il manque ${nbImpayes} mois !`;
-reponse += await genererPropositions(eleveData);
-return reponse;
+    ajouterSectionVisitee('frais');
+    const nomComplet = `${eleveData.nom} ${eleveData.prenom||''}`.trim();
+    const minerval = eleveData.frais.minerval;
+    const totalPaye = eleveData.frais.totalPaye;
+    const reste = eleveData.frais.reste;
+    const moisImpayes = eleveData.frais.moisImpayes || [];
+    
+    const moisActuel = getMoisActuel();
+    const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
+    const indexActuel = moisListe.indexOf(moisActuel);
+    
+    const moisImpayesFiltres = moisImpayes.filter(mois => {
+        const indexMois = moisListe.indexOf(mois);
+        return indexMois <= indexActuel;
+    });
+    
+    let reponse = `Alors, parlons des frais de ${nomComplet}.\n\n`;
+    reponse += `Le minerval est de ${minerval} francs congolais par mois.\n`;
+    reponse += `${totalPaye} francs ont déjà été payés.\n`;
+    
+    const nbImpayes = moisImpayesFiltres.length;
+    
+    if (reste === 0) {
+        reponse += `Votre enfant est en ordre.`;
+    } else {
+        reponse += `Il reste ${reste} francs à payer.`;
+        if (nbImpayes === 1) {
+            reponse += ` Le mois de ${moisImpayesFiltres[0]} est impayé.`;
+        } else if (nbImpayes === 2) {
+            reponse += ` Les mois de ${moisImpayesFiltres.join(' et ')} sont impayés.`;
+        } else if (nbImpayes >= 3) {
+            reponse += ` URGENT : ${nbImpayes} mois sont impayés.`;
+        }
+    }
+    
+    reponse += await genererPropositions(eleveData);
+    return reponse;
 }
 async function genererReponsePresence(eleveData) {
 ajouterSectionVisitee('presence');
@@ -1487,6 +1592,61 @@ async function verifierInscriptionActive() {
 async function traiterMessage(message) {
     const msg = message.trim().toLowerCase();
     const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEXE SCOLAIRE';
+    
+    if (/^\d{6}$/.test(msg)) {
+        const code = msg;
+        
+        const count = await getQuestionCountForCode(code);
+        if (count >= 20) {
+            return `⚠️ Limite quotidienne atteinte pour ce code parent. Revenez demain.`;
+        }
+        
+        const infos = await chercherInfosFinancieresParCode(code);
+        if (!infos || infos.length === 0) {
+            dernierEleveConsulte = null;
+            dernierEleveData = null;
+            return `Code parent "${code}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
+        }
+        
+        await incrementQuestionCountForCode(code);
+        currentParentCode = code;
+        updateCounterDisplay();
+        
+        if (infos.length === 1) {
+            return await afficherInfosEleve(infos[0]);
+        } else {
+            listeElevesEnAttente = infos;
+            enAttenteChoixEleve = true;
+            let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
+            infos.forEach((eleve, index) => {
+                const { pronom } = getSexePronom(eleve.sexe);
+                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
+            });
+            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
+            return reponse;
+        }
+    }
+    
+    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
+        const choix = parseInt(msg.trim());
+        if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
+            const eleveChoisi = listeElevesEnAttente[choix - 1];
+            enAttenteChoixEleve = false;
+            listeElevesEnAttente = [];
+            if (currentParentCode) {
+                await incrementQuestionCountForCode(currentParentCode);
+                updateCounterDisplay();
+            }
+            return await afficherInfosEleveMulti(eleveChoisi);
+        } else {
+            let listeNoms = listeElevesEnAttente.map((e, i) => {
+                const { pronom } = getSexePronom(e.sexe);
+                return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
+            }).join('\n');
+            return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
+        }
+    }
+    
     if (msg === 'oui' || msg === 'o' || msg === 'ok' || msg === 'd\'accord' || msg === 'vas-y' || msg === 'go') {
         if (dernierEleveData) {
             const sections = ['notes', 'frais', 'presence', 'punitions'];
@@ -1515,54 +1675,7 @@ async function traiterMessage(message) {
             return `${salutation} cher parent, veuillez d'abord entrer votre code parent.`;
         }
     }
-    if (/^\d{6}$/.test(msg)) {
-        const code = msg;
-        const count = await getQuestionCountForCode(code);
-        if (count >= 20) {
-            return `⚠️ Limite quotidienne atteinte pour ce code parent. Veuillez revenir demain à partir de 08h00. Si vous avez besoin d'aide, contactez la comptabilité de l'école ${nomEcole}.`;
-        }
-        const infos = await chercherInfosFinancieresParCode(msg);
-        if (!infos || infos.length === 0) {
-            dernierEleveConsulte = null;
-            dernierEleveData = null;
-            return `Code parent "${msg}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
-        }
-        if (infos.length === 1) {
-            currentParentCode = code;
-            await incrementQuestionCountForCode(code);
-            updateCounterDisplay();
-            return await afficherInfosEleve(infos[0]);
-        } else {
-            listeElevesEnAttente = infos;
-            enAttenteChoixEleve = true;
-            let reponse = `Plusieurs élèves sont liés à ce code parent :\n\n`;
-            infos.forEach((eleve, index) => {
-                const { pronom } = getSexePronom(eleve.sexe);
-                reponse += `${index+1}. ${eleve.nom} ${eleve.prenom||''} (${pronom==='il'?'garçon':'fille'}) - ${eleve.classe}${eleve.option?' ('+eleve.option+')':''}\n`;
-            });
-            reponse += `\nRépondez avec le numéro de l'élève (1, 2, 3...).`;
-            return reponse;
-        }
-    }
-    if (enAttenteChoixEleve && listeElevesEnAttente.length > 0) {
-        const choix = parseInt(msg.trim());
-        if (!isNaN(choix) && choix >= 1 && choix <= listeElevesEnAttente.length) {
-            const eleveChoisi = listeElevesEnAttente[choix - 1];
-            enAttenteChoixEleve = false;
-            listeElevesEnAttente = [];
-            if (currentParentCode) {
-                await incrementQuestionCountForCode(currentParentCode);
-                updateCounterDisplay();
-            }
-            return await afficherInfosEleveMulti(eleveChoisi);
-        } else {
-            let listeNoms = listeElevesEnAttente.map((e, i) => {
-                const { pronom } = getSexePronom(e.sexe);
-                return `${i+1}. ${e.nom} ${e.prenom} (${pronom==='il'?'garçon':'fille'})`;
-            }).join('\n');
-            return `Choix non reconnu. Choisissez un numéro entre 1 et ${listeElevesEnAttente.length} :\n\n${listeNoms}`;
-        }
-    }
+    
     if (dernierEleveConsulte && dernierEleveData) {
         const eleveData = dernierEleveData;
         const texteComplet = msg;
@@ -1576,7 +1689,6 @@ async function traiterMessage(message) {
         const estQuestionFinanciere = motsFrais.some(m => texteComplet.toLowerCase().includes(m));
         if (estQuestionFinanciere) {
             const inscriptionActive = await verifierInscriptionActive();
-            // CORRECTION: Si ACTIVE est TRUE, on bloque l'accès aux frais
             if (inscriptionActive) {
                 const nomEleve = eleveData.nom || '';
                 const prenomEleve = eleveData.prenom || '';
@@ -2796,7 +2908,7 @@ const msgBotDiv = document.createElement('div');
 msgBotDiv.className = 'parent-msg bot';
 const bubbleBot = document.createElement('div');
 bubbleBot.className = 'bubble';
-bubbleBot.textContent = "Désolé, une erreur s'est produite. Veuillez réessayer.";
+bubbleBot.textContent = "Je prends le temps de rassembler les informations. En attendant, je peux vous renseigner sur ses notes, sa situation financière, sa présence aux cours et ses punitions éventuelles. Dites-moi ce que vous souhaitez consulter en premier.";
 msgBotDiv.appendChild(bubbleBot);
 parentChatMessagesNew.appendChild(msgBotDiv);
 parentChatMessagesNew.scrollTop = parentChatMessagesNew.scrollHeight;
