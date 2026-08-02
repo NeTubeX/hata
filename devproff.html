@@ -544,6 +544,14 @@ body.light-mode #loginError{color:#b91c1c !important;}
 <button class="btn btn-sm btn-success" id="ajouterHeureBtn" style="margin-top:10px;width:100%;padding:10px;background:#059669;">➕ AJOUTER UNE HEURE</button>
 <button class="btn btn-sm btn-primary" id="sauvegarderHoraireBtn" style="margin-top:10px;width:100%;padding:10px;">💾 SAUVEGARDER L'HORAIRE</button>
 </div>
+<div style="background:rgba(18,25,45,0.6);border-radius:16px;padding:20px;border:1px solid rgba(59,130,246,0.15);">
+<h3 style="color:#60a5fa;font-size:15px;margin-bottom:12px;">👪 ESPACE PARENTAL</h3>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+<span style="color:#cbd5e1;font-size:14px;">Afficher le bouton flottant parental</span>
+<button id="toggleParentBtn" class="btn" style="background:#10b981;padding:8px 20px;min-width:80px;">✅ Activé</button>
+</div>
+<p style="color:#94a3b8;font-size:11px;margin-top:12px;">Masquez ou affichez le bouton d'accès à l'espace parental.</p>
+</div>
 </div>
 </div>
 </div>
@@ -622,6 +630,16 @@ measurementId: "G-V7MF88Y5EE"
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+function getLogoUrlFromButton() {
+const btn = document.getElementById('parentFloatingBtn');
+if (!btn) return null;
+const img = btn.querySelector('img');
+if (img && img.src && img.src.startsWith('http')) {
+return img.src;
+}
+return null;
+}
 
 async function getSchoolLogo(ecoleId) {
 try {
@@ -2429,8 +2447,7 @@ return `<div class="fiche-card" style="background:rgba(15,23,42,0.95);border-rad
 async function generateFichePDFTitu(cours, classe, option, refNum, eleves, epreuves, pMax, titulaireNom) {
 const { jsPDF } = window.jspdf;
 const pdf = new jsPDF('landscape', 'mm', 'a4');
-
-const logoUrl = await getSchoolLogo(ECOLET_ID);
+const logoUrl = getLogoUrlFromButton() || await getSchoolLogo(ECOLET_ID);
 if (logoUrl) {
 try {
 const img = await fetch(logoUrl);
@@ -2445,7 +2462,6 @@ reader.readAsDataURL(blob);
 console.error("Erreur chargement logo PDF:", e);
 }
 }
-
 pdf.setFillColor(255, 255, 255);
 pdf.rect(0, 0, 297, 210, 'F');
 pdf.setFont('helvetica', 'bold');
@@ -2759,8 +2775,7 @@ document.getElementById('exportTitulaireRelevePdfBtn')?.addEventListener('click'
 if (window.derniersResultatsTitu?.length) {
 const { jsPDF } = window.jspdf;
 const pdf = new jsPDF('landscape', 'mm', 'a4');
-
-const logoUrl = await getSchoolLogo(ECOLET_ID);
+const logoUrl = getLogoUrlFromButton() || await getSchoolLogo(ECOLET_ID);
 if (logoUrl) {
 try {
 const img = await fetch(logoUrl);
@@ -2775,7 +2790,6 @@ reader.readAsDataURL(blob);
 console.error("Erreur chargement logo PDF:", e);
 }
 }
-
 pdf.setFillColor(255, 255, 255);
 pdf.rect(0, 0, 297, 210, 'F');
 pdf.setFont('helvetica', 'bold');
@@ -3344,8 +3358,7 @@ document.getElementById('optionSelect').onchange = function() { if (isCreatingFi
 document.getElementById('p1MaxConfig').onchange = function() { if (isCreatingFiche) return; if (currentFiche && !isCreatingFiche && champsModifiables) { currentFiche.p1Max = parseFloat(this.value) || 20; afficherCotation(); } };
 
 document.getElementById('exportCurrentBtn').onclick = async function() { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.eleves || currentFiche.eleves.length === 0) { toast("Aucun élève à exporter", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF de la fiche ' + (currentFiche.cours || "inconnue") + ' - ' + (currentFiche.classe || "inconnue"), ficheId: currentFicheId, cours: currentFiche.cours, classe: currentFiche.classe, nbEleves: currentFiche.eleves.length, type: "fiche_cotation" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('landscape', 'mm', 'a4');
-
-const logoUrl = await getSchoolLogo(ECOLET_ID);
+const logoUrl = getLogoUrlFromButton() || await getSchoolLogo(ECOLET_ID);
 if (logoUrl) {
 try {
 const img = await fetch(logoUrl);
@@ -3360,7 +3373,6 @@ reader.readAsDataURL(blob);
 console.error("Erreur chargement logo PDF:", e);
 }
 }
-
 const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
 pdf.setFillColor(255, 255, 255);
 pdf.rect(0, 0, 297, 210, 'F');
@@ -3409,8 +3421,7 @@ toast("PDF exporté", 'success');
 } catch (e) { toast("Erreur lors de la génération du PDF", 'error'); console.error(e); } };
 
 document.getElementById('exportEleveNotesBtn').onclick = async function() { let idx = document.getElementById('eleveForExportSelect').value; if (idx === "") { toast("Veuillez sélectionner un élève", 'warning'); return; } let eleve = currentFiche.eleves[parseInt(idx)]; if (!eleve) { toast("Élève non trouvé", 'error'); return; } try { await enregistrerLog("export_pdf", { message: 'Export PDF relevé de notes pour ' + (eleve.nom || "élève"), eleve: eleve.nom, ficheId: currentFicheId, type: "releve_eleve" }, "info"); const { jsPDF } = window.jspdf; const pdf = new jsPDF('portrait', 'mm', 'a4');
-
-const logoUrl = await getSchoolLogo(ECOLET_ID);
+const logoUrl = getLogoUrlFromButton() || await getSchoolLogo(ECOLET_ID);
 if (logoUrl) {
 try {
 const img = await fetch(logoUrl);
@@ -3425,7 +3436,6 @@ reader.readAsDataURL(blob);
 console.error("Erreur chargement logo PDF:", e);
 }
 }
-
 const rn = currentFiche.numeroRef ? formatNumero(currentFiche.numeroRef) : '???';
 pdf.setFillColor(255, 255, 255);
 pdf.rect(0, 0, 210, 297, 'F');
@@ -3615,6 +3625,42 @@ document.getElementById('closeSaisieModal')?.addEventListener('click', () => { d
 window.speechSynthesis.onvoiceschanged = () => { const voices = window.speechSynthesis.getVoices(); };
 
 document.getElementById('changeSchoolBtn')?.addEventListener('click', () => { showStyledConfirm("Changer d'école ?", "⚠️ Attention : Toutes les données seront définitivement perdues.<br><br>Souhaitez-vous continuer ?", () => { window.location.href = 'https://www.netubex.com/schoolchoice'; }); });
+
+const parentBtn = document.getElementById('parentFloatingBtn');
+const toggleParentBtn = document.getElementById('toggleParentBtn');
+
+function loadParentButtonState() {
+const isHidden = localStorage.getItem('gloria_parent_btn_hidden') === 'true';
+if (isHidden) {
+parentBtn.style.display = 'none';
+toggleParentBtn.textContent = '❌ Désactivé';
+toggleParentBtn.style.background = '#ef4444';
+} else {
+parentBtn.style.display = 'flex';
+toggleParentBtn.textContent = '✅ Activé';
+toggleParentBtn.style.background = '#10b981';
+}
+}
+
+function toggleParentButton() {
+const isHidden = localStorage.getItem('gloria_parent_btn_hidden') === 'true';
+const newState = !isHidden;
+localStorage.setItem('gloria_parent_btn_hidden', newState.toString());
+if (newState) {
+parentBtn.style.display = 'none';
+toggleParentBtn.textContent = '❌ Désactivé';
+toggleParentBtn.style.background = '#ef4444';
+} else {
+parentBtn.style.display = 'flex';
+toggleParentBtn.textContent = '✅ Activé';
+toggleParentBtn.style.background = '#10b981';
+}
+}
+
+if (parentBtn && toggleParentBtn) {
+loadParentButtonState();
+toggleParentBtn.addEventListener('click', toggleParentButton);
+}
 
 await chargerOptionsParClasse();
 
