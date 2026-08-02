@@ -2008,7 +2008,19 @@ function getTotalSemestreMax(s) { if (s === 1) return getPeriodeMax(1) + getPeri
 
 function getTotalAnnuelMax() { return getTotalSemestreMax(1) + getTotalSemestreMax(2); }
 
-function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || []; if (!eps.length || !notes?.length) return 0; let sommeNotes = 0, sommeMax = 0; for (let i = 0; i < eps.length; i++) { sommeNotes += (notes[i] || 0); sommeMax += (eps[i].max || 1); } if (sommeMax === 0) return 0; let noteMaxPeriode = currentFiche.p1Max || 20; let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode; return Math.min(noteMaxPeriode, Math.round(moyenne)); }
+function calcMoy(p, notes) {
+    let eps = currentFiche.epreuvesParPeriode?.[p] || [];
+    if (!eps.length || !notes?.length) return 0;
+    let sommeNotes = 0, sommeMax = 0;
+    for (let i = 0; i < eps.length; i++) {
+        sommeNotes += (notes[i] || 0);
+        sommeMax += (eps[i].max || 1);
+    }
+    if (sommeMax === 0) return 0;
+    let noteMaxPeriode = currentFiche.p1Max || 20;
+    let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;
+    return Math.min(noteMaxPeriode, Math.round(moyenne * 10) / 10);
+}
 
 function getNoteClass(note, maxNote) { if (maxNote === 0) return ''; const ratio = note / maxNote; if (ratio >= 0.8) return 'note-excellent'; if (ratio >= 0.7) return 'note-bien'; if (ratio >= 0.5) return 'note-moyen'; return 'note-insuffisant'; }
 
@@ -2084,11 +2096,46 @@ window.updExam = function(i, s, v) { let va = parseFloat(v) || 0; let me = (s ==
 
 function afficherEpreuves() { let c = document.getElementById('epreuvesContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; for (let p = 1; p <= 4; p++) { let b = document.createElement('div'); b.className = 'epreuve-box'; b.innerHTML = '<h4 style="color:#60a5fa;margin-bottom:10px;">PERIODE ' + p + '</h4><div class="epreuve-list" id="listEpreuve' + p + '"></div>'; c.appendChild(b); let ld = document.getElementById('listEpreuve' + p); if (ld) { ld.innerHTML = ''; let eps = currentFiche.epreuvesParPeriode?.[p] || []; for (let i = 0; i < eps.length; i++) { let d = document.createElement('div'); d.className = 'epreuve-item'; d.innerHTML = '<input type="text" value="' + eps[i].nom + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'nom\',this.value)" style="width:80px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><input type="number" value="' + eps[i].max + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'max\',this.value)" style="width:55px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><span style="cursor:pointer;color:#ef4444" onclick="window.delEpreuve(' + p + ',' + i + ')">X</span>'; ld.appendChild(d); } if (eps.length === 0) ld.innerHTML = '<span style="font-size:12px;color:#94a3b8">Aucune épreuve</span>'; } } }
 
-window.updEpreuve = function(p, i, f, v) { if (f === 'nom') currentFiche.epreuvesParPeriode[p][i].nom = v; else { let newMax = parseFloat(v) || 20; if (newMax > currentFiche.p1Max) { toast("La note max d'une épreuve ne peut pas dépasser la note max de la période", 'warning'); newMax = currentFiche.p1Max; } currentFiche.epreuvesParPeriode[p][i].max = newMax; } afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.updEpreuve = function(p, i, f, v) {
+    if (f === 'nom') {
+        currentFiche.epreuvesParPeriode[p][i].nom = v;
+    } else {
+        let newMax = parseFloat(v) || 20;
+        if (newMax < 0) newMax = 0;
+        currentFiche.epreuvesParPeriode[p][i].max = newMax;
+    }
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-window.delEpreuve = function(p, i) { currentFiche.epreuvesParPeriode[p].splice(i, 1); afficherEpreuves(); afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.delEpreuve = function(p, i) {
+    currentFiche.epreuvesParPeriode[p].splice(i, 1);
+    afficherEpreuves();
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-function addEpreuve(p) { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = []; currentFiche.epreuvesParPeriode[p].push({ nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1), max: 20 }); afficherEpreuves(); afficherCotation(); toast("Epreuve P" + p + " ajoutée", 'success'); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); }
+function addEpreuve(p) {
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = [];
+    currentFiche.epreuvesParPeriode[p].push({
+        nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1),
+        max: 20
+    });
+    afficherEpreuves();
+    afficherCotation();
+    toast("Epreuve P" + p + " ajoutée", 'success');
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+}
 
 function mettreAJourEpreuvesSelect() { let s = document.getElementById('groupeEpreuveSelect'); if (!s || !currentFiche) return; let p = document.getElementById('groupePeriodeSelect').value; let eps = currentFiche.epreuvesParPeriode?.[parseInt(p)] || []; s.innerHTML = ''; eps.forEach(function(ep, i) { s.innerHTML += '<option value="' + i + '">' + ep.nom + ' (max ' + ep.max + ')</option>'; }); if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>'; }
 
