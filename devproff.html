@@ -1009,86 +1009,66 @@ function getCacheKey(question, eleveData) { const hash = getDataHash(eleveData);
 
 function getDataHash(eleveData) { if (!eleveData) return null; const dataStr = JSON.stringify({ nom: eleveData.nom, prenom: eleveData.prenom, sexe: eleveData.sexe, classe: eleveData.classe, notes: eleveData.notes, frais: eleveData.frais, punitions: eleveData.punitions, presences: eleveData.presences }); let hash = 0; for (let i = 0; i < dataStr.length; i++) { const char = dataStr.charCodeAt(i); hash = ((hash << 5) - hash) + char; hash = hash & hash; } return hash.toString(); }
 
-async function getQuestionCountFromFirebase(code) {
+function getQuestionCountFromLocalStorage(code) {
 if (!code || code.length !== 6) return 0;
-try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code);
-const docSnap = await getDoc(docRef);
 const today = new Date().toISOString().slice(0, 10);
-if (docSnap.exists()) {
-const data = docSnap.data();
-if (data.date === today) {
-return data.count || 0;
+const key = 'parent_counter_' + ECOLET_ID + '_' + code;
+try {
+const data = localStorage.getItem(key);
+if (data) {
+const parsed = JSON.parse(data);
+if (parsed.date === today) {
+return parsed.count || 0;
 } else {
-await setDoc(docRef, { code: code, count: 0, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
+localStorage.removeItem(key);
 return 0;
 }
-} else {
-await setDoc(docRef, { code: code, count: 0, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
-return 0;
 }
+return 0;
 } catch (e) {
-console.error("Erreur récupération compteur:", e);
 return 0;
 }
 }
 
-async function incrementQuestionCountInFirebase(code) {
+function incrementQuestionCountInLocalStorage(code) {
 if (!code || code.length !== 6) return 0;
 const today = new Date().toISOString().slice(0, 10);
+const key = 'parent_counter_' + ECOLET_ID + '_' + code;
 try {
-const docRef = doc(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES, code);
-const docSnap = await getDoc(docRef);
 let currentCount = 0;
-if (docSnap.exists()) {
-const data = docSnap.data();
-if (data.date === today) {
-currentCount = data.count || 0;
+const data = localStorage.getItem(key);
+if (data) {
+const parsed = JSON.parse(data);
+if (parsed.date === today) {
+currentCount = parsed.count || 0;
 }
 }
 const newCount = currentCount + 1;
-await setDoc(docRef, { code: code, count: newCount, date: today, ecole: ECOLET_ID, lastUpdated: new Date().toISOString() });
-const cacheKey = 'parent_counter_' + ECOLET_ID + '_' + code;
-try {
-localStorage.setItem(cacheKey, JSON.stringify({ date: today, count: newCount }));
-} catch (e) {}
+localStorage.setItem(key, JSON.stringify({ date: today, count: newCount }));
 return newCount;
 } catch (e) {
-console.error("Erreur incrémentation compteur:", e);
 return 0;
 }
 }
 
 async function getQuestionCountForCode(code) {
 if (!code || code.length !== 6) return 0;
-try {
-return await getQuestionCountFromFirebase(code);
-} catch (e) {
-return 0;
-}
+return getQuestionCountFromLocalStorage(code);
 }
 
 async function incrementQuestionCountForCode(code) {
 if (!code || code.length !== 6) return 0;
-try {
-return await incrementQuestionCountInFirebase(code);
-} catch (e) {
-return 0;
-}
+return incrementQuestionCountInLocalStorage(code);
 }
 
 function updateCounterDisplay() {
 const counterSpan = document.getElementById('parentQuestionCounter');
 if (!counterSpan) return;
 if (currentParentCode) {
-getQuestionCountForCode(currentParentCode).then(count => {
+const count = getQuestionCountFromLocalStorage(currentParentCode);
 const safeCount = typeof count === 'number' ? count : 0;
 counterSpan.textContent = safeCount + '/20';
 counterSpan.style.background = safeCount >= 20 ? '#ef4444' : '#10b981';
-}).catch(() => {
-counterSpan.textContent = '?/20';
-counterSpan.style.background = '#ef4444';
-});
 } else {
 counterSpan.textContent = '0/20';
 counterSpan.style.background = '#10b981';
@@ -1103,9 +1083,112 @@ async function logParentalActivity(type, code, data = {}) { try { const now = ne
 
 function convertirNombreEnFrancais(n) { if (n === 0) return 'zéro'; if (n < 0) return 'moins ' + convertirNombreEnFrancais(-n); const unite = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf']; const dizaine = ['', 'dix', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix']; if (n < 20) return unite[n]; if (n < 100) { const d = Math.floor(n / 10); const u = n % 10; if (d === 7 || d === 9) { const base = (d === 7) ? 'soixante' : 'quatre-vingt'; const reste = (d === 7) ? n - 60 : n - 80; return base + '-' + convertirNombreEnFrancais(reste); } if (u === 0) { if (d === 8) return 'quatre-vingts'; return dizaine[d]; } if (d === 8) return 'quatre-vingt-' + unite[u]; return dizaine[d] + '-' + unite[u]; } if (n < 1000) { const c = Math.floor(n / 100); const r = n % 100; if (c === 1) { if (r === 0) return 'cent'; return 'cent ' + convertirNombreEnFrancais(r); } if (r === 0) return unite[c] + ' cents'; return unite[c] + ' cent ' + convertirNombreEnFrancais(r); } if (n < 1000000) { const m = Math.floor(n / 1000); const r = n % 1000; if (m === 1) { if (r === 0) return 'mille'; return 'mille ' + convertirNombreEnFrancais(r); } if (r === 0) return convertirNombreEnFrancais(m) + ' mille'; return convertirNombreEnFrancais(m) + ' mille ' + convertirNombreEnFrancais(r); } if (n < 1000000000) { const m = Math.floor(n / 1000000); const r = n % 1000000; if (m === 1) { if (r === 0) return 'un million'; return 'un million ' + convertirNombreEnFrancais(r); } if (r === 0) return convertirNombreEnFrancais(m) + ' millions'; return convertirNombreEnFrancais(m) + ' millions ' + convertirNombreEnFrancais(r); } return n.toString(); }
 
-function voixParentale(texte) { if (!texte) return; if (!window.speechSynthesis) return; window.speechSynthesis.cancel(); let texteParle = texte; texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, ''); texteParle = texteParle.replace(/\*\*/g, ''); texteParle = texteParle.replace(/[\(\)]/g, ''); texteParle = texteParle.replace(/[|]/g, ''); texteParle = texteParle.replace(/\n/g, '. '); texteParle = texteParle.replace(/\.\./g, '.'); texteParle = texteParle.replace(/\./g, '. '); texteParle = texteParle.replace(/\?/g, '? '); texteParle = texteParle.replace(/\!/g, '! '); texteParle = texteParle.replace(/:/g, ': '); texteParle = texteParle.replace(/-\s/g, '. '); texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); }); texteParle = texteParle.replace(/,/g, ', '); texteParle = texteParle.replace(/\s+/g, ' '); texteParle = texteParle.replace(/\.\s+\./g, '. '); texteParle = texteParle.replace(/\?\s+\?/g, '? '); texteParle = texteParle.replace(/\!\s+\!/g, '! '); texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => { const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => { const num = parseInt(p1); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => { if (match.includes('FC') || match.includes('/')) return match; const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num); return convertirNombreEnFrancais(num); }); texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => { return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2)); }); texteParle = texteParle.replace(/\s+/g, ' '); const utterance = new SpeechSynthesisUtterance(texteParle); utterance.lang = 'fr-FR'; utterance.rate = 0.65; utterance.pitch = 1; const voices = window.speechSynthesis.getVoices(); const voixFR = voices.find(v => v.lang.startsWith('fr')); if (voixFR) utterance.voice = voixFR; window.speechSynthesis.speak(utterance); }
+function voixParentale(texte) {
+if (!texte) return;
+if (!window.speechSynthesis) return;
+window.speechSynthesis.cancel();
+let texteParle = texte;
+texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, '');
+texteParle = texteParle.replace(/\*\*/g, '');
+texteParle = texteParle.replace(/[\(\)]/g, '');
+texteParle = texteParle.replace(/[|]/g, '');
+texteParle = texteParle.replace(/\n/g, '. ');
+texteParle = texteParle.replace(/\.\./g, '.');
+texteParle = texteParle.replace(/\./g, '. ');
+texteParle = texteParle.replace(/\?/g, '? ');
+texteParle = texteParle.replace(/\!/g, '! ');
+texteParle = texteParle.replace(/:/g, ': ');
+texteParle = texteParle.replace(/-\s/g, '. ');
+texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); });
+texteParle = texteParle.replace(/,/g, ', ');
+texteParle = texteParle.replace(/\s+/g, ' ');
+texteParle = texteParle.replace(/\.\s+\./g, '. ');
+texteParle = texteParle.replace(/\?\s+\?/g, '? ');
+texteParle = texteParle.replace(/\!\s+\!/g, '! ');
+texteParle = texteParle.replace(/BLESSING/gi, 'blé-ssingue');
+texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => {
+const num = parseInt(p1.replace(/[\s.,]/g, ''));
+if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais';
+return convertirNombreEnFrancais(num) + ' francs congolais';
+});
+texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+const num = parseInt(p1);
+if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais';
+return convertirNombreEnFrancais(num) + ' francs congolais';
+});
+texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => {
+if (match.includes('FC') || match.includes('/')) return match;
+const num = parseInt(p1.replace(/[\s.,]/g, ''));
+if (num >= 1000) return convertirNombreEnFrancais(num);
+return convertirNombreEnFrancais(num);
+});
+texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => {
+return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2));
+});
+texteParle = texteParle.replace(/\s+/g, ' ');
+const utterance = new SpeechSynthesisUtterance(texteParle);
+utterance.lang = 'fr-FR';
+utterance.rate = 0.65;
+utterance.pitch = 1;
+const voices = window.speechSynthesis.getVoices();
+const voixFR = voices.find(v => v.lang.startsWith('fr'));
+if (voixFR) utterance.voice = voixFR;
+window.speechSynthesis.speak(utterance);
+}
 
-function speak(text, onEnd) { if (!text) return; if (window.speechSynthesis) window.speechSynthesis.cancel(); let texteParle = text; texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, ''); texteParle = texteParle.replace(/\*\*/g, ''); texteParle = texteParle.replace(/[\(\)]/g, ''); texteParle = texteParle.replace(/[|]/g, ''); texteParle = texteParle.replace(/\n/g, '. '); texteParle = texteParle.replace(/\.\./g, '.'); texteParle = texteParle.replace(/\./g, '. '); texteParle = texteParle.replace(/\?/g, '? '); texteParle = texteParle.replace(/\!/g, '! '); texteParle = texteParle.replace(/:/g, ': '); texteParle = texteParle.replace(/-\s/g, '. '); texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); }); texteParle = texteParle.replace(/,/g, ', '); texteParle = texteParle.replace(/\s+/g, ' '); texteParle = texteParle.replace(/\.\s+\./g, '. '); texteParle = texteParle.replace(/\?\s+\?/g, '? '); texteParle = texteParle.replace(/\!\s+\!/g, '! '); texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => { const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => { const num = parseInt(p1); if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais'; return convertirNombreEnFrancais(num) + ' francs congolais'; }); texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => { if (match.includes('FC') || match.includes('/')) return match; const num = parseInt(p1.replace(/[\s.,]/g, '')); if (num >= 1000) return convertirNombreEnFrancais(num); return convertirNombreEnFrancais(num); }); texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => { return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2)); }); texteParle = texteParle.replace(/\s+/g, ' '); const utterance = new SpeechSynthesisUtterance(texteParle); utterance.lang = 'fr-FR'; utterance.rate = 0.65; utterance.pitch = 1; const voices = window.speechSynthesis.getVoices(); const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr')); if (frenchVoice) utterance.voice = frenchVoice; utterance.onend = () => { if (onEnd) onEnd(); }; utterance.onerror = () => { if (onEnd) onEnd(); }; window.speechSynthesis.speak(utterance); }
+function speak(text, onEnd) {
+if (!text) return;
+if (window.speechSynthesis) window.speechSynthesis.cancel();
+let texteParle = text;
+texteParle = texteParle.replace(/[📊💰📝📅⚠️✅❌👨‍👩‍👧‍👦🔑💡📌👉💬🏫👋🎯🌟👍👌📖🔒❌⚠️✅💰📝📅]/g, '');
+texteParle = texteParle.replace(/\*\*/g, '');
+texteParle = texteParle.replace(/[\(\)]/g, '');
+texteParle = texteParle.replace(/[|]/g, '');
+texteParle = texteParle.replace(/\n/g, '. ');
+texteParle = texteParle.replace(/\.\./g, '.');
+texteParle = texteParle.replace(/\./g, '. ');
+texteParle = texteParle.replace(/\?/g, '? ');
+texteParle = texteParle.replace(/\!/g, '! ');
+texteParle = texteParle.replace(/:/g, ': ');
+texteParle = texteParle.replace(/-\s/g, '. ');
+texteParle = texteParle.replace(/\d+\.\s/g, (match) => { return match.replace(/\./, '. '); });
+texteParle = texteParle.replace(/,/g, ', ');
+texteParle = texteParle.replace(/\s+/g, ' ');
+texteParle = texteParle.replace(/\.\s+\./g, '. ');
+texteParle = texteParle.replace(/\?\s+\?/g, '? ');
+texteParle = texteParle.replace(/\!\s+\!/g, '! ');
+texteParle = texteParle.replace(/BLESSING/gi, 'blé-ssingue');
+texteParle = texteParle.replace(/(\d{1,3}(?:[\s.,]\d{3})*)\s*FC/g, (match, p1) => {
+const num = parseInt(p1.replace(/[\s.,]/g, ''));
+if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais';
+return convertirNombreEnFrancais(num) + ' francs congolais';
+});
+texteParle = texteParle.replace(/(\d+)\s*FC/g, (match, p1) => {
+const num = parseInt(p1);
+if (num >= 1000) return convertirNombreEnFrancais(num) + ' francs congolais';
+return convertirNombreEnFrancais(num) + ' francs congolais';
+});
+texteParle = texteParle.replace(/\b(\d{1,3}(?:[\s.,]\d{3})*)\b/g, (match, p1) => {
+if (match.includes('FC') || match.includes('/')) return match;
+const num = parseInt(p1.replace(/[\s.,]/g, ''));
+if (num >= 1000) return convertirNombreEnFrancais(num);
+return convertirNombreEnFrancais(num);
+});
+texteParle = texteParle.replace(/(\d+)\/(\d+)/g, (match, p1, p2) => {
+return convertirNombreEnFrancais(parseInt(p1)) + ' sur ' + convertirNombreEnFrancais(parseInt(p2));
+});
+texteParle = texteParle.replace(/\s+/g, ' ');
+const utterance = new SpeechSynthesisUtterance(texteParle);
+utterance.lang = 'fr-FR';
+utterance.rate = 0.65;
+utterance.pitch = 1;
+const voices = window.speechSynthesis.getVoices();
+const frenchVoice = voices.find(v => v.lang === 'fr-FR' || v.lang.startsWith('fr'));
+if (frenchVoice) utterance.voice = frenchVoice;
+utterance.onend = () => { if (onEnd) onEnd(); };
+utterance.onerror = () => { if (onEnd) onEnd(); };
+window.speechSynthesis.speak(utterance);
+}
 
 function stopSpeaking() { if (window.speechSynthesis) window.speechSynthesis.cancel(); }
 
@@ -1592,7 +1675,7 @@ const nomEcole = schoolId ? schoolId.toUpperCase().replace(/-/g, ' ') : 'COMPLEX
 if (/^\d{6}$/.test(msg)) {
 const code = msg;
 
-const count = await getQuestionCountForCode(code);
+const count = getQuestionCountFromLocalStorage(code);
 if (count >= 20) {
 return `⚠️ Limite quotidienne atteinte pour ce code parent. Revenez demain.`;
 }
@@ -1604,7 +1687,7 @@ dernierEleveData = null;
 return `Code parent "${code}" non reconnu à l'école ${nomEcole}. Veuillez vérifier votre code ou contacter la comptabilité.`;
 }
 
-await incrementQuestionCountForCode(code);
+incrementQuestionCountInLocalStorage(code);
 currentParentCode = code;
 updateCounterDisplay();
 
@@ -1630,7 +1713,7 @@ const eleveChoisi = listeElevesEnAttente[choix - 1];
 enAttenteChoixEleve = false;
 listeElevesEnAttente = [];
 if (currentParentCode) {
-await incrementQuestionCountForCode(currentParentCode);
+incrementQuestionCountInLocalStorage(currentParentCode);
 updateCounterDisplay();
 }
 return await afficherInfosEleveMulti(eleveChoisi);
@@ -1745,6 +1828,8 @@ return false;
 }
 currentProf = { id: prof.id, nom: prof.nom, code: prof.code, createdAt: prof.createdAt || Date.now() };
 document.getElementById('mainApp').style.display = 'block';
+const parentBtn = document.getElementById('parentFloatingBtn');
+if (parentBtn) parentBtn.style.display = 'flex';
 toutesFiches = await loadAllFiches();
 if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
 await refreshSelectors();
@@ -2006,7 +2091,19 @@ function getTotalSemestreMax(s) { if (s === 1) return getPeriodeMax(1) + getPeri
 
 function getTotalAnnuelMax() { return getTotalSemestreMax(1) + getTotalSemestreMax(2); }
 
-function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || []; if (!eps.length || !notes?.length) return 0; let sommeNotes = 0, sommeMax = 0; for (let i = 0; i < eps.length; i++) { sommeNotes += (notes[i] || 0); sommeMax += (eps[i].max || 1); } if (sommeMax === 0) return 0; let noteMaxPeriode = currentFiche.p1Max || 20; let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode; return Math.min(noteMaxPeriode, Math.round(moyenne)); }
+function calcMoy(p, notes) {
+    let eps = currentFiche.epreuvesParPeriode?.[p] || [];
+    if (!eps.length || !notes?.length) return 0;
+    let sommeNotes = 0, sommeMax = 0;
+    for (let i = 0; i < eps.length; i++) {
+        sommeNotes += (notes[i] || 0);
+        sommeMax += (eps[i].max || 1);
+    }
+    if (sommeMax === 0) return 0;
+    let noteMaxPeriode = currentFiche.p1Max || 20;
+    let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;
+    return Math.min(noteMaxPeriode, Math.round(moyenne * 10) / 10);
+}
 
 function getNoteClass(note, maxNote) { if (maxNote === 0) return ''; const ratio = note / maxNote; if (ratio >= 0.8) return 'note-excellent'; if (ratio >= 0.7) return 'note-bien'; if (ratio >= 0.5) return 'note-moyen'; return 'note-insuffisant'; }
 
@@ -2082,11 +2179,46 @@ window.updExam = function(i, s, v) { let va = parseFloat(v) || 0; let me = (s ==
 
 function afficherEpreuves() { let c = document.getElementById('epreuvesContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; for (let p = 1; p <= 4; p++) { let b = document.createElement('div'); b.className = 'epreuve-box'; b.innerHTML = '<h4 style="color:#60a5fa;margin-bottom:10px;">PERIODE ' + p + '</h4><div class="epreuve-list" id="listEpreuve' + p + '"></div>'; c.appendChild(b); let ld = document.getElementById('listEpreuve' + p); if (ld) { ld.innerHTML = ''; let eps = currentFiche.epreuvesParPeriode?.[p] || []; for (let i = 0; i < eps.length; i++) { let d = document.createElement('div'); d.className = 'epreuve-item'; d.innerHTML = '<input type="text" value="' + eps[i].nom + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'nom\',this.value)" style="width:80px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><input type="number" value="' + eps[i].max + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'max\',this.value)" style="width:55px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><span style="cursor:pointer;color:#ef4444" onclick="window.delEpreuve(' + p + ',' + i + ')">X</span>'; ld.appendChild(d); } if (eps.length === 0) ld.innerHTML = '<span style="font-size:12px;color:#94a3b8">Aucune épreuve</span>'; } } }
 
-window.updEpreuve = function(p, i, f, v) { if (f === 'nom') currentFiche.epreuvesParPeriode[p][i].nom = v; else { let newMax = parseFloat(v) || 20; if (newMax > currentFiche.p1Max) { toast("La note max d'une épreuve ne peut pas dépasser la note max de la période", 'warning'); newMax = currentFiche.p1Max; } currentFiche.epreuvesParPeriode[p][i].max = newMax; } afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.updEpreuve = function(p, i, f, v) {
+    if (f === 'nom') {
+        currentFiche.epreuvesParPeriode[p][i].nom = v;
+    } else {
+        let newMax = parseFloat(v) || 20;
+        if (newMax < 0) newMax = 0;
+        currentFiche.epreuvesParPeriode[p][i].max = newMax;
+    }
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-window.delEpreuve = function(p, i) { currentFiche.epreuvesParPeriode[p].splice(i, 1); afficherEpreuves(); afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.delEpreuve = function(p, i) {
+    currentFiche.epreuvesParPeriode[p].splice(i, 1);
+    afficherEpreuves();
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-function addEpreuve(p) { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = []; currentFiche.epreuvesParPeriode[p].push({ nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1), max: 20 }); afficherEpreuves(); afficherCotation(); toast("Epreuve P" + p + " ajoutée", 'success'); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); }
+function addEpreuve(p) {
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = [];
+    currentFiche.epreuvesParPeriode[p].push({
+        nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1),
+        max: 20
+    });
+    afficherEpreuves();
+    afficherCotation();
+    toast("Epreuve P" + p + " ajoutée", 'success');
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+}
 
 function mettreAJourEpreuvesSelect() { let s = document.getElementById('groupeEpreuveSelect'); if (!s || !currentFiche) return; let p = document.getElementById('groupePeriodeSelect').value; let eps = currentFiche.epreuvesParPeriode?.[parseInt(p)] || []; s.innerHTML = ''; eps.forEach(function(ep, i) { s.innerHTML += '<option value="' + i + '">' + ep.nom + ' (max ' + ep.max + ')</option>'; }); if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>'; }
 
@@ -2215,6 +2347,8 @@ currentProf = { id: fp.id, nom: n, code: fp.code, createdAt: Date.now() };
 sauvegarderSession(currentProf);
 document.getElementById('loginOverlay').remove();
 document.getElementById('mainApp').style.display = 'block';
+const parentBtn = document.getElementById('parentFloatingBtn');
+if (parentBtn) parentBtn.style.display = 'flex';
 toutesFiches = await loadAllFiches();
 if (toutesFiches.length) await selectFiche(toutesFiches[0].id);
 await refreshSelectors();
