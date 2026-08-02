@@ -576,198 +576,6 @@ body.light-mode #loginError{color:#b91c1c !important;}
 <button class="parent-floating-btn" id="parentFloatingBtn" style="display:flex;padding:0;border-radius:50%;overflow:hidden;background:transparent;border:3px solid #10b981;box-shadow:0 0 0 0 rgba(16,185,129,0.5);"><img src="https://www.netubex.com/parent.jpg" alt="Espace Parental" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;"></button>
 <div class="parent-modal-overlay" id="parentModalOverlay"><div class="parent-modal"><div class="header-fixe"><div style="display:flex;align-items:center;gap:18px;padding:6px 0;"><div style="position:relative;width:75px;height:75px;flex-shrink:0;animation:pulse 2s ease-in-out infinite;"><div style="position:absolute;inset:-4px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#f59e0b);padding:4px;"><div style="width:100%;height:100%;border-radius:50%;background:#0a0e1a;overflow:hidden;"><img id="parentModalLogo" src="https://www.netubex.com/png.png" alt="Logo" style="width:100%;height:100%;object-fit:cover;display:block;"></div></div></div><div style="display:flex;flex-direction:column;gap:12px;"><div style="font-size:20px;font-weight:700;color:#fff;letter-spacing:1px;white-space:nowrap;">👪 ESPACE PARENTAL</div><div style="font-size:14px;color:#10b981;font-weight:600;">Système Intelligent</div></div></div><div style="display:flex;align-items:center;justify-content:space-between;background:rgba(18,25,45,0.6);border-radius:12px;padding:6px 16px;margin-top:6px;border:1px solid rgba(59,130,246,0.15);"><button id="closeParentModal" style="background:rgba(239,68,68,0.1);border:none;color:#f87171;font-size:22px;font-weight:700;cursor:pointer;padding:0 8px;line-height:1;">✕</button><button class="light-mode-toggle-btn" id="parentLightModeToggle" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:40px;padding:6px 12px;color:#fff;cursor:pointer;font-size:16px;transition:all 0.3s ease;display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-weight:500;">☀️</button><div style="display:flex;align-items:center;gap:6px;background:rgba(0,0,0,0.3);padding:4px 14px 4px 10px;border-radius:40px;border:1px solid rgba(255,255,255,0.06);"><span style="font-size:11px;color:#94a3b8;">💬</span><span id="parentQuestionCounter" style="background:#10b981;color:white;padding:1px 12px;border-radius:40px;font-weight:bold;font-size:14px;">0/20</span></div></div></div><div class="parent-modal-body"><div id="parentChatContainer" class="parent-chat" style="display:flex;height:100%;"><div class="parent-info"><div class="parent-info-left"><span id="parentInfoEleve" style="font-size:12px;color:#94a3b8;"></span></div><div class="parent-info-right"></div></div><div id="parentChatMessages" class="parent-messages"></div><div class="parent-input-area"><textarea id="parentQuestionInput" class="parent-input" placeholder="Code parent (6 chiffres)..." rows="2" style="height:auto;min-height:50px;max-height:120px;"></textarea><button id="parentSendBtn" class="parent-send">📤</button></div></div></div></div></div>
 <script>
-// ============================================================
-// CORRECTION : SYNCHRONISATION AUTOMATIQUE DES EPREUVES
-// ============================================================
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ Synchronisation automatique activée');
-    
-    // 1. Fonction principale de synchronisation
-    function synchroniserCorrectionAvecEpreuves() {
-        const periodeSelect = document.getElementById('correctionPeriodeSelect');
-        const epreuveSelect = document.getElementById('correctionEpreuveSelect');
-        const maxInput = document.getElementById('correctionEpreuveMax');
-        
-        if (!periodeSelect || !epreuveSelect || !maxInput) return;
-        
-        const periodeActuelle = parseInt(periodeSelect.value);
-        const eps = currentFiche?.epreuvesParPeriode?.[periodeActuelle] || [];
-        
-        // Vider et remplir le sélecteur d'épreuves
-        epreuveSelect.innerHTML = '';
-        if (eps.length === 0) {
-            const opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = 'Aucune épreuve - Créez-en dans "EPREUVES"';
-            epreuveSelect.appendChild(opt);
-            maxInput.value = '0';
-            return;
-        }
-        
-        eps.forEach((ep, index) => {
-            const opt = document.createElement('option');
-            opt.value = index;
-            opt.textContent = ep.nom + ' (max ' + ep.max + ')';
-            epreuveSelect.appendChild(opt);
-        });
-        
-        // Sélectionner la dernière épreuve par défaut
-        epreuveSelect.value = eps.length - 1;
-        maxInput.value = eps[eps.length - 1].max || 20;
-        
-        // Mettre à jour le max quand on change d'épreuve
-        epreuveSelect.onchange = function() {
-            const idx = parseInt(this.value);
-            if (!isNaN(idx) && eps[idx]) {
-                maxInput.value = eps[idx].max || 20;
-            }
-        };
-        
-        // Mettre à jour l'info dans la modale si elle est ouverte
-        const epreuveInfo = document.getElementById('saisieEpreuveInfo');
-        if (epreuveInfo && window.correctionMode) {
-            const idx = window.correctionMode.epreuveIdx || 0;
-            if (eps[idx]) {
-                epreuveInfo.innerHTML = '📌 ' + eps[idx].nom + ' (max ' + eps[idx].max + ')';
-                window.correctionMode.noteMax = eps[idx].max;
-            }
-        }
-    }
-    
-    // 2. Intercepter l'ajout d'épreuve
-    const originalAddEpreuve = window.addEpreuve;
-    window.addEpreuve = function(p) {
-        if (!currentFiche) {
-            toast("Aucune fiche sélectionnée", 'error');
-            return;
-        }
-        if (!currentFiche.epreuvesParPeriode[p]) {
-            currentFiche.epreuvesParPeriode[p] = [];
-        }
-        
-        const pMax = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
-        currentFiche.epreuvesParPeriode[p].push({
-            nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1),
-            max: pMax
-        });
-        
-        saveCurrentFiche();
-        afficherEpreuves();
-        afficherCotation();
-        mettreAJourEpreuvesSelect();
-        correctionUpdateEpreuveList();
-        
-        // SYNCHRONISATION AUTOMATIQUE
-        synchroniserCorrectionAvecEpreuves();
-        
-        // Mettre à jour le sélecteur de période si on est sur la bonne
-        const periodeSelect = document.getElementById('correctionPeriodeSelect');
-        if (periodeSelect && parseInt(periodeSelect.value) === p) {
-            // Forcer la mise à jour
-            const event = new Event('change');
-            periodeSelect.dispatchEvent(event);
-        }
-        
-        toast("✅ Épreuve P" + p + " ajoutée et synchronisée avec la correction", 'success');
-    };
-    
-    // 3. Intercepter la suppression d'épreuve
-    const originalDelEpreuve = window.delEpreuve;
-    window.delEpreuve = function(p, i) {
-        if (!currentFiche?.epreuvesParPeriode?.[p]) return;
-        
-        currentFiche.epreuvesParPeriode[p].splice(i, 1);
-        saveCurrentFiche();
-        
-        afficherEpreuves();
-        afficherCotation();
-        mettreAJourEpreuvesSelect();
-        correctionUpdateEpreuveList();
-        
-        // SYNCHRONISATION AUTOMATIQUE
-        synchroniserCorrectionAvecEpreuves();
-        
-        toast("🗑️ Épreuve supprimée", 'warning');
-    };
-    
-    // 4. Intercepter la modification d'épreuve
-    const originalUpdEpreuve = window.updEpreuve;
-    window.updEpreuve = function(p, i, f, v) {
-        if (!currentFiche?.epreuvesParPeriode?.[p]?.[i]) return;
-        
-        if (f === 'nom') {
-            currentFiche.epreuvesParPeriode[p][i].nom = v;
-        } else {
-            let newMax = parseFloat(v) || 20;
-            const pMax = parseFloat(document.getElementById('p1MaxConfig').value) || 20;
-            if (newMax > pMax) {
-                toast("⚠️ La note max ne peut pas dépasser " + pMax, 'warning');
-                newMax = pMax;
-            }
-            currentFiche.epreuvesParPeriode[p][i].max = newMax;
-        }
-        
-        saveCurrentFiche();
-        afficherEpreuves();
-        afficherCotation();
-        mettreAJourEpreuvesSelect();
-        correctionUpdateEpreuveList();
-        
-        // SYNCHRONISATION AUTOMATIQUE
-        synchroniserCorrectionAvecEpreuves();
-        
-        toast("✏️ Épreuve modifiée", 'success');
-    };
-    
-    // 5. Écouteur sur changement de période
-    const correctionPeriodeSelect = document.getElementById('correctionPeriodeSelect');
-    if (correctionPeriodeSelect) {
-        correctionPeriodeSelect.addEventListener('change', function() {
-            synchroniserCorrectionAvecEpreuves();
-        });
-    }
-    
-    // 6. Synchronisation au clic sur l'onglet Correction
-    document.querySelectorAll('#tabsProfesseur .tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            if (this.dataset.tab === 'tabCorrection') {
-                setTimeout(function() {
-                    correctionUpdateEpreuveList();
-                    synchroniserCorrectionAvecEpreuves();
-                }, 100);
-            }
-        });
-    });
-    
-    // 7. Synchronisation périodique (toutes les 3 secondes si onglet actif)
-    setInterval(function() {
-        const tabCorrection = document.getElementById('tabCorrection');
-        if (tabCorrection && tabCorrection.classList.contains('active')) {
-            if (currentFiche) {
-                synchroniserCorrectionAvecEpreuves();
-            }
-        }
-    }, 3000);
-    
-    // 8. Exposer la fonction globalement
-    window.synchroniserCorrectionAvecEpreuves = synchroniserCorrectionAvecEpreuves;
-    
-    // 9. Override de correctionUpdateEpreuveList pour appeler la synchro
-    const originalCorrectionUpdate = window.correctionUpdateEpreuveList;
-    if (originalCorrectionUpdate) {
-        window.correctionUpdateEpreuveList = function() {
-            originalCorrectionUpdate();
-            synchroniserCorrectionAvecEpreuves();
-        };
-    }
-});
-
-// ============================================================
-// FIN DE LA CORRECTION
-// ============================================================
-</script>
-<script>
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
 document.addEventListener('keydown', function(e) {
 if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
@@ -2200,7 +2008,19 @@ function getTotalSemestreMax(s) { if (s === 1) return getPeriodeMax(1) + getPeri
 
 function getTotalAnnuelMax() { return getTotalSemestreMax(1) + getTotalSemestreMax(2); }
 
-function calcMoy(p, notes) { let eps = currentFiche.epreuvesParPeriode?.[p] || []; if (!eps.length || !notes?.length) return 0; let sommeNotes = 0, sommeMax = 0; for (let i = 0; i < eps.length; i++) { sommeNotes += (notes[i] || 0); sommeMax += (eps[i].max || 1); } if (sommeMax === 0) return 0; let noteMaxPeriode = currentFiche.p1Max || 20; let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode; return Math.min(noteMaxPeriode, Math.round(moyenne)); }
+function calcMoy(p, notes) {
+    let eps = currentFiche.epreuvesParPeriode?.[p] || [];
+    if (!eps.length || !notes?.length) return 0;
+    let sommeNotes = 0, sommeMax = 0;
+    for (let i = 0; i < eps.length; i++) {
+        sommeNotes += (notes[i] || 0);
+        sommeMax += (eps[i].max || 1);
+    }
+    if (sommeMax === 0) return 0;
+    let noteMaxPeriode = currentFiche.p1Max || 20;
+    let moyenne = (sommeNotes / sommeMax) * noteMaxPeriode;
+    return Math.min(noteMaxPeriode, Math.round(moyenne * 10) / 10);
+}
 
 function getNoteClass(note, maxNote) { if (maxNote === 0) return ''; const ratio = note / maxNote; if (ratio >= 0.8) return 'note-excellent'; if (ratio >= 0.7) return 'note-bien'; if (ratio >= 0.5) return 'note-moyen'; return 'note-insuffisant'; }
 
@@ -2276,11 +2096,46 @@ window.updExam = function(i, s, v) { let va = parseFloat(v) || 0; let me = (s ==
 
 function afficherEpreuves() { let c = document.getElementById('epreuvesContainer'); if (!c) return; if (!currentFiche) { c.innerHTML = '<div class="empty-state">Aucune fiche sélectionnée</div>'; return; } c.innerHTML = ''; for (let p = 1; p <= 4; p++) { let b = document.createElement('div'); b.className = 'epreuve-box'; b.innerHTML = '<h4 style="color:#60a5fa;margin-bottom:10px;">PERIODE ' + p + '</h4><div class="epreuve-list" id="listEpreuve' + p + '"></div>'; c.appendChild(b); let ld = document.getElementById('listEpreuve' + p); if (ld) { ld.innerHTML = ''; let eps = currentFiche.epreuvesParPeriode?.[p] || []; for (let i = 0; i < eps.length; i++) { let d = document.createElement('div'); d.className = 'epreuve-item'; d.innerHTML = '<input type="text" value="' + eps[i].nom + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'nom\',this.value)" style="width:80px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><input type="number" value="' + eps[i].max + '" onchange="window.updEpreuve(' + p + ',' + i + ',\'max\',this.value)" style="width:55px;padding:6px;border-radius:20px;background:#2d3748;border:1px solid #334155;color:#fff"><span style="cursor:pointer;color:#ef4444" onclick="window.delEpreuve(' + p + ',' + i + ')">X</span>'; ld.appendChild(d); } if (eps.length === 0) ld.innerHTML = '<span style="font-size:12px;color:#94a3b8">Aucune épreuve</span>'; } } }
 
-window.updEpreuve = function(p, i, f, v) { if (f === 'nom') currentFiche.epreuvesParPeriode[p][i].nom = v; else { let newMax = parseFloat(v) || 20; if (newMax > currentFiche.p1Max) { toast("La note max d'une épreuve ne peut pas dépasser la note max de la période", 'warning'); newMax = currentFiche.p1Max; } currentFiche.epreuvesParPeriode[p][i].max = newMax; } afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.updEpreuve = function(p, i, f, v) {
+    if (f === 'nom') {
+        currentFiche.epreuvesParPeriode[p][i].nom = v;
+    } else {
+        let newMax = parseFloat(v) || 20;
+        if (newMax < 0) newMax = 0;
+        currentFiche.epreuvesParPeriode[p][i].max = newMax;
+    }
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-window.delEpreuve = function(p, i) { currentFiche.epreuvesParPeriode[p].splice(i, 1); afficherEpreuves(); afficherCotation(); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); };
+window.delEpreuve = function(p, i) {
+    currentFiche.epreuvesParPeriode[p].splice(i, 1);
+    afficherEpreuves();
+    afficherCotation();
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+};
 
-function addEpreuve(p) { if (!currentFiche) { toast("Aucune fiche sélectionnée", 'error'); return; } if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = []; currentFiche.epreuvesParPeriode[p].push({ nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1), max: 20 }); afficherEpreuves(); afficherCotation(); toast("Epreuve P" + p + " ajoutée", 'success'); mettreAJourEpreuvesSelect(); correctionUpdateEpreuveList(); }
+function addEpreuve(p) {
+    if (!currentFiche) {
+        toast("Aucune fiche sélectionnée", 'error');
+        return;
+    }
+    if (!currentFiche.epreuvesParPeriode[p]) currentFiche.epreuvesParPeriode[p] = [];
+    currentFiche.epreuvesParPeriode[p].push({
+        nom: "Epreuve " + (currentFiche.epreuvesParPeriode[p].length + 1),
+        max: 20
+    });
+    afficherEpreuves();
+    afficherCotation();
+    toast("Epreuve P" + p + " ajoutée", 'success');
+    mettreAJourEpreuvesSelect();
+    correctionUpdateEpreuveList();
+    saveCurrentFiche();
+}
 
 function mettreAJourEpreuvesSelect() { let s = document.getElementById('groupeEpreuveSelect'); if (!s || !currentFiche) return; let p = document.getElementById('groupePeriodeSelect').value; let eps = currentFiche.epreuvesParPeriode?.[parseInt(p)] || []; s.innerHTML = ''; eps.forEach(function(ep, i) { s.innerHTML += '<option value="' + i + '">' + ep.nom + ' (max ' + ep.max + ')</option>'; }); if (eps.length === 0) s.innerHTML = '<option value="">Aucune épreuve</option>'; }
 
@@ -3095,7 +2950,7 @@ alternateRowStyles: { fillColor: [245, 245, 245] }
 pdf.save('Extrait_Bulletin_' + window.nomEleveRechercheTitu.replace(/\s/g, '_') + '.pdf');
 toast("PDF exporté avec succès");
 } else toast("Aucun résultat à exporter", 'error');
-};
+});
 
 const classeFilterSelectTitu = document.getElementById('titulaireClasseFilterSelect');
 if (classeFilterSelectTitu) classeFilterSelectTitu.addEventListener('change', (e) => { currentClasseFilterTitu = e.target.value; renderAllFichesTitu(); });
