@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Connexion - Gestion de Scolarité</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0a0e1a,#0f172a);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:0}
+.login-box{background:rgba(18,18,31,0.95);backdrop-filter:blur(20px);border-radius:28px;padding:30px 32px 24px;width:100%;max-width:380px;border:1px solid rgba(255,215,0,0.15);box-shadow:0 30px 80px rgba(0,0,0,0.7);position:relative;margin:auto}
+.login-box .logo{text-align:center;font-size:36px;margin-bottom:2px}
+.login-box h1{text-align:center;font-size:18px;font-weight:800;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:0px}
+.login-box .sub{text-align:center;color:#94a3b8;font-size:12px;margin-bottom:2px}
+.login-box .ecole-id{text-align:center;color:#64748b;font-size:10px;margin-bottom:16px;background:rgba(255,215,0,0.05);padding:4px 14px;border-radius:20px;border:1px solid rgba(255,215,0,0.08);display:inline-block}
+.login-box .ecole-wrapper{text-align:center}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;color:#cbd5e1;font-size:12px;font-weight:500;margin-bottom:4px;text-align:center}
+.form-group input{width:100%;padding:12px;border-radius:14px;background:rgba(45,55,72,0.6);border:2px solid rgba(255,215,0,0.12);color:#fff;font-size:20px;text-align:center;letter-spacing:8px;font-family:monospace;outline:none;transition:all 0.3s}
+.form-group input:focus{border-color:#ffd700;box-shadow:0 0 0 4px rgba(255,215,0,0.08);background:rgba(45,55,72,0.8)}
+.form-group input::placeholder{color:#475569;font-size:13px;letter-spacing:2px;font-family:'Inter',sans-serif}
+#loginBtn{width:100%;padding:13px;border-radius:14px;border:none;background:linear-gradient(135deg,#ffd700,#fbbf24);color:#0f172a;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:0.5px}
+#loginBtn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,215,0,0.2)}
+#loginBtn:active{transform:scale(0.97)}
+#loginBtn:disabled{opacity:0.5;transform:none;box-shadow:none}
+.error{color:#ef4444;font-size:12px;text-align:center;margin-top:8px;min-height:18px}
+.info{color:#10b981;font-size:12px;text-align:center;margin-top:8px;min-height:18px}
+.footer{text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,215,0,0.06)}
+.footer p{color:#334155;font-size:10px;letter-spacing:0.5px}
+.footer .support{color:#64748b;font-size:10px;margin-top:4px}
+.footer .support a{color:#ffd700;text-decoration:none;font-weight:600}
+.footer .support a:hover{text-decoration:underline}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.login-box{animation:fadeIn 0.5s ease-out}
+.code-hint{text-align:center;color:#475569;font-size:10px;margin-top:4px}
+.loading-spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,215,0,0.3);border-top-color:#ffd700;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="login-box">
+<div class="logo">🏫</div>
+<h1>GESTION SCOLAIRE</h1>
+<p class="sub" id="schoolSub">COMPLEXE SCOLAIRE</p>
+<div class="ecole-wrapper"><span class="ecole-id" id="ecoleDisplay">📌 ÉCOLE : CHARGEMENT...</span></div>
+<div class="form-group">
+<label>🔑 Code d'accès</label>
+<input type="password" id="loginPassword" placeholder="••••••" maxlength="6" inputmode="numeric" autofocus>
+<div class="code-hint">Entrez votre code à 6 chiffres</div>
+</div>
+<button id="loginBtn">🔓 SE CONNECTER</button>
+<div id="errorMsg" class="error"></div>
+<div id="infoMsg" class="info"></div>
+<div class="footer">
+<p>© 2026 - Tous droits réservés</p>
+<p class="support">📞 Support : <a href="tel:+243845048412">+243845048412</a></p>
+</div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+}
+</script>
+
+<script type="module">
+import { initializeApp } from "firebase/app";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
+
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+    apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
+    authDomain: "gesco-67c43.firebaseapp.com",
+    projectId: "gesco-67c43",
+    storageBucket: "gesco-67c43.firebasestorage.app",
+    messagingSenderId: "333004443566",
+    appId: "1:333004443566:web:de41f60000e418dce9023f"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ===== PARAMÈTRES URL =====
+const urlParams = new URLSearchParams(window.location.search);
+const ecoleId = urlParams.get("ecole") || "mon-ecole";
+const schoolDisplay = ecoleId.toUpperCase().replace(/-/g, " ");
+document.getElementById("ecoleDisplay").textContent = "📌 ÉCOLE : " + schoolDisplay;
+document.getElementById("schoolSub").textContent = "COMPLEXE SCOLAIRE " + schoolDisplay;
+document.title = "Connexion - " + schoolDisplay;
+
+let tentatives = 0;
+
+// ===== GESTIONNAIRE INDEXEDDB =====
+class SessionDB {
+    constructor() {
+        this.dbName = 'GescoSessionDB';
+        this.dbVersion = 1;
+        this.storeName = 'sessions';
+        this.db = null;
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(this.storeName)) {
+                    const store = db.createObjectStore(this.storeName, { keyPath: 'id' });
+                    store.createIndex('type', 'type', { unique: false });
+                    store.createIndex('ecole', 'ecole', { unique: false });
+                }
+            };
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                resolve(this.db);
+            };
+            request.onerror = (event) => reject(event.target.error);
+        });
+    }
+
+    async saveSession(type, data) {
+        if (!this.db) await this.init();
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.put({
+                id: type + '_' + data.ecole,
+                type: type,
+                ecole: data.ecole,
+                data: data,
+                date: new Date().toISOString(),
+                expire: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            });
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async getSession(type, ecole) {
+        if (!this.db) await this.init();
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readonly');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.get(type + '_' + ecole);
+            request.onsuccess = () => {
+                const result = request.result;
+                if (result && new Date(result.expire) > new Date()) {
+                    resolve(result.data);
+                } else {
+                    if (result) this.deleteSession(type, ecole);
+                    resolve(null);
+                }
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async deleteSession(type, ecole) {
+        if (!this.db) await this.init();
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            const request = store.delete(type + '_' + ecole);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    }
+}
+
+const sessionDB = new SessionDB();
+
+// ===== LECTURE DES CODES DANS FIRESTORE =====
+async function getSchoolCodes() {
+    try {
+        // 1️⃣ Chercher dans settings/data
+        const ref = doc(db, "ecoles", ecoleId, "settings", "data");
+        const snap = await getDoc(ref);
+        
+        if (snap.exists()) {
+            const data = snap.data();
+            
+            // ✅ Vérifier que les emails existent
+            if (!data.emailDirection || !data.emailComptabilite) {
+                console.warn("⚠️ Emails manquants dans settings/data");
+                return null;
+            }
+            
+            return {
+                codeDirection: data.codeDirection || '',
+                codeComptabilite: data.codeComptabilite || '',
+                emailDirection: data.emailDirection || '',
+                emailComptabilite: data.emailComptabilite || ''
+            };
+        } else {
+            console.error("❌ Aucune configuration trouvée pour:", ecoleId);
+            return null;
+        }
+    } catch (e) {
+        console.error("Erreur chargement codes:", e);
+        return null;
+    }
+}
+
+// ===== CONNEXION =====
+async function seConnecter() {
+    const password = document.getElementById("loginPassword").value.trim();
+    const btn = document.getElementById("loginBtn");
+    const errorDiv = document.getElementById("errorMsg");
+    const infoDiv = document.getElementById("infoMsg");
+    
+    errorDiv.textContent = "";
+    infoDiv.textContent = "";
+
+    // ✅ Validation du code
+    if (!password || password.length < 6) {
+        errorDiv.textContent = "❌ Veuillez entrer un code à 6 chiffres";
+        tentatives++;
+        if (tentatives >= 5) {
+            errorDiv.textContent = "❌ Trop de tentatives. Contactez le support : +243845048412";
+            document.getElementById("loginPassword").disabled = true;
+        }
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Vérification...';
+
+    try {
+        const codes = await getSchoolCodes();
+        
+        if (!codes) {
+            errorDiv.textContent = "❌ Configuration de l'école introuvable. Contactez le support.";
+            btn.disabled = false;
+            btn.innerHTML = '🔓 SE CONNECTER';
+            return;
+        }
+
+        const passwordClean = password.trim();
+        const codeDir = codes.codeDirection || '';
+        const codeCompta = codes.codeComptabilite || '';
+        const emailDir = codes.emailDirection || '';
+        const emailCompta = codes.emailComptabilite || '';
+
+        let role = null;
+        let email = null;
+
+        // ✅ Vérification des codes
+        if (codeDir === passwordClean) {
+            // ✅ Vérifier que l'email existe
+            if (!emailDir) {
+                errorDiv.textContent = "❌ Email de direction manquant. Contactez l'administrateur.";
+                btn.disabled = false;
+                btn.innerHTML = '🔓 SE CONNECTER';
+                return;
+            }
+            role = 'direction';
+            email = emailDir;
+        } else if (codeCompta === passwordClean) {
+            if (!emailCompta) {
+                errorDiv.textContent = "❌ Email de comptabilité manquant. Contactez l'administrateur.";
+                btn.disabled = false;
+                btn.innerHTML = '🔓 SE CONNECTER';
+                return;
+            }
+            role = 'comptabilite';
+            email = emailCompta;
+        } else {
+            errorDiv.textContent = "❌ Code d'accès incorrect";
+            tentatives++;
+            btn.disabled = false;
+            btn.innerHTML = '🔓 SE CONNECTER';
+            if (tentatives >= 5) {
+                errorDiv.textContent = "❌ Trop de tentatives. Contactez le support : +243845048412";
+                document.getElementById("loginPassword").disabled = true;
+            }
+            return;
+        }
+
+        infoDiv.textContent = `✅ Code vérifié pour ${role}. Connexion...`;
+
+        // ✅ Sauvegarder la session dans IndexedDB (pas Firebase Auth)
+        await sessionDB.saveSession('login', {
+            ecole: ecoleId,
+            role: role,
+            email: email,
+            code: passwordClean,
+            date: new Date().toISOString()
+        });
+
+        infoDiv.textContent = `✅ Session enregistrée. Redirection...`;
+
+        // ✅ Redirection
+        let urlDestination = '';
+        if (role === 'direction') {
+            urlDestination = 'https://www.netubex.com/schooldirection';
+        } else if (role === 'comptabilite') {
+            urlDestination = 'https://www.netubex.com/schoolcompta';
+        }
+
+        setTimeout(() => {
+            window.location.href = `${urlDestination}?ecole=${ecoleId}`;
+        }, 600);
+
+    } catch (error) {
+        console.error("Erreur:", error);
+        errorDiv.textContent = "❌ Erreur de connexion. Contactez le support : +243845048412";
+        btn.disabled = false;
+        btn.innerHTML = '🔓 SE CONNECTER';
+    }
+}
+
+// ===== ÉVÉNEMENTS =====
+document.getElementById("loginBtn").onclick = seConnecter;
+document.getElementById("loginPassword").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") seConnecter();
+});
+document.getElementById("loginPassword").addEventListener("input", function() {
+    if (this.value.length > 6) this.value = this.value.slice(0, 6);
+    document.getElementById("errorMsg").textContent = "";
+});
+document.getElementById("loginPassword").focus();
+
+console.log("✅ Page de login chargée avec IndexedDB");
+</script>
+</body>
+</html>
