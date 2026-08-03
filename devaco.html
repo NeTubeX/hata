@@ -433,15 +433,28 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 <hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;">
 <div class="settings-card" style="background:rgba(30,41,59,0.6);border:1px solid rgba(255,215,0,0.2);">
 <div class="card-title" style="color:#ffd700;"><i class="fas fa-key"></i> 🔐 CODE D'ACCÈS COMPTABILITÉ</div>
-<div class="card-desc" style="color:#94a3b8;">
-🔒 Conformément à notre politique de sécurité, toute modification du code d'accès ou des options est exclusivement effectuée par le service support de NeTubeX afin de garantir la sécurité de votre compte.
-<br><br>
-Vous souhaitez modifier votre code d'accès ? Veuillez contacter le support technique de NeTubeX au numéro ci-dessous.
-<br><br>
-📞 SUPPORT TECHNIQUE : +243 845 048 412
-<br>
-🕙 Horaires de prise d'appels : du lundi au vendredi, de 10h00 à 15h00.
+<div class="card-desc" style="color:#94a3b8;">Modifiez votre code d'accès à 6 chiffres pour sécuriser votre compte comptabilité</div>
+<div class="code-display" style="background:rgba(15,23,42,0.8);border-color:#ffd700;">
+<div class="label" style="color:#94a3b8;">Code actuel</div>
+<div class="value" id="currentCodeDisplay" style="color:#ffd700;">••••••</div>
+<div class="sub" style="color:#64748b;">Dernière modification : <span id="lastCodeChange">Jamais</span></div>
 </div>
+<div class="code-inputs">
+<div class="input-group" style="background:rgba(45,55,72,0.6);border-color:#334155;">
+<label style="color:#ffd700;">Code actuel</label>
+<input type="password" id="currentCodeInput" maxlength="6" inputmode="numeric" placeholder="• • • • • •" style="color:#fff;background:transparent;">
+</div>
+<div class="input-group" style="background:rgba(45,55,72,0.6);border-color:#334155;">
+<label style="color:#ffd700;">Nouveau code</label>
+<input type="password" id="newCodeInput" maxlength="6" inputmode="numeric" placeholder="• • • • • •" style="color:#fff;background:transparent;">
+</div>
+</div>
+<div class="code-actions">
+<button class="btn btn-warning" id="generateCodeBtn" style="background:#b45309;color:white;padding:10px 16px;">GÉNÉRER UN NOUVEAU CODE</button>
+<button class="btn btn-primary" id="changeCodeBtn" style="display:none;">CHANGER LE CODE</button>
+</div>
+<div id="codeGenerationInfo" class="code-info" style="display:none;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);"><i class="fas fa-info-circle" style="color:#ffd700;"></i><span id="codeInfoText" style="color:#cbd5e1;"></span></div>
+<div id="settingsError" style="color:#ef4444;font-size:12px;margin-top:8px;min-height:18px;text-align:center;"></div>
 </div>
 <hr style="border-color:rgba(255,215,0,0.1);margin:20px 0;">
 <h4 style="color:#ffd700;margin-bottom:12px;">📌 GESTION DES OPTIONS PAR CLASSE</h4>
@@ -728,7 +741,7 @@ if(!email.includes(ECOLET_ID)&&!email.includes('compta')&&!email.includes('compt
 resolve(true);
 });
 });
-}catch(error){afficherErreur("⚠️ Erreur technique",`Impossible de vérifier vos identifiants.<br><br>Détails : ${error.message}`, `https://www.netubex.com/login?ecole=${schoolId}`,"Retourner à la connexion");return false;}
+}catch(error){afficherErreur("⚠️ Erreur",`Impossible de vérifier vos identifiants.<br><br>Détails : ${error.message}`, `https://www.netubex.com/login?ecole=${schoolId}`,"Retourner à la connexion");return false;}
 }
 
 const verificationReussie=await verifierAcces();
@@ -790,7 +803,7 @@ document.getElementById('configClasseOptions').onchange=function(){afficherOptio
 
 async function synchroniserOptionsAvecCompta(){
 try{const snap=await getDocs(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));let compteurCorrige=0;for(const ds of snap.docs){const d=ds.data();if(d._type==='config'||d._type==='settings')continue;if(!d.classe)continue;const optionsValides=optionsParClasse[d.classe]||[];if(d.classe==='7ème EB'||d.classe==='8ème EB'){if(d.option&&d.option!==''&&d.option!=='TOUTES'){await updateDoc(ds.ref,{option:'TOUTES'});compteurCorrige++;}continue;}if(d.option&&d.option!==''&&!optionsValides.includes(d.option)&&d.option!=='TOUTES'){await updateDoc(ds.ref,{option:'TOUTES'});compteurCorrige++;}if(!d.option||d.option===''){await updateDoc(ds.ref,{option:'TOUTES'});compteurCorrige++;}}
-if(compteurCorrige>0){toast('✅ '+compteurCorrige+' élève(s) corrigé(s) avec l\'option TOUTES','info');}return compteurCorrige;}catch(e){console.error("Erreur synchronisation options:",e);return 0;}
+if(compteurCorrige>0){toast('✅ '+compteurCorrige+' élève(s) corrigé(s) avec l\'option TOUTES','info');}return compteurCorrige;}catch(e){console.error("Erreur synchronisation options:",e);return 0;}}
 
 function toast(msg,type="success"){const c=document.getElementById("toastContainer");if(!c)return;const icons={success:"✓",error:"✕",warning:"⚠",info:"ℹ"};const titles={success:"Succès",error:"Erreur",warning:"Attention",info:"Information"};const colors={success:"#10b981",error:"#ef4444",warning:"#f59e0b",info:"#3b82f6"};const el=document.createElement("div");el.className='toast '+(type||'success');el.innerHTML='<div class="toast-icon" style="background:'+colors[type]+'">'+icons[type]+'</div><div class="toast-content"><div class="toast-title">'+titles[type]+'</div><div class="toast-message">'+msg+'</div></div>';c.appendChild(el);setTimeout(()=>{el.classList.add('show');},10);setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),400);},3500);}
 
@@ -823,6 +836,20 @@ return currentSchoolConfig;}catch(error){console.error("Erreur chargement config
 
 async function sauvegarderInfosEcole(){
 try{const nouvelleAdresse=document.getElementById("ecoleAdresse").value.trim();if(nouvelleAdresse)currentSchoolConfig.adresse=nouvelleAdresse;const configRef=doc(db,"ecoles",ECOLET_ID,SC.SETTINGS,"data");await setDoc(configRef,currentSchoolConfig);toast("Informations enregistrées","success");}catch(error){toast("Erreur lors de l'enregistrement","error");}}
+
+document.getElementById('generateCodeBtn').addEventListener('click',async function(){const newCode=Math.floor(100000+Math.random()*900000).toString();document.getElementById('newCodeInput').value=newCode;document.getElementById('newCodeInput').readOnly=false;document.getElementById('codeGenerationInfo').style.display='block';document.getElementById('codeInfoText').textContent='🔑 Nouveau code généré : '+newCode+' - Cliquez sur "Changer le code" pour l\'enregistrer';toast('Code généré : '+newCode,'success');});
+
+document.getElementById('changeCodeBtn').addEventListener('click',async function(){
+const currentCode=document.getElementById('currentCodeInput').value.trim();
+const newCode=document.getElementById('newCodeInput').value.trim();
+if(!currentCode){document.getElementById('settingsError').textContent='⚠️ Veuillez entrer le code actuel';return;}
+if(!newCode||newCode.length!==6||isNaN(newCode)){document.getElementById('settingsError').textContent='⚠️ Le nouveau code doit contenir exactement 6 chiffres';return;}
+if(currentCode!==currentSchoolConfig.codeComptabilite){document.getElementById('settingsError').textContent='❌ Code actuel incorrect';return;}
+if(await showConfirm('⚠️ Êtes-vous sûr de vouloir changer le code comptabilité de <strong>'+SCHOOL_DISPLAY_NAME+'</strong> ?<br><br>Le code passera de <span style="color:#ef4444;font-family:monospace;">'+currentCode+'</span> à <span style="color:#10b981;font-family:monospace;font-size:18px;">'+newCode+'</span>')){
+try{const configRef=doc(db,"ecoles",ECOLET_ID,SC.SETTINGS,"data");await updateDoc(configRef,{codeComptabilite:newCode,lastCodeChange:new Date().toISOString()});
+currentSchoolConfig.codeComptabilite=newCode;currentSchoolConfig.lastCodeChange=new Date().toISOString();
+document.getElementById("currentCodeDisplay").textContent=newCode;document.getElementById("lastCodeChange").textContent=formatDateFr(new Date());document.getElementById('currentCodeInput').value='';document.getElementById('newCodeInput').value='';document.getElementById('newCodeInput').readOnly=true;document.getElementById('codeGenerationInfo').style.display='none';document.getElementById('settingsError').textContent='';
+toast('✅ Code comptabilité modifié avec succès ! Nouveau code : '+newCode,'success');}catch(error){document.getElementById('settingsError').textContent='❌ Erreur lors du changement de code';console.error(error);}}});
 
 async function chargerTarifs(){
 try{const refOpt=doc(db,"ecoles",ECOLET_ID,SC.CONFIG,SC.TARIFS);const snapOpt=await getDoc(refOpt);if(snapOpt.exists()){tarifsOptionsConfig=snapOpt.data();}else{tarifsOptionsConfig={};for(let classe of classesListe){tarifsOptionsConfig[classe]={};for(let opt of(optionsParClasse[classe]||[])){tarifsOptionsConfig[classe][opt]=45000;}tarifsOptionsConfig[classe]["default"]=45000;}await setDoc(refOpt,tarifsOptionsConfig);}afficherTableTarifsOptions();}catch(error){for(let classe of classesListe){if(!tarifsOptionsConfig[classe])tarifsOptionsConfig[classe]={};tarifsOptionsConfig[classe]["default"]=45000;}afficherTableTarifsOptions();}}
