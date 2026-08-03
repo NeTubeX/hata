@@ -50,6 +50,10 @@ body{background:#0a0e1a;font-family:Arial,sans-serif;display:flex;justify-conten
 .footer{text-align:center;margin-top:16px;font-size:11px;color:#5a6b80}
 .generated-code{background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.15);border-radius:8px;padding:8px 14px;text-align:center;font-family:monospace;font-size:20px;font-weight:700;color:#ffd700;letter-spacing:6px;margin:6px 0 10px 0;display:none}
 .generated-code.show{display:block}
+.test-result{background:#0d1321;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;display:none}
+.test-result.show{display:block}
+.test-result.pass{border-left:3px solid #10b981;color:#10b981}
+.test-result.fail{border-left:3px solid #ef4444;color:#ef4444}
 </style>
 </head>
 <body>
@@ -87,6 +91,7 @@ body{background:#0a0e1a;font-family:Arial,sans-serif;display:flex;justify-conten
 
 <div class="form-group"><label>Confirmer</label><input type="password" id="confirmPassword" placeholder="Confirmer le nouveau"></div>
 <button class="btn btn-success" id="changeBtn">Changer le mot de passe</button>
+<div id="testResult" class="test-result"></div>
 <button class="btn btn-danger hidden" id="logoutBtn" style="margin-top:8px;">Se déconnecter</button>
 </div>
 
@@ -100,17 +105,36 @@ body{background:#0a0e1a;font-family:Arial,sans-serif;display:flex;justify-conten
 
 <script type="module">
 import{initializeApp}from"firebase/app";
-import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,updatePassword,reauthenticateWithCredential,EmailAuthProvider}from"firebase/auth";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut,updatePassword}from"firebase/auth";
 import{getFirestore,collection,getDocs,doc,setDoc}from"firebase/firestore";
 
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);const auth=getAuth(app);const db=getFirestore(app);
 
-const statusText=document.getElementById("statusText");const loginSection=document.getElementById("loginSection");const changeSection=document.getElementById("changeSection");const loginEmail=document.getElementById("loginEmail");const loginPassword=document.getElementById("loginPassword");const loginBtn=document.getElementById("loginBtn");const oldPassword=document.getElementById("oldPassword");const newPassword=document.getElementById("newPassword");const confirmPassword=document.getElementById("confirmPassword");const changeBtn=document.getElementById("changeBtn");const logoutBtn=document.getElementById("logoutBtn");const messageEl=document.getElementById("message");const generateBtn=document.getElementById("generateBtn");const generatedDisplay=document.getElementById("generatedDisplay");let msgTimeout=null;let usedCodes=new Set();let generatedCode="";
+const statusText=document.getElementById("statusText");
+const loginSection=document.getElementById("loginSection");
+const changeSection=document.getElementById("changeSection");
+const loginEmail=document.getElementById("loginEmail");
+const loginPassword=document.getElementById("loginPassword");
+const loginBtn=document.getElementById("loginBtn");
+const oldPassword=document.getElementById("oldPassword");
+const newPassword=document.getElementById("newPassword");
+const confirmPassword=document.getElementById("confirmPassword");
+const changeBtn=document.getElementById("changeBtn");
+const logoutBtn=document.getElementById("logoutBtn");
+const messageEl=document.getElementById("message");
+const generateBtn=document.getElementById("generateBtn");
+const generatedDisplay=document.getElementById("generatedDisplay");
+const testResult=document.getElementById("testResult");
+let msgTimeout=null;
+let usedCodes=new Set();
+let currentUserEmail="";
 
 function showMessage(text,type="info"){messageEl.textContent=text;messageEl.className="message show "+type;if(msgTimeout)clearTimeout(msgTimeout);msgTimeout=setTimeout(()=>{messageEl.className="message";},7000);}
 
-function updateUI(user){if(user){statusText.innerHTML='✅ Connecté<br><span style="font-size:12px;color:#8899b0;">'+user.email+'</span>';statusText.className="value connected";loginSection.classList.add("hidden");changeSection.classList.remove("hidden");logoutBtn.classList.remove("hidden");loadUsedPasswords();}else{statusText.innerHTML="❌ Non connecté";statusText.className="value disconnected";loginSection.classList.remove("hidden");changeSection.classList.add("hidden");logoutBtn.classList.add("hidden");loginBtn.innerHTML="Se connecter";loginBtn.disabled=false;}}
+function showTestResult(text,pass){testResult.textContent=text;testResult.className="test-result show "+(pass?"pass":"fail");}
+
+function updateUI(user){if(user){currentUserEmail=user.email;statusText.innerHTML='✅ Connecté<br><span style="font-size:12px;color:#8899b0;">'+user.email+'</span>';statusText.className="value connected";loginSection.classList.add("hidden");changeSection.classList.remove("hidden");logoutBtn.classList.remove("hidden");loadUsedPasswords();}else{currentUserEmail="";statusText.innerHTML="❌ Non connecté";statusText.className="value disconnected";loginSection.classList.remove("hidden");changeSection.classList.add("hidden");logoutBtn.classList.add("hidden");loginBtn.innerHTML="Se connecter";loginBtn.disabled=false;testResult.className="test-result";generatedDisplay.className="generated-code";}}
 
 async function loadUsedPasswords(){usedCodes.clear();try{const snap=await getDocs(collection(db,"passwords"));snap.forEach(d=>{const code=d.data().code;if(code)usedCodes.add(code);});}catch(e){console.warn("Erreur chargement codes:",e);}}
 
@@ -118,22 +142,76 @@ function generateUniqueCode(){let code="";let attempts=0;do{code=Math.floor(1000
 
 function saveGeneratedCode(code){try{setDoc(doc(db,"passwords",code),{code:code,createdAt:new Date().toISOString()});usedCodes.add(code);}catch(e){console.warn("Erreur sauvegarde code:",e);}}
 
-generateBtn.onclick=function(){const code=generateUniqueCode();if(code){generatedCode=code;newPassword.value=code;confirmPassword.value="";generatedDisplay.textContent=code;generatedDisplay.className="generated-code show";showMessage("🔑 Code généré: "+code,"info");saveGeneratedCode(code);}else{showMessage("❌ Impossible de générer un code unique","error");}};
+generateBtn.onclick=function(){const code=generateUniqueCode();if(code){newPassword.value=code;confirmPassword.value="";generatedDisplay.textContent=code;generatedDisplay.className="generated-code show";showMessage("🔑 Code généré: "+code,"info");saveGeneratedCode(code);}else{showMessage("❌ Impossible de générer un code unique","error");}};
 
 newPassword.addEventListener("input",function(){if(this.value.length===6&&/^\d+$/.test(this.value)){generatedDisplay.textContent=this.value;generatedDisplay.className="generated-code show";}else{generatedDisplay.className="generated-code";}});
 
-onAuthStateChanged(auth,(user)=>{updateUI(user);if(!user&&!changeSection.classList.contains("hidden")){showMessage("Déconnecté","warning");}});
+onAuthStateChanged(auth,(user)=>{updateUI(user);});
 
 loginBtn.onclick=async()=>{const email=loginEmail.value.trim();const pwd=loginPassword.value.trim();if(!email||!pwd){showMessage("Veuillez remplir tous les champs","error");return;}loginBtn.disabled=true;loginBtn.innerHTML='<span class="spinner"></span> Connexion...';try{await signInWithEmailAndPassword(auth,email,pwd);showMessage("✅ Connecté avec succès","success");loginEmail.value="";loginPassword.value="";}catch(e){let msg="Erreur de connexion";if(e.code==="auth/user-not-found")msg="❌ Utilisateur non trouvé";else if(e.code==="auth/wrong-password")msg="❌ Mot de passe incorrect";else if(e.code==="auth/invalid-email")msg="❌ Email invalide";else if(e.code==="auth/too-many-requests")msg="❌ Trop de tentatives. Attendez.";else msg="❌ "+e.message;showMessage(msg,"error");}finally{loginBtn.disabled=false;loginBtn.innerHTML="Se connecter";}};
 
 loginPassword.addEventListener("keypress",(e)=>{if(e.key==="Enter")loginBtn.click();});
 loginEmail.addEventListener("keypress",(e)=>{if(e.key==="Enter")loginBtn.click();});
 
-changeBtn.onclick=async()=>{const oldPwd=oldPassword.value.trim();const newPwd=newPassword.value.trim();const confirmPwd=confirmPassword.value.trim();if(!oldPwd||!newPwd||!confirmPwd){showMessage("Veuillez remplir tous les champs","error");return;}if(newPwd.length<6){showMessage("Le nouveau mot de passe doit faire au moins 6 caractères","error");return;}if(newPwd!==confirmPwd){showMessage("Les mots de passe ne correspondent pas","error");return;}if(oldPwd===newPwd){showMessage("Le nouveau mot de passe doit être différent","warning");return;}const user=auth.currentUser;if(!user){showMessage("Vous devez être connecté","error");return;}changeBtn.disabled=true;changeBtn.innerHTML='<span class="spinner"></span> Changement...';try{const credential=EmailAuthProvider.credential(user.email,oldPwd);await reauthenticateWithCredential(user,credential);await updatePassword(user,newPwd);showMessage("✅ Mot de passe changé ! Aucun email envoyé.","success");oldPassword.value="";newPassword.value="";confirmPassword.value="";generatedDisplay.className="generated-code";}catch(e){let msg="Erreur";if(e.code==="auth/wrong-password")msg="❌ Ancien mot de passe incorrect";else if(e.code==="auth/requires-recent-login")msg="❌ Session trop ancienne. Reconnectez-vous.";else if(e.code==="auth/too-many-requests")msg="❌ Trop de tentatives. Attendez.";else msg="❌ "+e.message;showMessage(msg,"error");}finally{changeBtn.disabled=false;changeBtn.innerHTML="Changer le mot de passe";}};
+changeBtn.onclick=async()=>{
+const oldPwd=oldPassword.value.trim();
+const newPwd=newPassword.value.trim();
+const confirmPwd=confirmPassword.value.trim();
+
+if(!oldPwd||!newPwd||!confirmPwd){showMessage("Veuillez remplir tous les champs","error");return;}
+if(newPwd.length<6){showMessage("Minimum 6 caractères","error");return;}
+if(newPwd!==confirmPwd){showMessage("Les mots de passe ne correspondent pas","error");return;}
+if(oldPwd===newPwd){showMessage("Le nouveau mot de passe doit être différent","warning");return;}
+
+const user=auth.currentUser;
+if(!user){showMessage("Vous devez être connecté","error");return;}
+
+const email=user.email;
+changeBtn.disabled=true;
+changeBtn.innerHTML='<span class="spinner"></span> Changement...';
+testResult.className="test-result";
+
+try{
+showMessage("🔄 Déconnexion...","info");
+await signOut(auth);
+
+showMessage("🔄 Reconnexion avec l'ancien mot de passe...","info");
+const userCredential=await signInWithEmailAndPassword(auth,email,oldPwd);
+showMessage("✅ Réauthentification réussie","info");
+
+const freshUser=userCredential.user;
+await updatePassword(freshUser,newPwd);
+showMessage("✅ Mot de passe changé dans Firebase Auth !","success");
+
+await signOut(auth);
+
+showMessage("🔄 Test du nouveau mot de passe...","info");
+await signInWithEmailAndPassword(auth,email,newPwd);
+showMessage("✅ TEST RÉUSSI : Nouveau mot de passe fonctionne !","success");
+showTestResult("✅ Test réussi : Connexion avec le nouveau mot de passe",true);
+
+oldPassword.value="";
+newPassword.value="";
+confirmPassword.value="";
+generatedDisplay.className="generated-code";
+
+}catch(error){
+let msg="Erreur";
+if(error.code==="auth/wrong-password"){msg="❌ Ancien mot de passe incorrect";}
+else if(error.code==="auth/user-not-found"){msg="❌ Utilisateur non trouvé";}
+else if(error.code==="auth/too-many-requests"){msg="❌ Trop de tentatives. Attendez.";}
+else if(error.code==="auth/invalid-credential"){msg="❌ Identifiants invalides";}
+else{msg="❌ "+error.message;}
+showMessage(msg,"error");
+showTestResult("❌ "+msg,false);
+}finally{
+changeBtn.disabled=false;
+changeBtn.innerHTML="Changer le mot de passe";
+}};
 
 confirmPassword.addEventListener("keypress",(e)=>{if(e.key==="Enter")changeBtn.click();});
 
-logoutBtn.onclick=async()=>{try{await signOut(auth);showMessage("Déconnecté","info");}catch(e){showMessage("Erreur déconnexion","error");}};
+logoutBtn.onclick=async()=>{try{await signOut(auth);showMessage("Déconnecté","info");testResult.className="test-result";}catch(e){showMessage("Erreur déconnexion","error");}};
 
 console.log("✅ App prête");
 </script>
