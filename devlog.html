@@ -90,29 +90,53 @@ let tentatives = 0;
 
 async function getSchoolCodes() {
     try {
-        const ref = doc(db, "ecoles", ecoleId, "settings", "data");
-        const snap = await getDoc(ref);
-
-        if (snap.exists()) {
-            const data = snap.data();
-
-            if (!data.codeDirection) {
-                const schoolRef = doc(db, "ecoles", ecoleId);
-                const schoolSnap = await getDoc(schoolRef);
-                if (schoolSnap.exists()) {
-                    const schoolData = schoolSnap.data();
-                    if (schoolData.codeDirection) {
-                        data.codeDirection = schoolData.codeDirection;
-                    }
-                }
-            }
-
-            return data;
-        } else {
+        // 1. Vérifier si l'école existe
+        const schoolRef = doc(db, "ecoles", ecoleId);
+        const schoolSnap = await getDoc(schoolRef);
+        
+        // ❌ Si l'école n'existe PAS → erreur "École non trouvée"
+        if (!schoolSnap.exists()) {
+            console.error("❌ École non trouvée:", ecoleId);
             return null;
         }
+        
+        // ✅ L'école existe → on continue
+        const schoolData = schoolSnap.data();
+        let data = {};
+
+        // 2. Chercher dans settings/data
+        const ref = doc(db, "ecoles", ecoleId, "settings", "data");
+        const snap = await getDoc(ref);
+        
+        if (snap.exists()) {
+            data = snap.data();
+        }
+
+        // 3. Si codes manquants, les prendre du document principal
+        if (!data.codeDirection && schoolData.codeDirection) {
+            data.codeDirection = schoolData.codeDirection;
+        }
+        if (!data.codeComptabilite && schoolData.codeComptabilite) {
+            data.codeComptabilite = schoolData.codeComptabilite;
+        }
+        if (!data.emailDirection && schoolData.emailDirection) {
+            data.emailDirection = schoolData.emailDirection;
+        }
+        if (!data.emailComptabilite && schoolData.emailComptabilite) {
+            data.emailComptabilite = schoolData.emailComptabilite;
+        }
+
+        // 4. ❌ PAS DE GÉNÉRATION AUTOMATIQUE
+        // Si un code est manquant → retourne null
+        if (!data.codeDirection || !data.codeComptabilite) {
+            console.error("❌ Codes manquants pour l'école:", ecoleId);
+            return null;
+        }
+
+        return data;
+        
     } catch (e) {
-        console.error("Erreur chargement codes:", e);
+        console.error("❌ Erreur chargement codes:", e);
         return null;
     }
 }
@@ -144,7 +168,7 @@ async function seConnecter() {
         const codes = await getSchoolCodes();
 
         if (!codes) {
-            errorDiv.textContent = "❌ École non trouvée. Contactez le support.";
+            errorDiv.textContent = "❌ École non configurée. Contactez l'administrateur.";
             btn.disabled = false;
             btn.innerHTML = '🔓 SE CONNECTER';
             return;
