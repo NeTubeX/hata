@@ -219,15 +219,8 @@ body.dark-mode .section-title{color:#e8edf4}
 <div class="stat-item"><div class="label">Cette semaine</div><div class="value purple" id="inscritsSemaine">0</div></div>
 <div class="stat-item"><div class="label">Ce mois</div><div class="value blue" id="inscritsMois">0</div></div>
 </div>
-<div class="section-title" style="margin-top:20px;"><i class="fas fa-money-bill-wave"></i> Paiements du minerval</div>
-<div class="stats-grid">
-<div class="stat-item"><div class="label">Payé cette semaine</div><div class="value purple" id="payesSemaine">0 FC</div></div>
-<div class="stat-item"><div class="label">Payé ce mois</div><div class="value blue" id="payesMois">0 FC</div></div>
-</div>
-<div class="section-title" style="margin-top:20px;"><i class="fas fa-hand-holding-usd"></i> Frais d'inscription</div>
-<div class="stats-grid">
-<div class="stat-item"><div class="label">Total frais d'inscription</div><div class="value gold" id="totalFraisInscription">0 FC</div></div>
-</div>
+<!-- SECTION PAIEMENTS MINERVAL SUPPRIMÉE -->
+<!-- SECTION FRAIS D'INSCRIPTION SUPPRIMÉE -->
 </div>
 </div>
 
@@ -485,33 +478,14 @@ const startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getD
 const startOfMonth=new Date(today.getFullYear(),today.getMonth(),1);
 
 let inscritsAujourdhui=0,inscritsHier=0,inscritsSemaine=0,inscritsMois=0;
-let montantPayeSemaine=0;
-let montantPayeMois=0;
 
 eleves.forEach(e=>{
-const fraisInscription = e.fraisInscriptionTotal || 0;
-totalFraisInscription += fraisInscription;
 const dateIns=e.dateInscription||'';
 if(dateIns.startsWith(aujourdhui))inscritsAujourdhui++;
 if(dateIns.startsWith(hier))inscritsHier++;
 const d=new Date(dateIns);
 if(d>=startOfWeek)inscritsSemaine++;
 if(d>=startOfMonth)inscritsMois++;
-
-const paiements=e.paiements||{};
-for(const m of moisListe){
-const p=paiements[m];
-if(p && p.montant>0 && p.date){
-const datePay=new Date(p.date);
-const montant=p.montant||0;
-if(datePay>=startOfWeek){
-montantPayeSemaine+=montant;
-}
-if(datePay>=startOfMonth){
-montantPayeMois+=montant;
-}
-}
-}
 });
 
 for(const e of eleves){
@@ -557,11 +531,6 @@ document.getElementById('inscritsHier').textContent=inscritsHier;
 document.getElementById('inscritsSemaine').textContent=inscritsSemaine;
 document.getElementById('inscritsMois').textContent=inscritsMois;
 
-document.getElementById('payesSemaine').textContent=formatNb(montantPayeSemaine)+' FC';
-document.getElementById('payesMois').textContent=formatNb(montantPayeMois)+' FC';
-
-document.getElementById('totalFraisInscription').textContent=formatNb(totalFraisInscription)+' FC';
-
 const chartBars=document.getElementById('chartBars');if(chartBars){const data=[{label:'Filles',value:filles,color:'blue'},{label:'Garçons',value:garcons,color:'blue'},{label:'Exonérés',value:exoneres,color:'green'},{label:'Abandons',value:abandons.length,color:'red'}];const maxVal=Math.max(1,total,abandons.length);chartBars.innerHTML=data.map(d=>'<div class="chart-bar-group"><div class="chart-bar-track"><div class="chart-bar-fill '+d.color+'" style="height:'+Math.round((d.value/maxVal)*100)+'%"></div></div><div class="chart-bar-value">'+d.value+'</div><div class="chart-bar-label">'+d.label+'</div></div>').join('');document.getElementById('chartLegend').innerHTML=data.map(d=>'<span><span class="dot" style="background:'+(d.color==='blue'?'#2a5f8a':d.color==='green'?'#1f7b4d':d.color==='red'?'#b13e3e':'#624b7a')+'"></span>'+d.label+'</span>').join('');}
 
 const syntheseBody=document.getElementById('syntheseClasseBody');if(syntheseBody){if(classesListe.length===0){syntheseBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#5a6f86;padding:20px;font-size:15px;">Aucune classe</td></tr>';}else{let html='';let totalT=0,totalF=0,totalG=0,totalE=0;classesListe.forEach(cl=>{const d=classeDetail[cl]||{total:0,filles:0,garcons:0,exoneres:0};totalT+=d.total;totalF+=d.filles;totalG+=d.garcons;totalE+=d.exoneres;html+='<tr><td class="nom">'+cl+'</td><td>'+d.total+'</td><td>'+d.filles+'</td><td>'+d.garcons+'</td><td>'+d.exoneres+'</td><td>'+(d.total?Math.round(d.exoneres/d.total*100):0)+'%</td></tr>';});html+='<tr style="background:rgba(0,0,0,0.02);font-weight:700;"><td>TOTAL</td><td>'+totalT+'</td><td>'+totalF+'</td><td>'+totalG+'</td><td>'+totalE+'</td><td>'+(totalT?Math.round(totalE/totalT*100):0)+'%</td></tr>';syntheseBody.innerHTML=html;}}
@@ -588,13 +557,11 @@ startOfDay.setHours(0,0,0,0);
 const eleves=allEleves.filter(e=>!e.abandon);
 const total=eleves.length;
 
-// Inscriptions du jour
 const inscriptionsAujourdhui=eleves.filter(e=>{
 const dateIns=e.dateInscription||'';
 return dateIns.startsWith(aujourdhui);
 });
 
-// Paiements du jour - on garde pour l'affichage du détail mais on ne l'affiche plus comme compteur séparé
 let paiementsAujourdhuiListe=[];
 eleves.forEach(e=>{
 const paiements=e.paiements||{};
@@ -615,7 +582,6 @@ heure:p.date ? new Date(p.date).toLocaleTimeString('fr-FR') : '-'
 }
 });
 
-// Reste à payer total
 let totalMinerval=0,totalPaye=0;
 eleves.forEach(e=>{
 const paiements=e.paiements||{};
@@ -632,7 +598,6 @@ document.getElementById('synthResteAPayer').textContent=formatNb(resteAPayer)+' 
 document.getElementById('synthNouvellesInscriptions').textContent=inscriptionsAujourdhui.length;
 document.getElementById('synthTotalInscriptions').textContent=eleves.length;
 
-// Tableau des inscriptions du jour
 const inscriptionsBody=document.getElementById('synthInscriptionsBody');
 if(inscriptionsAujourdhui.length===0){
 inscriptionsBody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#5a6f86;padding:20px;">Aucune inscription aujourd\'hui</td></tr>';
@@ -645,7 +610,6 @@ html+=`<tr><td>${i+1}</td><td class="nom">${escapeHtml(e.nom)} ${escapeHtml(e.pr
 inscriptionsBody.innerHTML=html;
 }
 
-// Tableau des paiements du jour
 const paiementsBody=document.getElementById('synthPaiementsBody');
 if(paiementsAujourdhuiListe.length===0){
 paiementsBody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#5a6f86;padding:20px;">Aucun paiement aujourd\'hui</td></tr>';
@@ -684,7 +648,7 @@ document.getElementById('closeBtn').addEventListener('click', function() {
 window.location.href = 'https://www.netubex.com/login?ecole=' + encodeURIComponent(schoolId);
 });
 
-// Export PDF Synthèse en paysage - sans "Payé aujourd'hui" et "Payé hier"
+// Export PDF Synthèse - sans les compteurs supprimés
 document.getElementById('exportSynthèsePdf').addEventListener('click', function() {
 const { jsPDF } = window.jspdf;
 const pdf = new jsPDF('landscape', 'mm', 'a4');
@@ -754,7 +718,7 @@ styles: { fontSize: 9, cellPadding: 4 }
 });
 }
 
-// Paiements du jour - on garde le détail mais sans compteur séparé
+// Paiements du jour
 const paiementsRows = [];
 document.querySelectorAll('#synthPaiementsBody tr').forEach(tr => {
 const tds = tr.querySelectorAll('td');
