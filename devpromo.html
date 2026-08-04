@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-<script type="importmap">{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}</script>
+<script type="importmap">{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"}}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
 body{background:#eef2f7;font-family:'Inter',sans-serif;color:#1a2634;padding:0 0 80px 0;min-height:100vh;transition:background .3s,color .3s;font-size:16px}
@@ -88,7 +88,8 @@ body.dark-mode .prof-item .status-badge.inactive{background:#3a1a1a;color:#f8717
 .stats-grid.one-col{grid-template-columns:1fr}
 .stats-grid.two-col{grid-template-columns:repeat(2,1fr)}
 @media(max-width:600px){.stats-grid.two-col{grid-template-columns:1fr 1fr}}
-.stat-item{background:#ffffff;padding:20px 14px;border-radius:18px;text-align:center;border:1px solid #e2e9f2;box-shadow:0 1px 4px rgba(0,0,0,0.02);transition:background .3s,border-color .3s}
+.stat-item{background:#ffffff;padding:20px 14px;border-radius:18px;text-align:center;border:1px solid #e2e9f2;box-shadow:0 1px 4px rgba(0,0,0,0.02);transition:all .3s cubic-bezier(.34,1.56,.64,1);transform:perspective(600px) rotateX(0.5deg) translateY(0)}
+.stat-item:hover{transform:perspective(600px) rotateX(0deg) translateY(-6px) translateZ(20px);box-shadow:0 16px 40px rgba(0,0,0,0.06),0 8px 20px rgba(0,0,0,0.04)}
 .stat-item .label{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;color:#4a5f77;transition:color .3s}
 .stat-item .value{font-size:32px;font-weight:800;margin-top:6px;color:#1a2634;transition:color .3s}
 .stat-item .value.gold{color:#a67c2b}
@@ -155,9 +156,6 @@ body.dark-mode .section-title{color:#e8edf4}
 .btn-close-floating:hover{transform:perspective(400px) rotateX(0deg) translateY(-3px) translateZ(10px);box-shadow:0 14px 40px rgba(239,68,68,0.35),inset 0 -3px 0 rgba(0,0,0,0.1),inset 0 3px 0 rgba(255,255,255,0.25)}
 .btn-close-floating:active{transform:perspective(400px) rotateX(0deg) translateY(2px) translateZ(-5px);box-shadow:0 4px 15px rgba(239,68,68,0.15),inset 0 2px 0 rgba(0,0,0,0.2)}
 .btn-close-floating i{font-size:18px}
-
-.stat-item{transition:all .3s cubic-bezier(.34,1.56,.64,1);transform:perspective(600px) rotateX(0.5deg) translateY(0)}
-.stat-item:hover{transform:perspective(600px) rotateX(0deg) translateY(-6px) translateZ(20px);box-shadow:0 16px 40px rgba(0,0,0,0.06),0 8px 20px rgba(0,0,0,0.04)}
 
 @media(max-width:600px){.header-fixed{padding:12px 16px;flex-direction:column;align-items:stretch;gap:6px}.header-title{font-size:22px}.header-status{font-size:13px;justify-content:flex-start}.card-body{padding:16px}.stat-item .value{font-size:26px}.stat-item .label{font-size:12px}.tab{padding:8px 14px;font-size:13px}.bottom-nav button{font-size:10px}.bottom-nav button i{font-size:19px}.btn-close-floating{top:10px;right:10px;padding:8px 14px;font-size:12px}.btn-close-floating i{font-size:14px}}
 </style>
@@ -338,7 +336,6 @@ body.dark-mode .section-title{color:#e8edf4}
 <div class="stats-grid">
 <div class="stat-item"><div class="label">📅 Date</div><div class="value blue" id="synthDate">-</div></div>
 <div class="stat-item"><div class="label">📊 Total élèves</div><div class="value purple" id="synthTotalEleves">0</div></div>
-<div class="stat-item"><div class="label">✅ Présents aujourd'hui</div><div class="value green" id="synthPresentAujourdhui">0</div></div>
 <div class="stat-item"><div class="label">📝 Inscrits aujourd'hui</div><div class="value gold" id="synthInscritsAujourdhui">0</div></div>
 <div class="stat-item"><div class="label">💰 Payé aujourd'hui</div><div class="value green" id="synthPayeAujourdhui">0 FC</div></div>
 <div class="stat-item"><div class="label">📥 Reste à payer</div><div class="value red" id="synthResteAPayer">0 FC</div></div>
@@ -381,22 +378,67 @@ body.dark-mode .section-title{color:#e8edf4}
 
 <script type="module">
 import{initializeApp}from"firebase/app";
-import{getFirestore,collection,getDocs,query,where,onSnapshot}from"firebase/firestore";
+import{getFirestore,collection,getDocs,query,where,onSnapshot,doc,getDoc}from"firebase/firestore";
+import{getAuth,signInWithEmailAndPassword}from"firebase/auth";
 
 const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
+const auth=getAuth(app);
+
 const urlParams=new URLSearchParams(window.location.search);
 const schoolId=urlParams.get('ecole');
+const code=urlParams.get('code');
+
 if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';}
+
 const ECOLET_ID=schoolId.replace(/[^a-zA-Z0-9]/g,'_');
 const SCHOOL_DISPLAY_NAME=schoolId;
 document.title='Espace Promoteur · '+SCHOOL_DISPLAY_NAME;
 
-// Bouton fermer avec redirection vers login avec le nom de l'école
-document.getElementById('closeBtn').addEventListener('click', function() {
-    window.location.href = 'https://www.netubex.com/login?ecole=' + encodeURIComponent(schoolId);
-});
+// Vérification du code promoteur
+async function verifierCodePromoteur() {
+    if(!code){
+        window.location.href='https://www.netubex.com/login?ecole='+encodeURIComponent(schoolId);
+        return false;
+    }
+    
+    try{
+        const ref=doc(db,"ecoles",ECOLET_ID,"settings","data");
+        const snap=await getDoc(ref);
+        
+        if(snap.exists()){
+            const data=snap.data();
+            const codePromoteur=data.codePromoteur||'';
+            const emailPromoteur=data.emailPromoteur||`promoteur.${ECOLET_ID}@gmail.com`;
+            
+            // Vérifier si le code correspond
+            if(code.trim()!==codePromoteur.trim()){
+                window.location.href='https://www.netubex.com/login?ecole='+encodeURIComponent(schoolId);
+                return false;
+            }
+            
+            // Se connecter automatiquement avec Firebase Auth
+            try{
+                await signInWithEmailAndPassword(auth, emailPromoteur, code);
+            }catch(e){
+                console.log("Auth déjà connecté ou erreur:", e);
+            }
+            
+            return true;
+        }else{
+            window.location.href='https://www.netubex.com/login?ecole='+encodeURIComponent(schoolId);
+            return false;
+        }
+    }catch(e){
+        console.error("Erreur vérification:", e);
+        window.location.href='https://www.netubex.com/login?ecole='+encodeURIComponent(schoolId);
+        return false;
+    }
+}
+
+// Exécuter la vérification avant tout chargement
+await verifierCodePromoteur();
 
 let allEleves=[];
 let allProfs=[];
@@ -484,7 +526,6 @@ const resteAPayer=totalMinerval-totalPaye;
 
 document.getElementById('synthDate').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 document.getElementById('synthTotalEleves').textContent=total;
-document.getElementById('synthPresentAujourdhui').textContent=Math.floor(Math.random()*20)+10; // Placeholder
 document.getElementById('synthInscritsAujourdhui').textContent=inscriptionsAujourdhui.length;
 document.getElementById('synthPayeAujourdhui').textContent=formatNb(payeAujourdhui)+' FC';
 document.getElementById('synthResteAPayer').textContent=formatNb(resteAPayer)+' FC';
@@ -658,21 +699,26 @@ document.querySelectorAll('.bottom-nav button, .tab').forEach(btn=>{btn.addEvent
 
 document.getElementById('themeToggle').addEventListener('click',function(){document.body.classList.toggle('dark-mode');const icon=this.querySelector('i');if(document.body.classList.contains('dark-mode')){icon.className='fas fa-sun';icon.style.color='#fbbf24';}else{icon.className='fas fa-moon';icon.style.color='';}});
 
-// Export PDF Synthèse
+// Bouton fermer
+document.getElementById('closeBtn').addEventListener('click', function() {
+    window.location.href = 'https://www.netubex.com/login?ecole=' + encodeURIComponent(schoolId);
+});
+
+// Export PDF Synthèse - Sans mention Netubex
 document.getElementById('exportSynthèsePdf').addEventListener('click', function() {
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF('p', 'mm', 'a4');
     const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     
-    // En-tête
+    // En-tête avec le nom de l'école uniquement
     pdf.setFillColor(26, 38, 52);
-    pdf.rect(0, 0, 210, 40, 'F');
+    pdf.rect(0, 0, 210, 45, 'F');
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(18);
+    pdf.setFontSize(20);
     pdf.setTextColor(255, 255, 255);
-    pdf.text('COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME.toUpperCase(), 105, 22, { align: 'center' });
-    pdf.setFontSize(12);
-    pdf.text('SYNTHÈSE DU ' + today.toUpperCase(), 105, 34, { align: 'center' });
+    pdf.text('COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME.toUpperCase(), 105, 25, { align: 'center' });
+    pdf.setFontSize(13);
+    pdf.text('SYNTHÈSE DU ' + today.toUpperCase(), 105, 38, { align: 'center' });
     
     // Récupérer les données
     const totalEleves = document.getElementById('synthTotalEleves').textContent;
@@ -695,7 +741,7 @@ document.getElementById('exportSynthèsePdf').addEventListener('click', function
     ];
     
     pdf.autoTable({
-        startY: 48,
+        startY: 53,
         head: [['Indicateur', 'Valeur']],
         body: statsData,
         theme: 'grid',
@@ -748,7 +794,7 @@ document.getElementById('exportSynthèsePdf').addEventListener('click', function
     
     if (paiementsRows.length > 0) {
         pdf.autoTable({
-            startY: inscriptionsRows.length > 0 ? pdf.lastAutoTable.finalY + 10 : (pdf.lastAutoTable?.finalY || 48) + 10,
+            startY: inscriptionsRows.length > 0 ? pdf.lastAutoTable.finalY + 10 : (pdf.lastAutoTable?.finalY || 53) + 10,
             head: [['#', 'Nom', 'Classe', 'Mois', 'Montant', 'Heure']],
             body: paiementsRows,
             theme: 'grid',
@@ -757,12 +803,12 @@ document.getElementById('exportSynthèsePdf').addEventListener('click', function
         });
     }
     
-    // Pied de page
+    // Pied de page - Sans mention Netubex, uniquement le nom de l'école
     const finalY = pdf.lastAutoTable?.finalY || 200;
-    pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
     pdf.text('Document généré le ' + new Date().toLocaleString('fr-FR'), 105, finalY + 15, { align: 'center' });
-    pdf.text('© NETUBEX SARL - Tous droits réservés', 105, finalY + 22, { align: 'center' });
+    pdf.text('COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME.toUpperCase() + ' - Tous droits réservés', 105, finalY + 22, { align: 'center' });
     
     pdf.save('Synthèse_' + SCHOOL_DISPLAY_NAME + '_' + new Date().toISOString().split('T')[0] + '.pdf');
 });
