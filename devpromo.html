@@ -221,8 +221,6 @@ body.dark-mode .section-title{color:#e8edf4}
 </div>
 <div class="section-title" style="margin-top:20px;"><i class="fas fa-money-bill-wave"></i> Paiements du minerval</div>
 <div class="stats-grid">
-<div class="stat-item"><div class="label">Payé aujourd'hui</div><div class="value green" id="payesAujourdhui">0 FC</div></div>
-<div class="stat-item"><div class="label">Payé hier</div><div class="value cyan" id="payesHier">0 FC</div></div>
 <div class="stat-item"><div class="label">Payé cette semaine</div><div class="value purple" id="payesSemaine">0 FC</div></div>
 <div class="stat-item"><div class="label">Payé ce mois</div><div class="value blue" id="payesMois">0 FC</div></div>
 </div>
@@ -346,7 +344,6 @@ body.dark-mode .section-title{color:#e8edf4}
 <div class="stat-item"><div class="label">📅 Date</div><div class="value blue" id="synthDate">-</div></div>
 <div class="stat-item"><div class="label">📊 Total élèves</div><div class="value purple" id="synthTotalEleves">0</div></div>
 <div class="stat-item"><div class="label">📝 Inscrits aujourd'hui</div><div class="value gold" id="synthInscritsAujourdhui">0</div></div>
-<div class="stat-item"><div class="label">💰 Payé aujourd'hui</div><div class="value green" id="synthPayeAujourdhui">0 FC</div></div>
 <div class="stat-item"><div class="label">📥 Reste à payer</div><div class="value red" id="synthResteAPayer">0 FC</div></div>
 <div class="stat-item"><div class="label">🆕 Nouvelles inscriptions</div><div class="value cyan" id="synthNouvellesInscriptions">0</div></div>
 <div class="stat-item"><div class="label">📤 Total inscriptions</div><div class="value blue" id="synthTotalInscriptions">0</div></div>
@@ -488,8 +485,6 @@ const startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getD
 const startOfMonth=new Date(today.getFullYear(),today.getMonth(),1);
 
 let inscritsAujourdhui=0,inscritsHier=0,inscritsSemaine=0,inscritsMois=0;
-let montantPayeAujourdhui=0;
-let montantPayeHier=0;
 let montantPayeSemaine=0;
 let montantPayeMois=0;
 
@@ -503,21 +498,12 @@ const d=new Date(dateIns);
 if(d>=startOfWeek)inscritsSemaine++;
 if(d>=startOfMonth)inscritsMois++;
 
-// CORRECTION: Compter les montants des paiements
 const paiements=e.paiements||{};
 for(const m of moisListe){
 const p=paiements[m];
 if(p && p.montant>0 && p.date){
 const datePay=new Date(p.date);
-const datePayStr=p.date.split('T')[0];
 const montant=p.montant||0;
-
-if(datePayStr===aujourdhui){
-montantPayeAujourdhui+=montant;
-}
-if(datePayStr===hier){
-montantPayeHier+=montant;
-}
 if(datePay>=startOfWeek){
 montantPayeSemaine+=montant;
 }
@@ -571,9 +557,6 @@ document.getElementById('inscritsHier').textContent=inscritsHier;
 document.getElementById('inscritsSemaine').textContent=inscritsSemaine;
 document.getElementById('inscritsMois').textContent=inscritsMois;
 
-// Afficher les montants en FC
-document.getElementById('payesAujourdhui').textContent=formatNb(montantPayeAujourdhui)+' FC';
-document.getElementById('payesHier').textContent=formatNb(montantPayeHier)+' FC';
 document.getElementById('payesSemaine').textContent=formatNb(montantPayeSemaine)+' FC';
 document.getElementById('payesMois').textContent=formatNb(montantPayeMois)+' FC';
 
@@ -611,8 +594,7 @@ const dateIns=e.dateInscription||'';
 return dateIns.startsWith(aujourdhui);
 });
 
-// Paiements du jour
-let payeAujourdhui=0;
+// Paiements du jour - on garde pour l'affichage du détail mais on ne l'affiche plus comme compteur séparé
 let paiementsAujourdhuiListe=[];
 eleves.forEach(e=>{
 const paiements=e.paiements||{};
@@ -621,7 +603,6 @@ const p=paiements[m];
 if(p && p.montant>0 && p.date){
 const datePay=p.date.split('T')[0];
 if(datePay===aujourdhui){
-payeAujourdhui+=p.montant;
 paiementsAujourdhuiListe.push({
 nom:e.nom,
 classe:e.classe,
@@ -647,7 +628,6 @@ const resteAPayer=totalMinerval-totalPaye;
 document.getElementById('synthDate').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 document.getElementById('synthTotalEleves').textContent=total;
 document.getElementById('synthInscritsAujourdhui').textContent=inscriptionsAujourdhui.length;
-document.getElementById('synthPayeAujourdhui').textContent=formatNb(payeAujourdhui)+' FC';
 document.getElementById('synthResteAPayer').textContent=formatNb(resteAPayer)+' FC';
 document.getElementById('synthNouvellesInscriptions').textContent=inscriptionsAujourdhui.length;
 document.getElementById('synthTotalInscriptions').textContent=eleves.length;
@@ -704,7 +684,7 @@ document.getElementById('closeBtn').addEventListener('click', function() {
 window.location.href = 'https://www.netubex.com/login?ecole=' + encodeURIComponent(schoolId);
 });
 
-// Export PDF Synthèse en paysage
+// Export PDF Synthèse en paysage - sans "Payé aujourd'hui" et "Payé hier"
 document.getElementById('exportSynthèsePdf').addEventListener('click', function() {
 const { jsPDF } = window.jspdf;
 const pdf = new jsPDF('landscape', 'mm', 'a4');
@@ -724,7 +704,6 @@ pdf.text('SYNTHÈSE DU ' + today.toUpperCase(), pageWidth / 2, 33, { align: 'cen
 
 const totalEleves = document.getElementById('synthTotalEleves').textContent;
 const inscritsAujourdhui = document.getElementById('synthInscritsAujourdhui').textContent;
-const payeAujourdhui = document.getElementById('synthPayeAujourdhui').textContent;
 const resteAPayer = document.getElementById('synthResteAPayer').textContent;
 const nouvellesInscriptions = document.getElementById('synthNouvellesInscriptions').textContent;
 const totalInscriptions = document.getElementById('synthTotalInscriptions').textContent;
@@ -734,7 +713,6 @@ pdf.setTextColor(0, 0, 0);
 const statsData = [
 ['Total élèves', totalEleves],
 ['Inscrits aujourd\'hui', inscritsAujourdhui],
-['Payé aujourd\'hui', payeAujourdhui],
 ['Reste à payer', resteAPayer],
 ['Nouvelles inscriptions', nouvellesInscriptions],
 ['Total inscriptions', totalInscriptions]
@@ -776,7 +754,7 @@ styles: { fontSize: 9, cellPadding: 4 }
 });
 }
 
-// Paiements du jour
+// Paiements du jour - on garde le détail mais sans compteur séparé
 const paiementsRows = [];
 document.querySelectorAll('#synthPaiementsBody tr').forEach(tr => {
 const tds = tr.querySelectorAll('td');
