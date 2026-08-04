@@ -132,33 +132,28 @@ body{display:flex;align-items:center;justify-content:center;background:linear-gr
 </div>
 </div>
 
+<script type="importmap">
+{"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js","firebase/auth":"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js","firebase/firestore":"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"}}
+</script>
 <script type="module">
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import{initializeApp}from"firebase/app";
+import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword}from"firebase/auth";
+import{getFirestore,doc,getDoc}from"firebase/firestore";
 
-const firebaseConfig = {
-apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
-authDomain: "gesco-67c43.firebaseapp.com",
-projectId: "gesco-67c43",
-storageBucket: "gesco-67c43.firebasestorage.app",
-messagingSenderId: "333004443566",
-appId: "1:333004443566:web:de41f60000e418dce9023f"
-};
+const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+const urlParams=new URLSearchParams(window.location.search);
+const ecoleId=urlParams.get("ecole")||"mon-ecole";
+const schoolDisplay=ecoleId.toUpperCase().replace(/-/g," ");
+document.getElementById("ecoleDisplay").textContent="📌 ÉCOLE : "+schoolDisplay;
+document.getElementById("schoolSub").textContent="COMPLEXE SCOLAIRE "+schoolDisplay;
+document.getElementById("schoolNameTitle").textContent="ÉCOLE "+schoolDisplay;
+document.title="Connexion - "+schoolDisplay;
 
-const urlParams = new URLSearchParams(window.location.search);
-const ecoleId = urlParams.get("ecole") || "mon-ecole";
-const schoolDisplay = ecoleId.toUpperCase().replace(/-/g, " ");
-document.getElementById("ecoleDisplay").textContent = "📌 ÉCOLE : " + schoolDisplay;
-document.getElementById("schoolSub").textContent = "COMPLEXE SCOLAIRE " + schoolDisplay;
-document.getElementById("schoolNameTitle").textContent = "ÉCOLE " + schoolDisplay;
-document.title = "Connexion - " + schoolDisplay;
-
-let tentatives = 0;
+let tentatives=0;
 
 function genererEmailPromoteur(ecoleId){return`promoteur.${ecoleId}@gmail.com`;}
 function genererEmailDirection(ecoleId){return`direction.${ecoleId}@gmail.com`;}
@@ -229,134 +224,136 @@ placeholder.style.display = 'flex';
 }
 }
 
-async function getSchoolCodes() {
-try {
-const ref = doc(db, "ecoles", ecoleId, "settings", "data");
-let snap = await getDoc(ref);
-if(snap.exists()){
-const data = snap.data();
-if(!data.codeDirection){
-const schoolRef = doc(db, "ecoles", ecoleId);
-const schoolSnap = await getDoc(schoolRef);
-if(schoolSnap.exists()){
-const schoolData = schoolSnap.data();
-if(schoolData.codeDirection) data.codeDirection = schoolData.codeDirection;
-}
-}
-return data;
-}else{
-return null;
-}
-}catch(e){
-console.error("Erreur chargement codes:", e);
-return null;
-}
+async function getSchoolCodes(){
+    try{
+        const ref = doc(db, "ecoles", ecoleId, "settings", "data");
+        let snap = await getDoc(ref);
+        
+        if(snap.exists()){
+            const data = snap.data();
+            
+            if (!data.codeDirection) {
+                const schoolRef = doc(db, "ecoles", ecoleId);
+                const schoolSnap = await getDoc(schoolRef);
+                
+                if (schoolSnap.exists()) {
+                    const schoolData = schoolSnap.data();
+                    if (schoolData.codeDirection) {
+                        data.codeDirection = schoolData.codeDirection;
+                    }
+                }
+            }
+            
+            return data;
+        } else {
+            return null;
+        }
+    } catch(e){
+        console.error("Erreur chargement codes:", e);
+        return null;
+    }
 }
 
 async function seConnecter(){
-const password = document.getElementById("loginPassword").value.trim();
-const btn = document.getElementById("loginBtn");
-const errorDiv = document.getElementById("errorMsg");
-const infoDiv = document.getElementById("infoMsg");
-errorDiv.textContent = "";
-infoDiv.textContent = "";
+    const password = document.getElementById("loginPassword").value.trim();
+    const btn = document.getElementById("loginBtn");
+    
+    if(!password || password.length < 4){
+        showToast("Code d'accès incorrect. Veuillez réessayer.", "error");
+        tentatives++;
+        if(tentatives >= 5){
+            showToast("Trop de tentatives. Veuillez contacter le support.", "error");
+            document.getElementById("loginPassword").disabled = true;
+        }
+        return;
+    }
 
-if(!password || password.length < 4){
-showToast("Code d'accès incorrect. Veuillez réessayer.", "error");
-tentatives++;
-if(tentatives >= 5){
-showToast("Trop de tentatives. Veuillez contacter le support.", "error");
-document.getElementById("loginPassword").disabled = true;
-}
-return;
-}
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Connexion en cours...';
 
-btn.disabled = true;
-btn.innerHTML = '<span class="loading-spinner"></span> Connexion en cours...';
+    try{
+        const codes = await getSchoolCodes();
+        
+        if(!codes){
+            showToast("École non reconnue. Veuillez contacter le support.", "error");
+            btn.disabled = false;
+            btn.innerHTML = '🔓 SE CONNECTER';
+            return;
+        }
 
-try{
-const codes = await getSchoolCodes();
-if(!codes){
-showToast("École non reconnue. Veuillez contacter le support.", "error");
-btn.disabled = false;
-btn.innerHTML = '🔓 SE CONNECTER';
-return;
-}
+        let role = null;
+        let email = null;
+        let urlDestination = '';
 
-let role = null;
-let email = null;
-let urlDestination = '';
+        const codeDir = codes.codeDirection ? codes.codeDirection.trim() : '';
+        const codeCompta = codes.codeComptabilite ? codes.codeComptabilite.trim() : '';
+        const codePromoteur = codes.codePromoteur ? codes.codePromoteur.trim() : '';
+        const passwordClean = password.trim();
 
-const codeDir = codes.codeDirection ? codes.codeDirection.trim() : '';
-const codeCompta = codes.codeComptabilite ? codes.codeComptabilite.trim() : '';
-const codePromoteur = codes.codePromoteur ? codes.codePromoteur.trim() : '';
-const passwordClean = password.trim();
+        if(codeDir === passwordClean){
+            role = 'direction';
+            email = codes.emailDirection || genererEmailDirection(ecoleId);
+            urlDestination = 'https://www.netubex.com/schooldirection';
+        } else if(codeCompta === passwordClean){
+            role = 'comptabilite';
+            email = codes.emailComptabilite || genererEmailCompta(ecoleId);
+            urlDestination = 'https://www.netubex.com/schoolcompta';
+        } else if(codePromoteur === passwordClean){
+            role = 'promoteur';
+            email = codes.emailPromoteur || genererEmailPromoteur(ecoleId);
+            urlDestination = 'https://www.netubex.com/promo';
+        } else {
+            showToast("Code d'accès incorrect. Veuillez réessayer.", "error");
+            tentatives++;
+            btn.disabled = false;
+            btn.innerHTML = '🔓 SE CONNECTER';
+            if(tentatives >= 5){
+                showToast("Trop de tentatives. Veuillez contacter le support.", "error");
+                document.getElementById("loginPassword").disabled = true;
+            }
+            return;
+        }
 
-if(codeDir === passwordClean){
-role = 'direction';
-email = codes.emailDirection || genererEmailDirection(ecoleId);
-urlDestination = 'https://www.netubex.com/schooldirection';
-}else if(codeCompta === passwordClean){
-role = 'comptabilite';
-email = codes.emailComptabilite || genererEmailCompta(ecoleId);
-urlDestination = 'https://www.netubex.com/schoolcompta';
-}else if(codePromoteur === passwordClean){
-role = 'promoteur';
-email = codes.emailPromoteur || genererEmailPromoteur(ecoleId);
-urlDestination = 'https://www.netubex.com/promo';
-}else{
-showToast("Code d'accès incorrect. Veuillez réessayer.", "error");
-tentatives++;
-btn.disabled = false;
-btn.innerHTML = '🔓 SE CONNECTER';
-if(tentatives >= 5){
-showToast("Trop de tentatives. Veuillez contacter le support.", "error");
-document.getElementById("loginPassword").disabled = true;
-}
-return;
-}
+        const roleLabels = { direction:'Direction', comptabilite:'Comptabilité', promoteur:'Promoteur' };
+        showToast(`Vérification réussie. Redirection vers l'espace ${roleLabels[role]}...`, "success");
 
-const roleLabels = { direction:'Direction', comptabilite:'Comptabilité', promoteur:'Promoteur' };
-showToast(`Vérification réussie. Redirection vers l'espace ${roleLabels[role]}...`, "success");
+        try{
+            await createUserWithEmailAndPassword(auth, email, password);
+        } catch(e){
+            if(e.code !== 'auth/email-already-in-use'){
+                console.error("Erreur création compte:", e);
+            }
+        }
 
-try{
-await createUserWithEmailAndPassword(auth, email, password);
-}catch(e){
-if(e.code !== 'auth/email-already-in-use'){
-console.error("Erreur création compte:", e);
-}
-}
+        try{
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch(authError){
+            if(authError.code === 'auth/user-not-found'){
+                await createUserWithEmailAndPassword(auth, email, password);
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                throw authError;
+            }
+        }
 
-try{
-await signInWithEmailAndPassword(auth, email, password);
-}catch(authError){
-if(authError.code === 'auth/user-not-found'){
-await createUserWithEmailAndPassword(auth, email, password);
-await signInWithEmailAndPassword(auth, email, password);
-}else{
-throw authError;
-}
-}
+        setTimeout(() => {
+            window.location.href = `${urlDestination}?ecole=${ecoleId}&code=${password}&role=${role}`;
+        }, 800);
 
-setTimeout(()=>{
-window.location.href = `${urlDestination}?ecole=${ecoleId}&code=${password}&role=${role}`;
-}, 800);
-
-}catch(error){
-console.error("Erreur:", error);
-showToast("Une erreur est survenue. Veuillez contacter le support.", "error");
-btn.disabled = false;
-btn.innerHTML = '🔓 SE CONNECTER';
-}
+    } catch(error){
+        console.error("Erreur:", error);
+        showToast("Une erreur est survenue. Veuillez contacter le support.", "error");
+        btn.disabled = false;
+        btn.innerHTML = '🔓 SE CONNECTER';
+    }
 }
 
 document.getElementById("loginBtn").addEventListener("click", seConnecter);
 document.getElementById("loginPassword").addEventListener("keypress", function(e){
-if(e.key === "Enter") seConnecter();
+    if(e.key === "Enter") seConnecter();
 });
 document.getElementById("loginPassword").addEventListener("input", function(){
-if(this.value.length > 6) this.value = this.value.slice(0, 6);
-document.getElementById("errorMsg").textContent = "";
+    if(this.value.length > 6) this.value = this.value.slice(0, 6);
 });
 document.getElementById("loginPassword").focus();
 
