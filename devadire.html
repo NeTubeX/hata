@@ -666,6 +666,10 @@ const urlParams=new URLSearchParams(window.location.search);
 let schoolId=urlParams.get('ecole');
 let codeSaisi=urlParams.get('code');
 
+if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';}
+const ECOLET_ID=schoolId.replace(/[^a-zA-Z0-9]/g,'_');
+const SCHOOL_DISPLAY_NAME=schoolId.toUpperCase();
+
 let schoolLogoUrl=null;
 let logoBase64Cache=null;
 let currentSchoolConfig=null;
@@ -676,12 +680,11 @@ let fraisInscriptionConfig={};
 let localEleves=[];
 let filteredEleves=[];
 let isFilterActive=false;
-let familySearchResults=[];
-let rattacherEleveId=null;
-let rattacherEleveNom='';
-let rattacherCodeActuel='';
-let rattacherSelectedEleve=null;
-let rattacherSearchResults=[];
+let currentStep=1;
+const totalSteps=5;
+let isGeneratingPDF=false;
+let isGeneratingReceipt=false;
+const receiptQueue=[];
 
 const classesListe=["7ème EB","8ème EB","1ère Année","2ème Année","3ème Année","4ème Année"];
 const optionsParClasse={
@@ -691,17 +694,20 @@ const optionsParClasse={
 "3ème Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],
 "4ème Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"]
 };
-
 const moisListe=["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
 
-const ECOLET_ID=schoolId.replace(/[^a-zA-Z0-9]/g,'_');
-const SCHOOL_DISPLAY_NAME=schoolId.toUpperCase();
-
-let currentStep=1;
-const totalSteps=5;
-let isGeneratingPDF=false;
-let isGeneratingReceipt=false;
-const receiptQueue=[];
+const dateRef=new Date();
+const moisActuelNum=dateRef.getMonth();
+const anneeActuelle=dateRef.getFullYear();
+let moisCourant="Septembre";
+let anneeScolaireCourante=anneeActuelle+"-"+(anneeActuelle+1);
+let estPeriodeRentree=false;
+if(moisActuelNum>=8){moisCourant=moisListe[moisActuelNum-8];anneeScolaireCourante=anneeActuelle+"-"+(anneeActuelle+1);}
+else if(moisActuelNum>=0&&moisActuelNum<=5){moisCourant=moisListe[moisActuelNum+4];anneeScolaireCourante=(anneeActuelle-1)+"-"+anneeActuelle;}
+else{moisCourant="Septembre";anneeScolaireCourante=anneeActuelle+"-"+(anneeActuelle+1);estPeriodeRentree=true;}
+let moisPasse="Juin";
+const moisCourantIndex=moisListe.indexOf(moisCourant);
+if(moisCourantIndex>0)moisPasse=moisListe[moisCourantIndex-1];
 
 function toast(msg,type="success"){
 if(isGeneratingPDF)return;
@@ -728,14 +734,23 @@ function formaterNombre(n){if(n===0)return"0";let r="",nb=Math.abs(n),str=nb.toS
 function formatNb(n){if(isNaN(n)||n===null||n===undefined)return"0 FC";return formaterNombre(Math.floor(Number(n)))+" FC";}
 function formatNbSimple(n){if(isNaN(n)||n===null||n===undefined)return"0";return formaterNombre(Math.floor(Number(n)));}
 function sansAccent(t){if(!t)return"";const m={'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','ô':'o','ö':'o','û':'u','ü':'u','î':'i','ï':'i','ç':'c','É':'E','È':'E','Ê':'E','Ë':'E','À':'A','Â':'A','Ä':'A','Ô':'O','Ö':'O','Û':'U','Ü':'U','Î':'I','Ï':'I','Ç':'C'};return t.replace(/[éèêëàâäôöûüîïçÉÈÊËÀÂÄÔÖÛÜÎÏÇ]/g,function(match){return m[match]||match;});}
-
-function getEcoleRef(sousCollection,docId=null){if(docId){return doc(db,"ecoles",ECOLET_ID,sousCollection,docId);}return collection(db,"ecoles",ECOLET_ID,sousCollection);}
-
+function getMoisFromDate(dateISO){if(!dateISO)return"Septembre";const d=new Date(dateISO);const m=d.getMonth();if(m>=8)return moisListe[m-8];else if(m>=0&&m<=5)return moisListe[m+4];else return"Septembre";}
+function estEleveValide(e){if(!e)return false;if(!e.nom||e.nom.trim()==='')return false;return true;}
 function getOptionsForClasse(classe){return optionsParClasse[classe]||[];}
 
-function getMoisFromDate(dateISO){if(!dateISO)return"Septembre";const d=new Date(dateISO);const m=d.getMonth();if(m>=8)return moisListe[m-8];else if(m>=0&&m<=5)return moisListe[m+4];else return"Septembre";}
+async function getSchoolLogo(ecoleId){
+try{const ref=doc(db,"ecoles",ecoleId);const snap=await getDoc(ref);if(snap.exists()){const data=snap.data();return data.logoUrl||null;}return null;}catch(e){return null;}}
 
-function estEleveValide(e){if(!e)return false;if(!e.nom||e.nom.trim()==='')return false;return true;}
+async function loadLogoBase64(){
+if(logoBase64Cache)return logoBase64Cache;
+if(!schoolLogoUrl)return null;
+try{const response=await fetch(schoolLogoUrl);const blob=await response.blob();return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{logoBase64Cache=reader.result;resolve(logoBase64Cache);};reader.onerror=reject;reader.readAsDataURL(blob);});}catch(e){return null;}}
+
+async function chargerLogoEcole(){
+const logoUrl=await getSchoolLogo(ECOLET_ID);
+if(logoUrl){schoolLogoUrl=logoUrl;const loadingLogo=document.getElementById('loadingLogo');if(loadingLogo){loadingLogo.src=logoUrl;loadingLogo.style.display='block';}const headerLogo=document.getElementById('schoolLogo');if(headerLogo){headerLogo.src=logoUrl;headerLogo.style.display='block';}}}
+
+function afficherPeriode(){const ind=document.getElementById('periodeIndicator');if(!ind)return;if(estPeriodeRentree){ind.textContent='📅 PRÉPARATION RENTRÉE '+anneeScolaireCourante;ind.className='rentree';}else{ind.textContent='📅 ANNÉE '+anneeScolaireCourante+' - '+moisCourant;ind.className='annee';}}
 
 function mettreAJourSelectsOptions(){
 const filterOption=document.getElementById("filterOption");
@@ -759,18 +774,6 @@ let html='';opts.forEach(opt=>{html+='<div class="options-config-item"><span cla
 
 async function synchroniserOptionsAvecCompta(){
 try{const snap=await getDocs(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));let c=0;for(const ds of snap.docs){const d=ds.data();if(d._type==='config'||d._type==='settings')continue;if(!d.classe)continue;const opts=optionsParClasse[d.classe]||[];if(d.classe==='7ème EB'||d.classe==='8ème EB'){if(d.option&&d.option!==''&&d.option!=='TOUTES'){await updateDoc(ds.ref,{option:'TOUTES'});c++;}continue;}if(d.option&&d.option!==''&&!opts.includes(d.option)&&d.option!=='TOUTES'){await updateDoc(ds.ref,{option:'TOUTES'});c++;}if(!d.option||d.option===''){await updateDoc(ds.ref,{option:'TOUTES'});c++;}}if(c>0){toast('✅ '+c+' élève(s) corrigé(s)','info');}return c;}catch(e){console.error(e);return 0;}}
-
-async function getSchoolLogo(ecoleId){
-try{const ref=doc(db,"ecoles",ecoleId);const snap=await getDoc(ref);if(snap.exists()){const data=snap.data();return data.logoUrl||null;}return null;}catch(e){return null;}}
-
-async function loadLogoBase64(){
-if(logoBase64Cache)return logoBase64Cache;
-if(!schoolLogoUrl)return null;
-try{const response=await fetch(schoolLogoUrl);const blob=await response.blob();return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{logoBase64Cache=reader.result;resolve(logoBase64Cache);};reader.onerror=reject;reader.readAsDataURL(blob);});}catch(e){return null;}}
-
-async function chargerLogoEcole(){
-const logoUrl=await getSchoolLogo(ECOLET_ID);
-if(logoUrl){schoolLogoUrl=logoUrl;const loadingLogo=document.getElementById('loadingLogo');if(loadingLogo){loadingLogo.src=logoUrl;loadingLogo.style.display='block';}const headerLogo=document.getElementById('schoolLogo');if(headerLogo){headerLogo.src=logoUrl;headerLogo.style.display='block';}}}
 
 async function chargerConfigEcole(){
 try{const ref=doc(db,"ecoles",ECOLET_ID,"settings","data");const snap=await getDoc(ref);if(snap.exists()){currentSchoolConfig=snap.data();}else{currentSchoolConfig={nom:'COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME,adresse:"",maxExonerations:999999};await setDoc(ref,currentSchoolConfig);}
@@ -822,20 +825,10 @@ for(let i=debutIdx;i<=finIdx;i++){const m=moisListe[i];if(!m)continue;const mt=p
 const pc=paiements[moisRef]?.montant||0;estEnOrdreMoisCourant=e.exonere||pc>=(e.minerval||45000);let optAff=e.option||"";if((e.classe==='7ème EB'||e.classe==='8ème EB')&&!optAff)optAff="";resultats.push({...e,option:optAff,moisImpayes,totalPaye,totalMin,estEnOrdreMoisCourant,anneeScolaire:anneeScolaireCourante});}
 return resultats;}
 
-let moisCourant="Septembre";
-let anneeScolaireCourante="2024-2025";
-let estPeriodeRentree=false;
-const dateRef=new Date();
-const moisActuelNum=dateRef.getMonth();
-const anneeActuelle=dateRef.getFullYear();
-if(moisActuelNum>=8){moisCourant=moisListe[moisActuelNum-8];anneeScolaireCourante=anneeActuelle+"-"+(anneeActuelle+1);}
-else if(moisActuelNum>=0&&moisActuelNum<=5){moisCourant=moisListe[moisActuelNum+4];anneeScolaireCourante=(anneeActuelle-1)+"-"+anneeActuelle;}
-else{moisCourant="Septembre";anneeScolaireCourante=anneeActuelle+"-"+(anneeActuelle+1);estPeriodeRentree=true;}
-let moisPasse="Juin";
-const moisCourantIndex=moisListe.indexOf(moisCourant);
-if(moisCourantIndex>0)moisPasse=moisListe[moisCourantIndex-1];
-
-function afficherPeriode(){const ind=document.getElementById('periodeIndicator');if(!ind)return;if(estPeriodeRentree){ind.textContent='📅 PRÉPARATION RENTRÉE '+anneeScolaireCourante;ind.className='rentree';}else{ind.textContent='📅 ANNÉE '+anneeScolaireCourante+' - '+moisCourant;ind.className='annee';}}
+async function genererCodeParentUnique(){
+const eleves=await getAllComptaEleves();
+const codes=new Set();eleves.forEach(e=>{if(e.parentCode&&e.parentCode.length===6)codes.add(e.parentCode);});
+let code;let t=0;do{code=Math.floor(100000+Math.random()*900000).toString();t++;}while(codes.has(code)&&t<100);return code;}
 
 function updateStepUI(){
 document.querySelectorAll('.form-step').forEach(s=>s.style.display='none');
@@ -900,11 +893,6 @@ document.getElementById('familySelectedInfo').style.display='none';
 document.getElementById('previewInscription').style.display='none';
 document.querySelectorAll('.error-message').forEach(e=>e.remove());
 }
-
-async function genererCodeParentUnique(){
-const eleves=await getAllComptaEleves();
-const codes=new Set();eleves.forEach(e=>{if(e.parentCode&&e.parentCode.length===6)codes.add(e.parentCode);});
-let code;let t=0;do{code=Math.floor(100000+Math.random()*900000).toString();t++;}while(codes.has(code)&&t<100);return code;}
 
 async function ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motifExon,approbateur,parentCode=null,montantInscription=0){
 const id="eleve_"+Date.now();let optFinal=option||"";if(classe==='7ème EB'||classe==='8ème EB'){optFinal="";}
@@ -1134,7 +1122,7 @@ const sc=document.getElementById('searchParentCode')?.value.trim()||'';const con
 if(sc){const enfants=codesMap.get(sc)||[];if(enfants.length===0){container.innerHTML='<div class="empty-state">🔍 Aucun élève trouvé</div>';}else{let html='<div class="code-family-group"><div style="font-weight:bold;margin-bottom:12px;">🔑 Code '+sc+' - '+enfants.length+' enfant(s)</div>';for(let e of enfants){const sexeIcon=e.sexe==='F'?'👩':'👨';html+='<div class="detail-item" onclick="voirDetails(\''+e.id+'\',\''+e.nom+'\',\''+e.classe+'\',\''+(e.option||"")+'\')"><div class="detail-nom">'+sexeIcon+' '+e.nom+' '+(e.postnom||'')+' '+(e.prenom||'')+'</div><div class="detail-info">📚 '+e.classe+(e.option?' - '+e.option:'')+' | 📞 '+(e.phone||'-')+'</div></div>';}
 html+='</div><div style="margin-top:12px;"><button class="btn btn-sm btn-outline" onclick="document.getElementById(\'searchParentCode\').value=\'\';afficherParentCodes();">✖ Effacer</button></div>';container.innerHTML=html;}}else{container.innerHTML='<div class="empty-state">🔍 Entrez un code parent pour rechercher</div>';}
 const allCodes=document.getElementById('allParentCodesList');let html='<div style="display:flex;flex-direction:column;gap:8px;">';for(let [code,enfants] of codesMap){if(!code)continue;const noms=enfants.map(e=>e.nom+' '+(e.prenom||'')).join(', ');html+='<div style="background:rgba(59,130,246,0.1);border-radius:12px;padding:12px;border-left:3px solid #3b82f6;"><div style="font-family:monospace;font-size:16px;font-weight:bold;color:#3b82f6;">🔑 '+code+'</div><div style="font-size:12px;color:#94a3b8;margin-top:5px;">'+enfants.length+' élève(s): '+noms+'</div><button class="btn btn-sm btn-outline" style="margin-top:8px;" onclick="document.getElementById(\'searchParentCode\').value=\''+code+'\';afficherParentCodes();">🔍 Rechercher</button></div>';}
-html+='</div>';if(codesMap.size===0||(codesMap.size===1&&codesMap.has(''))){allCodes.innerHTML='<div class="empty-state">Aucun code parent attribué</div>';}else{allCodes.innerHTML=html;}
+html+='</div>';if(codesMap.size===0||(codesMap.size===1&&codesMap.has(''))){allCodes.innerHTML='<div class="empty-state">Aucun code parent attribué</div>';}else{allCodes.innerHTML=html;}}
 
 window.getElevesAvecFraisInscription=async function(){const tous=await getAllComptaEleves();const result=[];for(const e of tous){if(e.abandon)continue;const total=e.fraisInscriptionTotal||45000;const paye=e.fraisInscriptionPaye||0;const reste=total-paye;let statut='NON PAYÉ';if(paye>=total)statut='COMPLET';else if(paye>0)statut='PARTIEL';result.push({id:e.id,nom:e.nom+' '+(e.postnom||'')+' '+(e.prenom||''),classe:e.classe,option:e.option||'',sexe:e.sexe||'M',fraisTotal:total,montantPaye:paye,reste:reste,statut:statut,codeParent:e.parentCode||'-',phone:e.phone||'-',exonere:e.exonere,dateInscription:e.dateInscription||formatDateYMD(new Date())});}
 result.sort((a,b)=>{if(a.statut==='PARTIEL'&&b.statut==='COMPLET')return -1;if(a.statut==='COMPLET'&&b.statut==='PARTIEL')return 1;if(a.statut==='NON PAYÉ'&&b.statut==='PARTIEL')return 1;if(a.statut==='PARTIEL'&&b.statut==='NON PAYÉ')return -1;return 0;});return result;};
@@ -1261,6 +1249,15 @@ document.querySelector('[data-stat="reguliers"]').onclick=async()=>{const reg=in
 document.querySelector('[data-stat="abandons"]').onclick=async()=>{const ab=tous.filter(e=>e.abandon);showDetailModal("❌ ABANDONS",ab);};
 document.querySelector('[data-stat="impayes"]').onclick=async()=>{const infosActuelles=await getTousElevesAvecInfos();const imp=infosActuelles.filter(e=>{const paiements=e.paiements||{};const pm=paiements[moisPasse]?.montant||0;const mb=e.moisBlancs||[];const estBlanc=mb.includes(moisPasse);return !e.abandon&&!e.exonere&&!estBlanc&&pm<(e.minerval||45000);});showDetailModal("💰 NON PAYÉS ("+moisPasse+")",imp);};}
 
+async function verifierAcces(){
+if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';return false;}
+try{const ref=doc(db,"ecoles",ECOLET_ID);const snap=await getDoc(ref);if(!snap.exists()){afficherErreur("🏫 École non trouvée",`"${schoolId}" n'est pas enregistré.`,"https://www.netubex.com/schoolchoice","Retourner");return false;}}catch(e){afficherErreur("⚠️ Erreur","Vérifiez votre connexion.","javascript:location.reload()","🔄 Réessayer");return false;}
+if(!codeSaisi){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;return false;}
+try{const ref=doc(db,"ecoles",ECOLET_ID,"settings","data");const snap=await getDoc(ref);if(!snap.exists()){afficherErreur("⚠️ Configuration","Contactez l'administrateur.",`https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}const data=snap.data();const codeStocke=data.codeComptabilite?data.codeComptabilite.trim():'';if(codeSaisi!==codeStocke){afficherErreur("🔐 Code incorrect",`Le code ${codeSaisi} ne correspond pas.`, `https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}}catch(e){afficherErreur("⚠️ Erreur",e.message,`https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}
+return new Promise((resolve)=>{const timeout=setTimeout(()=>{resolve(true);},5000);onAuthStateChanged(auth,(user)=>{clearTimeout(timeout);if(!user){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;resolve(false);return;}const email=user.email||'';if(!email.includes(ECOLET_ID)&&!email.includes('compta')&&!email.includes('comptabilite')){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;resolve(false);return;}resolve(true);});});}
+
+function afficherErreur(titre,message,lien,lienTexte){const container=document.querySelector('.container');if(container)container.style.display='none';const div=document.createElement('div');div.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;background:#0a0e1a;color:white;font-family:"Inter",sans-serif;text-align:center;';div.innerHTML=`<div style="font-size:80px;margin-bottom:20px;">🔐</div><h2 style="color:#ef4444;font-size:28px;margin-bottom:10px;">${titre}</h2><p style="color:#cbd5e1;max-width:500px;margin:10px auto;font-size:16px;line-height:1.6;">${message}</p><div style="margin-top:20px;"><button onclick="window.location.href='${lien}'" style="padding:14px 40px;background:#ffd700;color:#0f172a;border:none;border-radius:30px;font-weight:700;font-size:16px;cursor:pointer;">${lienTexte}</button><br><br><button onclick="window.location.href='https://www.netubex.com/schoolchoice'" style="padding:10px 30px;background:transparent;color:#94a3b8;border:1px solid #334155;border-radius:30px;font-weight:500;font-size:14px;cursor:pointer;">🏫 Changer d'école</button></div>`;document.body.innerHTML='';document.body.appendChild(div);const loading=document.getElementById('loadingOverlay');if(loading)loading.classList.add('hidden');}
+
 async function initApp(){
 document.getElementById('btnAddOption').disabled=false;document.getElementById('newOptionName').disabled=false;
 await chargerLogoEcole();
@@ -1287,15 +1284,6 @@ afficherPeriode();
 
 await initApp();
 console.log('✅ ESPACE COMPTABILITÉ - Sécurisé');
-
-async function verifierAcces(){
-if(!schoolId){window.location.href='https://www.netubex.com/schoolchoice';return false;}
-try{const ref=doc(db,"ecoles",ECOLET_ID);const snap=await getDoc(ref);if(!snap.exists()){afficherErreur("🏫 École non trouvée",`"${schoolId}" n'est pas enregistré.`,"https://www.netubex.com/schoolchoice","Retourner");return false;}}catch(e){afficherErreur("⚠️ Erreur","Vérifiez votre connexion.","javascript:location.reload()","🔄 Réessayer");return false;}
-if(!codeSaisi){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;return false;}
-try{const ref=doc(db,"ecoles",ECOLET_ID,"settings","data");const snap=await getDoc(ref);if(!snap.exists()){afficherErreur("⚠️ Configuration","Contactez l'administrateur.",`https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}const data=snap.data();const codeStocke=data.codeComptabilite?data.codeComptabilite.trim():'';if(codeSaisi!==codeStocke){afficherErreur("🔐 Code incorrect",`Le code ${codeSaisi} ne correspond pas.`, `https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}}catch(e){afficherErreur("⚠️ Erreur",e.message,`https://www.netubex.com/login?ecole=${schoolId}`,"Retourner");return false;}
-return new Promise((resolve)=>{const timeout=setTimeout(()=>{resolve(true);},5000);onAuthStateChanged(auth,(user)=>{clearTimeout(timeout);if(!user){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;resolve(false);return;}const email=user.email||'';if(!email.includes(ECOLET_ID)&&!email.includes('compta')&&!email.includes('comptabilite')){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;resolve(false);return;}resolve(true);});});}
-
-function afficherErreur(titre,message,lien,lienTexte){const container=document.querySelector('.container');if(container)container.style.display='none';const div=document.createElement('div');div.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:30px;background:#0a0e1a;color:white;font-family:"Inter",sans-serif;text-align:center;';div.innerHTML=`<div style="font-size:80px;margin-bottom:20px;">🔐</div><h2 style="color:#ef4444;font-size:28px;margin-bottom:10px;">${titre}</h2><p style="color:#cbd5e1;max-width:500px;margin:10px auto;font-size:16px;line-height:1.6;">${message}</p><div style="margin-top:20px;"><button onclick="window.location.href='${lien}'" style="padding:14px 40px;background:#ffd700;color:#0f172a;border:none;border-radius:30px;font-weight:700;font-size:16px;cursor:pointer;">${lienTexte}</button><br><br><button onclick="window.location.href='https://www.netubex.com/schoolchoice'" style="padding:10px 30px;background:transparent;color:#94a3b8;border:1px solid #334155;border-radius:30px;font-weight:500;font-size:14px;cursor:pointer;">🏫 Changer d'école</button></div>`;document.body.innerHTML='';document.body.appendChild(div);const loading=document.getElementById('loadingOverlay');if(loading)loading.classList.add('hidden');}
 
 </script>
 </body>
