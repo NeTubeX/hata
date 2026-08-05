@@ -1340,23 +1340,58 @@ async function processReceiptQueue() {
         const pageWidth = doc.internal.pageSize.getWidth();
         let y = 8;
         
-        doc.setFillColor(10, 14, 26);
-        doc.rect(0, 0, pageWidth, 28, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(255, 215, 0);
-        const nomEcole = currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME;
-        doc.text(nomEcole.toUpperCase(), pageWidth / 2, 10, { align: 'center' });
-        doc.setFontSize(18);
-        doc.text('REÇU D\'INSCRIPTION', pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setTextColor(200, 200, 200);
-        doc.text('Année scolaire : ' + anneeScolaireCourante, pageWidth / 2, 27, { align: 'center' });
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.5);
-        doc.line(10, 30, pageWidth - 10, 30);
+        // --- EN-TÊTE AVEC LOGO ---
+        const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME));
         
-        y = 34;
+        doc.setFillColor(255, 255, 255);
+        doc.rect(0, 0, pageWidth, 40, "F");
+        
+        doc.setDrawColor(212, 175, 55);
+        doc.setLineWidth(2);
+        doc.line(10, 40, pageWidth - 10, 40);
+        
+        // Logo
+        const logoX = 10;
+        const logoY = 4;
+        const logoSize = 35;
+        let logoAdded = false;
+        
+        if (schoolLogoUrl) {
+            try {
+                const logoBase64 = await loadLogoBase64();
+                if (logoBase64) {
+                    doc.addImage(logoBase64, 'JPEG', logoX, logoY, logoSize, logoSize);
+                    doc.setDrawColor(212, 175, 55);
+                    doc.setLineWidth(2);
+                    doc.circle(logoX + logoSize/2, logoY + logoSize/2, logoSize/2 + 2);
+                    logoAdded = true;
+                }
+            } catch (e) {
+                console.error("Erreur ajout logo reçu:", e);
+            }
+        }
+        
+        const startX = logoAdded ? logoX + logoSize + 10 : 15;
+        const titleY = logoAdded ? 10 : 8;
+        
+        doc.setFontSize(logoAdded ? 12 : 11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(25, 55, 95);
+        doc.text(nomEcole, startX, titleY);
+        
+        doc.setFontSize(logoAdded ? 12 : 11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(212, 175, 55);
+        doc.text('REÇU D\'INSCRIPTION', startX, titleY + (logoAdded ? 12 : 10));
+        
+        doc.setFontSize(logoAdded ? 8 : 7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text('Année scolaire : ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 20 : 17));
+        
+        // --- FIN EN-TÊTE ---
+        
+        y = 48;
         const reference = 'INS-' + formatDateYMD() + '-' + eleve.id.substring(eleve.id.length - 4);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
