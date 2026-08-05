@@ -346,6 +346,11 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 .code-input-modern .label{font-size:10px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
 @keyframes clickPop{0%{transform:scale(0.95)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
 .btn-click-anim{animation:clickPop 0.2s ease-out forwards !important}
+.float-refresh-btn{position:fixed;bottom:30px;right:30px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#ffd700,#f59e0b);color:#0f172a;border:none;font-size:28px;cursor:pointer;box-shadow:0 8px 30px rgba(255,215,0,0.4),0 4px 16px rgba(0,0,0,0.3);z-index:999;transition:all 0.3s;display:flex;align-items:center;justify-content:center}
+.float-refresh-btn:hover{transform:scale(1.1) rotate(180deg);box-shadow:0 12px 40px rgba(255,215,0,0.6)}
+.float-refresh-btn:active{transform:scale(0.9)}
+.paiement-click-anim{animation:paymentPop 0.3s ease-out forwards !important}
+@keyframes paymentPop{0%{transform:scale(1)}30%{transform:scale(1.15);box-shadow:0 0 30px rgba(255,215,0,0.6)}70%{transform:scale(0.95)}100%{transform:scale(1)}}
 </style>
 </head>
 <body>
@@ -510,6 +515,7 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 <div id="tab8" class="tab-panel"><div class="card"><div class="card-header">💰 FRAIS D'INSCRIPTION</div><div class="p-16"><div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;"><button class="btn btn-danger" id="btnPDFInscription">PDF</button></div><div id="inscriptionsContainer"><div class="empty-state">Chargement...</div></div></div></div></div>
 </div>
 <div class="toast-container" id="toastContainer"></div>
+<button class="float-refresh-btn" id="floatRefreshBtn" title="Rafraîchir la page">⟳</button>
 <div class="modal-overlay" id="paymentModal"><div class="modal-card"><h3>💰 CONFIRMATION PAIEMENT (MINERVAL)</h3><div id="modalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="paymentAmount"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmPayment">VALIDER</button><button class="btn btn-outline" id="cancelPayment">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT FRAIS D'INSCRIPTION</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT À PAYER (FC)</label><input type="number" id="inscriptionPaymentAmount" step="100" value="0"></div><div class="modal-buttons"><button class="btn btn-success" id="confirmInscriptionPayment">PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
 <div class="modal-overlay" id="moisBlancModal"><div class="modal-card"><h3>❄️ MOIS BLANC</h3><div id="moisBlancInfo"></div><div style="background:rgba(96,165,250,0.08);border-radius:12px;padding:16px;margin:12px 0;border:1px solid rgba(96,165,250,0.15);"><p style="color:#cbd5e1;font-size:13px;text-align:center;">⚠️ L'élève ne paiera <strong>pas</strong> ce mois.</p></div><div class="modal-buttons"><button class="btn btn-outline" id="cancelMoisBlanc">ANNULER</button><button class="btn btn-success" id="confirmMoisBlanc" style="background:#60a5fa;color:#0f172a;">OUI, MARQUER</button></div></div></div>
@@ -710,7 +716,7 @@ import{initializeApp}from"firebase/app";
 import{getFirestore,doc,getDoc,setDoc,collection,query,getDocs,updateDoc,deleteDoc,where}from"firebase/firestore";
 import{getAuth,onAuthStateChanged,signOut}from"firebase/auth";
 
-const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingSenderId:"333004443566",appId:"1:333004443566:web:de41f60000e418dce9023f"};
+const firebaseConfig={apiKey:"AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",authDomain:"gesco-67c43.firebaseapp.com",projectId:"gesco-67c43",storageBucket:"gesco-67c43.firebasestorage.app",messagingAppId:"1:333004443566:web:de41f60000e418dce9023f"};
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
 const auth=getAuth(app);
@@ -1227,7 +1233,7 @@ document.getElementById("releveContainer").innerHTML=html;}
 window.openPaiementMinerval=async function(mois,minerval,dejaPaye){const reste=minerval-dejaPaye;document.getElementById("modalInfo").innerHTML='<div class="modal-info-line"><span>ÉLÈVE</span><span>'+currentEleve.nom+'</span></div><div class="modal-info-line"><span>MOIS</span><span>'+mois+'</span></div><div class="modal-info-line"><span>MINERVAL</span><span>'+formatNbSimple(minerval)+' FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span>'+formatNbSimple(dejaPaye)+' FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:700;">'+formatNbSimple(reste)+' FC</span></div>';document.getElementById("paymentAmount").value=reste;window.paiementData={mois,minerval,dejaPaye,reste,eleveId:currentEleve.id};document.getElementById("paymentModal").classList.add("show");};
 
 document.getElementById("confirmPayment").onclick=async()=>{applyClickEffect(this);const montant=parseInt(document.getElementById("paymentAmount").value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.paiementData.reste){toast("Dépasse le reste","error");return;}
-if(await showConfirm('Confirmer le paiement de '+formatNbSimple(montant)+' FC pour '+currentEleve.nom+' ('+window.paiementData.mois+') ?')){await enregistrerPaiementMinerval(window.paiementData.eleveId,window.paiementData.mois,montant);document.getElementById("paymentModal").classList.remove("show");await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStatsDetaillees();}};
+if(await showConfirm('Confirmer le paiement de '+formatNbSimple(montant)+' FC pour '+currentEleve.nom+' ('+window.paiementData.mois+') ?')){await enregistrerPaiementMinerval(window.paiementData.eleveId,window.paiementData.mois,montant);document.getElementById("paymentModal").classList.remove("show");await afficherReleve(currentEleve);await afficherListeEleves();await mettreAJourStatsDetaillees();const btn=document.getElementById("confirmPayment");if(btn){btn.classList.add('paiement-click-anim');setTimeout(()=>{btn.classList.remove('paiement-click-anim');},500);}}};
 
 document.getElementById("cancelPayment").onclick=()=>{applyClickEffect(this);document.getElementById("paymentModal").classList.remove("show");};
 
@@ -1326,7 +1332,6 @@ for(const e of liste){const color=e.statut==='COMPLET'?'#10b981':(e.statut==='PA
 html+='<tr class="'+statutClass+'"><td style="font-weight:500;color:white;white-space:nowrap;">'+sexeIcon+' '+nomComplet+'</td><td style="color:#94a3b8;white-space:nowrap;">'+e.classe+(e.option?' - '+e.option:'')+'</td><td style="text-align:right;color:white;white-space:nowrap;">'+formatNbSimple(e.fraisTotal)+' FC</td><td style="text-align:right;color:'+color+';font-weight:bold;white-space:nowrap;">'+formatNbSimple(e.montantPaye)+' FC</td><td style="text-align:right;color:'+(reste>0?'#ef4444':'#10b981')+';font-weight:bold;white-space:nowrap;">'+(reste>0?formatNbSimple(reste)+' FC':'✓')+'</td><td style="text-align:center;white-space:nowrap;"><span class="status-badge '+statutClass+'">'+statutLabel+'</span></td><td style="text-align:center;color:#94a3b8;font-size:12px;white-space:nowrap;">'+dateInscription+'</td><td style="text-align:center;white-space:nowrap;">'+(reste>0?'<button class="btn btn-sm btn-inscription-pay" onclick="window.ouvrirPaiementInscription(\''+e.id+'\',\''+e.nom+'\','+e.reste+','+e.fraisTotal+','+e.montantPaye+')">PAYER</button>':'<span style="color:#10b981;">✓</span>')+'</td><td style="text-align:center;white-space:nowrap;">'+(aPaye?'<button class="btn-generate btn-generate-sm" onclick="genererReçuInscriptionPDF(\''+e.id+'\',\''+e.nom+'\','+e.montantPaye+',\''+e.dateInscription+'\')">🧾 REÇU</button>':'<span style="color:#64748b;font-size:10px;">-</span>')+'</td></tr>';}
 html+='</tbody></table></div>';container.innerHTML=html;};
 
-// --- FONCTION DE GÉNÉRATION DE REÇU (STYLE ANCIEN CODE) ---
 window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
     if (isGeneratingReceipt) {
         toast('Génération en cours, veuillez patienter...', 'warning');
@@ -1344,11 +1349,11 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         let y = 6;
         const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME));
         
-        // --- EN-TÊTE (fond blanc, texte noir, logo) ---
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, pageWidth, 38, "F");
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(1.5);
+        doc.line(5, 38, pageWidth - 5, 38);
         doc.line(5, 38, pageWidth - 5, 38);
         
         const logoX = 5;
@@ -1367,29 +1372,26 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         const startX = logoAdded ? logoX + logoSize + 6 : 5;
         const titleY = logoAdded ? 7 : 5;
         
-        // Nom de l'école (réduit pour éviter débordement)
+        const nomEcoleCourt = nomEcole.length > 30 ? nomEcole.substring(0, 28) + '...' : nomEcole;
         doc.setFontSize(logoAdded ? 14 : 13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        const nomEcoleCourt = nomEcole.length > 30 ? nomEcole.substring(0, 28) + '...' : nomEcole;
         doc.text(nomEcoleCourt, startX, titleY);
         
-        // Titre du reçu
         doc.setFontSize(logoAdded ? 13 : 12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
         doc.text('REÇU MINERVAL', startX, titleY + (logoAdded ? 8 : 7));
         
-        // Année scolaire
         doc.setFontSize(logoAdded ? 9 : 8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        const anneeScolaireTexte = 'ANNEE SCOLAIRE ' + anneeScolaireCourante;
-        doc.text(anneeScolaireTexte, startX, titleY + (logoAdded ? 14 : 12));
+        doc.text('ANNEE SCOLAIRE ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 14 : 12));
         
-        // --- RÉFÉRENCE ---
         y = 42;
-        const reference = 'MIN-' + formatDateYMD() + '-' + eleve.id.substring(eleve.id.length - 4);
+        // Utiliser la date du paiement réel (datePaiement) pour le reçu minerval
+        const datePaiementFormatee = datePaiement ? formatDateFr(datePaiement) : formatDateFr(new Date());
+        const reference = 'MIN-' + (datePaiement ? formatDateYMD(new Date(datePaiement)) : formatDateYMD()) + '-' + eleve.id.substring(eleve.id.length - 4);
         
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
@@ -1397,7 +1399,7 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.text('REFERENCE', 5, y);
         y += 3;
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.2);
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
@@ -1405,7 +1407,7 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
         doc.text('Ref: ' + reference, 5, y);
-        doc.text('Date: ' + formatDateFr(new Date()), 85, y);
+        doc.text('Date: ' + datePaiementFormatee, 85, y);
         y += 8;
         
         doc.setDrawColor(0, 0, 0);
@@ -1413,7 +1415,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- INFORMATIONS ÉLÈVE ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
@@ -1424,7 +1425,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // NOM + POSTNOM sur une ligne, PRÉNOM en dessous
         const nomComplet = (eleve.nom + ' ' + (eleve.postnom || '')).toUpperCase();
         const prenomComplet = (eleve.prenom || '').toUpperCase();
         
@@ -1447,12 +1447,16 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- MONTANT PAYÉ ET MOIS (affichage en colonnes) ---
+        const minervalMensuel = eleve.exonere ? 0 : (eleve.minerval || 45000);
+        const estPayeTotal = montant >= minervalMensuel;
+        const statut = eleve.exonere ? 'EXONERE' : (estPayeTotal ? 'PAYE' : 'PARTIEL');
+        
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
-        doc.text('MONTANT PAYE: ' + formatNbSimple(montant) + ' FC', 5, y);
-        doc.text('MOIS PAYE: ' + mois.toUpperCase(), 95, y);
+        doc.text('MONTANT PAYÉ: ' + formatNbSimple(montant) + ' FC', 5, y);
+        y += 7;
+        doc.text('MOIS PAYÉ: ' + mois.toUpperCase(), 5, y);
         y += 8;
         
         doc.setDrawColor(0, 0, 0);
@@ -1460,7 +1464,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- TABLEAU DÉTAIL ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
@@ -1471,52 +1474,22 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        const minervalMensuel = eleve.exonere ? 0 : (eleve.minerval || 45000);
-        const estPayeTotal = montant >= minervalMensuel;
-        const statut = eleve.exonere ? 'EXONERE' : (estPayeTotal ? 'PAYE' : 'PARTIEL');
+        const pageWidth2 = doc.internal.pageSize.getWidth();
+        const marginX = 5;
+        const tableWidth = pageWidth2 - (marginX * 2);
+        const colWidth = tableWidth / 4;
         
-        // Tableau en pleine largeur
-        const tableHeaders = [['MOIS', 'MINERVAL', 'PAYE', 'STATUT']];
-        const tableData = [[
-            mois.toUpperCase(),
-            formatNbSimple(minervalMensuel) + ' FC',
-            formatNbSimple(montant) + ' FC',
-            statut
-        ]];
         doc.autoTable({
             startY: y,
-            head: tableHeaders,
-            body: tableData,
+            head: [['MOIS', 'MINERVAL', 'PAYÉ', 'STATUT']],
+            body: [[mois.toUpperCase(), formatNbSimple(minervalMensuel) + ' FC', formatNbSimple(montant) + ' FC', statut]],
             theme: 'plain',
-            styles: { 
-                fontSize: 11,
-                cellPadding: 4,
-                textColor: [0, 0, 0],
-                lineColor: [0, 0, 0],
-                lineWidth: 0.3,
-                fontStyle: 'bold',
-                valign: 'middle',
-                halign: 'center',
-                fillColor: [255, 255, 255]
-            },
-            headStyles: { 
-                fillColor: [255, 255, 255],
-                textColor: [0, 0, 0],
-                fontStyle: 'bold',
-                halign: 'center',
-                fontSize: 11,
-                lineWidth: 0.3,
-                lineColor: [0, 0, 0]
-            },
-            bodyStyles: { fillColor: [255, 255, 255] },
-            columnStyles: { 
-                0: { cellWidth: 25, halign: 'center' },
-                1: { cellWidth: 25, halign: 'center' },
-                2: { cellWidth: 25, halign: 'center' },
-                3: { cellWidth: 25, halign: 'center' }
-            },
-            margin: { left: 5, right: 5 },
-            tableWidth: 'auto'
+            styles: { fontSize: 11, cellPadding: 4, textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3, fontStyle: 'bold', valign: 'middle', halign: 'center', fillColor: [255,255,255] },
+            headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', halign: 'center', fontSize: 11, lineWidth: 0.3, lineColor: [0,0,0] },
+            bodyStyles: { fillColor: [255,255,255] },
+            columnStyles: { 0: { cellWidth: colWidth, halign: 'center' }, 1: { cellWidth: colWidth, halign: 'center' }, 2: { cellWidth: colWidth, halign: 'center' }, 3: { cellWidth: colWidth, halign: 'center' } },
+            margin: { left: marginX, right: marginX },
+            tableWidth: tableWidth
         });
         
         y = doc.lastAutoTable.finalY + 5;
@@ -1530,7 +1503,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
         doc.text('Moyen: Espèces', 5, y);
         y += 7;
         
-        // --- CACHET ET SIGNATURE ---
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
         doc.setLineDashPattern([2, 2], 0);
@@ -1560,7 +1532,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
     }
 };
 
-// --- REÇU D'INSCRIPTION ---
 window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateInscription) {
     if (isGeneratingReceipt) {
         toast('Génération en cours, veuillez patienter...', 'warning');
@@ -1578,11 +1549,11 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         let y = 6;
         const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME));
         
-        // --- EN-TÊTE (fond blanc, texte noir, logo) ---
         doc.setFillColor(255, 255, 255);
         doc.rect(0, 0, pageWidth, 38, "F");
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(1.5);
+        doc.line(5, 38, pageWidth - 5, 38);
         doc.line(5, 38, pageWidth - 5, 38);
         
         const logoX = 5;
@@ -1601,29 +1572,26 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         const startX = logoAdded ? logoX + logoSize + 6 : 5;
         const titleY = logoAdded ? 7 : 5;
         
-        // Nom de l'école (réduit pour éviter débordement)
+        const nomEcoleCourt = nomEcole.length > 30 ? nomEcole.substring(0, 28) + '...' : nomEcole;
         doc.setFontSize(logoAdded ? 14 : 13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        const nomEcoleCourt = nomEcole.length > 30 ? nomEcole.substring(0, 28) + '...' : nomEcole;
         doc.text(nomEcoleCourt, startX, titleY);
         
-        // Titre du reçu - REÇU D'INSCRIPTION
         doc.setFontSize(logoAdded ? 13 : 12);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
         doc.text('REÇU D\'INSCRIPTION', startX, titleY + (logoAdded ? 8 : 7));
         
-        // Année scolaire
         doc.setFontSize(logoAdded ? 9 : 8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        const anneeScolaireTexte = 'ANNEE SCOLAIRE ' + anneeScolaireCourante;
-        doc.text(anneeScolaireTexte, startX, titleY + (logoAdded ? 14 : 12));
+        doc.text('ANNEE SCOLAIRE ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 14 : 12));
         
-        // --- RÉFÉRENCE ---
         y = 42;
-        const reference = 'INS-' + formatDateYMD() + '-' + eleve.id.substring(eleve.id.length - 4);
+        // Utiliser la date d'inscription (dateInscription) pour le reçu d'inscription
+        const dateInscriptionFormatee = dateInscription ? formatDateFr(dateInscription) : formatDateFr(new Date());
+        const reference = 'INS-' + (dateInscription ? formatDateYMD(new Date(dateInscription)) : formatDateYMD()) + '-' + eleve.id.substring(eleve.id.length - 4);
         
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
@@ -1631,7 +1599,7 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.text('REFERENCE', 5, y);
         y += 3;
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.2);
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
@@ -1639,7 +1607,7 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
         doc.text('Ref: ' + reference, 5, y);
-        doc.text('Date: ' + formatDateFr(new Date()), 85, y);
+        doc.text('Date: ' + dateInscriptionFormatee, 85, y);
         y += 8;
         
         doc.setDrawColor(0, 0, 0);
@@ -1647,7 +1615,6 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- INFORMATIONS ÉLÈVE ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
@@ -1658,7 +1625,6 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // NOM + POSTNOM sur une ligne, PRÉNOM en dessous
         const nomComplet = (eleve.nom + ' ' + (eleve.postnom || '')).toUpperCase();
         const prenomComplet = (eleve.prenom || '').toUpperCase();
         const moisInscription = getMoisFromDate(dateInscription) || 'Inconnu';
@@ -1682,12 +1648,12 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- MONTANT PAYÉ ET MOIS (affichage en colonnes) ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
-        doc.text('MONTANT PAYE: ' + formatNbSimple(montant) + ' FC', 5, y);
-        doc.text('MOIS PAYE: ' + moisInscription.toUpperCase(), 95, y);
+        doc.text('MONTANT PAYÉ: ' + formatNbSimple(montant) + ' FC', 5, y);
+        y += 7;
+        doc.text('MOIS D\'INSCRIPTION: ' + moisInscription.toUpperCase(), 5, y);
         y += 8;
         
         doc.setDrawColor(0, 0, 0);
@@ -1695,7 +1661,6 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        // --- TABLEAU DÉTAIL ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
@@ -1706,47 +1671,22 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.line(5, y, pageWidth - 5, y);
         y += 5;
         
-        const tableHeaders = [['MOIS', 'FRAIS TOTAL', 'PAYE', 'STATUT']];
-        const tableData = [[
-            moisInscription.toUpperCase(),
-            formatNbSimple(eleve.fraisInscriptionTotal) + ' FC',
-            formatNbSimple(montant) + ' FC',
-            eleve.exonere ? 'EXONERE' : 'PAYE'
-        ]];
+        const pageWidth2 = doc.internal.pageSize.getWidth();
+        const marginX = 5;
+        const tableWidth = pageWidth2 - (marginX * 2);
+        const colWidth = tableWidth / 4;
+        
         doc.autoTable({
             startY: y,
-            head: tableHeaders,
-            body: tableData,
+            head: [['MOIS', 'FRAIS TOTAL', 'PAYÉ', 'STATUT']],
+            body: [[moisInscription.toUpperCase(), formatNbSimple(eleve.fraisInscriptionTotal) + ' FC', formatNbSimple(montant) + ' FC', eleve.exonere ? 'EXONERE' : 'PAYE']],
             theme: 'plain',
-            styles: { 
-                fontSize: 11,
-                cellPadding: 4,
-                textColor: [0, 0, 0],
-                lineColor: [0, 0, 0],
-                lineWidth: 0.3,
-                fontStyle: 'bold',
-                valign: 'middle',
-                halign: 'center',
-                fillColor: [255, 255, 255]
-            },
-            headStyles: { 
-                fillColor: [255, 255, 255],
-                textColor: [0, 0, 0],
-                fontStyle: 'bold',
-                halign: 'center',
-                fontSize: 11,
-                lineWidth: 0.3,
-                lineColor: [0, 0, 0]
-            },
-            bodyStyles: { fillColor: [255, 255, 255] },
-            columnStyles: { 
-                0: { cellWidth: 25, halign: 'center' },
-                1: { cellWidth: 25, halign: 'center' },
-                2: { cellWidth: 25, halign: 'center' },
-                3: { cellWidth: 25, halign: 'center' }
-            },
-            margin: { left: 5, right: 5 },
-            tableWidth: 'auto'
+            styles: { fontSize: 11, cellPadding: 4, textColor: [0,0,0], lineColor: [0,0,0], lineWidth: 0.3, fontStyle: 'bold', valign: 'middle', halign: 'center', fillColor: [255,255,255] },
+            headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: 'bold', halign: 'center', fontSize: 11, lineWidth: 0.3, lineColor: [0,0,0] },
+            bodyStyles: { fillColor: [255,255,255] },
+            columnStyles: { 0: { cellWidth: colWidth, halign: 'center' }, 1: { cellWidth: colWidth, halign: 'center' }, 2: { cellWidth: colWidth, halign: 'center' }, 3: { cellWidth: colWidth, halign: 'center' } },
+            margin: { left: marginX, right: marginX },
+            tableWidth: tableWidth
         });
         
         y = doc.lastAutoTable.finalY + 5;
@@ -1760,7 +1700,6 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
         doc.text('Moyen: Espèces', 5, y);
         y += 7;
         
-        // --- CACHET ET SIGNATURE ---
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.3);
         doc.setLineDashPattern([2, 2], 0);
@@ -1793,7 +1732,7 @@ window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateIn
 window.ouvrirPaiementInscription=function(eleveId,nom,reste,fraisTotal,dejaPaye){const modal=document.getElementById('inscriptionPaymentModal');document.getElementById('inscriptionModalInfo').innerHTML='<div class="modal-info-line"><span>ÉLÈVE</span><span style="font-weight:bold;color:#ffd700;">'+nom+'</span></div><div class="modal-info-line"><span>FRAIS D\'INSCRIPTION</span><span>'+formatNbSimple(fraisTotal)+' FC</span></div><div class="modal-info-line"><span>DÉJÀ PAYÉ</span><span style="color:#10b981;">'+formatNbSimple(dejaPaye)+' FC</span></div><div class="modal-info-line"><span>RESTE À PAYER</span><span style="color:#ef4444;font-weight:bold;">'+formatNbSimple(reste)+' FC</span></div>';document.getElementById('inscriptionPaymentAmount').value=reste;window.inscriptionPaiementData={eleveId,reste,fraisTotal,dejaPaye};modal.classList.add('show');};
 
 window.confirmInscriptionPayment=async function(){applyClickEffect(document.getElementById('confirmInscriptionPayment'));const montant=parseInt(document.getElementById('inscriptionPaymentAmount').value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.inscriptionPaiementData.reste){toast("Montant supérieur au reste","error");return;}
-if(await showConfirm('Confirmer le paiement de '+formatNbSimple(montant)+' FC pour les frais d\'inscription ?')){await enregistrerPaiementInscription(window.inscriptionPaiementData.eleveId,montant);document.getElementById('inscriptionPaymentModal').classList.remove('show');await window.afficherFraisInscription();await afficherListeEleves();await mettreAJourStatsDetaillees();}};
+if(await showConfirm('Confirmer le paiement de '+formatNbSimple(montant)+' FC pour les frais d\'inscription ?')){await enregistrerPaiementInscription(window.inscriptionPaiementData.eleveId,montant);document.getElementById('inscriptionPaymentModal').classList.remove('show');await window.afficherFraisInscription();await afficherListeEleves();await mettreAJourStatsDetaillees();const btn=document.getElementById('confirmInscriptionPayment');if(btn){btn.classList.add('paiement-click-anim');setTimeout(()=>{btn.classList.remove('paiement-click-anim');},500);}}};
 
 async function enregistrerPaiementInscription(eleveId,montant){const id='compta_'+eleveId;const ref=doc(db,"ecoles",ECOLET_ID,"compta_eleves",id);const snap=await getDoc(ref);if(!snap.exists())return false;const d=snap.data();const actuel=d.fraisInscriptionPaye||0;const nouveauTotal=actuel+montant;await updateDoc(ref,{fraisInscriptionPaye:nouveauTotal});const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves[idx].fraisInscriptionPaye=nouveauTotal;}toast('✅ Paiement inscription de '+formatNbSimple(montant)+' FC enregistré',"success");return true;}
 document.getElementById('confirmInscriptionPayment').onclick=window.confirmInscriptionPayment;document.getElementById('cancelInscriptionPayment').onclick=function(){applyClickEffect(this);document.getElementById('inscriptionPaymentModal').classList.remove('show');};
@@ -1916,6 +1855,51 @@ document.getElementById('btnApplyTarifsToEleves').onclick=async function(){apply
 toast('✅ '+compteurMinerval+' minervaux et '+compteurFrais+' frais d\'inscription mis à jour','success');await afficherListeEleves();if(currentEleve)await afficherReleve(currentEleve);await window.afficherFraisInscription();await synchroniserOptionsAvecCompta();}catch(error){toast('Erreur lors de la mise à jour','error');console.error(error);}};
 
 document.getElementById('btnPDFInscription').onclick=function(){applyClickEffect(this);window.genererPDFInscription();};
+
+document.getElementById('floatRefreshBtn').addEventListener('click',function(){applyClickEffect(this);window.location.reload();});
+
+document.getElementById('themeToggle').addEventListener('click', function() {
+    applyClickEffect(this);
+    const body = document.body;
+    const isDark = body.style.background === '#f0f2f5' || body.style.background === 'white' || body.style.background === '#ffffff';
+    if (isDark) {
+        body.style.background = '#0a0e1a';
+        body.style.color = '#fff';
+        this.textContent = '☀️';
+        document.querySelectorAll('.card').forEach(c => c.style.background = 'rgba(18,18,31,0.9)');
+        document.querySelectorAll('.school-header').forEach(c => c.style.background = 'linear-gradient(135deg,#0f2b44,#071a2c)');
+        document.querySelectorAll('.stat-card').forEach(c => c.style.background = 'rgba(15,23,42,0.8)');
+        document.querySelectorAll('.eleve-card').forEach(c => c.style.background = 'rgba(15,23,42,0.6)');
+        document.querySelectorAll('.paiement-card').forEach(c => c.style.background = 'rgba(15,23,42,0.5)');
+        document.querySelectorAll('.modal-card').forEach(c => c.style.background = 'linear-gradient(145deg,#1a2332,#0f172a)');
+        document.querySelectorAll('.carte-identite').forEach(c => c.style.background = 'linear-gradient(135deg,#1e293b,#0f172a)');
+        document.querySelectorAll('.code-family-group').forEach(c => c.style.background = 'rgba(16,185,129,0.15)');
+        document.querySelectorAll('.form-group-modern').forEach(c => c.style.background = 'rgba(15,23,42,0.4)');
+        document.querySelectorAll('.form-group input, .form-group select').forEach(c => {c.style.background = '#2d3748'; c.style.color = '#fff';});
+        document.querySelectorAll('.form-group-modern input, .form-group-modern select').forEach(c => {c.style.background = 'rgba(0,0,0,0.25)'; c.style.color = '#fff';});
+        document.querySelectorAll('.dropdown-content').forEach(c => c.style.background = '#1e293b');
+        document.querySelectorAll('.filter-classe-option-card').forEach(c => c.style.background = 'rgba(15,23,42,0.6)');
+        document.querySelectorAll('.settings-card').forEach(c => {c.style.background = 'rgba(30,41,59,0.6)'; c.style.border = '1px solid rgba(255,215,0,0.2)';});
+    } else {
+        body.style.background = '#f0f2f5';
+        body.style.color = '#000';
+        this.textContent = '🌙';
+        document.querySelectorAll('.card').forEach(c => c.style.background = 'rgba(255,255,255,0.95)');
+        document.querySelectorAll('.school-header').forEach(c => c.style.background = 'linear-gradient(135deg,#e0e8f0,#c8d0dc)');
+        document.querySelectorAll('.stat-card').forEach(c => c.style.background = 'rgba(255,255,255,0.9)');
+        document.querySelectorAll('.eleve-card').forEach(c => c.style.background = 'rgba(255,255,255,0.9)');
+        document.querySelectorAll('.paiement-card').forEach(c => c.style.background = 'rgba(255,255,255,0.9)');
+        document.querySelectorAll('.modal-card').forEach(c => c.style.background = 'linear-gradient(145deg,#ffffff,#f0f2f5)');
+        document.querySelectorAll('.carte-identite').forEach(c => c.style.background = 'linear-gradient(135deg,#f0f2f5,#e0e4e8)');
+        document.querySelectorAll('.code-family-group').forEach(c => c.style.background = 'rgba(16,185,129,0.08)');
+        document.querySelectorAll('.form-group-modern').forEach(c => c.style.background = 'rgba(255,255,255,0.8)');
+        document.querySelectorAll('.form-group input, .form-group select').forEach(c => {c.style.background = '#e8eaed'; c.style.color = '#000';});
+        document.querySelectorAll('.form-group-modern input, .form-group-modern select').forEach(c => {c.style.background = 'rgba(255,255,255,0.8)'; c.style.color = '#000';});
+        document.querySelectorAll('.dropdown-content').forEach(c => c.style.background = '#f0f2f5');
+        document.querySelectorAll('.filter-classe-option-card').forEach(c => c.style.background = 'rgba(255,255,255,0.9)');
+        document.querySelectorAll('.settings-card').forEach(c => {c.style.background = 'rgba(255,255,255,0.95)'; c.style.border = '1px solid #e2e6ea';});
+    }
+});
 
 async function initApp(){
 document.getElementById('btnAddOption').disabled=false;document.getElementById('newOptionName').disabled=false;
