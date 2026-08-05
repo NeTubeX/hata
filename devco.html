@@ -15,7 +15,9 @@
 html,body{overscroll-behavior:none;height:100%}
 body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:auto;overscroll-behavior:none}
 .container{max-width:1400px;margin:0 auto;padding-bottom:100px}
-.school-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:20px;padding:20px;text-align:center;margin-bottom:20px;position:relative}
+.school-header{background:linear-gradient(135deg,#0f2b44,#071a2c);border-radius:20px;padding:20px;text-align:center;margin-bottom:20px;position:relative;display:flex;align-items:center;justify-content:center;gap:15px;flex-wrap:wrap}
+.school-header .logo-circle{width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid #ffd700;flex-shrink:0;background:#1a2a3e}
+.school-header .school-info{text-align:center}
 .school-name{font-size:22px;font-weight:700;background:linear-gradient(135deg,#ffd700,#fbbf24);-webkit-background-clip:text;background-clip:text;color:transparent}
 .school-sub{font-size:11px;opacity:0.8;margin-top:4px;color:#cbd5e1}
 .logout-btn{position:absolute;top:15px;right:15px;width:40px;height:40px;border-radius:40px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);color:#ef4444;font-size:20px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;z-index:100}
@@ -343,9 +345,12 @@ body{background:#0a0e1a;font-family:'Inter',sans-serif;padding:12px;overflow-y:a
 <body>
 <div class="container" id="mainApp" style="display:none">
 <div class="school-header">
+<img id="schoolLogo" class="logo-circle" style="display:none;" alt="Logo école">
+<div class="school-info">
 <div class="school-name" id="schoolName">🏫 CHARGEMENT...</div>
 <div class="school-sub" id="schoolSub">ESPACE COMPTABILITÉ</div>
 <div id="periodeIndicator" class="rentree">📅 CHARGEMENT...</div>
+</div>
 <button class="logout-btn" id="logoutBtn" title="Déconnexion">✕</button>
 </div>
 <div class="stat-row">
@@ -702,6 +707,15 @@ const urlParams=new URLSearchParams(window.location.search);
 let schoolId=urlParams.get('ecole');
 let codeSaisi=urlParams.get('code');
 
+let schoolLogoUrl=null;
+let logoBase64Cache=null;
+const receiptQueue=[];
+let isGeneratingReceipt=false;
+let isGeneratingPDF=false;
+let currentSchoolConfig=null,currentEleve=null,currentFilter="all",tarifsOptionsConfig={},fraisInscriptionConfig={},localEleves=[],filteredEleves=[],isFilterActive=false,familySearchResults=[],selectedFamilyCode=null,rattacherEleveId=null,rattacherEleveNom='',rattacherCodeActuel='',rattacherSelectedEleve=null,rattacherSearchResults=[],familyElevesList=[];
+const toastQueue=[];
+let isToastShowing=false;
+
 function afficherErreur(titre,message,lien,lienTexte){
 const container=document.querySelector('.container');if(container)container.style.display='none';
 const errorDiv=document.createElement('div');
@@ -728,7 +742,7 @@ const data=settingsSnap.data();
 const codeStocke=data.codeComptabilite?data.codeComptabilite.trim():'';
 if(codeSaisi!==codeStocke){afficherErreur("🔐 Code d'accès incorrect",`Le code <strong>${codeSaisi}</strong> ne correspond pas au code de l'école <strong>${schoolId}</strong>.<br><br>Veuillez contacter la direction pour obtenir le bon code.`, `https://www.netubex.com/login?ecole=${schoolId}`,"Retourner à la connexion");return false;}
 return new Promise((resolve)=>{
-const timeout=setTimeout(()=>{console.warn("⚠️ Timeout auth");resolve(true);},5000);
+const timeout=setTimeout(()=>{resolve(true);},5000);
 onAuthStateChanged(auth,(user)=>{
 clearTimeout(timeout);
 if(!user){window.location.href=`https://www.netubex.com/login?ecole=${schoolId}`;resolve(false);return;}
@@ -772,13 +786,6 @@ const classesListe=["7ème EB","8ème EB","1ère Année","2ème Année","3ème A
 const optionsParClasse={"7ème EB":[],"8ème EB":[],"1ère Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"2ème Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"3ème Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"],"4ème Année":["LATIN-PHILO","SCIENCES","PEDAGOGIE GENERALE","COMMERCIALE ET GESTION","ELECTRICITE","MECANIQUE GENERALE","COUPE ET COUTURE"]};
 const SC={COMPTA_ELEVES:'compta_eleves',FICHES:'fiches',CONFIG:'config',SETTINGS:'settings',TARIFS:'tarifs',FRAIS_INSCRIPTION:'frais_inscription',OPTIONS:'options',LOGS:'logs'};
 
-let currentSchoolConfig=null,currentEleve=null,currentFilter="all",tarifsOptionsConfig={},fraisInscriptionConfig={},localEleves=[],filteredEleves=[],isFilterActive=false,familySearchResults=[],selectedFamilyCode=null,rattacherEleveId=null,rattacherEleveNom='',rattacherCodeActuel='',rattacherSelectedEleve=null,rattacherSearchResults=[],familyElevesList=[];
-
-// File d'attente des toasts
-const toastQueue = [];
-let isToastShowing = false;
-let isGeneratingPDF = false;
-
 function toast(msg, type = "success") {
     if (isGeneratingPDF) return;
     toastQueue.push({ msg, type });
@@ -809,14 +816,6 @@ function processToastQueue() {
     }, 3500);
 }
 
-// File d'attente des reçus
-const receiptQueue = [];
-let isGeneratingReceipt = false;
-
-// Cache des élèves pour les reçus
-let receiptCache = {};
-
-// Fonction d'effet de clic simple
 function applyClickEffect(element) {
     if (!element) return;
     element.classList.add('btn-click-anim');
@@ -827,6 +826,57 @@ function applyClickEffect(element) {
 
 function getEcoleRef(sousCollection,docId=null){if(docId){return doc(db,"ecoles",ECOLET_ID,sousCollection,docId);}return collection(db,"ecoles",ECOLET_ID,sousCollection);}
 function getOptionsForClasse(classe){return optionsParClasse[classe]||[];}
+
+async function getSchoolLogo(ecoleId) {
+    try {
+        const docRef = doc(db, "ecoles", ecoleId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return data.logoUrl || null;
+        }
+        return null;
+    } catch (error) {
+        console.error("Erreur chargement logo:", error);
+        return null;
+    }
+}
+
+async function loadLogoBase64() {
+    if (logoBase64Cache) return logoBase64Cache;
+    if (!schoolLogoUrl) return null;
+    try {
+        const response = await fetch(schoolLogoUrl);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                logoBase64Cache = reader.result;
+                resolve(logoBase64Cache);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.error("Erreur chargement logo en base64:", e);
+        return null;
+    }
+}
+
+async function chargerLogoEcole() {
+    const logoUrl = await getSchoolLogo(ECOLET_ID);
+    if (logoUrl) {
+        schoolLogoUrl = logoUrl;
+        const headerLogo = document.getElementById('schoolLogo');
+        if (headerLogo) {
+            headerLogo.src = logoUrl;
+            headerLogo.style.display = 'block';
+            headerLogo.onerror = function() {
+                this.style.display = 'none';
+            };
+        }
+    }
+}
 
 function mettreAJourSelectsOptions(){
 const filterOption=document.getElementById("filterOption");
@@ -863,12 +913,88 @@ function getMoisFromDate(dateISO){if(!dateISO)return"Septembre";const date=new D
 function sansAccent(texte){if(!texte)return"";const map={'é':'e','è':'e','ê':'e','ë':'e','à':'a','â':'a','ä':'a','ô':'o','ö':'o','û':'u','ü':'u','î':'i','ï':'i','ç':'c','É':'E','È':'E','Ê':'E','Ë':'E','À':'A','Â':'A','Ä':'A','Ô':'O','Ö':'O','Û':'U','Ü':'U','Î':'I','Ï':'I','Ç':'C'};return texte.replace(/[éèêëàâäôöûüîïçÉÈÊËÀÂÄÔÖÛÜÎÏÇ]/g,function(match){return map[match]||match;});}
 function mettreEnMajuscules(texte){if(!texte)return"";return texte.toUpperCase();}
 
-function ajouterEnTetePDF(doc,titre,sousTitre=""){
-const nomEcole=mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom||'COMPLEXE SCOLAIRE '+SCHOOL_DISPLAY_NAME));
-doc.setFillColor(25,55,95);doc.rect(0,0,210,50,"F");doc.setDrawColor(212,175,55);doc.setLineWidth(1.5);doc.line(20,50,190,50);doc.setFontSize(16);doc.setFont("helvetica","bold");doc.setTextColor(255,255,255);doc.text(nomEcole,105,20,{align:"center"});doc.setFontSize(13);doc.setFont("helvetica","bold");doc.setTextColor(212,175,55);doc.text(sansAccent(titre),105,32,{align:"center"});if(sousTitre){doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(200,200,200);doc.text(sansAccent(sousTitre),105,42,{align:"center"});}
-doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(180,180,180);doc.text('Date: '+formatDateFr(new Date()),20,46);doc.text('Année: '+anneeScolaireCourante,105,46,{align:"center"});return 58;}
+async function ajouterEnTetePDF(doc, titre, sousTitre = "") {
+    const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME));
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, 70, "F");
+    
+    doc.setDrawColor(212, 175, 55);
+    doc.setLineWidth(2);
+    doc.line(20, 70, pageWidth - 20, 70);
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(20, 72, pageWidth - 20, 72);
+    
+    const logoX = 15;
+    const logoY = 8;
+    const logoSize = 55;
+    let logoAdded = false;
+    
+    if (schoolLogoUrl) {
+        try {
+            const logoBase64 = await loadLogoBase64();
+            if (logoBase64) {
+                doc.addImage(logoBase64, 'JPEG', logoX, logoY, logoSize, logoSize);
+                doc.setDrawColor(212, 175, 55);
+                doc.setLineWidth(2.5);
+                doc.circle(logoX + logoSize/2, logoY + logoSize/2, logoSize/2 + 3);
+                logoAdded = true;
+            }
+        } catch (e) {
+            console.error("Erreur ajout logo:", e);
+        }
+    }
+    
+    const startX = logoAdded ? logoX + logoSize + 18 : 20;
+    const titleY = logoAdded ? 22 : 20;
+    
+    doc.setFontSize(logoAdded ? 20 : 18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(25, 55, 95);
+    doc.text(nomEcole, startX, titleY);
+    
+    doc.setFontSize(logoAdded ? 15 : 14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(212, 175, 55);
+    doc.text(sansAccent(titre), startX, titleY + (logoAdded ? 20 : 18));
+    
+    if (sousTitre) {
+        doc.setFontSize(logoAdded ? 11 : 10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text(sansAccent(sousTitre), startX, titleY + (logoAdded ? 35 : 32));
+    } else {
+        doc.setFontSize(logoAdded ? 11 : 10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text('Année scolaire : ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 35 : 32));
+    }
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    doc.text('📅 ' + formatDateFr(new Date()), 20, 64);
+    doc.text('Document généré le ' + new Date().toLocaleTimeString('fr-FR'), 190, 64, { align: "right" });
+    
+    return 78;
+}
 
-function ajouterPiedPage(doc,pageNumber,totalPages){const y=doc.internal.pageSize.height-15;doc.setDrawColor(200,200,200);doc.setLineWidth(0.5);doc.line(20,y-5,190,y-5);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(150,150,150);doc.text('Page '+pageNumber+' / '+totalPages,105,y+2,{align:"center"});doc.text('NeTubeX SARL',190,y+2,{align:"right"});}
+function ajouterPiedPage(doc, pageNumber, totalPages) {
+    const y = doc.internal.pageSize.height - 18;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(20, y - 5, 190, y - 5);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text('Page ' + pageNumber + ' / ' + totalPages, 105, y + 4, { align: "center" });
+    doc.setTextColor(150, 150, 150);
+    doc.setFontSize(7);
+    doc.text('Impression : ' + new Date().toLocaleString('fr-FR'), 190, y + 4, { align: "right" });
+}
 
 function genererTableauPleinEcran(doc,head,body,startY,options={}){const pageWidth=doc.internal.pageSize.width;const marginX=10;const nbColonnes=head[0].length;const largeurDisponible=pageWidth-(marginX*2);const largeurColonne=largeurDisponible/nbColonnes;let columnStyles={};head[0].forEach((col,index)=>{columnStyles[index]={cellWidth:largeurColonne};});const headNettoye=head.map(row=>row.map(col=>sansAccent(col)));const bodyNettoye=body.map(row=>row.map(cell=>typeof cell==='string'?sansAccent(cell):cell));return doc.autoTable({startY:startY,head:headNettoye,body:bodyNettoye,theme:"striped",styles:{fontSize:8,cellPadding:3,textColor:[30,30,30],lineColor:[200,200,200],lineWidth:0.1,overflow:'linebreak',valign:'middle'},headStyles:{fillColor:[40,80,130],textColor:[255,255,255],fontSize:9,fontStyle:"bold",halign:"center",valign:"middle"},alternateRowStyles:{fillColor:[245,247,250]},columnStyles:columnStyles,margin:{left:marginX,right:marginX},tableWidth:'auto',showHead:'everyPage',pageBreak:'auto',...options});}
 
@@ -1069,8 +1195,6 @@ document.getElementById('confirmEditClasse').onclick = async function() {
 document.getElementById('cancelEditClasse').onclick = function() {applyClickEffect(this);document.getElementById('editClasseModal').classList.remove('show');};
 
 async function enregistrerPaiementMinerval(eleveId,mois,montant){const id='compta_'+eleveId;const ref=doc(db,"ecoles",ECOLET_ID,"compta_eleves",id);const snap=await getDoc(ref);if(!snap.exists())return false;const d=snap.data();const actuel=d.paiements?.[mois]||{montant:0,date:null,historique:[]};const nouveauMontant=(actuel.montant||0)+montant;const maintenant=new Date();const dateStr=maintenant.toISOString().slice(0,19).replace('T',' ');const histItem={montant:montant,date:dateStr,nouveauTotal:nouveauMontant};const nvHist=[...(actuel.historique||[]),histItem];const paiementsMisAJour={...(d.paiements||{})};paiementsMisAJour[mois]={montant:nouveauMontant,date:dateStr,historique:nvHist};await updateDoc(ref,{paiements:paiementsMisAJour});const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves[idx].paiements=paiementsMisAJour;}
-// Mettre à jour le cache pour les reçus
-receiptCache[eleveId] = { ...localEleves[idx] };
 toast('✅ Paiement minerval de '+formatNbSimple(montant)+' FC enregistré pour '+mois,"success");return true;}
 
 async function afficherReleve(eleve){if(!eleve||eleve.abandon){document.getElementById("releveContainer").innerHTML='<div class="empty-state">⚠️ Abandon le '+(eleve?.dateAbandon||"?")+'</div>';return;}
@@ -1184,7 +1308,6 @@ for(const e of liste){const color=e.statut==='COMPLET'?'#10b981':(e.statut==='PA
 html+='<tr class="'+statutClass+'"><td style="font-weight:500;color:white;white-space:nowrap;">'+sexeIcon+' '+nomComplet+'</td><td style="color:#94a3b8;white-space:nowrap;">'+e.classe+(e.option?' - '+e.option:'')+'</td><td style="text-align:right;color:white;white-space:nowrap;">'+formatNbSimple(e.fraisTotal)+' FC</td><td style="text-align:right;color:'+color+';font-weight:bold;white-space:nowrap;">'+formatNbSimple(e.montantPaye)+' FC</td><td style="text-align:right;color:'+(reste>0?'#ef4444':'#10b981')+';font-weight:bold;white-space:nowrap;">'+(reste>0?formatNbSimple(reste)+' FC':'✓')+'</td><td style="text-align:center;white-space:nowrap;"><span class="status-badge '+statutClass+'">'+statutLabel+'</span></td><td style="text-align:center;color:#94a3b8;font-size:12px;white-space:nowrap;">'+dateInscription+'</td><td style="text-align:center;white-space:nowrap;">'+(reste>0?'<button class="btn btn-sm btn-inscription-pay" onclick="window.ouvrirPaiementInscription(\''+e.id+'\',\''+e.nom+'\','+e.reste+','+e.fraisTotal+','+e.montantPaye+')">PAYER</button>':'<span style="color:#10b981;">✓</span>')+'</td><td style="text-align:center;white-space:nowrap;">'+(aPaye?'<button class="btn-generate btn-generate-sm" onclick="genererReçuInscriptionPDF(\''+e.id+'\',\''+e.nom+'\','+e.montantPaye+',\''+e.dateInscription+'\')">🧾 REÇU</button>':'<span style="color:#64748b;font-size:10px;">-</span>')+'</td></tr>';}
 html+='</tbody></table></div>';container.innerHTML=html;};
 
-// Génération du reçu d'inscription
 window.genererReçuInscriptionPDF = async function(eleveId, nom, montant, dateInscription) {
     if (isGeneratingReceipt) {
         toast('Génération en cours, veuillez patienter...', 'warning');
@@ -1202,14 +1325,8 @@ async function processReceiptQueue() {
     const item = receiptQueue.shift();
     try {
         let eleve;
-        if (receiptCache[item.eleveId]) {
-            eleve = receiptCache[item.eleveId];
-        } else {
-            const eleves = await getAllComptaEleves(true);
-            eleve = eleves.find(e => e.id === item.eleveId);
-            if (eleve) receiptCache[item.eleveId] = eleve;
-        }
-        
+        const eleves = await getAllComptaEleves(true);
+        eleve = eleves.find(e => e.id === item.eleveId);
         if (!eleve) {
             toast('Élève non trouvé', 'error');
             isGeneratingReceipt = false;
@@ -1295,7 +1412,7 @@ async function processReceiptQueue() {
         y += 6;
         
         const tableHeaders = [['Frais d\'inscription', 'Montant payé', 'Statut']];
-        const tableData = [[formatNbSimple(eleve.fraisInscriptionTotal) + ' FC', formatNbSimple(montant) + ' FC', eleve.exonere ? 'EXONÉRÉ' : '✅ PAYÉ']];
+        const tableData = [[formatNbSimple(eleve.fraisInscriptionTotal) + ' FC', formatNbSimple(item.montant) + ' FC', eleve.exonere ? 'EXONÉRÉ' : '✅ PAYÉ']];
         doc.autoTable({
             startY: y,
             head: tableHeaders,
@@ -1370,7 +1487,7 @@ window.ouvrirPaiementInscription=function(eleveId,nom,reste,fraisTotal,dejaPaye)
 window.confirmInscriptionPayment=async function(){applyClickEffect(document.getElementById('confirmInscriptionPayment'));const montant=parseInt(document.getElementById('inscriptionPaymentAmount').value);if(!montant||montant<=0){toast("Montant invalide","error");return;}if(montant>window.inscriptionPaiementData.reste){toast("Montant supérieur au reste","error");return;}
 if(await showConfirm('Confirmer le paiement de '+formatNbSimple(montant)+' FC pour les frais d\'inscription ?')){await enregistrerPaiementInscription(window.inscriptionPaiementData.eleveId,montant);document.getElementById('inscriptionPaymentModal').classList.remove('show');await window.afficherFraisInscription();await afficherListeEleves();await mettreAJourStatsDetaillees();}};
 
-async function enregistrerPaiementInscription(eleveId,montant){const id='compta_'+eleveId;const ref=doc(db,"ecoles",ECOLET_ID,"compta_eleves",id);const snap=await getDoc(ref);if(!snap.exists())return false;const d=snap.data();const actuel=d.fraisInscriptionPaye||0;const nouveauTotal=actuel+montant;await updateDoc(ref,{fraisInscriptionPaye:nouveauTotal});const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves[idx].fraisInscriptionPaye=nouveauTotal;}receiptCache[eleveId] = { ...localEleves[idx] };toast('✅ Paiement inscription de '+formatNbSimple(montant)+' FC enregistré',"success");return true;}
+async function enregistrerPaiementInscription(eleveId,montant){const id='compta_'+eleveId;const ref=doc(db,"ecoles",ECOLET_ID,"compta_eleves",id);const snap=await getDoc(ref);if(!snap.exists())return false;const d=snap.data();const actuel=d.fraisInscriptionPaye||0;const nouveauTotal=actuel+montant;await updateDoc(ref,{fraisInscriptionPaye:nouveauTotal});const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves[idx].fraisInscriptionPaye=nouveauTotal;}toast('✅ Paiement inscription de '+formatNbSimple(montant)+' FC enregistré',"success");return true;}
 document.getElementById('confirmInscriptionPayment').onclick=window.confirmInscriptionPayment;document.getElementById('cancelInscriptionPayment').onclick=function(){applyClickEffect(this);document.getElementById('inscriptionPaymentModal').classList.remove('show');};
 
 function updatePreview(){const nom=document.getElementById('newEleveNom').value.trim();const postnom=document.getElementById('newElevePostnom').value.trim();const prenom=document.getElementById('newElevePrenom').value.trim();const classe=document.getElementById('newEleveClasse').value;const option=document.getElementById('newEleveOption').value;const exonere=document.getElementById('newEleveExonere').value==='oui';const phone=document.getElementById('newElevePhone').value.trim();const lieuNaiss=document.getElementById('newEleveLieuNaiss').value.trim();const dateNaiss=document.getElementById('newEleveDateNaiss').value;const nomPere=document.getElementById('newEleveNomPere').value.trim();const nomMere=document.getElementById('newEleveNomMere').value.trim();const montantInscription=document.getElementById('newEleveMontantInscription').value||0;let approbateur=document.getElementById('newEleveApprobateur').value;if(approbateur==='Autre'){approbateur=document.getElementById('newEleveApprobateurAutre').value.trim();}
@@ -1430,14 +1547,14 @@ document.querySelector('[data-stat="impayes"]').onclick=async()=>{const infosAct
 
 window.ouvrirPopupRecouvrement=function(){document.getElementById('recouvrementModal').classList.add('show');};
 
-document.getElementById('confirmRecouvrement').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('recouvrementClasse').value;const option=document.getElementById('recouvrementOption').value;const loadingOverlay=document.getElementById('loadingOverlay');loadingOverlay.classList.add('show');isGeneratingPDF=true;try{const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();let elevesFiltres=tous.filter(e=>{if(e.exonere||e.abandon)return false;return e.moisImpayes>0;});if(classe)elevesFiltres=elevesFiltres.filter(e=>e.classe===classe);if(option)elevesFiltres=elevesFiltres.filter(e=>e.option===option);elevesFiltres.sort((a,b)=>{const montantA=a.totalMin-a.totalPaye;const montantB=b.totalMin-b.totalPaye;return montantB-montantA;});const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"LISTE DE RECOUVREMENT",`${elevesFiltres.length} eleves concernes${classe?' - Classe: '+classe:''}${option?' - Option: '+option:''}`);let currentY=startY;if(elevesFiltres.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE A RECOUVRER",105,currentY+40,{align:"center"});}else{const totalDues=elevesFiltres.reduce((s,e)=>s+(e.totalMin-e.totalPaye),0);const totalMois=elevesFiltres.reduce((s,e)=>s+e.moisImpayes,0);const moyenne=Math.round(totalDues/elevesFiltres.length);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total à recouvrer: ${elevesFiltres.length}`,20,currentY);doc.text(`Montant total dû: ${formatNbSimple(totalDues)} FC`,105,currentY);doc.text(`Total mois impayés: ${totalMois}`,20,currentY+6);doc.text(`Moyenne: ${formatNbSimple(moyenne)} FC`,105,currentY+6);currentY+=14;const body=elevesFiltres.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.totalMin-e.totalPaye)+' FC',e.moisImpayes+' mois',e.parentCode||'-',e.phone||'-'];});
+document.getElementById('confirmRecouvrement').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('recouvrementClasse').value;const option=document.getElementById('recouvrementOption').value;const loadingOverlay=document.getElementById('loadingOverlay');loadingOverlay.classList.add('show');isGeneratingPDF=true;try{const{jsPDF}=window.jspdf;const tous=await getTousElevesAvecInfos();let elevesFiltres=tous.filter(e=>{if(e.exonere||e.abandon)return false;return e.moisImpayes>0;});if(classe)elevesFiltres=elevesFiltres.filter(e=>e.classe===classe);if(option)elevesFiltres=elevesFiltres.filter(e=>e.option===option);elevesFiltres.sort((a,b)=>{const montantA=a.totalMin-a.totalPaye;const montantB=b.totalMin-b.totalPaye;return montantB-montantA;});const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"LISTE DE RECOUVREMENT",`${elevesFiltres.length} eleves concernes${classe?' - Classe: '+classe:''}${option?' - Option: '+option:''}`);let currentY=startY;if(elevesFiltres.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE A RECOUVRER",105,currentY+40,{align:"center"});}else{const totalDues=elevesFiltres.reduce((s,e)=>s+(e.totalMin-e.totalPaye),0);const totalMois=elevesFiltres.reduce((s,e)=>s+e.moisImpayes,0);const moyenne=Math.round(totalDues/elevesFiltres.length);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total à recouvrer: ${elevesFiltres.length}`,20,currentY);doc.text(`Montant total dû: ${formatNbSimple(totalDues)} FC`,105,currentY);doc.text(`Total mois impayés: ${totalMois}`,20,currentY+6);doc.text(`Moyenne: ${formatNbSimple(moyenne)} FC`,105,currentY+6);currentY+=14;const body=elevesFiltres.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.totalMin-e.totalPaye)+' FC',e.moisImpayes+' mois',e.parentCode||'-',e.phone||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","MONTANT DU","MOIS IMPAYES","CODE PARENT","PHONE"]],body,currentY,{columnStyles:{0:{cellWidth:35,fontStyle:"bold"},1:{cellWidth:25},2:{cellWidth:25,halign:"right"},3:{cellWidth:22,halign:"center"},4:{cellWidth:22,halign:"center"},5:{cellWidth:22,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});const finalY=doc.lastAutoTable.finalY+8;doc.setDrawColor(212,175,55);doc.setLineWidth(0.5);doc.line(20,finalY,190,finalY);doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(40,80,130);doc.text("RECAPITULATIF",20,finalY+6);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(50,50,50);doc.text(`Nombre d’élèves: ${elevesFiltres.length}`,20,finalY+13);doc.text(`Montant total dû: ${formatNbSimple(totalDues)} FC`,105,finalY+13);doc.text(`Total mois impayés: ${totalMois}`,20,finalY+19);doc.text(`Moyenne par élève: ${formatNbSimple(moyenne)} FC`,105,finalY+19);}
 const nomFichier=`Recouvrement${classe?'_'+classe.replace(' ','_'):''}${option?'_'+option.replace(' ','_'):''}.pdf`;doc.save(nomFichier);}catch(error){console.error("Erreur generation PDF:",error);}finally{loadingOverlay.classList.remove('show');document.getElementById('recouvrementModal').classList.remove('show');isGeneratingPDF=false;}};
 document.getElementById('cancelRecouvrement').onclick=function(){applyClickEffect(this);document.getElementById('recouvrementModal').classList.remove('show');};
 
 window.ouvrirPopupInscription=function(){document.getElementById('inscriptionPdfModal').classList.add('show');};
 
-document.getElementById('confirmInscriptionPdf').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('inscriptionPdfClasse').value;const option=document.getElementById('inscriptionPdfOption').value;const loadingOverlay=document.getElementById('loadingOverlay');loadingOverlay.classList.add('show');isGeneratingPDF=true;try{const{jsPDF}=window.jspdf;const liste=await window.getElevesAvecFraisInscription();let elevesFiltres=liste;if(classe)elevesFiltres=elevesFiltres.filter(e=>e.classe===classe);if(option)elevesFiltres=elevesFiltres.filter(e=>e.option===option);const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"FRAIS D'INSCRIPTION",`${elevesFiltres.length} eleves${classe?' - Classe: '+classe:''}${option?' - Option: '+option:''}`);if(elevesFiltres.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const complets=elevesFiltres.filter(e=>e.statut==='COMPLET').length;const partiels=elevesFiltres.filter(e=>e.statut==='PARTIEL').length;const nonPayes=elevesFiltres.filter(e=>e.statut==='NON PAYE').length;const totalPaye=elevesFiltres.reduce((s,e)=>s+e.montantPaye,0);const totalFrais=elevesFiltres.reduce((s,e)=>s+e.fraisTotal,0);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total: ${elevesFiltres.length}`,20,startY);doc.text(`Complets: ${complets}`,20,startY+5);doc.text(`Partiels: ${partiels}`,20,startY+10);doc.text(`Non payes: ${nonPayes}`,20,startY+15);doc.text(`Total percu: ${formatNbSimple(totalPaye)} FC`,105,startY);doc.text(`Reste: ${formatNbSimple(totalFrais-totalPaye)} FC`,105,startY+5);const body=elevesFiltres.map(e=>{const nomComplet=e.nom.toUpperCase();return [nomComplet,e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.fraisTotal)+' FC',formatNbSimple(e.montantPaye)+' FC',formatNbSimple(e.reste)+' FC',e.statut,e.dateInscription||'-'];});
+document.getElementById('confirmInscriptionPdf').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('inscriptionPdfClasse').value;const option=document.getElementById('inscriptionPdfOption').value;const loadingOverlay=document.getElementById('loadingOverlay');loadingOverlay.classList.add('show');isGeneratingPDF=true;try{const{jsPDF}=window.jspdf;const liste=await window.getElevesAvecFraisInscription();let elevesFiltres=liste;if(classe)elevesFiltres=elevesFiltres.filter(e=>e.classe===classe);if(option)elevesFiltres=elevesFiltres.filter(e=>e.option===option);const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"FRAIS D'INSCRIPTION",`${elevesFiltres.length} eleves${classe?' - Classe: '+classe:''}${option?' - Option: '+option:''}`);if(elevesFiltres.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const complets=elevesFiltres.filter(e=>e.statut==='COMPLET').length;const partiels=elevesFiltres.filter(e=>e.statut==='PARTIEL').length;const nonPayes=elevesFiltres.filter(e=>e.statut==='NON PAYE').length;const totalPaye=elevesFiltres.reduce((s,e)=>s+e.montantPaye,0);const totalFrais=elevesFiltres.reduce((s,e)=>s+e.fraisTotal,0);doc.setFontSize(7);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total: ${elevesFiltres.length}`,20,startY);doc.text(`Complets: ${complets}`,20,startY+5);doc.text(`Partiels: ${partiels}`,20,startY+10);doc.text(`Non payes: ${nonPayes}`,20,startY+15);doc.text(`Total percu: ${formatNbSimple(totalPaye)} FC`,105,startY);doc.text(`Reste: ${formatNbSimple(totalFrais-totalPaye)} FC`,105,startY+5);const body=elevesFiltres.map(e=>{const nomComplet=e.nom.toUpperCase();return [nomComplet,e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.fraisTotal)+' FC',formatNbSimple(e.montantPaye)+' FC',formatNbSimple(e.reste)+' FC',e.statut,e.dateInscription||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","TOTAL","PAYE","RESTE","STATUT","DATE"]],body,startY+20,{styles:{fontSize:7,cellPadding:2},columnStyles:{0:{cellWidth:35,fontStyle:"bold"},1:{cellWidth:25},2:{cellWidth:18,halign:"right"},3:{cellWidth:18,halign:"right"},4:{cellWidth:18,halign:"right"},5:{cellWidth:20,halign:"center"},6:{cellWidth:20,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});}
 const nomFichier=`FraisInscription${classe?'_'+classe.replace(' ','_'):''}${option?'_'+option.replace(' ','_'):''}.pdf`;doc.save(nomFichier);}catch(error){console.error("Erreur generation PDF:",error);}finally{loadingOverlay.classList.remove('show');document.getElementById('inscriptionPdfModal').classList.remove('show');isGeneratingPDF=false;}};
 document.getElementById('cancelInscriptionPdf').onclick=function(){applyClickEffect(this);document.getElementById('inscriptionPdfModal').classList.remove('show');};
@@ -1447,25 +1564,24 @@ window.ouvrirPopupSituationFinanciere=function(){document.getElementById('situat
 function mettreAJourOptionsSituationFinanciere(){const sfOption=document.getElementById("sfOption");if(sfOption){let optionsHtml='<option value="">Toutes les options</option>';let optsUniques=new Set();for(let classe of classesListe){let opts=optionsParClasse[classe]||[];opts.forEach(o=>optsUniques.add(o));}optsUniques.forEach(opt=>{optionsHtml+='<option value="'+opt+'">'+opt+'</option>';});sfOption.innerHTML=optionsHtml;}}
 
 document.getElementById('confirmSituationFinanciere').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('sfClasse').value;const option=document.getElementById('sfOption').value;const mois=document.getElementById('sfMois').value;const loadingOverlay=document.getElementById('loadingOverlay');loadingOverlay.classList.add('show');isGeneratingPDF=true;try{const{jsPDF}=window.jspdf;const tous=await getAllComptaEleves();let elevesFiltres=tous.filter(e=>!e.abandon);if(classe)elevesFiltres=elevesFiltres.filter(e=>e.classe===classe);if(option)elevesFiltres=elevesFiltres.filter(e=>e.option===option);const resultatsParClasse={};const paiementsTotalParClasse={};const attendusTotalParClasse={};const elevesNonPayes=[];for(let e of elevesFiltres){const key=e.classe+(e.option?' - '+e.option:'');if(!resultatsParClasse[key]){resultatsParClasse[key]=[];paiementsTotalParClasse[key]=0;attendusTotalParClasse[key]=0;}resultatsParClasse[key].push(e);const paiementMois=(e.paiements||{})[mois]?.montant||0;const minervalMois=e.exonere?0:(e.minerval||45000);const moisBlancs=e.moisBlancs||[];const estBlanc=moisBlancs.includes(mois);const estPayeTotal=estBlanc?true:(paiementMois>=minervalMois);attendusTotalParClasse[key]+=minervalMois;paiementsTotalParClasse[key]+=paiementMois;if(!estPayeTotal&&!e.exonere&&!estBlanc){elevesNonPayes.push({...e,montantDu:minervalMois-paiementMois,mois:mois});}}
-const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"SITUATION FINANCIERE GLOBALE",`Filtre: ${classe||'Toutes classes'} ${option?'- '+option:''} - Mois: ${mois}`);let currentY=startY;doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(40,80,130);doc.text("RECAPITULATIF PAR CLASSE ET OPTION",20,currentY);currentY+=6;const classesKeys=Object.keys(resultatsParClasse).sort();let totalAttenduGlobal=0,totalRecuGlobal=0,totalElevesGlobal=0;const bodyRecap=classesKeys.map(key=>{const eleves=resultatsParClasse[key];const attendu=attendusTotalParClasse[key]||0;const recu=paiementsTotalParClasse[key]||0;const reste=attendu-recu;totalAttenduGlobal+=attendu;totalRecuGlobal+=recu;totalElevesGlobal+=eleves.length;return [key,eleves.length,formatNbSimple(attendu),formatNbSimple(recu),formatNbSimple(reste)];});
+const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"SITUATION FINANCIERE GLOBALE",`Filtre: ${classe||'Toutes classes'} ${option?'- '+option:''} - Mois: ${mois}`);let currentY=startY;doc.setFontSize(9);doc.setFont("helvetica","bold");doc.setTextColor(40,80,130);doc.text("RECAPITULATIF PAR CLASSE ET OPTION",20,currentY);currentY+=6;const classesKeys=Object.keys(resultatsParClasse).sort();let totalAttenduGlobal=0,totalRecuGlobal=0,totalElevesGlobal=0;const bodyRecap=classesKeys.map(key=>{const eleves=resultatsParClasse[key];const attendu=attendusTotalParClasse[key]||0;const recu=paiementsTotalParClasse[key]||0;const reste=attendu-recu;totalAttenduGlobal+=attendu;totalRecuGlobal+=recu;totalElevesGlobal+=eleves.length;return [key,eleves.length,formatNbSimple(attendu),formatNbSimple(recu),formatNbSimple(reste)];});
 genererTableauPleinEcran(doc,[["CLASSE / OPTION","NB ELEVES","ATTENDU","RECU","RESTE"]],bodyRecap,currentY,{columnStyles:{0:{cellWidth:45,fontStyle:"bold"},1:{cellWidth:20,halign:"center"},2:{cellWidth:30,halign:"right"},3:{cellWidth:30,halign:"right"},4:{cellWidth:30,halign:"right"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});currentY=doc.lastAutoTable.finalY+8;doc.setDrawColor(212,175,55);doc.setLineWidth(0.5);doc.line(20,currentY,190,currentY);currentY+=6;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(40,80,130);doc.text("TOTAUX GLOBAUX",20,currentY);currentY+=6;doc.setFontSize(9);doc.setFont("helvetica","normal");doc.setTextColor(50,50,50);doc.text(`Total eleves: ${totalElevesGlobal}`,20,currentY);doc.text(`Total attendu: ${formatNbSimple(totalAttenduGlobal)} FC`,105,currentY);doc.text(`Total recu: ${formatNbSimple(totalRecuGlobal)} FC`,20,currentY+6);doc.text(`Reste global: ${formatNbSimple(totalAttenduGlobal-totalRecuGlobal)} FC`,105,currentY+6);currentY+=16;if(elevesNonPayes.length>0){doc.setDrawColor(212,175,55);doc.setLineWidth(0.5);doc.line(20,currentY,190,currentY);currentY+=6;doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(180,50,50);doc.text(`ELEVES N'AYANT PAS PAYE LE MOIS DE ${mois.toUpperCase()}`,20,currentY);currentY+=6;const bodyNonPayes=elevesNonPayes.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.montantDu)+' FC',e.parentCode||'-',e.phone||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","MONTANT DU","CODE PARENT","TELEPHONE"]],bodyNonPayes,currentY,{headStyles:{fillColor:[180,50,50],textColor:[255,255,255],fontSize:9,fontStyle:"bold",halign:"center"},alternateRowStyles:{fillColor:[255,240,240]},columnStyles:{0:{cellWidth:40,fontStyle:"bold"},1:{cellWidth:35},2:{cellWidth:25,halign:"right"},3:{cellWidth:25,halign:"center"},4:{cellWidth:25,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});}
 const nomFichier=`SituationFinanciere${classe?'_'+classe.replace(' ','_'):''}${option?'_'+option.replace(' ','_'):''}_${mois}.pdf`;doc.save(nomFichier);}catch(error){console.error("Erreur generation PDF:",error);}finally{loadingOverlay.classList.remove('show');document.getElementById('situationFinanciereModal').classList.remove('show');isGeneratingPDF=false;}};
 document.getElementById('cancelSituationFinanciere').onclick=function(){applyClickEffect(this);document.getElementById('situationFinanciereModal').classList.remove('show');};
 
-window.genererPDFTousEleves=async function(){try{const{jsPDF}=window.jspdf;const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"LISTE COMPLETE DES ELEVES",`Total: ${actifs.length} eleves actifs`);if(actifs.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(200,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const filles=actifs.filter(e=>e.sexe==='F').length;const garcons=actifs.filter(e=>e.sexe==='M').length;const exo=actifs.filter(e=>e.exonere).length;doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Filles: ${filles}`,20,startY);doc.text(`Garcons: ${garcons}`,80,startY);doc.text(`Exoneres: ${exo}`,140,startY);const body=actifs.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),e.sexe==='F'?'F':'M',e.exonere?'OUI':'NON',e.phone||'-',e.parentCode||'-'];});
+window.genererPDFTousEleves=async function(){try{const{jsPDF}=window.jspdf;const tous=await getAllComptaEleves();const actifs=tous.filter(e=>!e.abandon);const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"LISTE COMPLETE DES ELEVES",`Total: ${actifs.length} eleves actifs`);if(actifs.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(200,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const filles=actifs.filter(e=>e.sexe==='F').length;const garcons=actifs.filter(e=>e.sexe==='M').length;const exo=actifs.filter(e=>e.exonere).length;doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Filles: ${filles}`,20,startY);doc.text(`Garcons: ${garcons}`,80,startY);doc.text(`Exoneres: ${exo}`,140,startY);const body=actifs.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),e.sexe==='F'?'F':'M',e.exonere?'OUI':'NON',e.phone||'-',e.parentCode||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","S","EXO","TELEPHONE","CODE PARENT"]],body,startY+8,{styles:{fontSize:7,cellPadding:2},columnStyles:{0:{cellWidth:35,fontStyle:"bold"},1:{cellWidth:28},2:{cellWidth:10,halign:"center"},3:{cellWidth:15,halign:"center"},4:{cellWidth:22,halign:"center"},5:{cellWidth:22,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});}
 const nomFichier=`ListeEleves_${formatDateYMD()}.pdf`;doc.save(nomFichier);}catch(e){console.error("Erreur PDF:",e);}};
 
-window.genererPDFExoneres=async function(){try{const{jsPDF}=window.jspdf;const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"ELEVES EXONERES",`Total: ${ex.length} eleves exoneres`);if(ex.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(200,150,0);doc.text("AUCUN ELEVE EXONERE",105,startY+40,{align:"center"});}else{const filles=ex.filter(e=>e.sexe==='F').length;const garcons=ex.filter(e=>e.sexe==='M').length;doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Filles: ${filles}`,20,startY);doc.text(`Garcons: ${garcons}`,80,startY);const body=ex.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),e.sexe==='F'?'F':'M',e.motifExon||'-',e.approbateur||'-',e.parentCode||'-'];});
+window.genererPDFExoneres=async function(){try{const{jsPDF}=window.jspdf;const tous=await getAllComptaEleves();const ex=tous.filter(e=>e.exonere&&!e.abandon);const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"ELEVES EXONERES",`Total: ${ex.length} eleves exoneres`);if(ex.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(200,150,0);doc.text("AUCUN ELEVE EXONERE",105,startY+40,{align:"center"});}else{const filles=ex.filter(e=>e.sexe==='F').length;const garcons=ex.filter(e=>e.sexe==='M').length;doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Filles: ${filles}`,20,startY);doc.text(`Garcons: ${garcons}`,80,startY);const body=ex.map(e=>{const nomComplet=e.nom+' '+(e.postnom||'')+' '+(e.prenom||'');return [nomComplet.toUpperCase(),e.classe+(e.option?' - '+e.option:''),e.sexe==='F'?'F':'M',e.motifExon||'-',e.approbateur||'-',e.parentCode||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","S","MOTIF","APPROBATEUR","CODE PARENT"]],body,startY+8,{headStyles:{fillColor:[16,185,129],textColor:[255,255,255],fontSize:9,fontStyle:"bold",halign:"center"},alternateRowStyles:{fillColor:[240,255,245]},columnStyles:{0:{cellWidth:35,fontStyle:"bold"},1:{cellWidth:25},2:{cellWidth:12,halign:"center"},3:{cellWidth:25,halign:"center"},4:{cellWidth:25,halign:"center"},5:{cellWidth:22,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});}
 const nomFichier=`Exoneres_${formatDateYMD()}.pdf`;doc.save(nomFichier);}catch(e){console.error("Erreur PDF:",e);}};
 
-window.genererPDFInscription=async function(){try{const{jsPDF}=window.jspdf;const liste=await window.getElevesAvecFraisInscription();const doc=new jsPDF("portrait","mm","a4");const startY=ajouterEnTetePDF(doc,"FRAIS D'INSCRIPTION",`${liste.length} eleves`);if(liste.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const complets=liste.filter(e=>e.statut==='COMPLET').length;const partiels=liste.filter(e=>e.statut==='PARTIEL').length;const nonPayes=liste.filter(e=>e.statut==='NON PAYE').length;const totalPaye=liste.reduce((s,e)=>s+e.montantPaye,0);const totalFrais=liste.reduce((s,e)=>s+e.fraisTotal,0);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total: ${liste.length}`,20,startY);doc.text(`Complets: ${complets}`,20,startY+6);doc.text(`Partiels: ${partiels}`,20,startY+12);doc.text(`Non payes: ${nonPayes}`,20,startY+18);doc.text(`Total percu: ${formatNbSimple(totalPaye)} FC`,110,startY);doc.text(`Reste: ${formatNbSimple(totalFrais-totalPaye)} FC`,110,startY+6);const body=liste.map(e=>{const nomComplet=e.nom.toUpperCase();return [nomComplet,e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.fraisTotal)+' FC',formatNbSimple(e.montantPaye)+' FC',formatNbSimple(e.reste)+' FC',e.statut,e.dateInscription||'-'];});
+window.genererPDFInscription=async function(){try{const{jsPDF}=window.jspdf;const liste=await window.getElevesAvecFraisInscription();const doc=new jsPDF("portrait","mm","a4");const startY=await ajouterEnTetePDF(doc,"FRAIS D'INSCRIPTION",`${liste.length} eleves`);if(liste.length===0){doc.setFontSize(14);doc.setFont("helvetica","bold");doc.setTextColor(0,150,0);doc.text("AUCUN ELEVE INSCRIT",105,startY+40,{align:"center"});}else{const complets=liste.filter(e=>e.statut==='COMPLET').length;const partiels=liste.filter(e=>e.statut==='PARTIEL').length;const nonPayes=liste.filter(e=>e.statut==='NON PAYE').length;const totalPaye=liste.reduce((s,e)=>s+e.montantPaye,0);const totalFrais=liste.reduce((s,e)=>s+e.fraisTotal,0);doc.setFontSize(8);doc.setFont("helvetica","normal");doc.setTextColor(80,80,80);doc.text(`Total: ${liste.length}`,20,startY);doc.text(`Complets: ${complets}`,20,startY+6);doc.text(`Partiels: ${partiels}`,20,startY+12);doc.text(`Non payes: ${nonPayes}`,20,startY+18);doc.text(`Total percu: ${formatNbSimple(totalPaye)} FC`,110,startY);doc.text(`Reste: ${formatNbSimple(totalFrais-totalPaye)} FC`,110,startY+6);const body=liste.map(e=>{const nomComplet=e.nom.toUpperCase();return [nomComplet,e.classe+(e.option?' - '+e.option:''),formatNbSimple(e.fraisTotal)+' FC',formatNbSimple(e.montantPaye)+' FC',formatNbSimple(e.reste)+' FC',e.statut,e.dateInscription||'-'];});
 genererTableauPleinEcran(doc,[["ELEVE","CLASSE","TOTAL","PAYE","RESTE","STATUT","DATE"]],body,startY+25,{columnStyles:{0:{cellWidth:35,fontStyle:"bold"},1:{cellWidth:28},2:{cellWidth:20,halign:"right"},3:{cellWidth:20,halign:"right"},4:{cellWidth:20,halign:"right"},5:{cellWidth:22,halign:"center"},6:{cellWidth:22,halign:"center"}},didDrawPage:function(data){const pageNumber=doc.internal.getCurrentPageInfo().pageNumber;const totalPages=doc.internal.getNumberOfPages();ajouterPiedPage(doc,pageNumber,totalPages);}});}
 const nomFichier=`FraisInscription_${formatDateYMD()}.pdf`;doc.save(nomFichier);}catch(e){console.error("Erreur PDF:",e);}};
 
-// Génération du reçu de minerval optimisé avec cache et file d'attente
 window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
     if (isGeneratingReceipt) {
         toast('Génération en cours, veuillez patienter...', 'warning');
@@ -1473,195 +1589,6 @@ window.genererReçuPDF = async function(eleveId, mois, montant, datePaiement) {
     }
     receiptQueue.push({ eleveId, mois, montant, datePaiement, type: 'minerval' });
     processReceiptQueue();
-};
-
-// Override de processReceiptQueue pour gérer les deux types
-const originalProcess = processReceiptQueue;
-processReceiptQueue = async function() {
-    if (isGeneratingReceipt || receiptQueue.length === 0) return;
-    isGeneratingReceipt = true;
-    isGeneratingPDF = true;
-    
-    const item = receiptQueue.shift();
-    try {
-        let eleve;
-        if (receiptCache[item.eleveId]) {
-            eleve = receiptCache[item.eleveId];
-        } else {
-            const eleves = await getAllComptaEleves(true);
-            eleve = eleves.find(e => e.id === item.eleveId);
-            if (eleve) receiptCache[item.eleveId] = eleve;
-        }
-        
-        if (!eleve) {
-            toast('Élève non trouvé', 'error');
-            isGeneratingReceipt = false;
-            isGeneratingPDF = false;
-            processReceiptQueue();
-            return;
-        }
-        
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a5');
-        const pageWidth = doc.internal.pageSize.getWidth();
-        let y = 8;
-        
-        doc.setFillColor(10, 14, 26);
-        doc.rect(0, 0, pageWidth, 28, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.setTextColor(255, 215, 0);
-        const nomEcole = currentSchoolConfig?.nom || 'COMPLEXE SCOLAIRE ' + SCHOOL_DISPLAY_NAME;
-        doc.text(nomEcole.toUpperCase(), pageWidth / 2, 10, { align: 'center' });
-        doc.setFontSize(18);
-        doc.text(item.type === 'inscription' ? 'REÇU D\'INSCRIPTION' : 'REÇU DE PAIEMENT', pageWidth / 2, 20, { align: 'center' });
-        doc.setFontSize(9);
-        doc.setTextColor(200, 200, 200);
-        doc.text('Année scolaire : ' + anneeScolaireCourante, pageWidth / 2, 27, { align: 'center' });
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.5);
-        doc.line(10, 30, pageWidth - 10, 30);
-        
-        y = 34;
-        const refType = item.type === 'inscription' ? 'INS' : 'RCPT';
-        const reference = refType + '-' + formatDateYMD() + '-' + eleve.id.substring(eleve.id.length - 4) + (item.type === 'minerval' ? '-' + item.mois.substring(0, 3) : '');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(40, 40, 40);
-        doc.text('RÉFÉRENCE DU REÇU', 10, y);
-        y += 4;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.2);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(50, 50, 50);
-        doc.text('Référence : ' + reference, 10, y);
-        const dateDisplay = item.type === 'inscription' ? (item.dateInscription || new Date().toISOString()) : item.datePaiement;
-        doc.text('Date : ' + formatDateFr(dateDisplay), 10, y + 6);
-        if (item.type === 'minerval') {
-            doc.text('Heure : ' + (item.datePaiement ? item.datePaiement.split(' ')[1] || '--:--:--' : '--:--:--'), 120, y + 6);
-        }
-        y += 18;
-        
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.3);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(40, 40, 40);
-        doc.text('INFORMATIONS DE L\'ÉLÈVE', 10, y);
-        y += 4;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.2);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        const nomComplet = (eleve.nom + ' ' + (eleve.postnom || '') + ' ' + (eleve.prenom || '')).toUpperCase();
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(50, 50, 50);
-        doc.text('Nom de l\'élève : ' + nomComplet, 10, y);
-        doc.text('Classe : ' + eleve.classe, 10, y + 6);
-        doc.text('Option : ' + (eleve.option || 'Aucune'), 10, y + 12);
-        doc.text('Code parent : ' + (eleve.parentCode || 'Non attribué'), 10, y + 18);
-        y += 28;
-        
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.3);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(40, 40, 40);
-        doc.text('DÉTAIL DU PAIEMENT', 10, y);
-        y += 4;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.2);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        
-        let tableHeaders, tableData;
-        if (item.type === 'inscription') {
-            const statut = eleve.exonere ? 'EXONÉRÉ' : '✅ PAYÉ';
-            tableHeaders = [['Frais d\'inscription', 'Montant payé', 'Statut']];
-            tableData = [[formatNbSimple(eleve.fraisInscriptionTotal) + ' FC', formatNbSimple(item.montant) + ' FC', statut]];
-        } else {
-            const minervalMensuel = eleve.exonere ? 0 : (eleve.minerval || 45000);
-            const statut = item.montant >= minervalMensuel ? '✅ PAYÉ' : '⚠️ PARTIEL';
-            tableHeaders = [['Période concernée', 'Montant payé', 'Statut']];
-            tableData = [[item.mois, formatNbSimple(item.montant) + ' FC', statut]];
-        }
-        
-        doc.autoTable({
-            startY: y,
-            head: tableHeaders,
-            body: tableData,
-            theme: 'plain',
-            styles: { fontSize: 8, cellPadding: 4, textColor: [50, 50, 50], lineColor: [180, 180, 180], lineWidth: 0.1, valign: 'middle' },
-            headStyles: { fillColor: [40, 80, 130], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center', fontSize: 8 },
-            bodyStyles: { fillColor: [248, 249, 250] },
-            columnStyles: { 0: { cellWidth: 30, halign: 'center' }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 25, halign: 'center' } },
-            margin: { left: 10, right: 10 },
-            tableWidth: 'auto'
-        });
-        
-        y = doc.lastAutoTable.finalY + 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.setTextColor(50, 50, 50);
-        doc.text('Moyen de paiement : Espèces', 10, y);
-        y += 8;
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.3);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(40, 40, 40);
-        doc.text('OBSERVATIONS', 10, y);
-        y += 4;
-        doc.setDrawColor(180, 180, 180);
-        doc.setLineWidth(0.2);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 8;
-        doc.setDrawColor(150, 150, 150);
-        doc.setLineWidth(0.2);
-        doc.setLineDashPattern([2, 2], 0);
-        doc.rect(10, y, pageWidth - 20, 35);
-        doc.setLineDashPattern([], 0);
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
-        doc.setTextColor(120, 120, 120);
-        doc.text('Espace réservé au cachet et à la signature de la comptabilité', pageWidth / 2, y + 18, { align: 'center' });
-        y += 42;
-        doc.setDrawColor(255, 215, 0);
-        doc.setLineWidth(0.3);
-        doc.line(10, y, pageWidth - 10, y);
-        y += 6;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(60, 60, 60);
-        doc.text('Ce reçu certifie que le paiement ci-dessus a été enregistré dans le système.', pageWidth / 2, y, { align: 'center' });
-        doc.text('Conservez ce document comme preuve de paiement.', pageWidth / 2, y + 5, { align: 'center' });
-        
-        const suffixe = item.type === 'inscription' ? 'Inscription' : item.mois;
-        const nomFichier = `Reçu_${eleve.nom}_${suffixe}_${formatDateYMD()}.pdf`;
-        doc.save(nomFichier);
-        
-        if (receiptQueue.length === 0) {
-            toast('🧾 Reçu généré avec succès !', 'success');
-        }
-    } catch (error) {
-        console.error('Erreur lors de la génération du reçu:', error);
-        toast('Erreur lors de la génération du reçu', 'error');
-    } finally {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        isGeneratingReceipt = false;
-        isGeneratingPDF = false;
-        processReceiptQueue();
-    }
 };
 
 function initTabsEvents(){document.querySelectorAll(".tab-btn").forEach(btn=>{btn.addEventListener("click",function(){const tabId=this.dataset.tab;document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));this.classList.add("active");document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));document.getElementById(tabId).classList.add("active");if(tabId==="tab4"){afficherCartesIdentite();}if(tabId==="tab5"){afficherParentCodes();}if(tabId==="tab8"){window.afficherFraisInscription();}});});}
@@ -1694,6 +1621,7 @@ document.getElementById('btnPDFInscription').onclick=function(){applyClickEffect
 async function initApp(){
 document.getElementById('btnAddOption').disabled=false;document.getElementById('newOptionName').disabled=false;
 document.getElementById('btnAddOption').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('configClasseOptions').value;const option=document.getElementById('newOptionName').value.trim();if(!option){toast("Veuillez entrer un nom d'option","error");return;}if(!optionsParClasse[classe])optionsParClasse[classe]=[];if(optionsParClasse[classe].includes(option)){toast("Cette option existe déjà","warning");return;}optionsParClasse[classe].push(option);document.getElementById('newOptionName').value='';mettreAJourSelectsOptions();afficherOptionsConfig();mettreAJourSelectsFiltre();await synchroniserOptionsAvecCompta();toast('Option "'+option+'" ajoutée à '+classe,"success");};
+await chargerLogoEcole();
 await mettreAJourSelectsOptions();await mettreAJourSelectsFiltre();await afficherOptionsConfig();await chargerConfigEcole();await chargerTarifs();await chargerFraisInscription();await synchroniserOptionsAvecCompta();await afficherListeEleves();await mettreAJourStatsDetaillees();await setupStatCards();await afficherCartesIdentite();await afficherParentCodes();await window.afficherFraisInscription();initTabsEvents();initFilterEvents();document.getElementById('loadingOverlay').classList.remove('show');}
 await initApp();console.log('✅ ESPACE COMPTABILITÉ - Sécurisé');
 </script>
