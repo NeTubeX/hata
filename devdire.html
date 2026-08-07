@@ -982,21 +982,20 @@
                 } else {
                     const p = e.paiements || {};
                     const blancs = e.moisBlancs || [];
-                    const dateIns = e.dateInscription || new Date().toISOString();
-                    const moisIns = getMoisFromDate(dateIns);
-                    const idxIns = moisListe.indexOf(moisIns);
-                    const idxAct = moisListe.indexOf(moisCourant);
-                    const fin = Math.min(moisListe.length - 1, idxAct);
-                    const debut = Math.max(0, idxIns === -1 ? 0 : idxIns);
+                    // Pour le primaire, on affiche toujours les 10 mois de Septembre à Juin
+                    const debut = 0;
+                    const fin = moisListe.length - 1;
+                    const mv = e.exonere ? 0 : (e.minerval || 25000);
 
                     for (let i = debut; i <= fin; i++) {
                         const mois = moisListe[i];
                         if (!mois) continue;
                         const mt = p[mois]?.montant || 0;
-                        const mv = e.exonere ? 0 : (e.minerval || 25000);
-                        totalPaye += mt;
+                        const estBlanc = blancs.includes(mois);
+                        const mvAffiche = estBlanc ? 0 : mv;
+                        totalPaye += Math.min(mt, mvAffiche);
                         totalPeriodes++;
-                        if (mt < mv && !blancs.includes(mois)) imp++;
+                        if (mt < mvAffiche && !estBlanc) imp++;
                     }
                 }
 
@@ -1214,19 +1213,18 @@
             } else {
                 const blancs = e.moisBlancs || [];
                 const mv = e.exonere ? 0 : (e.minerval || 25000);
-                const dateIns = e.dateInscription || new Date().toISOString();
-                const moisIns = getMoisFromDate(dateIns);
-                const idxIns = moisListe.indexOf(moisIns);
-                const idxAct = moisListe.indexOf(moisCourant);
-                const fin = Math.min(moisListe.length - 1, idxAct);
-                const debut = Math.max(0, idxIns === -1 ? 0 : idxIns);
+                // Pour le primaire, on affiche toujours les 10 mois de Septembre à Juin
+                const debut = 0;
+                const fin = moisListe.length - 1;
 
                 let impayes = 0;
                 for (let i = debut; i <= fin; i++) {
                     const mois = moisListe[i];
                     if (!mois) continue;
                     const mt = paiements[mois]?.montant || 0;
-                    if (mt < mv && !blancs.includes(mois)) impayes++;
+                    const estBlanc = blancs.includes(mois);
+                    const mvAffiche = estBlanc ? 0 : mv;
+                    if (mt < mvAffiche && !estBlanc) impayes++;
                 }
                 const estListeNoire = impayes >= 3;
 
