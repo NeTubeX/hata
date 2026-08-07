@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-    <title>NETUBEX · Gestion Primaire & Maternelle</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>NETUBEX · DSI · Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <script type="importmap">
     {
         "imports": {
@@ -17,1558 +19,1003 @@
     }
     </script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-        body { 
-            background: linear-gradient(135deg, #0a0a1a, #1a1a3e, #0d0d2b); 
-            color: #fff; 
-            min-height: 100vh; 
-            padding-bottom: 80px;
-            transition: background 0.3s ease;
-        }
-        body.maternelle-theme {
-            background: linear-gradient(135deg, #0a0a2a, #1a1a4a, #0d0d35);
-        }
-        body.light {
-            background: linear-gradient(135deg, #f0f4f8, #e2e8f0);
-        }
-        body.light.maternelle-theme {
-            background: linear-gradient(135deg, #e8f0fe, #d4e4f7);
-        }
+        *{margin:0;padding:0;box-sizing:border-box;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;font-family:'Inter',sans-serif}
+        html,body{overscroll-behavior:none;touch-action:pan-y;margin:0;padding:0;width:100%;height:100%}
+        body{background:linear-gradient(135deg,#0a0a1a,#1a1a3e,#0d0d2b);color:#fff;padding:0;padding-bottom:80px;min-height:100vh;transition:background .6s ease}
+        body.maternelle-theme{background:linear-gradient(135deg,#0a0a2a,#1a1a4a,#0d0d35)}
+        body.maternelle-theme .header{background:rgba(52,152,219,0.10);border-bottom:1px solid rgba(52,152,219,0.15)}
+        body.maternelle-theme .header h1{color:#5dade2}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:rgba(255,255,255,0.02)}
+        ::-webkit-scrollbar-thumb{background:rgba(52,152,219,0.3);border-radius:4px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(52,152,219,0.5)}
+        .container{max-width:100%;margin:0 auto;padding:0}
         
-        .header {
-            background: rgba(255,255,255,0.06);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding: 12px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .header-left { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-        .header-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .header h1 { color: #fff; font-size: 22px; font-weight: 900; }
-        .header h1 .sub { font-weight: 600; font-size: 14px; opacity: 0.7; background: rgba(255,255,255,0.06); padding: 2px 12px; border-radius: 20px; margin-left: 8px; }
-        body.maternelle-theme .header h1 .sub { background: rgba(52,152,219,0.10); color: #5dade2; }
+        .header{background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:8px}
+        .header-left{display:flex;flex-direction:column;gap:4px;flex:1}
+        .header-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+        .header h1{color:#fff;font-size:22px;font-weight:900;letter-spacing:-0.3px}
+        .header h1 .sub{font-weight:600;font-size:14px;opacity:0.7;background:rgba(255,255,255,0.06);padding:2px 12px;border-radius:20px;margin-left:8px}
+        .header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+        .school-selector{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        .school-selector select{padding:8px 16px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:14px;font-weight:600;outline:none;cursor:pointer;min-width:200px}
+        .school-selector select option{background:#1a1a3e;color:#fff}
+        .space-selector{display:flex;gap:6px;background:rgba(255,255,255,0.04);border-radius:30px;padding:4px 6px}
+        .space-btn{background:transparent;border:none;padding:8px 20px;border-radius:24px;font-size:14px;font-weight:800;color:rgba(255,255,255,0.4);cursor:pointer;transition:all .3s ease;text-transform:uppercase;letter-spacing:0.5px}
+        .space-btn:hover{color:rgba(255,255,255,0.7);transform:scale(1.02)}
+        .space-btn.active{background:rgba(255,255,255,0.08);color:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.2)}
+        .space-btn[data-space="primaire"].active{background:rgba(52,152,219,0.35);color:#5dade2;box-shadow:0 2px 16px rgba(52,152,219,0.3)}
+        .space-btn[data-space="maternelle"].active{background:rgba(46,204,113,0.35);color:#2ecc71;box-shadow:0 2px 16px rgba(46,204,113,0.3)}
+        .header-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:2px}
+        .header-stat{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.06);padding:4px 14px;border-radius:24px}
+        .header-stat .num{color:#ffd200;font-size:18px;font-weight:900}
+        body.maternelle-theme .header-stat .num{color:#5dade2}
+        .theme-toggle{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);border-radius:30px;padding:4px 6px;cursor:pointer;display:flex;gap:4px;transition:all .3s ease}
+        .theme-toggle .icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .3s ease}
+        .theme-toggle .icon.active{background:rgba(255,255,255,0.12)}
         
-        .school-selector {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .school-selector select {
-            padding: 8px 16px;
-            border-radius: 12px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            outline: none;
-            cursor: pointer;
-            min-width: 180px;
-        }
-        .school-selector select option {
-            background: #1a1a3e;
-            color: #fff;
-        }
-        body.light .school-selector select {
-            background: rgba(255,255,255,0.8);
-            color: #1a202c;
-            border-color: rgba(0,0,0,0.1);
-        }
-        body.light .school-selector select option {
-            background: #fff;
-            color: #1a202c;
-        }
+        .tabs{display:flex;background:rgba(255,255,255,0.03);padding:8px 12px;gap:4px;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,0.04);flex-wrap:nowrap}
+        .tab-btn{background:transparent;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;color:rgba(255,255,255,0.3);cursor:pointer;white-space:nowrap;transition:all .3s ease;position:relative;letter-spacing:0.3px}
+        .tab-btn::after{content:'';position:absolute;bottom:4px;left:50%;transform:translateX(-50%);width:0;height:3px;background:linear-gradient(90deg,#f7971e,#ffd200);border-radius:4px;transition:width .3s ease}
+        .tab-btn.active{color:#fff;background:rgba(255,255,255,0.06)}
+        .tab-btn.active::after{width:50%}
+        .tab-btn[data-tab="tab13"]{background:linear-gradient(135deg,rgba(52,152,219,0.08),rgba(46,204,113,0.08));border:1px solid rgba(52,152,219,0.12);color:rgba(255,255,255,0.5)}
+        .tab-btn[data-tab="tab13"].active{background:linear-gradient(135deg,rgba(52,152,219,0.20),rgba(46,204,113,0.15));color:#5dade2;border-color:rgba(52,152,219,0.25)}
+        .tab-btn[data-tab="tab13"]::after{background:linear-gradient(90deg,#3498db,#2ecc71)}
+        body.maternelle-theme .tab-btn.active::after{background:linear-gradient(90deg,#3498db,#5dade2)}
         
-        .space-selector {
-            display: flex;
-            gap: 6px;
-            background: rgba(255,255,255,0.04);
-            border-radius: 30px;
-            padding: 4px 6px;
-        }
-        .space-btn {
-            background: transparent;
-            border: none;
-            padding: 8px 20px;
-            border-radius: 24px;
-            font-size: 14px;
-            font-weight: 800;
-            color: rgba(255,255,255,0.4);
-            cursor: pointer;
-            transition: all .3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .space-btn:hover { color: rgba(255,255,255,0.7); transform: scale(1.02); }
-        .space-btn.active { background: rgba(255,255,255,0.08); color: #fff; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
-        .space-btn[data-space="primaire"].active { background: rgba(52,152,219,0.35); color: #5dade2; box-shadow: 0 2px 16px rgba(52,152,219,0.3); }
-        .space-btn[data-space="maternelle"].active { background: rgba(46,204,113,0.35); color: #2ecc71; box-shadow: 0 2px 16px rgba(46,204,113,0.3); }
+        .tab-panel{display:none;padding:12px 8px}
+        .tab-panel.active{display:block}
         
-        .header-stats {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin-top: 2px;
-        }
-        .header-stat {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-            font-weight: 700;
-            color: rgba(255,255,255,0.8);
-            background: rgba(255,255,255,0.06);
-            padding: 4px 14px;
-            border-radius: 24px;
-        }
-        .header-stat .num { color: #ffd200; font-size: 18px; font-weight: 900; }
-        body.maternelle-theme .header-stat .num { color: #5dade2; }
+        .card{background:rgba(255,255,255,0.04);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:16px;border:1px solid rgba(255,255,255,0.04);margin-bottom:12px;overflow:hidden}
+        body.maternelle-theme .card{background:rgba(52,152,219,0.04);border-color:rgba(52,152,219,0.06)}
+        .card-header{padding:14px 18px;background:rgba(255,255,255,0.02);font-weight:700;font-size:16px;border-bottom:1px solid rgba(255,255,255,0.03);color:#fff;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+        .card-header .count{font-weight:400;font-size:13px;color:rgba(255,255,255,0.3)}
+        .card-body{padding:14px 16px}
         
-        .theme-toggle {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 30px;
-            padding: 4px 6px;
-            cursor: pointer;
-            display: flex;
-            gap: 4px;
-            transition: all .3s ease;
-        }
-        .theme-toggle .icon {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 15px;
-            transition: all .3s ease;
-        }
-        .theme-toggle .icon.active { background: rgba(255,255,255,0.12); }
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .1s ease;background:linear-gradient(135deg,#f7971e,#ffd200);color:#1a1a2e;box-shadow:0 5px 0 #b36b00,0 8px 16px rgba(247,151,30,0.2);transform:translateY(-2px)}
+        .btn:hover{transform:translateY(-5px);box-shadow:0 7px 0 #b36b00,0 12px 24px rgba(247,151,30,0.25)}
+        .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #b36b00,0 4px 8px rgba(247,151,30,0.15)}
+        body.maternelle-theme .btn{background:linear-gradient(135deg,#2e86c1,#1a5276);box-shadow:0 5px 0 #0e3a5a,0 8px 16px rgba(52,152,219,0.2);color:#fff}
+        body.maternelle-theme .btn:hover{box-shadow:0 7px 0 #0e3a5a,0 12px 24px rgba(52,152,219,0.25)}
+        .btn-sm{padding:6px 14px;font-size:12px;border-radius:8px}
+        .btn-outline{background:rgba(255,255,255,0.03);border:2px solid rgba(247,151,30,0.2);color:#ffd200;box-shadow:0 5px 0 #6b6b6b,0 8px 16px rgba(0,0,0,0.1)}
+        .btn-outline:hover{transform:translateY(-5px);box-shadow:0 7px 0 #6b6b6b,0 12px 24px rgba(0,0,0,0.15)}
+        .btn-danger{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;box-shadow:0 5px 0 #78281f,0 8px 16px rgba(231,76,60,0.2)}
+        .btn-danger:hover{transform:translateY(-5px);box-shadow:0 7px 0 #78281f,0 12px 24px rgba(231,76,60,0.25)}
+        .btn-success{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;box-shadow:0 5px 0 #0e4b2a,0 8px 16px rgba(39,174,96,0.2)}
+        .btn-success:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0e4b2a,0 12px 24px rgba(39,174,96,0.25)}
+        .btn-primary{background:linear-gradient(135deg,#3498db,#1a5276);color:#fff;box-shadow:0 5px 0 #0e3a5a,0 8px 16px rgba(52,152,219,0.2)}
+        .btn-primary:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0e3a5a,0 12px 24px rgba(52,152,219,0.25)}
+        .btn-refresh{background:linear-gradient(135deg,#1abc9c,#148f77);color:#fff;box-shadow:0 5px 0 #0a5c4a,0 8px 16px rgba(26,188,156,0.2)}
+        .btn-refresh:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0a5c4a,0 12px 24px rgba(26,188,156,0.25)}
+        .btn-danger-sm{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;box-shadow:0 4px 0 #78281f,0 6px 12px rgba(231,76,60,0.15);transform:translateY(-2px);padding:4px 10px;font-size:11px;border-radius:8px}
+        .btn-danger-sm:hover{transform:translateY(-4px);box-shadow:0 6px 0 #78281f,0 10px 20px rgba(231,76,60,0.2)}
+        .btn-danger-sm:active{transform:translateY(2px);box-shadow:0 1px 0 #78281f,0 4px 8px rgba(231,76,60,0.1)}
+        .btn-warning-sm{background:linear-gradient(135deg,#f39c12,#d68910);color:#fff;box-shadow:0 4px 0 #7e5100,0 6px 12px rgba(243,156,18,0.15);transform:translateY(-2px);padding:4px 10px;font-size:11px;border-radius:8px}
+        .btn-warning-sm:hover{transform:translateY(-4px);box-shadow:0 6px 0 #7e5100,0 10px 20px rgba(243,156,18,0.2)}
+        .btn-warning-sm:active{transform:translateY(2px);box-shadow:0 1px 0 #7e5100,0 4px 8px rgba(243,156,18,0.1)}
+        .w-100{width:100%}
+        .mt-8{margin-top:8px}
+        .mb-12{margin-bottom:12px}
         
-        .tabs {
-            display: flex;
-            background: rgba(255,255,255,0.03);
-            padding: 8px 12px;
-            gap: 6px;
-            overflow-x: auto;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
-            flex-wrap: nowrap;
-        }
-        .tab-btn {
-            background: transparent;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 700;
-            color: rgba(255,255,255,0.3);
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all .3s ease;
-            position: relative;
-            letter-spacing: 0.3px;
-        }
-        .tab-btn::after {
-            content: '';
-            position: absolute;
-            bottom: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #f7971e, #ffd200);
-            border-radius: 4px;
-            transition: width .3s ease;
-        }
-        .tab-btn.active { color: #fff; background: rgba(255,255,255,0.06); }
-        .tab-btn.active::after { width: 50%; }
-        body.maternelle-theme .tab-btn.active::after { background: linear-gradient(90deg, #3498db, #5dade2); }
+        .form-group{margin-bottom:12px}
+        .form-group label{display:block;font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);margin-bottom:4px}
+        .form-group input,.form-group select{width:100%;padding:10px 14px;border:1px solid rgba(255,255,255,0.05);border-radius:12px;font-size:15px;background:rgba(255,255,255,0.03);color:#fff;outline:none;transition:all .3s ease}
+        .form-group input:focus,.form-group select:focus{border-color:#f7971e;background:rgba(255,255,255,0.05);box-shadow:0 0 0 4px rgba(247,151,30,0.05)}
+        .form-group input::placeholder{color:rgba(255,255,255,0.2)}
+        .form-group input[readonly]{background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.3)}
+        .form-group select option{background:#1a1a3e;color:#fff}
+        .form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+        @media(max-width:768px){.form-grid{grid-template-columns:1fr}}
+        .form-grid .full-width{grid-column:span 3}
+        @media(max-width:768px){.form-grid .full-width{grid-column:span 1}}
         
-        .tab-panel { display: none; padding: 12px 8px; }
-        .tab-panel.active { display: block; }
+        .table-wrapper{overflow-x:auto;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:rgba(0,0,0,0.15)}
+        .table-wrapper table{width:100%;border-collapse:collapse;font-size:13px}
+        .table-wrapper th,.table-wrapper td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:middle}
+        .table-wrapper th{background:rgba(255,255,255,0.03);color:#f7971e;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+        .table-wrapper tr:hover td{background:rgba(255,255,255,0.02)}
         
-        .card {
-            background: rgba(255,255,255,0.04);
-            backdrop-filter: blur(16px);
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.04);
-            margin-bottom: 12px;
-            overflow: hidden;
-        }
-        body.maternelle-theme .card { background: rgba(52,152,219,0.04); border-color: rgba(52,152,219,0.06); }
-        .card-header {
-            padding: 14px 18px;
-            background: rgba(255,255,255,0.02);
-            font-weight: 700;
-            font-size: 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            color: #fff;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .card-header .count { font-weight: 400; font-size: 13px; color: rgba(255,255,255,0.3); }
-        .card-body { padding: 14px 16px; }
+        .badge{display:inline-block;padding:2px 12px;border-radius:20px;font-size:11px;font-weight:700}
+        .badge-success{background:rgba(46,204,113,0.15);color:#2ecc71}
+        .badge-danger{background:rgba(231,76,60,0.15);color:#e74c3c}
+        .badge-warning{background:rgba(241,196,15,0.15);color:#f1c40f}
+        .badge-primary{background:rgba(52,152,219,0.15);color:#5dade2}
+        .badge-purple{background:rgba(155,89,182,0.15);color:#bb8fce}
+        .badge-espace-primaire{background:rgba(52,152,219,0.15);color:#5dade2}
+        .badge-espace-maternelle{background:rgba(46,204,113,0.15);color:#2ecc71}
+        .badge-blanc{background:rgba(52,152,219,0.12);color:#5dade2}
         
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all .1s ease;
-            background: linear-gradient(135deg, #f7971e, #ffd200);
-            color: #1a1a2e;
-            box-shadow: 0 5px 0 #b36b00, 0 8px 16px rgba(247,151,30,0.2);
-            transform: translateY(-2px);
-        }
-        .btn:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #b36b00, 0 12px 24px rgba(247,151,30,0.25); }
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b36b00, 0 4px 8px rgba(247,151,30,0.15); }
-        body.maternelle-theme .btn { background: linear-gradient(135deg, #2e86c1, #1a5276); box-shadow: 0 5px 0 #0e3a5a, 0 8px 16px rgba(52,152,219,0.2); color: #fff; }
-        body.maternelle-theme .btn:hover { box-shadow: 0 7px 0 #0e3a5a, 0 12px 24px rgba(52,152,219,0.25); }
+        .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:1000;display:flex;align-items:flex-end;justify-content:center;visibility:hidden;opacity:0;transition:opacity .3s ease}
+        .modal-overlay.show{visibility:visible;opacity:1}
+        .modal-card{background:rgba(30,30,60,0.95);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:24px 24px 0 0;border-top:1px solid rgba(255,255,255,0.04);width:100%;max-width:500px;padding:24px 20px 30px;max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .4s cubic-bezier(0.34,1.56,0.64,1)}
+        .modal-overlay.show .modal-card{transform:translateY(0)}
+        .modal-card h3{font-size:22px;font-weight:800;margin-bottom:16px;text-align:center;color:#fff}
+        .modal-card h3::after{content:'';display:block;width:40px;height:3px;background:linear-gradient(90deg,#f7971e,#ffd200);margin:8px auto 0;border-radius:4px}
+        .modal-info-line{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:15px;color:rgba(255,255,255,0.5)}
+        .modal-info-line span:last-child{color:#fff;font-weight:600}
+        .modal-buttons{display:flex;gap:10px;margin-top:18px;justify-content:center;flex-wrap:wrap}
+        .modal-buttons .btn{flex:1;min-width:80px;font-size:15px}
         
-        .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 8px; }
-        .btn-outline { background: rgba(255,255,255,0.03); border: 2px solid rgba(247,151,30,0.2); color: #ffd200; box-shadow: 0 5px 0 #6b6b6b, 0 8px 16px rgba(0,0,0,0.1); }
-        .btn-outline:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #6b6b6b, 0 12px 24px rgba(0,0,0,0.15); }
-        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); color: #fff; box-shadow: 0 5px 0 #78281f, 0 8px 16px rgba(231,76,60,0.2); }
-        .btn-danger:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #78281f, 0 12px 24px rgba(231,76,60,0.25); }
-        .btn-success { background: linear-gradient(135deg, #27ae60, #1e8449); color: #fff; box-shadow: 0 5px 0 #0e4b2a, 0 8px 16px rgba(39,174,96,0.2); }
-        .btn-success:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #0e4b2a, 0 12px 24px rgba(39,174,96,0.25); }
-        .btn-primary { background: linear-gradient(135deg, #3498db, #1a5276); color: #fff; box-shadow: 0 5px 0 #0e3a5a, 0 8px 16px rgba(52,152,219,0.2); }
-        .btn-primary:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #0e3a5a, 0 12px 24px rgba(52,152,219,0.25); }
-        .btn-refresh { background: linear-gradient(135deg, #1abc9c, #148f77); color: #fff; box-shadow: 0 5px 0 #0a5c4a, 0 8px 16px rgba(26,188,156,0.2); }
-        .btn-refresh:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #0a5c4a, 0 12px 24px rgba(26,188,156,0.25); }
-        .btn-add { background: linear-gradient(135deg, #9b59b6, #7d3c98); color: #fff; box-shadow: 0 5px 0 #4a235a, 0 8px 16px rgba(155,89,182,0.2); }
-        .btn-add:hover { transform: translateY(-5px); box-shadow: 0 7px 0 #4a235a, 0 12px 24px rgba(155,89,182,0.25); }
-        .w-100 { width: 100%; }
-        .mt-8 { margin-top: 8px; }
-        .mb-12 { margin-bottom: 12px; }
+        .toast-container{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column-reverse;gap:8px;max-width:90%;pointer-events:none}
+        .toast{background:rgba(20,20,50,0.95);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;padding:16px 22px;box-shadow:0 12px 40px rgba(0,0,0,0.4);border-left:5px solid #f7971e;font-size:15px;color:#fff;pointer-events:auto;animation:toastIn .5s cubic-bezier(0.34,1.56,0.64,1);margin-bottom:0;min-width:280px}
+        .toast .toast-title{font-weight:700;font-size:16px;margin-bottom:4px}
+        .toast .toast-msg{font-size:14px;opacity:0.9}
+        .toast.removing{animation:toastOut .5s ease forwards}
+        .toast.error{border-left-color:#e74c3c}
+        .toast.warning{border-left-color:#f39c12}
+        .toast.success{border-left-color:#2ecc71}
+        @keyframes toastIn{from{transform:translateY(-80px) scale(0.9);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+        @keyframes toastOut{from{transform:translateY(0) scale(1);opacity:1}to{transform:translateY(-80px) scale(0.9);opacity:0}}
         
-        .form-group { margin-bottom: 12px; }
-        .form-group label { display: block; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
-        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; font-size: 15px; background: rgba(255,255,255,0.03); color: #fff; outline: none; transition: all .3s ease; }
-        .form-group input:focus, .form-group select:focus { border-color: #f7971e; background: rgba(255,255,255,0.05); box-shadow: 0 0 0 4px rgba(247,151,30,0.05); }
-        .form-group input::placeholder { color: rgba(255,255,255,0.2); }
-        .form-group input[readonly] { background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.3); }
-        .form-group select option { background: #1a1a3e; color: #fff; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-        @media(max-width:768px){ .form-grid { grid-template-columns: 1fr; } }
-        .form-grid .full-width { grid-column: span 3; }
-        @media(max-width:768px){ .form-grid .full-width { grid-column: span 1; } }
+        .empty-state{text-align:center;padding:30px 16px;color:rgba(255,255,255,0.2);font-size:15px}
+        .eleve-item{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.02);flex-wrap:wrap;gap:4px}
+        .eleve-item .nom{font-weight:600;font-size:14px;color:#fff}
+        .eleve-item .info{font-size:12px;color:rgba(255,255,255,0.3)}
         
-        .table-wrapper { overflow-x: auto; border-radius: 10px; border: 1px solid rgba(255,255,255,0.04); background: rgba(0,0,0,0.15); }
-        .table-wrapper table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .table-wrapper th, .table-wrapper td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
-        .table-wrapper th { background: rgba(255,255,255,0.03); color: #f7971e; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .table-wrapper tr:hover td { background: rgba(255,255,255,0.02); }
+        .paiement-month{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.02);border-radius:12px;padding:10px 14px;border-left:4px solid #f7971e;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+        .paiement-month.paye{border-left-color:#2ecc71}
+        .paiement-month.impaye{border-left-color:#e74c3c}
+        .paiement-month.blanc{border-left-color:#3498db;background:rgba(52,152,219,0.05)}
+        .paiement-month .mois{font-weight:700;font-size:15px;color:#fff}
+        .paiement-month .montant{font-size:14px;color:rgba(255,255,255,0.25)}
+        .paiement-month .statut{font-size:12px;font-weight:700;padding:2px 10px;border-radius:20px}
+        .paiement-month .statut.paye{color:#2ecc71;background:rgba(46,204,113,0.10)}
+        .paiement-month .statut.impaye{color:#e74c3c;background:rgba(231,76,60,0.10)}
+        .paiement-month .statut.blanc{color:#5dade2;background:rgba(52,152,219,0.10)}
+        .paiement-month .statut.exonere{color:#2ecc71;background:rgba(46,204,113,0.10)}
         
-        .badge { display: inline-block; padding: 2px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-        .badge-success { background: rgba(46,204,113,0.15); color: #2ecc71; }
-        .badge-danger { background: rgba(231,76,60,0.15); color: #e74c3c; }
-        .badge-warning { background: rgba(241,196,15,0.15); color: #f1c40f; }
-        .badge-primary { background: rgba(52,152,219,0.15); color: #5dade2; }
-        .badge-purple { background: rgba(155,89,182,0.15); color: #bb8fce; }
-        .badge-gold { background: rgba(241,196,15,0.15); color: #f1c40f; }
-        .badge-espace-primaire { background: rgba(52,152,219,0.15); color: #5dade2; }
-        .badge-espace-maternelle { background: rgba(46,204,113,0.15); color: #2ecc71; }
+        .paiement-recap{background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 16px;margin-top:12px;border:1px solid rgba(255,255,255,0.03)}
+        .paiement-recap .row{display:flex;justify-content:space-between;padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4)}
+        .paiement-recap .row.total{font-weight:700;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px;margin-top:4px;color:#fff;font-size:16px}
+        .paiement-recap .row .val-green{color:#2ecc71}
+        .paiement-recap .row .val-red{color:#e74c3c}
         
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            visibility: hidden;
-            opacity: 0;
-            transition: opacity .3s ease;
-        }
-        .modal-overlay.show { visibility: visible; opacity: 1; }
-        .modal-card {
-            background: rgba(30,30,60,0.95);
-            backdrop-filter: blur(30px);
-            border-radius: 24px 24px 0 0;
-            border-top: 1px solid rgba(255,255,255,0.04);
-            width: 100%;
-            max-width: 500px;
-            padding: 24px 20px 30px;
-            max-height: 92vh;
-            overflow-y: auto;
-            transform: translateY(100%);
-            transition: transform .4s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        .modal-overlay.show .modal-card { transform: translateY(0); }
-        .modal-card h3 { font-size: 22px; font-weight: 800; margin-bottom: 16px; text-align: center; color: #fff; }
-        .modal-card h3::after { content: ''; display: block; width: 40px; height: 3px; background: linear-gradient(90deg, #f7971e, #ffd200); margin: 8px auto 0; border-radius: 4px; }
-        .modal-info-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 15px; color: rgba(255,255,255,0.5); }
-        .modal-info-line span:last-child { color: #fff; font-weight: 600; }
-        .modal-buttons { display: flex; gap: 10px; margin-top: 18px; justify-content: center; flex-wrap: wrap; }
-        .modal-buttons .btn { flex: 1; min-width: 80px; font-size: 15px; }
-        
-        .toast-container { position: fixed; top: 16px; right: 16px; z-index: 2000; display: flex; flex-direction: column-reverse; gap: 8px; max-width: 90%; pointer-events: none; }
-        .toast {
-            background: rgba(20,20,50,0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 16px;
-            padding: 16px 22px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-            border-left: 5px solid #f7971e;
-            font-size: 15px;
-            color: #fff;
-            pointer-events: auto;
-            animation: toastIn .5s cubic-bezier(0.34,1.56,0.64,1);
-            margin-bottom: 0;
-            min-width: 280px;
-        }
-        .toast .toast-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
-        .toast .toast-msg { font-size: 14px; opacity: 0.9; }
-        .toast.removing { animation: toastOut .5s ease forwards; }
-        .toast.error { border-left-color: #e74c3c; }
-        .toast.warning { border-left-color: #f39c12; }
-        .toast.success { border-left-color: #2ecc71; }
-        @keyframes toastIn { from { transform: translateY(-80px) scale(0.9); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-        @keyframes toastOut { from { transform: translateY(0) scale(1); opacity: 1; } to { transform: translateY(-80px) scale(0.9); opacity: 0; } }
-        
-        .empty-state { text-align: center; padding: 30px 16px; color: rgba(255,255,255,0.2); font-size: 15px; }
-        .eleve-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.02); flex-wrap: wrap; gap: 4px; }
-        .eleve-item .nom { font-weight: 600; font-size: 14px; color: #fff; }
-        .eleve-item .info { font-size: 12px; color: rgba(255,255,255,0.3); }
-        
-        .body.light .header { background: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(0,0,0,0.08); }
-        .body.light .header h1 { color: #1a202c; }
-        .body.light .header h1 .sub { background: rgba(0,0,0,0.05); color: #2d3748; }
-        .body.light .card { background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.06); }
-        .body.light .card-header { color: #1a202c; border-bottom: 1px solid rgba(0,0,0,0.06); }
-        .body.light .form-group label { color: #2d3748; }
-        .body.light .form-group input, .body.light .form-group select { background: rgba(255,255,255,0.8); color: #1a202c; border: 1px solid rgba(0,0,0,0.1); }
-        .body.light .form-group input::placeholder { color: rgba(0,0,0,0.3); }
-        .body.light .modal-card { background: rgba(255,255,255,0.95); }
-        .body.light .modal-card h3 { color: #1a202c; }
-        .body.light .modal-card h3::after { background: linear-gradient(90deg, #4a6fa5, #6b8fc9); }
-        .body.light .modal-info-line { color: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(0,0,0,0.06); }
-        .body.light .modal-info-line span:last-child { color: #1a202c; }
-        .body.light .header-stat { color: rgba(0,0,0,0.5); background: rgba(0,0,0,0.03); }
-        .body.light .header-stat .num { color: #1a202c; }
-        .body.light .table-wrapper { background: rgba(0,0,0,0.02); }
-        .body.light .table-wrapper th { background: rgba(0,0,0,0.03); color: #2c3e50; }
-        .body.light .table-wrapper td { color: #1a202c; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .light .header{background:rgba(255,255,255,0.8);border-bottom:1px solid rgba(0,0,0,0.08)}
+        .light .header h1{color:#1a202c}
+        .light .header h1 .sub{background:rgba(0,0,0,0.05);color:#2d3748}
+        .light .card{background:rgba(255,255,255,0.8);border:1px solid rgba(0,0,0,0.06)}
+        .light .card-header{color:#1a202c;border-bottom:1px solid rgba(0,0,0,0.06)}
+        .light .form-group label{color:#2d3748}
+        .light .form-group input,.form-group select{background:rgba(255,255,255,0.8);color:#1a202c;border:1px solid rgba(0,0,0,0.1)}
+        .light .form-group input::placeholder{color:rgba(0,0,0,0.3)}
+        .light .modal-card{background:rgba(255,255,255,0.95)}
+        .light .modal-card h3{color:#1a202c}
+        .light .modal-card h3::after{background:linear-gradient(90deg,#4a6fa5,#6b8fc9)}
+        .light .modal-info-line{color:rgba(0,0,0,0.5);border-bottom:1px solid rgba(0,0,0,0.06)}
+        .light .modal-info-line span:last-child{color:#1a202c}
+        .light .header-stat{color:rgba(0,0,0,0.5);background:rgba(0,0,0,0.03)}
+        .light .header-stat .num{color:#1a202c}
+        .light .table-wrapper{background:rgba(0,0,0,0.02)}
+        .light .table-wrapper th{background:rgba(0,0,0,0.03);color:#2c3e50}
+        .light .table-wrapper td{color:#1a202c;border-bottom:1px solid rgba(0,0,0,0.04)}
+        .light .school-selector select{background:rgba(255,255,255,0.8);color:#1a202c;border-color:rgba(0,0,0,0.1)}
+        .light .school-selector select option{background:#fff;color:#1a202c}
+        .light .paiement-month .mois{color:#1a202c}
+        .light .paiement-month .montant{color:rgba(0,0,0,0.3)}
+        .light .paiement-recap .row{color:rgba(0,0,0,0.5)}
+        .light .paiement-recap .row.total{color:#1a202c}
+        .light .toast{background:rgba(255,255,255,0.95);color:#1a202c}
+        .light .toast .toast-title{color:#1a202c}
+        .light .toast .toast-msg{color:rgba(0,0,0,0.7)}
+        .light .empty-state{color:rgba(0,0,0,0.3)}
+        .light .badge-espace-primaire{background:rgba(52,152,219,0.12);color:#1a5276}
+        .light .badge-espace-maternelle{background:rgba(46,204,113,0.12);color:#1e8449}
     </style>
 </head>
 <body>
-    <div class="container" id="app">
-        <div class="header">
-            <div class="header-left">
-                <div class="header-title">
-                    <h1>🏫 NETUBEX · <span id="schoolNameHeader">Sélectionnez une école</span> <span class="sub" id="totalHeader">(0)</span></h1>
+<div class="container" id="app">
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="header-title">
+                <h1>🏫 NETUBEX · DSI <span class="sub" id="totalHeader">(0)</span></h1>
+            </div>
+            <div class="header-controls">
+                <div class="school-selector">
+                    <select id="schoolSelector">
+                        <option value="">-- Sélectionner une école --</option>
+                    </select>
                 </div>
-                <div class="header-controls">
-                    <div class="school-selector">
-                        <select id="schoolSelector">
-                            <option value="">-- Chargement des écoles --</option>
-                        </select>
-                    </div>
-                    <div class="space-selector" id="spaceSelector">
-                        <button class="space-btn active" data-space="primaire">🔵 PRIMAIRE</button>
-                        <button class="space-btn" data-space="maternelle">🟢 MATERNELLE</button>
-                    </div>
-                    <button class="btn btn-secondary-nav" id="btnRedirectionSecondaire" style="background:linear-gradient(135deg,#8e44ad,#6c3483);border:none;padding:8px 20px;border-radius:24px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;transition:all .3s ease;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 2px 12px rgba(142,68,173,0.3);">
-                        🏫 SECONDAIRE
-                    </button>
-                </div>
-                <div class="header-stats">
-                    <span class="header-stat">Total <span class="num" id="hdrTotal">0</span></span>
-                    <span class="header-stat">Filles <span class="num" id="hdrFilles">0</span></span>
-                    <span class="header-stat">Garçons <span class="num" id="hdrGarcons">0</span></span>
-                    <span class="header-stat">Exonérés <span class="num" id="hdrExoneres">0</span></span>
+                <div class="space-selector" id="spaceSelector">
+                    <button class="space-btn active" data-space="primaire">🔵 PRIMAIRE</button>
+                    <button class="space-btn" data-space="maternelle">🟢 MATERNELLE</button>
                 </div>
             </div>
-            <div class="theme-toggle" id="themeToggle">
-                <span class="icon active" data-theme="dark">🌙</span>
-                <span class="icon" data-theme="light">☀️</span>
+            <div class="header-stats">
+                <span class="header-stat">Total <span class="num" id="hdrTotal">0</span></span>
+                <span class="header-stat">Filles <span class="num" id="hdrFilles">0</span></span>
+                <span class="header-stat">Garçons <span class="num" id="hdrGarcons">0</span></span>
+                <span class="header-stat">Exonérés <span class="num" id="hdrExoneres">0</span></span>
             </div>
         </div>
-        
-        <div class="tabs" id="tabContainer">
-            <button class="tab-btn active" data-tab="tab1">👨‍🎓 ÉLÈVES</button>
-            <button class="tab-btn" data-tab="tab2">💰 PAIEMENTS</button>
-            <button class="tab-btn" data-tab="tab3">📋 INSCRIPTION</button>
-            <button class="tab-btn" data-tab="tab4">⚙️ CONFIG</button>
+        <div class="theme-toggle" id="themeToggle">
+            <span class="icon active" data-theme="dark">🌙</span>
+            <span class="icon" data-theme="light">☀️</span>
         </div>
-        
-        <div id="tab1" class="tab-panel active">
-            <div class="card">
-                <div class="card-header">
-                    👨‍🎓 ÉLÈVES <span class="count" id="elevesCount">0</span>
-                    <button class="btn btn-add btn-sm" id="btnInscrire">➕ INSCRIRE</button>
-                </div>
-                <div class="card-body">
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs" id="tabContainer">
+        <button class="tab-btn active" data-tab="tab1">📊 DASHBOARD</button>
+        <button class="tab-btn" data-tab="tab2">🏫 ÉCOLES</button>
+        <button class="tab-btn" data-tab="tab3">👥 MEMBRES</button>
+        <button class="tab-btn" data-tab="tab4">👨‍🏫 ENSEIGNANTS</button>
+        <button class="tab-btn" data-tab="tab5">📄 FICHES</button>
+        <button class="tab-btn" data-tab="tab6">🔍 RECHERCHE</button>
+        <button class="tab-btn" data-tab="tab7">❄️ MOIS BLANCS</button>
+        <button class="tab-btn" data-tab="tab8">📱 CONNEXIONS</button>
+        <button class="tab-btn" data-tab="tab9">🔑 CODES PARENTS</button>
+        <button class="tab-btn" data-tab="tab10">🔐 CODES & EMAILS</button>
+        <button class="tab-btn" data-tab="tab11">🔍 EXPLORATEUR</button>
+        <button class="tab-btn" data-tab="tab12">⚙️ PARAMÈTRES</button>
+        <!-- NOUVEL ONGLET PRIMAIRE & MATERNELLE -->
+        <button class="tab-btn" data-tab="tab13">🎯 PRIMAIRE & MATERNELLE</button>
+    </div>
+
+    <!-- TAB 1-12 : CONTENU EXISTANT (simplifié pour l'exemple) -->
+    <div id="tab1" class="tab-panel active">
+        <div class="card"><div class="card-header">📊 DASHBOARD</div><div class="card-body"><div class="empty-state">Dashboard existant</div></div></div>
+    </div>
+    <div id="tab2" class="tab-panel"><div class="card"><div class="card-header">🏫 ÉCOLES</div><div class="card-body"><div class="empty-state">Gestion des écoles existante</div></div></div></div>
+    <div id="tab3" class="tab-panel"><div class="card"><div class="card-header">👥 MEMBRES</div><div class="card-body"><div class="empty-state">Gestion des membres (Secondaire - compta_eleves) existante</div></div></div></div>
+    <div id="tab4" class="tab-panel"><div class="card"><div class="card-header">👨‍🏫 ENSEIGNANTS</div><div class="card-body"><div class="empty-state">Gestion des enseignants existante</div></div></div></div>
+    <div id="tab5" class="tab-panel"><div class="card"><div class="card-header">📄 FICHES</div><div class="card-body"><div class="empty-state">Gestion des fiches existante</div></div></div></div>
+    <div id="tab6" class="tab-panel"><div class="card"><div class="card-header">🔍 RECHERCHE</div><div class="card-body"><div class="empty-state">Recherche existante</div></div></div></div>
+    <div id="tab7" class="tab-panel"><div class="card"><div class="card-header">❄️ MOIS BLANCS</div><div class="card-body"><div class="empty-state">Mois blancs existants</div></div></div></div>
+    <div id="tab8" class="tab-panel"><div class="card"><div class="card-header">📱 CONNEXIONS</div><div class="card-body"><div class="empty-state">Connexions existantes</div></div></div></div>
+    <div id="tab9" class="tab-panel"><div class="card"><div class="card-header">🔑 CODES PARENTS</div><div class="card-body"><div class="empty-state">Codes parents existants</div></div></div></div>
+    <div id="tab10" class="tab-panel"><div class="card"><div class="card-header">🔐 CODES & EMAILS</div><div class="card-body"><div class="empty-state">Codes & emails existants</div></div></div></div>
+    <div id="tab11" class="tab-panel"><div class="card"><div class="card-header">🔍 EXPLORATEUR</div><div class="card-body"><div class="empty-state">Explorateur existant</div></div></div></div>
+    <div id="tab12" class="tab-panel"><div class="card"><div class="card-header">⚙️ PARAMÈTRES</div><div class="card-body"><div class="empty-state">Paramètres existants</div></div></div></div>
+
+    <!-- ========================================================== -->
+    <!-- TAB 13 : PRIMAIRE & MATERNELLE                             -->
+    <!-- ========================================================== -->
+    <div id="tab13" class="tab-panel">
+        <div class="card">
+            <div class="card-header">
+                🎯 PRIMAIRE & MATERNELLE
+                <span class="count" id="pmCount">0 élèves</span>
+                <button class="btn btn-refresh btn-sm" id="btnRefreshPM">⟳</button>
+            </div>
+            <div class="card-body">
+                <!-- Filtres -->
+                <div class="form-grid" style="margin-bottom:12px;">
                     <div class="form-group">
-                        <label>🔍 RECHERCHER</label>
-                        <input type="text" id="searchNom" placeholder="Nom, prénom...">
+                        <label>🔍 Rechercher</label>
+                        <input type="text" id="pmSearch" placeholder="Nom, prénom...">
                     </div>
                     <div class="form-group">
-                        <label>📚 CLASSE / NIVEAU</label>
-                        <select id="filterClasse">
+                        <label>📚 Classe / Niveau</label>
+                        <select id="pmClasseFilter">
                             <option value="">Toutes</option>
                         </select>
                     </div>
-                    <div id="elevesContainer"><div class="empty-state">Chargement...</div></div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="tab2" class="tab-panel">
-            <div class="card">
-                <div class="card-header">💰 PAIEMENTS</div>
-                <div class="card-body" id="releveContainer">
-                    <div class="empty-state">👆 Sélectionnez un élève depuis l'onglet ÉLÈVES</div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="tab3" class="tab-panel">
-            <div class="card">
-                <div class="card-header">📋 FRAIS D'INSCRIPTION</div>
-                <div class="card-body"><div id="inscriptionsContainer"><div class="empty-state">Chargement...</div></div></div>
-            </div>
-        </div>
-        
-        <div id="tab4" class="tab-panel">
-            <div class="card">
-                <div class="card-header">⚙️ CONFIGURATION</div>
-                <div class="card-body">
-                    <div id="configContainer">
-                        <div class="form-group">
-                            <label>💰 MINERVAL PAR DÉFAUT (FC)</label>
-                            <input type="number" id="defaultMinerval" value="25000" step="500">
-                        </div>
-                        <div class="form-group">
-                            <label>💰 FRAIS INSCRIPTION PAR DÉFAUT (FC)</label>
-                            <input type="number" id="defaultFraisInscription" value="35000" step="500">
-                        </div>
-                        <button class="btn w-100" id="btnSaveConfig">💾 ENREGISTRER LA CONFIGURATION</button>
-                        <hr>
-                        <button class="btn btn-primary w-100" id="btnApplyTarifs">🔄 APPLIQUER LES TARIFS AUX ÉLÈVES</button>
+                    <div class="form-group">
+                        <label>🏷️ Statut</label>
+                        <select id="pmStatutFilter">
+                            <option value="all">Tous</option>
+                            <option value="normal">Réguliers</option>
+                            <option value="exonere">Exonérés</option>
+                        </select>
                     </div>
+                </div>
+
+                <!-- Liste des élèves -->
+                <div id="pmElevesContainer"><div class="empty-state">🏫 Sélectionnez une école</div></div>
+
+                <!-- Paiements (détail) -->
+                <div id="pmReleveContainer" style="margin-top:16px;">
+                    <div class="empty-state">👆 Cliquez sur "💰 Paiements" pour voir le détail</div>
                 </div>
             </div>
         </div>
     </div>
-    
-    <!-- Modals -->
-    <div class="modal-overlay" id="paymentModal">
-        <div class="modal-card">
-            <h3>💰 CONFIRMATION DE PAIEMENT</h3>
-            <div id="modalInfo"></div>
-            <div class="form-group"><label>MONTANT (FC)</label><input type="number" id="paymentAmount" min="0"></div>
-            <div class="modal-buttons">
-                <button class="btn" id="confirmPayment">VALIDER</button>
-                <button class="btn btn-outline" id="cancelPayment">ANNULER</button>
-            </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="pmPaymentModal">
+    <div class="modal-card">
+        <h3>💰 PAIEMENT</h3>
+        <div id="pmModalInfo"></div>
+        <div class="form-group"><label>MONTANT (FC)</label><input type="number" id="pmPaymentAmount" min="0"></div>
+        <div class="modal-buttons">
+            <button class="btn" id="pmConfirmPayment">VALIDER</button>
+            <button class="btn btn-outline" id="pmCancelPayment">ANNULER</button>
         </div>
     </div>
-    
-    <div class="modal-overlay" id="addEleveModal">
-        <div class="modal-card">
-            <h3>➕ INSCRIPTION</h3>
-            <div id="stepContent">
-                <div id="step1Content">
-                    <div class="form-group"><label>NOM *</label><input type="text" id="newNom"></div>
-                    <div class="form-group"><label>POST-NOM</label><input type="text" id="newPostnom"></div>
-                    <div class="form-group"><label>PRÉNOM *</label><input type="text" id="newPrenom"></div>
-                    <div class="form-group"><label>SEXE *</label>
-                        <select id="newSexe">
-                            <option value="">Sélectionner</option>
-                            <option value="M">Masculin</option>
-                            <option value="F">Féminin</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>DATE NAISSANCE *</label><input type="date" id="newDateNaiss"></div>
-                    <div class="form-group"><label>LIEU NAISSANCE *</label><input type="text" id="newLieuNaiss" placeholder="Ex: Kinshasa"></div>
-                    <div class="form-group"><label>NOM DU PÈRE</label><input type="text" id="newNomPere"></div>
-                    <div class="form-group"><label>NOM DE LA MÈRE</label><input type="text" id="newNomMere"></div>
-                    <div class="form-group"><label>TÉLÉPHONE *</label><input type="tel" id="newPhone" placeholder="0812345678"></div>
-                    <div class="form-group"><label>ADRESSE *</label><input type="text" id="newAdresse" placeholder="Adresse"></div>
-                    <div class="form-group"><label>CLASSE / NIVEAU *</label>
-                        <select id="newClasse">
-                            <option value="">Sélectionner</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>EXONÉRATION</label>
-                        <select id="newExonere">
-                            <option value="non">Non</option>
-                            <option value="oui">Oui</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="motifExonGroup" style="display:none;">
-                        <label>MOTIF EXONÉRATION</label>
-                        <select id="newMotifExon">
-                            <option value="">Sélectionner</option>
-                            <option value="Orphelin">Orphelin</option>
-                            <option value="Cas social">Cas social</option>
-                            <option value="Mérite">Mérite</option>
-                            <option value="Gratuité">Gratuité</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="approbateurGroup" style="display:none;">
-                        <label>APPROBATEUR</label>
-                        <select id="newApprobateur">
-                            <option value="">Sélectionner</option>
-                            <option value="Enseignant">Enseignant</option>
-                            <option value="Promoteur">Promoteur</option>
-                            <option value="Comptable">Comptable</option>
-                            <option value="Directrice">Directrice</option>
-                            <option value="Proviseur">Proviseur</option>
-                        </select>
-                    </div>
-                    <div class="form-group"><label>🔑 CODE PARENT (auto)</label>
-                        <input type="text" id="newParentCode" maxlength="4" placeholder="Auto" readonly style="background:rgba(255,255,255,0.02);font-size:18px;letter-spacing:4px;font-family:monospace;color:#f1c40f;">
-                    </div>
-                    <div class="form-group"><label>💰 MONTANT PAYÉ (FC)</label>
-                        <input type="number" id="newMontantInscription" value="0" min="0">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button class="btn" id="confirmAddEleve">✅ INSCRIRE</button>
-                <button class="btn btn-outline" id="cancelAddEleve">ANNULER</button>
-            </div>
+</div>
+
+<div class="modal-overlay" id="pmConfirmModal">
+    <div class="modal-card">
+        <h3>⚠️ CONFIRMATION</h3>
+        <div id="pmConfirmMessage" style="text-align:center;padding:14px;font-size:16px;color:rgba(255,255,255,0.7);"></div>
+        <div class="modal-buttons">
+            <button class="btn" id="pmConfirmYes">OUI</button>
+            <button class="btn btn-outline" id="pmConfirmNo">NON</button>
         </div>
     </div>
-    
-    <div class="modal-overlay" id="editEleveModal">
-        <div class="modal-card">
-            <h3>✏️ MODIFIER L'ÉLÈVE</h3>
-            <div id="editEleveContent">
-                <div class="form-group"><label>NOM</label><input type="text" id="editNom" readonly style="background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.4);"></div>
-                <div class="form-group"><label>PRÉNOM</label><input type="text" id="editPrenom" readonly style="background:rgba(255,255,255,0.02);color:rgba(255,255,255,0.4);"></div>
-                <div class="form-group"><label>SEXE</label>
-                    <select id="editSexe">
-                        <option value="M">Masculin</option>
-                        <option value="F">Féminin</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>CLASSE / NIVEAU</label>
-                    <select id="editClasse">
-                        <option value="">Sélectionner</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>EXONÉRATION</label>
-                    <select id="editExonere">
-                        <option value="non">Non</option>
-                        <option value="oui">Oui</option>
-                    </select>
-                </div>
-                <div class="form-group" id="editMotifExonGroup" style="display:none;">
-                    <label>MOTIF</label>
-                    <select id="editMotifExon">
-                        <option value="">Sélectionner</option>
-                        <option value="Orphelin">Orphelin</option>
-                        <option value="Cas social">Cas social</option>
-                        <option value="Mérite">Mérite</option>
-                        <option value="Gratuité">Gratuité</option>
-                    </select>
-                </div>
-                <div class="form-group" id="editApprobateurGroup" style="display:none;">
-                    <label>APPROBATEUR</label>
-                    <select id="editApprobateur">
-                        <option value="">Sélectionner</option>
-                        <option value="Enseignant">Enseignant</option>
-                        <option value="Promoteur">Promoteur</option>
-                        <option value="Comptable">Comptable</option>
-                        <option value="Directrice">Directrice</option>
-                        <option value="Proviseur">Proviseur</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button class="btn" id="confirmEditEleve">💾 ENREGISTRER</button>
-                <button class="btn btn-outline" id="cancelEditEleve">ANNULER</button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="modal-overlay" id="confirmModal">
-        <div class="modal-card">
-            <h3>⚠️ CONFIRMATION</h3>
-            <div id="confirmMessage" style="text-align:center;padding:14px;font-size:16px;color:rgba(255,255,255,0.7);"></div>
-            <div class="modal-buttons">
-                <button class="btn" id="confirmYes">OUI</button>
-                <button class="btn btn-outline" id="confirmNo">NON</button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="toast-container" id="toastContainer"></div>
-    
-    <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, runTransaction, onSnapshot, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    
-    const firebaseConfig = {
-        apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
-        authDomain: "gesco-67c43.firebaseapp.com",
-        projectId: "gesco-67c43",
-        storageBucket: "gesco-67c43.firebasestorage.app",
-        messagingSenderId: "333004443566",
-        appId: "1:333004443566:web:de41f60000e418dce9023f"
-    };
-    
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    let schoolId = urlParams.get('ecole');
-    let codeSaisi = urlParams.get('code');
-    
-    const classesPrimaire = ["1ère A", "1ère B", "2ème A", "2ème B", "3ème A", "3ème B", "4ème A", "4ème B", "5ème A", "5ème B", "6ème A", "6ème B"];
-    const classesMaternelle = ["Niveau 1", "Niveau 2", "Niveau 3"];
-    const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
-    
-    let espaceActif = 'primaire';
-    let selectedSchoolId = '';
-    let allSchools = [];
-    let localEleves = [];
-    let currentEleve = null;
-    let configData = { defaultMinerval: 25000, defaultFraisInscription: 35000 };
-    
-    // Fonctions utilitaires
-    function toast(msg, type = "success") {
-        const container = document.getElementById('toastContainer');
-        if (!container) return;
-        const titles = { success: "✅ Succès", error: "❌ Erreur", warning: "⚠️ Attention", info: "ℹ️ Info" };
-        const el = document.createElement("div");
-        el.className = 'toast ' + type;
-        el.innerHTML = '<div class="toast-title">' + titles[type] + '</div><div class="toast-msg">' + msg + '</div>';
-        container.appendChild(el);
-        setTimeout(() => {
-            el.classList.add('removing');
-            setTimeout(() => { if (el.parentNode) el.remove(); }, 500);
-        }, 3500);
-    }
-    
-    function showConfirm(msg) {
-        return new Promise((resolve) => {
-            const modal = document.getElementById('confirmModal');
-            document.getElementById('confirmMessage').innerHTML = msg;
-            modal.classList.add('show');
-            document.getElementById('confirmYes').onclick = () => { modal.classList.remove('show'); resolve(true); };
-            document.getElementById('confirmNo').onclick = () => { modal.classList.remove('show'); resolve(false); };
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, updateDoc, runTransaction, onSnapshot, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDX430AIfzzgfq3o8tXHwQfIptgWOZ-K8c",
+    authDomain: "gesco-67c43.firebaseapp.com",
+    projectId: "gesco-67c43",
+    storageBucket: "gesco-67c43.firebasestorage.app",
+    messagingSenderId: "333004443566",
+    appId: "1:333004443566:web:de41f60000e418dce9023f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// ============================================================
+// CONSTANTES
+// ============================================================
+const classesPrimaire = ["1ère A", "1ère B", "2ème A", "2ème B", "3ème A", "3ème B", "4ème A", "4ème B", "5ème A", "5ème B", "6ème A", "6ème B"];
+const classesMaternelle = ["Niveau 1", "Niveau 2", "Niveau 3"];
+const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
+
+// ============================================================
+// ÉTAT
+// ============================================================
+let allSchools = [];
+let selectedSchoolId = '';
+let espaceActif = 'primaire';
+let localEleves = [];
+let currentEleve = null;
+let configData = { defaultMinerval: 25000, defaultFraisInscription: 35000 };
+
+// ============================================================
+// UTILITAIRES
+// ============================================================
+function toast(msg, type = "success") {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const titles = { success: "✅ Succès", error: "❌ Erreur", warning: "⚠️ Attention", info: "ℹ️ Info" };
+    const el = document.createElement("div");
+    el.className = 'toast ' + type;
+    el.innerHTML = '<div class="toast-title">' + titles[type] + '</div><div class="toast-msg">' + msg + '</div>';
+    container.appendChild(el);
+    setTimeout(() => {
+        el.classList.add('removing');
+        setTimeout(() => { if (el.parentNode) el.remove(); }, 500);
+    }, 3500);
+}
+
+function showConfirmPM(msg) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('pmConfirmModal');
+        document.getElementById('pmConfirmMessage').innerHTML = msg;
+        modal.classList.add('show');
+        document.getElementById('pmConfirmYes').onclick = () => { modal.classList.remove('show'); resolve(true); };
+        document.getElementById('pmConfirmNo').onclick = () => { modal.classList.remove('show'); resolve(false); };
+    });
+}
+
+function formatDateYMD(d = new Date()) { return d.toISOString().split('T')[0]; }
+function formatDateFr(d) { const dt = new Date(d); return dt.getDate().toString().padStart(2, "0") + '/' + (dt.getMonth() + 1).toString().padStart(2, "0") + '/' + dt.getFullYear(); }
+function formatNbSimple(n) { if (!n && n !== 0) return "0"; return Number(n).toLocaleString('fr-FR'); }
+
+function getElevesCollection() {
+    if (!selectedSchoolId) return null;
+    if (espaceActif === 'primaire') return collection(db, "ecoles", selectedSchoolId, "prima_eleves");
+    else return collection(db, "ecoles", selectedSchoolId, "mater_eleves");
+}
+
+function getEleveRef(id) {
+    if (!selectedSchoolId) return null;
+    if (espaceActif === 'primaire') return doc(db, "ecoles", selectedSchoolId, "prima_eleves", id);
+    else return doc(db, "ecoles", selectedSchoolId, "mater_eleves", id);
+}
+
+function getConfigRef() {
+    if (!selectedSchoolId) return null;
+    if (espaceActif === 'primaire') return doc(db, "ecoles", selectedSchoolId, "prima_config", "settings");
+    else return doc(db, "ecoles", selectedSchoolId, "mater_config", "settings");
+}
+
+function getClasses() {
+    return espaceActif === 'primaire' ? classesPrimaire : classesMaternelle;
+}
+
+// ============================================================
+// CHARGEMENT DES ÉCOLES
+// ============================================================
+async function loadSchools() {
+    try {
+        const snap = await getDocs(collection(db, "ecoles"));
+        allSchools = [];
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.actif !== false) {
+                allSchools.push({ id: d.id, ...data });
+            }
         });
+        
+        const selector = document.getElementById('schoolSelector');
+        selector.innerHTML = '<option value="">-- Sélectionner une école --</option>';
+        allSchools.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.nom || s.id;
+            selector.appendChild(opt);
+        });
+        
+        // Si une école est dans l'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const schoolIdParam = urlParams.get('ecole');
+        if (schoolIdParam && allSchools.find(s => s.id === schoolIdParam)) {
+            selector.value = schoolIdParam;
+            selectedSchoolId = schoolIdParam;
+            await loadEspace();
+        }
+        
+        toast(allSchools.length + ' écoles chargées', 'info');
+    } catch (e) {
+        toast('Erreur chargement écoles: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// CHARGEMENT DE L'ESPACE
+// ============================================================
+async function loadEspace() {
+    if (!selectedSchoolId) {
+        document.getElementById('pmElevesContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
+        document.getElementById('pmReleveContainer').innerHTML = '<div class="empty-state">👆 Sélectionnez un élève</div>';
+        updateStatsPM();
+        return;
     }
     
-    function formatDateYMD(d = new Date()) { return d.toISOString().split('T')[0]; }
-    function formatDateFr(d) { const dt = new Date(d); return dt.getDate().toString().padStart(2, "0") + '/' + (dt.getMonth() + 1).toString().padStart(2, "0") + '/' + dt.getFullYear(); }
-    function formatNbSimple(n) { if (!n && n !== 0) return "0"; return Number(n).toLocaleString('fr-FR'); }
-    function genererCodeParent() { return Math.floor(1000 + Math.random() * 9000).toString(); }
+    const school = allSchools.find(s => s.id === selectedSchoolId);
+    document.querySelector('.header h1 .sub').textContent = '(' + (school ? school.nom : selectedSchoolId) + ')';
     
-    function getElevesCollection() {
-        if (!selectedSchoolId) return null;
-        if (espaceActif === 'primaire') return collection(db, "ecoles", selectedSchoolId, "prima_eleves");
-        else return collection(db, "ecoles", selectedSchoolId, "mater_eleves");
+    await loadConfigPM();
+    await loadElevesPM();
+    await afficherElevesPM();
+    updateStatsPM();
+}
+
+// ============================================================
+// CHARGEMENT CONFIG
+// ============================================================
+async function loadConfigPM() {
+    try {
+        const ref = getConfigRef();
+        if (!ref) return;
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+            configData = snap.data();
+        }
+    } catch (e) {
+        console.error('Erreur chargement config:', e);
     }
-    
-    function getEleveRef(id) {
-        if (!selectedSchoolId) return null;
-        if (espaceActif === 'primaire') return doc(db, "ecoles", selectedSchoolId, "prima_eleves", id);
-        else return doc(db, "ecoles", selectedSchoolId, "mater_eleves", id);
+}
+
+// ============================================================
+// CHARGEMENT ÉLÈVES
+// ============================================================
+async function loadElevesPM() {
+    if (!selectedSchoolId) {
+        localEleves = [];
+        return;
     }
-    
-    function getConfigRef() {
-        if (!selectedSchoolId) return null;
-        if (espaceActif === 'primaire') return doc(db, "ecoles", selectedSchoolId, "prima_config", "settings");
-        else return doc(db, "ecoles", selectedSchoolId, "mater_config", "settings");
-    }
-    
-    function getClasses() {
-        return espaceActif === 'primaire' ? classesPrimaire : classesMaternelle;
-    }
-    
-    // ============================================================
-    // CHARGEMENT DES ÉCOLES
-    // ============================================================
-    async function loadSchools() {
-        try {
-            const snap = await getDocs(collection(db, "ecoles"));
-            allSchools = [];
-            snap.forEach(d => {
-                const data = d.data();
-                if (data.actif !== false) {
-                    allSchools.push({ id: d.id, ...data });
-                }
-            });
-            
-            const selector = document.getElementById('schoolSelector');
-            selector.innerHTML = '<option value="">-- Sélectionner une école --</option>';
-            allSchools.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.textContent = s.nom || s.id;
-                selector.appendChild(opt);
-            });
-            
-            if (schoolId && allSchools.find(s => s.id === schoolId)) {
-                selector.value = schoolId;
-                selectedSchoolId = schoolId;
-                await loadEspace();
+    try {
+        const ref = getElevesCollection();
+        if (!ref) return;
+        const snap = await getDocs(ref);
+        localEleves = [];
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.nom) {
+                localEleves.push({ id: d.id, ...data });
             }
-            
-            toast(allSchools.length + ' écoles chargées', 'info');
-        } catch (e) {
-            toast('Erreur chargement écoles: ' + e.message, 'error');
-        }
+        });
+    } catch (e) {
+        toast('Erreur chargement élèves: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// AFFICHAGE ÉLÈVES
+// ============================================================
+async function afficherElevesPM() {
+    const container = document.getElementById('pmElevesContainer');
+    if (!selectedSchoolId) {
+        container.innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
+        return;
     }
     
-    // ============================================================
-    // CHARGEMENT DE L'ESPACE (Primaire/Maternelle)
-    // ============================================================
-    async function loadEspace() {
-        if (!selectedSchoolId) {
-            document.getElementById('elevesContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            document.getElementById('releveContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            document.getElementById('inscriptionsContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            updateStats();
-            return;
-        }
-        
-        const school = allSchools.find(s => s.id === selectedSchoolId);
-        document.getElementById('schoolNameHeader').textContent = school ? school.nom : selectedSchoolId;
-        
-        await loadConfig();
-        await loadEleves();
-        await afficherEleves();
-        await afficherInscriptions();
-        updateStats();
+    const search = document.getElementById('pmSearch').value.toLowerCase().trim();
+    const classeFiltre = document.getElementById('pmClasseFilter').value;
+    const statutFiltre = document.getElementById('pmStatutFilter').value;
+    
+    let eleves = localEleves.filter(e => !e.abandon);
+    
+    if (search) {
+        eleves = eleves.filter(e => 
+            (e.nom + ' ' + (e.prenom || '')).toLowerCase().includes(search)
+        );
+    }
+    if (classeFiltre) {
+        eleves = eleves.filter(e => e.classe === classeFiltre);
+    }
+    if (statutFiltre === 'exonere') {
+        eleves = eleves.filter(e => e.exonere === true);
+    } else if (statutFiltre === 'normal') {
+        eleves = eleves.filter(e => e.exonere !== true);
     }
     
-    // ============================================================
-    // CHARGEMENT CONFIG
-    // ============================================================
-    async function loadConfig() {
-        try {
-            const ref = getConfigRef();
-            if (!ref) return;
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-                configData = snap.data();
-                document.getElementById('defaultMinerval').value = configData.defaultMinerval || 25000;
-                document.getElementById('defaultFraisInscription').value = configData.defaultFraisInscription || 35000;
-            }
-        } catch (e) {
-            console.error('Erreur chargement config:', e);
-        }
+    document.getElementById('pmCount').textContent = eleves.length + ' élèves';
+    
+    if (eleves.length === 0) {
+        container.innerHTML = '<div class="empty-state">📭 Aucun élève</div>';
+        return;
     }
     
-    // ============================================================
-    // CHARGEMENT ÉLÈVES
-    // ============================================================
-    async function loadEleves() {
-        if (!selectedSchoolId) {
-            localEleves = [];
-            return;
-        }
-        try {
-            const ref = getElevesCollection();
-            if (!ref) return;
-            const snap = await getDocs(ref);
-            localEleves = [];
-            snap.forEach(d => {
-                const data = d.data();
-                if (data.nom) {
-                    localEleves.push({ id: d.id, ...data });
-                }
-            });
-        } catch (e) {
-            toast('Erreur chargement élèves: ' + e.message, 'error');
-        }
-    }
-    
-    // ============================================================
-    // AFFICHAGE ÉLÈVES
-    // ============================================================
-    async function afficherEleves() {
-        const container = document.getElementById('elevesContainer');
-        if (!selectedSchoolId) {
-            container.innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            return;
-        }
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    for (const e of eleves) {
+        const sexeIcon = e.sexe === 'F' ? '👩' : '👨';
+        const nomComplet = (e.nom + ' ' + (e.prenom || '')).toUpperCase();
+        const estExonere = e.exonere === true;
+        const badgeExon = estExonere ? '<span class="badge badge-success">EXONÉRÉ</span>' : '';
+        const codeDisplay = e.parentCode ? '<span class="badge badge-primary" style="font-family:monospace;">🔑 ' + e.parentCode + '</span>' : '';
+        const espaceBadge = espaceActif === 'primaire' ? 
+            '<span class="badge badge-espace-primaire">PRIMAIRE</span>' : 
+            '<span class="badge badge-espace-maternelle">MATERNELLE</span>';
         
-        const search = document.getElementById('searchNom').value.toLowerCase().trim();
-        const classeFiltre = document.getElementById('filterClasse').value;
-        
-        let eleves = localEleves.filter(e => !e.abandon);
-        
-        if (search) {
-            eleves = eleves.filter(e => 
-                (e.nom + ' ' + (e.prenom || '')).toLowerCase().includes(search)
-            );
-        }
-        if (classeFiltre) {
-            eleves = eleves.filter(e => e.classe === classeFiltre);
-        }
-        
-        document.getElementById('elevesCount').textContent = eleves.length;
-        
-        if (eleves.length === 0) {
-            container.innerHTML = '<div class="empty-state">📭 Aucun élève</div>';
-            return;
-        }
-        
-        let html = '';
-        for (const e of eleves) {
-            const sexeIcon = e.sexe === 'F' ? '👩' : '👨';
-            const nomComplet = (e.nom + ' ' + (e.prenom || '')).toUpperCase();
-            const estExonere = e.exonere === true;
-            const badgeExon = estExonere ? '<span class="badge badge-success">EXONÉRÉ</span>' : '';
-            const codeDisplay = e.parentCode ? '<span class="badge badge-primary" style="font-family:monospace;">🔑 ' + e.parentCode + '</span>' : '';
-            const espaceBadge = espaceActif === 'primaire' ? 
-                '<span class="badge badge-espace-primaire">PRIMAIRE</span>' : 
-                '<span class="badge badge-espace-maternelle">MATERNELLE</span>';
-            
-            html += `
-                <div class="eleve-item" style="border:1px solid rgba(255,255,255,0.04);border-radius:12px;margin-bottom:8px;padding:12px 14px;background:rgba(255,255,255,0.02);">
+        html += `
+            <div style="border:1px solid rgba(255,255,255,0.04);border-radius:12px;padding:12px 14px;background:rgba(255,255,255,0.02);">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
                     <div>
-                        <span class="nom">${sexeIcon} ${nomComplet}</span>
-                        <span class="info">- ${e.classe}</span>
+                        <span style="font-weight:600;font-size:15px;color:#fff;">${sexeIcon} ${nomComplet}</span>
+                        <span style="font-size:13px;color:rgba(255,255,255,0.3);margin-left:6px;">- ${e.classe}</span>
                         ${espaceBadge}
                         ${badgeExon}
                         ${codeDisplay}
                     </div>
                     <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                        <button class="btn btn-sm btn-primary voir-paiements-btn" data-id="${e.id}">💰 Paiements</button>
-                        <button class="btn btn-sm btn-outline edit-eleve-btn" data-id="${e.id}">✏️</button>
-                        <button class="btn btn-sm btn-danger delete-eleve-btn" data-id="${e.id}">🗑️</button>
+                        <button class="btn btn-sm btn-primary pm-voir-paiements" data-id="${e.id}">💰 Paiements</button>
                     </div>
                 </div>
-            `;
-        }
-        container.innerHTML = html;
-        
-        // Événements
-        container.querySelectorAll('.voir-paiements-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const eleve = localEleves.find(e => e.id === id);
-                if (eleve) {
-                    currentEleve = eleve;
-                    afficherReleve(eleve);
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                    document.querySelector('.tab-btn[data-tab="tab2"]').classList.add('active');
-                    document.getElementById('tab2').classList.add('active');
-                }
-            });
-        });
-        
-        container.querySelectorAll('.edit-eleve-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                ouvrirEditEleve(id);
-            });
-        });
-        
-        container.querySelectorAll('.delete-eleve-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const id = this.dataset.id;
-                const eleve = localEleves.find(e => e.id === id);
-                if (!eleve) return;
-                if (await showConfirm(`Supprimer <strong>${eleve.nom} ${eleve.prenom || ''}</strong> ?`)) {
-                    try {
-                        const ref = getEleveRef(id);
-                        await deleteDoc(ref);
-                        toast('Élève supprimé', 'success');
-                        await loadEleves();
-                        await afficherEleves();
-                        await afficherInscriptions();
-                        updateStats();
-                    } catch (e) {
-                        toast('Erreur: ' + e.message, 'error');
-                    }
-                }
-            });
-        });
-    }
-    
-    // ============================================================
-    // AFFICHAGE RELEVÉ DE PAIEMENTS
-    // ============================================================
-    async function afficherReleve(eleve) {
-        const container = document.getElementById('releveContainer');
-        if (!eleve) {
-            container.innerHTML = '<div class="empty-state">👆 Sélectionnez un élève</div>';
-            return;
-        }
-        
-        const paiements = eleve.paiements || {};
-        const estMaternelle = espaceActif === 'maternelle';
-        const mv = eleve.exonere ? 0 : (eleve.minerval || configData.defaultMinerval || 25000);
-        
-        let html = `
-            <div style="margin-bottom:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.03);">
-                <div style="font-size:18px;font-weight:800;">${eleve.nom} ${eleve.prenom || ''}</div>
-                <div style="font-size:14px;color:rgba(255,255,255,0.3);">${eleve.classe} ${eleve.exonere ? '· EXONÉRÉ' : ''}</div>
-                <div style="font-size:13px;color:rgba(255,255,255,0.2);font-family:monospace;">🔑 ${eleve.parentCode || 'Non attribué'}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.2);margin-top:4px;">
+                    📞 ${e.phone || '-'} · 📅 ${e.dateInscription ? formatDateFr(e.dateInscription) : '-'}
+                </div>
             </div>
         `;
-        
-        let totalMin = 0, totalPaye = 0;
-        const moisAEtudier = estMaternelle ? moisListe : moisListe;
-        
-        for (const mois of moisAEtudier) {
-            const pay = paiements[mois] || { montant: 0, date: null };
-            const montantPaye = pay.montant || 0;
-            const montantDu = eleve.exonere ? 0 : mv;
-            const estPaye = montantPaye >= montantDu;
-            
-            if (!eleve.exonere) {
-                totalMin += montantDu;
-                totalPaye += Math.min(montantPaye, montantDu);
+    }
+    html += '</div>';
+    container.innerHTML = html;
+    
+    // Événements
+    container.querySelectorAll('.pm-voir-paiements').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const eleve = localEleves.find(e => e.id === id);
+            if (eleve) {
+                currentEleve = eleve;
+                afficherRelevePM(eleve);
             }
-            
-            const classeCard = estPaye || eleve.exonere ? '' : 'impaye';
-            const statutClasse = eleve.exonere ? 'exonere' : (estPaye ? 'paye' : 'impaye');
-            const labelStatut = eleve.exonere ? 'EXONÉRÉ' : (estPaye ? '✅ PAYÉ' : '❌ IMPAYÉ');
-            
-            html += `
-                <div class="paiement-month ${classeCard}" style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.02);border-radius:12px;padding:10px 14px;border-left:4px solid ${estPaye || eleve.exonere ? '#2ecc71' : '#e74c3c'};flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-                    <div class="mois" style="font-weight:700;font-size:15px;color:#fff;">${mois}</div>
-                    <div class="montant" style="font-size:14px;color:rgba(255,255,255,0.25);">${formatNbSimple(montantDu)} FC</div>
-                    <div class="statut ${statutClasse}" style="font-size:12px;font-weight:700;padding:2px 10px;border-radius:20px;color:${estPaye || eleve.exonere ? '#2ecc71' : '#e74c3c'};background:${estPaye || eleve.exonere ? 'rgba(46,204,113,0.10)' : 'rgba(231,76,60,0.10)'};">${labelStatut}</div>
-                    <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
-                        <span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ${formatNbSimple(montantPaye)} FC</span>
-                        ${!estPaye && !eleve.exonere ? `<button class="btn btn-sm btn-primary payer-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantDu - montantPaye}">PAYER</button>` : ''}
-                        ${montantPaye > 0 ? `<button class="btn btn-sm btn-success recu-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}" data-date="${pay.date || new Date().toISOString()}">🧾 REÇU</button>` : ''}
-                    </div>
-                </div>
-            `;
+        });
+    });
+}
+
+// ============================================================
+// AFFICHAGE RELEVÉ DE PAIEMENTS AVEC ANNULATION ET MOIS BLANC
+// ============================================================
+async function afficherRelevePM(eleve) {
+    const container = document.getElementById('pmReleveContainer');
+    if (!eleve) {
+        container.innerHTML = '<div class="empty-state">👆 Sélectionnez un élève</div>';
+        return;
+    }
+    
+    const paiements = eleve.paiements || {};
+    const moisBlancs = eleve.moisBlancs || [];
+    const mv = eleve.exonere ? 0 : (eleve.minerval || configData.defaultMinerval || 25000);
+    
+    let html = `
+        <div style="margin-bottom:12px;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid rgba(255,255,255,0.03);">
+            <div style="font-size:18px;font-weight:800;">${eleve.nom} ${eleve.prenom || ''}</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.3);">${eleve.classe} ${eleve.exonere ? '· EXONÉRÉ' : ''}</div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.2);font-family:monospace;">🔑 ${eleve.parentCode || 'Non attribué'}</div>
+        </div>
+    `;
+    
+    let totalMin = 0, totalPaye = 0;
+    
+    for (const mois of moisListe) {
+        const pay = paiements[mois] || { montant: 0, date: null };
+        const montantPaye = pay.montant || 0;
+        const montantDu = eleve.exonere ? 0 : mv;
+        const estBlanc = moisBlancs.includes(mois);
+        const montantEffectif = estBlanc ? 0 : montantDu;
+        const estPaye = estBlanc || eleve.exonere || montantPaye >= montantEffectif;
+        
+        if (!eleve.exonere && !estBlanc) {
+            totalMin += montantDu;
+            totalPaye += Math.min(montantPaye, montantDu);
         }
         
-        const resteTotal = Math.max(0, totalMin - totalPaye);
+        let classeCard = '', statutClasse = '', labelStatut = '';
+        if (estBlanc) {
+            classeCard = 'blanc';
+            statutClasse = 'blanc';
+            labelStatut = '❄️ BLANC';
+        } else if (eleve.exonere) {
+            statutClasse = 'exonere';
+            labelStatut = 'EXONÉRÉ';
+        } else if (estPaye) {
+            classeCard = 'paye';
+            statutClasse = 'paye';
+            labelStatut = '✅ PAYÉ';
+        } else {
+            classeCard = 'impaye';
+            statutClasse = 'impaye';
+            labelStatut = '❌ IMPAYÉ';
+        }
+        
+        const showPayer = (!estBlanc && !eleve.exonere && !estPaye);
+        const showAnnuler = (!estBlanc && !eleve.exonere && montantPaye > 0);
+        const showBlanc = (!estBlanc && !eleve.exonere && !eleve.abandon);
+        const showRestaurerBlanc = (estBlanc && !eleve.exonere);
+        
         html += `
-            <div class="paiement-recap" style="background:rgba(255,255,255,0.03);border-radius:12px;padding:12px 16px;margin-top:12px;border:1px solid rgba(255,255,255,0.03);">
-                <div class="row" style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);">
-                    <span>Total minerval</span>
-                    <span>${formatNbSimple(totalMin)} FC</span>
-                </div>
-                <div class="row" style="display:flex;justify-content:space-between;padding:4px 0;font-size:14px;color:rgba(255,255,255,0.4);">
-                    <span>Total payé</span>
-                    <span class="val-green" style="color:#2ecc71;">${formatNbSimple(totalPaye)} FC</span>
-                </div>
-                <div class="row total" style="display:flex;justify-content:space-between;padding:4px 0;font-weight:700;border-top:1px solid rgba(255,255,255,0.04);padding-top:8px;margin-top:4px;color:#fff;font-size:16px;">
-                    <span>Reste à payer</span>
-                    <span class="val-red" style="color:${resteTotal > 0 ? '#e74c3c' : '#2ecc71'};">${formatNbSimple(resteTotal)} FC</span>
+            <div class="paiement-month ${classeCard}">
+                <div class="mois">${mois.toUpperCase()}</div>
+                <div class="montant">${formatNbSimple(montantEffectif)} FC</div>
+                <div class="statut ${statutClasse}">${labelStatut}</div>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+                    <span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ${formatNbSimple(montantPaye)} FC</span>
+                    ${showPayer ? `<button class="btn btn-sm btn-primary pm-payer-btn" data-id="${eleve.id}" data-mois="${mois}" data-reste="${montantDu - montantPaye}">PAYER</button>` : ''}
+                    ${showAnnuler ? `<button class="btn btn-sm btn-danger-sm pm-annuler-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}">ANNULER</button>` : ''}
+                    ${showBlanc ? `<button class="btn btn-sm btn-warning-sm pm-blanc-btn" data-id="${eleve.id}" data-mois="${mois}">❄️ BLANC</button>` : ''}
+                    ${showRestaurerBlanc ? `<button class="btn btn-sm btn-success pm-restaurer-btn" data-id="${eleve.id}" data-mois="${mois}">🔄 RESTAURER</button>` : ''}
+                    ${montantPaye > 0 ? `<button class="btn btn-sm btn-success pm-recu-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}" data-date="${pay.date || new Date().toISOString()}">🧾 REÇU</button>` : ''}
                 </div>
             </div>
         `;
-        
-        container.innerHTML = html;
-        
-        // Événements paiement
-        container.querySelectorAll('.payer-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const mois = this.dataset.mois;
-                const reste = parseInt(this.dataset.montant);
-                const eleve = localEleves.find(e => e.id === id);
-                if (!eleve) return;
-                ouvrirPaiement(eleve, mois, reste);
-            });
-        });
-        
-        // Événements reçu
-        container.querySelectorAll('.recu-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const mois = this.dataset.mois;
-                const montant = parseInt(this.dataset.montant);
-                const date = this.dataset.date;
-                const eleve = localEleves.find(e => e.id === id);
-                if (!eleve) return;
-                genererReçuPDF(eleve, mois, montant, date);
-            });
-        });
     }
     
-    // ============================================================
-    // PAIEMENT
-    // ============================================================
-    function ouvrirPaiement(eleve, mois, reste) {
-        const modal = document.getElementById('paymentModal');
-        document.getElementById('modalInfo').innerHTML = `
-            <div class="modal-info-line"><span>Élève</span><span>${eleve.nom} ${eleve.prenom || ''}</span></div>
-            <div class="modal-info-line"><span>Mois</span><span>${mois}</span></div>
-            <div class="modal-info-line"><span>Reste</span><span style="color:#f7971e;font-weight:700;">${formatNbSimple(reste)} FC</span></div>
-        `;
-        document.getElementById('paymentAmount').value = reste;
-        window._paiementData = { eleve, mois, reste };
-        modal.classList.add('show');
-    }
+    const resteTotal = Math.max(0, totalMin - totalPaye);
+    html += `
+        <div class="paiement-recap">
+            <div class="row"><span>Total minerval</span><span>${formatNbSimple(totalMin)} FC</span></div>
+            <div class="row"><span>Total payé</span><span class="val-green">${formatNbSimple(totalPaye)} FC</span></div>
+            <div class="row total"><span>Reste à payer</span><span class="val-red">${formatNbSimple(resteTotal)} FC</span></div>
+        </div>
+    `;
     
-    document.getElementById('confirmPayment').onclick = async function() {
-        const data = window._paiementData;
-        if (!data) { toast('Erreur', 'error'); return; }
-        const montant = parseInt(document.getElementById('paymentAmount').value);
-        if (!montant || montant <= 0) { toast('Montant invalide', 'error'); return; }
-        if (montant > data.reste) { toast('Montant supérieur au reste', 'error'); return; }
-        
-        if (await showConfirm(`Payer ${formatNbSimple(montant)} FC pour ${data.mois} ?`)) {
-            try {
-                const ref = getEleveRef(data.eleve.id);
-                await runTransaction(db, async (transaction) => {
-                    const snap = await transaction.get(ref);
-                    if (!snap.exists()) return;
-                    const d = snap.data();
-                    const paiements = d.paiements || {};
-                    const actuel = paiements[data.mois] || { montant: 0, date: null, historique: [] };
-                    const nouveauMontant = (actuel.montant || 0) + montant;
-                    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                    paiements[data.mois] = {
-                        montant: nouveauMontant,
-                        date: now,
-                        historique: [...(actuel.historique || []), { montant, date: now }],
-                        lastUpdate: Date.now()
-                    };
-                    transaction.update(ref, { paiements });
-                });
-                
-                document.getElementById('paymentModal').classList.remove('show');
-                toast(`✅ ${formatNbSimple(montant)} FC payé`, 'success');
-                await loadEleves();
-                await afficherEleves();
-                await afficherInscriptions();
-                if (currentEleve) {
-                    const updated = localEleves.find(e => e.id === currentEleve.id);
+    container.innerHTML = html;
+    
+    // Événement : Payer
+    container.querySelectorAll('.pm-payer-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const mois = this.dataset.mois;
+            const reste = parseInt(this.dataset.reste);
+            const eleve = localEleves.find(e => e.id === id);
+            if (!eleve) return;
+            ouvrirPaiementPM(eleve, mois, reste);
+        });
+    });
+    
+    // Événement : Annuler un paiement
+    container.querySelectorAll('.pm-annuler-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const mois = this.dataset.mois;
+            const montant = parseInt(this.dataset.montant);
+            const eleve = localEleves.find(e => e.id === id);
+            if (!eleve) return;
+            
+            if (await showConfirmPM(`Annuler le paiement de <strong>${formatNbSimple(montant)} FC</strong> pour <strong>${mois}</strong> ?<br><small>Cette action est irréversible.</small>`)) {
+                try {
+                    const ref = getEleveRef(id);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
+                    const data = snap.data();
+                    const paiements = data.paiements || {};
+                    if (paiements[mois]) {
+                        paiements[mois] = { montant: 0, date: null, historique: [] };
+                        await updateDoc(ref, { paiements: paiements });
+                        toast(`✅ Paiement de ${mois} annulé (${formatNbSimple(montant)} FC)`, 'success');
+                        await loadElevesPM();
+                        await afficherElevesPM();
+                        const updated = localEleves.find(e => e.id === id);
+                        if (updated) {
+                            currentEleve = updated;
+                            await afficherRelevePM(currentEleve);
+                        }
+                        updateStatsPM();
+                    }
+                } catch (e) {
+                    toast('Erreur: ' + e.message, 'error');
+                }
+            }
+        });
+    });
+    
+    // Événement : Marquer mois blanc
+    container.querySelectorAll('.pm-blanc-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const mois = this.dataset.mois;
+            const eleve = localEleves.find(e => e.id === id);
+            if (!eleve) return;
+            
+            if (await showConfirmPM(`Marquer <strong>${mois}</strong> comme <strong>MOIS BLANC</strong> pour ${eleve.nom} ?<br><small>L'élève ne paiera pas ce mois.</small>`)) {
+                try {
+                    const ref = getEleveRef(id);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
+                    const data = snap.data();
+                    const moisBlancs = data.moisBlancs || [];
+                    if (!moisBlancs.includes(mois)) {
+                        moisBlancs.push(mois);
+                        await updateDoc(ref, { moisBlancs: moisBlancs });
+                        toast(`❄️ ${mois} marqué comme mois blanc`, 'success');
+                        await loadElevesPM();
+                        await afficherElevesPM();
+                        const updated = localEleves.find(e => e.id === id);
+                        if (updated) {
+                            currentEleve = updated;
+                            await afficherRelevePM(currentEleve);
+                        }
+                        updateStatsPM();
+                    } else {
+                        toast('Déjà un mois blanc', 'warning');
+                    }
+                } catch (e) {
+                    toast('Erreur: ' + e.message, 'error');
+                }
+            }
+        });
+    });
+    
+    // Événement : Restaurer mois blanc
+    container.querySelectorAll('.pm-restaurer-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.id;
+            const mois = this.dataset.mois;
+            const eleve = localEleves.find(e => e.id === id);
+            if (!eleve) return;
+            
+            if (await showConfirmPM(`Restaurer <strong>${mois}</strong> (retirer le mois blanc) pour ${eleve.nom} ?`)) {
+                try {
+                    const ref = getEleveRef(id);
+                    const snap = await getDoc(ref);
+                    if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
+                    const data = snap.data();
+                    const moisBlancs = data.moisBlancs || [];
+                    const nouveauxBlancs = moisBlancs.filter(m => m !== mois);
+                    await updateDoc(ref, { moisBlancs: nouveauxBlancs });
+                    toast(`✅ ${mois} restauré (plus blanc)`, 'success');
+                    await loadElevesPM();
+                    await afficherElevesPM();
+                    const updated = localEleves.find(e => e.id === id);
                     if (updated) {
                         currentEleve = updated;
-                        await afficherReleve(currentEleve);
+                        await afficherRelevePM(currentEleve);
                     }
+                    updateStatsPM();
+                } catch (e) {
+                    toast('Erreur: ' + e.message, 'error');
                 }
-                updateStats();
-            } catch (e) {
-                toast('Erreur paiement: ' + e.message, 'error');
             }
-        }
-    };
-    
-    document.getElementById('cancelPayment').onclick = function() {
-        document.getElementById('paymentModal').classList.remove('show');
-        window._paiementData = null;
-    };
-    
-    // ============================================================
-    // INSCRIPTIONS
-    // ============================================================
-    async function afficherInscriptions() {
-        const container = document.getElementById('inscriptionsContainer');
-        if (!selectedSchoolId) {
-            container.innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            return;
-        }
-        
-        const eleves = localEleves.filter(e => !e.abandon);
-        
-        if (eleves.length === 0) {
-            container.innerHTML = '<div class="empty-state">📭 Aucun élève</div>';
-            return;
-        }
-        
-        let html = '<div class="table-wrapper"><table><thead><tr><th>ÉLÈVE</th><th>CLASSE</th><th>TOTAL</th><th>PAYÉ</th><th>RESTE</th><th>STATUT</th></tr></thead><tbody>';
-        
-        for (const e of eleves) {
-            const total = e.fraisInscriptionTotal || configData.defaultFraisInscription || 35000;
-            const paye = e.fraisInscriptionPaye || 0;
-            const reste = total - paye;
-            const statut = reste <= 0 ? 'COMPLET' : (paye > 0 ? 'PARTIEL' : 'NON PAYÉ');
-            const color = reste <= 0 ? '#2ecc71' : (paye > 0 ? '#f1c40f' : '#e74c3c');
-            
-            html += `
-                <tr>
-                    <td><strong>${e.nom} ${e.prenom || ''}</strong></td>
-                    <td>${e.classe}</td>
-                    <td>${formatNbSimple(total)} FC</td>
-                    <td style="color:${color};font-weight:700;">${formatNbSimple(paye)} FC</td>
-                    <td style="color:${reste > 0 ? '#e74c3c' : '#2ecc71'};font-weight:700;">${reste > 0 ? formatNbSimple(reste) + ' FC' : '✓'}</td>
-                    <td><span class="badge ${reste <= 0 ? 'badge-success' : (paye > 0 ? 'badge-warning' : 'badge-danger')}">${statut}</span></td>
-                </tr>
-            `;
-        }
-        
-        html += '</tbody></table></div>';
-        container.innerHTML = html;
-    }
-    
-    // ============================================================
-    // STATS
-    // ============================================================
-    function updateStats() {
-        const eleves = localEleves.filter(e => !e.abandon);
-        const total = eleves.length;
-        const filles = eleves.filter(e => e.sexe === 'F').length;
-        const garcons = eleves.filter(e => e.sexe === 'M').length;
-        const exoneres = eleves.filter(e => e.exonere === true).length;
-        
-        document.getElementById('hdrTotal').textContent = total;
-        document.getElementById('hdrFilles').textContent = filles;
-        document.getElementById('hdrGarcons').textContent = garcons;
-        document.getElementById('hdrExoneres').textContent = exoneres;
-        document.getElementById('totalHeader').textContent = `(${total} ${espaceActif === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE'})`;
-    }
-    
-    // ============================================================
-    // AJOUT ÉLÈVE
-    // ============================================================
-    document.getElementById('btnInscrire').onclick = function() {
-        if (!selectedSchoolId) {
-            toast('Sélectionnez une école', 'warning');
-            return;
-        }
-        document.getElementById('addEleveModal').classList.add('show');
-        resetInscription();
-    };
-    
-    document.getElementById('cancelAddEleve').onclick = function() {
-        document.getElementById('addEleveModal').classList.remove('show');
-    };
-    
-    document.getElementById('newExonere').onchange = function() {
-        const show = this.value === 'oui';
-        document.getElementById('motifExonGroup').style.display = show ? 'block' : 'none';
-        document.getElementById('approbateurGroup').style.display = show ? 'block' : 'none';
-    };
-    
-    document.getElementById('confirmAddEleve').onclick = async function() {
-        const nom = document.getElementById('newNom').value.trim();
-        const postnom = document.getElementById('newPostnom').value.trim();
-        const prenom = document.getElementById('newPrenom').value.trim();
-        const sexe = document.getElementById('newSexe').value;
-        const dateNaiss = document.getElementById('newDateNaiss').value;
-        const lieuNaiss = document.getElementById('newLieuNaiss').value.trim();
-        const nomPere = document.getElementById('newNomPere').value.trim();
-        const nomMere = document.getElementById('newNomMere').value.trim();
-        const phone = document.getElementById('newPhone').value.trim();
-        const adresse = document.getElementById('newAdresse').value.trim();
-        const classe = document.getElementById('newClasse').value;
-        const exonere = document.getElementById('newExonere').value === 'oui';
-        const motif = document.getElementById('newMotifExon').value;
-        const approbateur = document.getElementById('newApprobateur').value;
-        const montant = parseInt(document.getElementById('newMontantInscription').value) || 0;
-        
-        if (!nom || !prenom || !sexe || !dateNaiss || !lieuNaiss || !phone || !adresse || !classe) {
-            toast('Tous les champs obligatoires doivent être remplis', 'error');
-            return;
-        }
-        
-        if (exonere) {
-            if (!motif) { toast('Motif d\'exonération requis', 'error'); return; }
-            if (!approbateur) { toast('Approbateur requis', 'error'); return; }
-        }
-        
-        if (await showConfirm(`Inscrire <strong>${nom} ${prenom}</strong> en <strong>${classe}</strong> ?`)) {
-            try {
-                const id = (espaceActif === 'primaire' ? 'pri_' : 'mat_') + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-                const mv = exonere ? 0 : (configData.defaultMinerval || 25000);
-                const frais = exonere ? 0 : (configData.defaultFraisInscription || 35000);
-                const codeParent = genererCodeParent();
-                
-                const paiements = {};
-                for (const mois of moisListe) {
-                    paiements[mois] = { montant: 0, date: null, historique: [] };
-                }
-                
-                const data = {
-                    _type: espaceActif === 'primaire' ? 'prima_eleve' : 'mater_eleve',
-                    eleveId: id,
-                    nom: nom,
-                    postnom: postnom || '',
-                    prenom: prenom,
-                    sexe: sexe,
-                    dateNaiss: dateNaiss,
-                    lieuNaiss: lieuNaiss,
-                    nomPere: nomPere || '',
-                    nomMere: nomMere || '',
-                    phone: phone,
-                    adresse: adresse || '',
-                    classe: classe,
-                    minerval: mv,
-                    fraisInscriptionTotal: frais,
-                    fraisInscriptionPaye: Math.min(montant, frais),
-                    paiements: paiements,
-                    exonere: exonere,
-                    motifExon: motif || '',
-                    approbateur: approbateur || '',
-                    parentCode: codeParent,
-                    abandon: false,
-                    dateAbandon: null,
-                    dateInscription: formatDateYMD(new Date()),
-                    moisBlancs: [],
-                    createdAt: Date.now()
-                };
-                
-                const ref = doc(db, "ecoles", selectedSchoolId, espaceActif === 'primaire' ? "prima_eleves" : "mater_eleves", id);
-                await setDoc(ref, data);
-                
-                toast('✅ Élève inscrit', 'success');
-                document.getElementById('addEleveModal').classList.remove('show');
-                await loadEleves();
-                await afficherEleves();
-                await afficherInscriptions();
-                updateStats();
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-            }
-        }
-    };
-    
-    function resetInscription() {
-        document.getElementById('newNom').value = '';
-        document.getElementById('newPostnom').value = '';
-        document.getElementById('newPrenom').value = '';
-        document.getElementById('newSexe').value = '';
-        document.getElementById('newDateNaiss').value = '';
-        document.getElementById('newLieuNaiss').value = '';
-        document.getElementById('newNomPere').value = '';
-        document.getElementById('newNomMere').value = '';
-        document.getElementById('newPhone').value = '';
-        document.getElementById('newAdresse').value = '';
-        document.getElementById('newExonere').value = 'non';
-        document.getElementById('motifExonGroup').style.display = 'none';
-        document.getElementById('approbateurGroup').style.display = 'none';
-        document.getElementById('newMontantInscription').value = '0';
-        
-        // Remplir la liste des classes
-        const select = document.getElementById('newClasse');
-        select.innerHTML = '<option value="">Sélectionner</option>';
-        const classes = getClasses();
-        classes.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c;
-            opt.textContent = c;
-            select.appendChild(opt);
         });
-    }
+    });
     
-    // ============================================================
-    // ÉDITION ÉLÈVE
-    // ============================================================
-    function ouvrirEditEleve(id) {
-        const eleve = localEleves.find(e => e.id === id);
-        if (!eleve) { toast('Élève non trouvé', 'error'); return; }
-        
-        document.getElementById('editNom').value = eleve.nom || '';
-        document.getElementById('editPrenom').value = eleve.prenom || '';
-        document.getElementById('editSexe').value = eleve.sexe || 'M';
-        document.getElementById('editExonere').value = eleve.exonere ? 'oui' : 'non';
-        document.getElementById('editMotifExon').value = eleve.motifExon || '';
-        document.getElementById('editApprobateur').value = eleve.approbateur || '';
-        
-        const showExon = eleve.exonere === true;
-        document.getElementById('editMotifExonGroup').style.display = showExon ? 'block' : 'none';
-        document.getElementById('editApprobateurGroup').style.display = showExon ? 'block' : 'none';
-        
-        const select = document.getElementById('editClasse');
-        select.innerHTML = '<option value="">Sélectionner</option>';
-        const classes = getClasses();
-        classes.forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c;
-            opt.textContent = c;
-            if (c === eleve.classe) opt.selected = true;
-            select.appendChild(opt);
+    // Événement : Reçu PDF
+    container.querySelectorAll('.pm-recu-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const mois = this.dataset.mois;
+            const montant = parseInt(this.dataset.montant);
+            const date = this.dataset.date;
+            const eleve = localEleves.find(e => e.id === id);
+            if (!eleve) return;
+            genererReçuPMPDF(eleve, mois, montant, date);
         });
-        
-        window._editEleveId = id;
-        document.getElementById('editEleveModal').classList.add('show');
-    }
+    });
+}
+
+// ============================================================
+// PAIEMENT
+// ============================================================
+function ouvrirPaiementPM(eleve, mois, reste) {
+    const modal = document.getElementById('pmPaymentModal');
+    document.getElementById('pmModalInfo').innerHTML = `
+        <div class="modal-info-line"><span>Élève</span><span>${eleve.nom} ${eleve.prenom || ''}</span></div>
+        <div class="modal-info-line"><span>Mois</span><span>${mois}</span></div>
+        <div class="modal-info-line"><span>Reste</span><span style="color:#f7971e;font-weight:700;">${formatNbSimple(reste)} FC</span></div>
+    `;
+    document.getElementById('pmPaymentAmount').value = reste;
+    window._pmPaiementData = { eleve, mois, reste };
+    modal.classList.add('show');
+}
+
+document.getElementById('pmConfirmPayment').onclick = async function() {
+    const data = window._pmPaiementData;
+    if (!data) { toast('Erreur', 'error'); return; }
+    const montant = parseInt(document.getElementById('pmPaymentAmount').value);
+    if (!montant || montant <= 0) { toast('Montant invalide', 'error'); return; }
+    if (montant > data.reste) { toast('Montant supérieur au reste', 'error'); return; }
     
-    document.getElementById('editExonere').onchange = function() {
-        const show = this.value === 'oui';
-        document.getElementById('editMotifExonGroup').style.display = show ? 'block' : 'none';
-        document.getElementById('editApprobateurGroup').style.display = show ? 'block' : 'none';
-    };
-    
-    document.getElementById('confirmEditEleve').onclick = async function() {
-        const id = window._editEleveId;
-        if (!id) { toast('Erreur', 'error'); return; }
-        
-        const sexe = document.getElementById('editSexe').value;
-        const classe = document.getElementById('editClasse').value;
-        const exonere = document.getElementById('editExonere').value === 'oui';
-        const motif = document.getElementById('editMotifExon').value;
-        const approbateur = document.getElementById('editApprobateur').value;
-        
-        if (!classe) { toast('Classe requise', 'error'); return; }
-        if (exonere && !motif) { toast('Motif requis', 'error'); return; }
-        if (exonere && !approbateur) { toast('Approbateur requis', 'error'); return; }
-        
+    if (await showConfirmPM(`Payer ${formatNbSimple(montant)} FC pour ${data.mois} ?`)) {
         try {
-            const ref = getEleveRef(id);
-            const updates = {
-                sexe: sexe,
-                classe: classe,
-                exonere: exonere,
-                motifExon: motif || '',
-                approbateur: approbateur || '',
-                minerval: exonere ? 0 : (configData.defaultMinerval || 25000)
-            };
-            await updateDoc(ref, updates);
+            const ref = getEleveRef(data.eleve.id);
+            await runTransaction(db, async (transaction) => {
+                const snap = await transaction.get(ref);
+                if (!snap.exists()) return;
+                const d = snap.data();
+                const paiements = d.paiements || {};
+                const actuel = paiements[data.mois] || { montant: 0, date: null, historique: [] };
+                const nouveauMontant = (actuel.montant || 0) + montant;
+                const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+                paiements[data.mois] = {
+                    montant: nouveauMontant,
+                    date: now,
+                    historique: [...(actuel.historique || []), { montant, date: now }],
+                    lastUpdate: Date.now()
+                };
+                transaction.update(ref, { paiements });
+            });
             
-            toast('✅ Élève modifié', 'success');
-            document.getElementById('editEleveModal').classList.remove('show');
-            await loadEleves();
-            await afficherEleves();
-            await afficherInscriptions();
-            if (currentEleve && currentEleve.id === id) {
-                const updated = localEleves.find(e => e.id === id);
+            document.getElementById('pmPaymentModal').classList.remove('show');
+            toast(`✅ ${formatNbSimple(montant)} FC payé`, 'success');
+            await loadElevesPM();
+            await afficherElevesPM();
+            if (currentEleve) {
+                const updated = localEleves.find(e => e.id === currentEleve.id);
                 if (updated) {
                     currentEleve = updated;
-                    await afficherReleve(currentEleve);
+                    await afficherRelevePM(currentEleve);
                 }
             }
-            updateStats();
+            updateStatsPM();
         } catch (e) {
-            toast('Erreur: ' + e.message, 'error');
-        }
-    };
-    
-    document.getElementById('cancelEditEleve').onclick = function() {
-        document.getElementById('editEleveModal').classList.remove('show');
-        window._editEleveId = null;
-    };
-    
-    // ============================================================
-    // GÉNÉRATION REÇU PDF
-    // ============================================================
-    function genererReçuPDF(eleve, mois, montant, date) {
-        try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a5');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            let y = 20;
-            
-            doc.setFontSize(14);
-            doc.setFont("helvetica", "bold");
-            doc.text('COMPLEXE SCOLAIRE', pageWidth / 2, y, { align: 'center' });
-            y += 8;
-            
-            doc.setFontSize(12);
-            doc.setFont("helvetica", "bold");
-            doc.text('REÇU DE PAIEMENT', pageWidth / 2, y, { align: 'center' });
-            y += 10;
-            
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.text('Reçu n°: ' + Date.now().toString().slice(-8), 10, y);
-            doc.text('Date: ' + formatDateFr(new Date()), pageWidth - 10, y, { align: 'right' });
-            y += 8;
-            
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
-            doc.line(10, y, pageWidth - 10, y);
-            y += 8;
-            
-            doc.setFont("helvetica", "bold");
-            doc.text('Élève: ' + eleve.nom + ' ' + (eleve.prenom || ''), 10, y);
-            y += 6;
-            doc.text('Classe: ' + eleve.classe, 10, y);
-            y += 6;
-            doc.text('Période: ' + mois, 10, y);
-            y += 6;
-            doc.text('Montant: ' + formatNbSimple(montant) + ' FC', 10, y);
-            y += 8;
-            
-            doc.setDrawColor(0, 0, 0);
-            doc.setLineWidth(0.5);
-            doc.line(10, y, pageWidth - 10, y);
-            y += 8;
-            
-            doc.setFont("helvetica", "bold");
-            doc.text('Total payé pour ce mois: ' + formatNbSimple(montant) + ' FC', 10, y);
-            y += 10;
-            
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
-            doc.text('Cachet et signature', pageWidth / 2, y, { align: 'center' });
-            
-            doc.save('Reçu_' + eleve.nom + '_' + mois + '.pdf');
-            toast('🧾 Reçu généré', 'success');
-        } catch (e) {
-            toast('Erreur génération reçu: ' + e.message, 'error');
+            toast('Erreur paiement: ' + e.message, 'error');
         }
     }
+};
+
+document.getElementById('pmCancelPayment').onclick = function() {
+    document.getElementById('pmPaymentModal').classList.remove('show');
+    window._pmPaiementData = null;
+};
+
+// ============================================================
+// STATS
+// ============================================================
+function updateStatsPM() {
+    const eleves = localEleves.filter(e => !e.abandon);
+    const total = eleves.length;
+    const filles = eleves.filter(e => e.sexe === 'F').length;
+    const garcons = eleves.filter(e => e.sexe === 'M').length;
+    const exoneres = eleves.filter(e => e.exonere === true).length;
     
-    // ============================================================
-    // ÉVÉNEMENTS UI
-    // ============================================================
-    // Sélecteur d'école
-    document.getElementById('schoolSelector').addEventListener('change', async function() {
-        selectedSchoolId = this.value;
-        if (selectedSchoolId) {
-            await loadEspace();
-        } else {
-            document.getElementById('schoolNameHeader').textContent = 'Sélectionnez une école';
-            document.getElementById('elevesContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            document.getElementById('releveContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            document.getElementById('inscriptionsContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
-            localEleves = [];
-            updateStats();
-        }
-    });
-    
-    // Espace (Primaire/Maternelle)
-    document.querySelectorAll('.space-btn').forEach(btn => {
-        btn.onclick = function() {
-            if (!selectedSchoolId) {
-                toast('Sélectionnez d\'abord une école', 'warning');
-                return;
-            }
-            const newSpace = this.dataset.space;
-            if (newSpace === espaceActif) return;
-            
-            document.querySelectorAll('.space-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            espaceActif = newSpace;
-            
-            document.body.classList.remove('maternelle-theme');
-            if (espaceActif === 'maternelle') {
-                document.body.classList.add('maternelle-theme');
-            }
-            
-            toast('🔁 Espace ' + (espaceActif === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE'), 'info');
-            loadEspace();
-        };
-    });
-    
-    // Redirection Secondaire
-    document.getElementById('btnRedirectionSecondaire').addEventListener('click', function() {
+    document.getElementById('hdrTotal').textContent = total;
+    document.getElementById('hdrFilles').textContent = filles;
+    document.getElementById('hdrGarcons').textContent = garcons;
+    document.getElementById('hdrExoneres').textContent = exoneres;
+    const school = allSchools.find(s => s.id === selectedSchoolId);
+    document.getElementById('totalHeader').textContent = '(' + (school ? school.nom : '') + ' · ' + (espaceActif === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE') + ' · ' + total + ' élèves)';
+}
+
+// ============================================================
+// GÉNÉRATION REÇU PDF
+// ============================================================
+function genererReçuPMPDF(eleve, mois, montant, date) {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a5');
+        const pageWidth = doc.internal.pageSize.getWidth();
+        let y = 20;
+        
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        const school = allSchools.find(s => s.id === selectedSchoolId);
+        doc.text('COMPLEXE SCOLAIRE ' + (school ? school.nom : '').toUpperCase(), pageWidth / 2, y, { align: 'center' });
+        y += 8;
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text('REÇU DE PAIEMENT', pageWidth / 2, y, { align: 'center' });
+        y += 10;
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text('Reçu n°: ' + Date.now().toString().slice(-8), 10, y);
+        doc.text('Date: ' + formatDateFr(new Date()), pageWidth - 10, y, { align: 'right' });
+        y += 8;
+        
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(10, y, pageWidth - 10, y);
+        y += 8;
+        
+        doc.setFont("helvetica", "bold");
+        doc.text('Élève: ' + eleve.nom + ' ' + (eleve.prenom || ''), 10, y);
+        y += 6;
+        doc.text('Classe: ' + eleve.classe, 10, y);
+        y += 6;
+        doc.text('Période: ' + mois, 10, y);
+        y += 6;
+        doc.text('Montant: ' + formatNbSimple(montant) + ' FC', 10, y);
+        y += 8;
+        
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(10, y, pageWidth - 10, y);
+        y += 8;
+        
+        doc.setFont("helvetica", "bold");
+        doc.text('Total payé pour ce mois: ' + formatNbSimple(montant) + ' FC', 10, y);
+        y += 10;
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text('Cachet et signature', pageWidth / 2, y, { align: 'center' });
+        
+        doc.save('Reçu_' + eleve.nom + '_' + mois + '.pdf');
+        toast('🧾 Reçu généré', 'success');
+    } catch (e) {
+        toast('Erreur génération reçu: ' + e.message, 'error');
+    }
+}
+
+// ============================================================
+// ÉVÉNEMENTS UI
+// ============================================================
+// Sélecteur d'école
+document.getElementById('schoolSelector').addEventListener('change', async function() {
+    selectedSchoolId = this.value;
+    if (selectedSchoolId) {
+        await loadEspace();
+    } else {
+        document.querySelector('.header h1 .sub').textContent = '(0)';
+        document.getElementById('pmElevesContainer').innerHTML = '<div class="empty-state">🏫 Sélectionnez une école</div>';
+        document.getElementById('pmReleveContainer').innerHTML = '<div class="empty-state">👆 Sélectionnez un élève</div>';
+        localEleves = [];
+        updateStatsPM();
+    }
+});
+
+// Espace (Primaire/Maternelle)
+document.querySelectorAll('.space-btn').forEach(btn => {
+    btn.onclick = function() {
         if (!selectedSchoolId) {
-            toast('Sélectionnez une école', 'warning');
+            toast('Sélectionnez d\'abord une école', 'warning');
             return;
         }
-        window.location.href = 'https://www.netubex.com/schoolcompta?ecole=' + selectedSchoolId + '&code=' + codeSaisi;
-    });
-    
-    // Filtres
-    document.getElementById('searchNom').addEventListener('input', afficherEleves);
-    
-    document.getElementById('filterClasse').addEventListener('change', function() {
-        // Remplir les classes si nécessaire
-        if (this.options.length <= 1) {
-            const select = this;
-            select.innerHTML = '<option value="">Toutes</option>';
-            const classes = getClasses();
-            classes.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                select.appendChild(opt);
-            });
-        }
-        afficherEleves();
-    });
-    
-    // Configuration
-    document.getElementById('btnSaveConfig').onclick = async function() {
-        if (!selectedSchoolId) { toast('Sélectionnez une école', 'warning'); return; }
-        try {
-            const ref = getConfigRef();
-            const data = {
-                defaultMinerval: parseInt(document.getElementById('defaultMinerval').value) || 25000,
-                defaultFraisInscription: parseInt(document.getElementById('defaultFraisInscription').value) || 35000,
-                updatedAt: new Date().toISOString()
-            };
-            await setDoc(ref, data);
-            configData = data;
-            toast('✅ Configuration enregistrée', 'success');
-        } catch (e) {
-            toast('Erreur: ' + e.message, 'error');
-        }
-    };
-    
-    document.getElementById('btnApplyTarifs').onclick = async function() {
-        if (!selectedSchoolId) { toast('Sélectionnez une école', 'warning'); return; }
-        if (!await showConfirm('Appliquer les tarifs par défaut à tous les élèves ?')) return;
+        const newSpace = this.dataset.space;
+        if (newSpace === espaceActif) return;
         
-        try {
-            const mv = configData.defaultMinerval || 25000;
-            const frais = configData.defaultFraisInscription || 35000;
-            let count = 0;
-            
-            for (const e of localEleves) {
-                if (e.abandon) continue;
-                const ref = getEleveRef(e.id);
-                const updates = {};
-                if (!e.exonere) {
-                    if (e.minerval !== mv) { updates.minerval = mv; count++; }
-                    if (e.fraisInscriptionTotal !== frais) { updates.fraisInscriptionTotal = frais; count++; }
-                }
-                if (Object.keys(updates).length > 0) {
-                    await updateDoc(ref, updates);
-                }
-            }
-            
-            toast(`✅ ${count} mises à jour effectuées`, 'success');
-            await loadEleves();
-            await afficherEleves();
-            await afficherInscriptions();
-        } catch (e) {
-            toast('Erreur: ' + e.message, 'error');
-        }
-    };
-    
-    // Thème
-    document.getElementById('themeToggle').addEventListener('click', function() {
-        const icons = this.querySelectorAll('.icon');
-        icons.forEach(icon => icon.classList.toggle('active'));
-        document.body.classList.toggle('light');
-    });
-    
-    // Tabs
-    document.getElementById('tabContainer').addEventListener('click', function(e) {
-        const btn = e.target.closest('.tab-btn');
-        if (!btn) return;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById(btn.dataset.tab).classList.add('active');
-    });
-    
-    // ============================================================
-    // INITIALISATION
-    // ============================================================
-    async function init() {
-        await loadSchools();
+        document.querySelectorAll('.space-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        espaceActif = newSpace;
         
-        // Si une école est dans l'URL, elle est déjà sélectionnée
-        if (schoolId && allSchools.find(s => s.id === schoolId)) {
-            // déjà fait dans loadSchools
+        document.body.classList.remove('maternelle-theme');
+        if (espaceActif === 'maternelle') {
+            document.body.classList.add('maternelle-theme');
         }
+        
+        toast('🔁 Espace ' + (espaceActif === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE'), 'info');
         
         // Mettre à jour la liste des classes dans les filtres
-        const filterSelect = document.getElementById('filterClasse');
+        const filterSelect = document.getElementById('pmClasseFilter');
         filterSelect.innerHTML = '<option value="">Toutes</option>';
         const classes = getClasses();
         classes.forEach(c => {
@@ -1577,9 +1024,68 @@
             opt.textContent = c;
             filterSelect.appendChild(opt);
         });
+        
+        loadEspace();
+    };
+});
+
+// Filtres
+document.getElementById('pmSearch').addEventListener('input', afficherElevesPM);
+document.getElementById('pmClasseFilter').addEventListener('change', afficherElevesPM);
+document.getElementById('pmStatutFilter').addEventListener('change', afficherElevesPM);
+
+// Rafraîchir
+document.getElementById('btnRefreshPM').addEventListener('click', async function() {
+    if (!selectedSchoolId) { toast('Sélectionnez une école', 'warning'); return; }
+    await loadElevesPM();
+    await afficherElevesPM();
+    if (currentEleve) {
+        const updated = localEleves.find(e => e.id === currentEleve.id);
+        if (updated) {
+            currentEleve = updated;
+            await afficherRelevePM(currentEleve);
+        }
     }
+    updateStatsPM();
+    toast('🔄 Actualisé', 'info');
+});
+
+// Thème
+document.getElementById('themeToggle').addEventListener('click', function() {
+    const icons = this.querySelectorAll('.icon');
+    icons.forEach(icon => icon.classList.toggle('active'));
+    document.body.classList.toggle('light');
+});
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(this.dataset.tab).classList.add('active');
+    });
+});
+
+// ============================================================
+// INITIALISATION
+// ============================================================
+async function init() {
+    await loadSchools();
     
-    init();
-    </script>
+    // Mettre à jour la liste des classes dans les filtres
+    const filterSelect = document.getElementById('pmClasseFilter');
+    filterSelect.innerHTML = '<option value="">Toutes</option>';
+    const classes = getClasses();
+    classes.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        filterSelect.appendChild(opt);
+    });
+}
+
+init();
+</script>
 </body>
 </html>
