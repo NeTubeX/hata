@@ -534,7 +534,7 @@
         </div>
         <div id="tab5" class="tab-panel">
             <div class="card">
-                <div class="card-header">📊 RAPPORT GÉNÉRAL</div>
+                <div class="card-header">📊 RAPPORT - PRIMAIRE</div>
                 <div class="card-body">
                     <div id="rapportFilters" style="margin-bottom:12px;">
                         <div class="form-group">
@@ -642,7 +642,7 @@
                 <div class="form-group"><label>EXONÉRATION</label><select id="newExonere"><option value="non">Non</option><option value="oui">Oui</option></select></div>
                 <div class="form-group" id="motifExonGroup" style="display:none;"><label>MOTIF</label><select id="newMotifExon"><option value="">Sélectionner</option><option value="Orphelin">Orphelin</option><option value="Cas social">Cas social</option><option value="Mérite">Mérite</option><option value="Gratuité">Gratuité</option></select></div>
                 <div class="form-group" id="approbateurGroup" style="display:none;"><label>APPROBATEUR</label><select id="newApprobateur"><option value="">Sélectionner</option><option value="Enseignant">Enseignant</option><option value="Promoteur">Promoteur</option><option value="Comptable">Comptable</option><option value="Directrice">Directrice</option><option value="Proviseur">Proviseur</option></select></div>
-                <div class="form-group"><label>🔑 CODE PARENT</label><input type="text" id="newParentCode" maxlength="6" placeholder="Auto" readonly style="background:rgba(255,255,255,0.02);font-size:15px;letter-spacing:4px;font-family:monospace;color:rgba(255,255,255,0.25);"></div>
+                <div class="form-group"><label>🔑 CODE PARENT</label><input type="text" id="newParentCode" maxlength="4" placeholder="Auto" readonly style="background:rgba(255,255,255,0.02);font-size:15px;letter-spacing:4px;font-family:monospace;color:rgba(255,255,255,0.25);"></div>
                 <div class="form-group"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.4);"><input type="checkbox" id="newLienFamille" style="width:auto;accent-color:#f7971e;"> Lier à un frère/sœur existant</label></div>
                 <div id="familyGroup" style="display:none;padding-left:12px;border-left:3px solid #f7971e;margin-bottom:12px;">
                     <div class="form-group"><label>ESPACE</label>
@@ -1317,15 +1317,22 @@
             window._editEleveId = null;
         };
 
+        // Nouvelle fonction pour générer un code parent unique de 4 chiffres
         async function genererCodeUnique(space = null) {
             const s = space || espaceActif;
             const eleves = await getAllEleves(s);
             const codes = new Set();
-            eleves.forEach(e => { if (e.parentCode && e.parentCode.length === 6) codes.add(e.parentCode); });
+            eleves.forEach(e => { if (e.parentCode && e.parentCode.length === 4) codes.add(e.parentCode); });
+            
+            // Générer un code de 4 chiffres
             let code;
             let t = 0;
-            do { code = Math.floor(100000 + Math.random() * 900000).toString();
-                t++; } while (codes.has(code) && t < 100);
+            do {
+                // Générer un nombre aléatoire entre 1000 et 9999
+                code = Math.floor(1000 + Math.random() * 9000).toString();
+                t++;
+            } while (codes.has(code) && t < 100);
+            
             return code;
         }
 
@@ -2349,7 +2356,9 @@
                 const mv = exonere ? 0 : await getMinerval(classe);
                 const frais = exonere ? 0 : await getFraisEleve(classe);
                 let codeParent = code;
-                if (lienData && lienData.code) { codeParent = lienData.code; } else if (!codeParent || codeParent.length !== 6 || isNaN(codeParent)) { codeParent = await genererCodeUnique(); }
+                if (lienData && lienData.code) { codeParent = lienData.code; } else if (!codeParent || codeParent.length !== 4 || isNaN(codeParent)) { 
+                    codeParent = await genererCodeUnique();
+                }
                 const paiements = {};
                 if (espaceActif === 'primaire') {
                     for (let m of moisListe) paiements[m] = { montant: 0, date: null, historique: [] };
