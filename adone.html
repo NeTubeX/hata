@@ -86,15 +86,12 @@ body{background:linear-gradient(135deg,#0a0a1a,#1a1a3e,#0d0d2b);color:#fff;paddi
 .btn-pdf{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;box-shadow:0 5px 0 #78281f,0 8px 16px rgba(231,76,60,0.2)}
 .btn-pdf:hover{transform:translateY(-5px);box-shadow:0 7px 0 #78281f,0 12px 24px rgba(231,76,60,0.25)}
 .btn-pdf:active{transform:translateY(2px);box-shadow:0 2px 0 #78281f,0 4px 8px rgba(231,76,60,0.15)}
-.btn-annuler{background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;box-shadow:0 5px 0 #7e3a00,0 8px 16px rgba(211,84,0,0.2)}
-.btn-annuler:hover{transform:translateY(-5px);box-shadow:0 7px 0 #7e3a00,0 12px 24px rgba(211,84,0,0.25)}
-.btn-annuler:active{transform:translateY(2px);box-shadow:0 2px 0 #7e3a00,0 4px 8px rgba(211,84,0,0.15)}
-.btn-blanc{background:linear-gradient(135deg,#3498db,#1a5276);color:#fff;box-shadow:0 5px 0 #0e3a5a,0 8px 16px rgba(52,152,219,0.2)}
-.btn-blanc:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0e3a5a,0 12px 24px rgba(52,152,219,0.25)}
-.btn-blanc:active{transform:translateY(2px);box-shadow:0 2px 0 #0e3a5a,0 4px 8px rgba(52,152,219,0.15)}
-.btn-restaurer{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;box-shadow:0 5px 0 #0e4b2a,0 8px 16px rgba(39,174,96,0.2)}
-.btn-restaurer:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0e4b2a,0 12px 24px rgba(39,174,96,0.25)}
-.btn-restaurer:active{transform:translateY(2px);box-shadow:0 2px 0 #0e4b2a,0 4px 8px rgba(39,174,96,0.15)}
+.btn-inscription{background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;box-shadow:0 5px 0 #4a235a,0 8px 16px rgba(139,92,246,0.2)}
+.btn-inscription:hover{transform:translateY(-5px);box-shadow:0 7px 0 #4a235a,0 12px 24px rgba(139,92,246,0.25)}
+.btn-inscription:active{transform:translateY(2px);box-shadow:0 2px 0 #4a235a,0 4px 8px rgba(139,92,246,0.15)}
+.btn-inscription.active{background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 5px 0 #0e4b2a,0 8px 16px rgba(16,185,129,0.2)}
+.btn-inscription.active:hover{box-shadow:0 7px 0 #0e4b2a,0 12px 24px rgba(16,185,129,0.25)}
+.btn-inscription.active:active{box-shadow:0 2px 0 #0e4b2a,0 4px 8px rgba(16,185,129,0.15)}
 .w-100{width:100%}
 .mt-8{margin-top:8px}
 .mb-12{margin-bottom:12px}
@@ -129,6 +126,8 @@ body.light .form-group select option{background:#fff;color:#1a202c}
 .badge-espace-secondaire{background:rgba(155,89,182,0.15);color:#bb8fce}
 .badge-espace-primaire{background:rgba(52,152,219,0.15);color:#5dade2}
 .badge-espace-maternelle{background:rgba(46,204,113,0.15);color:#2ecc71}
+.badge-inscription-active{background:rgba(16,185,129,0.15);color:#10b981}
+.badge-inscription-inactive{background:rgba(239,68,68,0.15);color:#ef4444}
 .badge-blanc{background:rgba(52,152,219,0.15);color:#5dade2}
 .badge-paye{background:rgba(46,204,113,0.15);color:#2ecc71}
 .badge-impaye{background:rgba(231,76,60,0.15);color:#e74c3c}
@@ -214,6 +213,8 @@ body.light .modal-section-title{color:rgba(0,0,0,0.4)}
 body.light .badge-espace-secondaire{background:rgba(155,89,182,0.12);color:#6c3483}
 body.light .badge-espace-primaire{background:rgba(52,152,219,0.12);color:#1a5276}
 body.light .badge-espace-maternelle{background:rgba(46,204,113,0.12);color:#1e8449}
+body.light .badge-inscription-active{background:rgba(16,185,129,0.12);color:#1e8449}
+body.light .badge-inscription-inactive{background:rgba(239,68,68,0.12);color:#a93226}
 </style>
 </head>
 <body>
@@ -528,9 +529,9 @@ let connPage = 1;
 let toastQueue = [];
 let isToastShowing = false;
 const connPageSize = 10;
-const SC = { PROFESSEURS: "professeurs", FICHES: "fiches", COMPTA_ELEVES: "compta_eleves" };
+const SC = { PROFESSEURS: "professeurs", FICHES: "fiches", COMPTA_ELEVES: "compta_eleves", PRIMA_ELEVES: "prima_eleves", MATER_ELEVES: "mater_eleves" };
 
-// ===== TOAST SYSTEM - Un seul à la fois, animation douce =====
+// ===== TOAST SYSTEM =====
 function toast(msg, type = "success") {
 toastQueue.push({ msg, type });
 processToastQueue();
@@ -580,13 +581,6 @@ function genererEmailParent(ecoleId) { return `parent.${ecoleId}@gmail.com`; }
 function genererEmailDirection(ecoleId) { return `direction.${ecoleId}@gmail.com`; }
 function genererEmailCompta(ecoleId) { return `compta.${ecoleId}@gmail.com`; }
 function genererEmailPromoteur(ecoleId) { return `promoteur.${ecoleId}@gmail.com`; }
-function getSectionFromClasse(classe) {
-if (!classe) return 'secondaire';
-const c = classe.toLowerCase();
-if (c.includes('niveau') || c.includes('maternelle')) return 'maternelle';
-if (['1ère','2ème','3ème','4ème','5ème','6ème'].some(s => c.includes(s))) return 'primaire';
-return 'secondaire';
-}
 function getSectionLabel(section) {
 const map = { 'secondaire': 'SECONDAIRE', 'primaire': 'PRIMAIRE', 'maternelle': 'MATERNELLE' };
 return map[section] || section;
@@ -691,6 +685,8 @@ document.getElementById("addSchoolForm").style.display = "none";
 loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
+
+document.getElementById("refreshEcolesBtn")?.addEventListener("click", loadSchools);
 
 // ===== MEMBRES =====
 document.getElementById("showAddMember")?.addEventListener("click", function() {
@@ -797,7 +793,7 @@ document.getElementById("sheetEcoleFilter")?.addEventListener("change", loadShee
 document.getElementById("sheetSearch")?.addEventListener("input", loadSheets);
 document.getElementById("refreshSheetsBtn")?.addEventListener("click", loadSheets);
 
-// ===== RECHERCHE ENSEIGNANT PAR CODE =====
+// ===== RECHERCHE ENSEIGNANT =====
 document.getElementById("searchTeacherBtn")?.addEventListener("click", async function() {
 const input = document.getElementById("teacherSearchInput").value.trim();
 if (!input || input.length < 6) { toast("Entrez un code valide (6 chiffres)", "warning"); return; }
@@ -948,21 +944,68 @@ const id = ds.id;
 const ecoleData = ds.data();
 if (ecoleData.actif === false) continue;
 allSchools.push({ id, ...ecoleData });
+
+// SECONDAIRE - compta_eleves
 try {
 const mSnap = await getDocs(collection(db, "ecoles", id, SC.COMPTA_ELEVES));
 mSnap.forEach(d => {
 const data = d.data();
-if (data._type === "compta_eleve") {
-const section = data.section || getSectionFromClasse(data.classe);
 if (!data.abandon && data.nom) {
-allMembers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Inconnu", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", section: section, statut: data.exonere ? "exempted" : "regular", paiements: data.paiements || {}, moisBlancs: data.moisBlancs || [] });
+allMembers.push({
+id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id,
+nom: data.nom || "Inconnu", prenom: data.prenom || "",
+sexe: data.sexe || "M", classe: data.classe || "",
+section: "secondaire",
+statut: data.exonere ? "exempted" : "regular",
+paiements: data.paiements || {},
+moisBlancs: data.moisBlancs || []
+});
 }
 if (data.parentCode) {
-allCodes.push({ id: d.id, ecole: id, nom: data.nom || "", prenom: data.prenom || "", parentCode: data.parentCode, classe: data.classe || "", section: section });
-}
+allCodes.push({ id: d.id, ecole: id, nom: data.nom || "", prenom: data.prenom || "", parentCode: data.parentCode, classe: data.classe || "", section: "secondaire" });
 }
 });
 } catch (e) {}
+
+// PRIMAIRE - prima_eleves
+try {
+const pSnap = await getDocs(collection(db, "ecoles", id, SC.PRIMA_ELEVES));
+pSnap.forEach(d => {
+const data = d.data();
+if (!data.abandon && data.nom) {
+allMembers.push({
+id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id,
+nom: data.nom || "Inconnu", prenom: data.prenom || "",
+sexe: data.sexe || "M", classe: data.classe || "",
+section: "primaire",
+statut: data.exonere ? "exempted" : "regular",
+paiements: data.paiements || {},
+moisBlancs: data.moisBlancs || []
+});
+}
+});
+} catch (e) {}
+
+// MATERNELLE - mater_eleves
+try {
+const mSnap2 = await getDocs(collection(db, "ecoles", id, SC.MATER_ELEVES));
+mSnap2.forEach(d => {
+const data = d.data();
+if (!data.abandon && data.nom) {
+allMembers.push({
+id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id,
+nom: data.nom || "Inconnu", prenom: data.prenom || "",
+sexe: data.sexe || "M", classe: data.classe || "",
+section: "maternelle",
+statut: data.exonere ? "exempted" : "regular",
+paiements: data.paiements || {},
+moisBlancs: data.moisBlancs || []
+});
+}
+});
+} catch (e) {}
+
+// PROFESSEURS
 try {
 const pSnap = await getDocs(collection(db, "ecoles", id, SC.PROFESSEURS));
 pSnap.forEach(d => {
@@ -972,6 +1015,8 @@ allTeachers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: da
 }
 });
 } catch (e) {}
+
+// FICHES
 try {
 const fSnap = await getDocs(collection(db, "ecoles", id, SC.FICHES));
 fSnap.forEach(d => {
@@ -981,6 +1026,8 @@ allSheets.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, cours: da
 }
 });
 } catch (e) {}
+
+// CONNEXIONS
 try {
 const lSnap = await getDocs(query(collection(db, "ecoles", id, SC.COMPTA_ELEVES), orderBy("date", "desc"), limit(100)));
 lSnap.forEach(d => {
@@ -990,6 +1037,7 @@ allConnections.push({ id: d.id, ecole: id, ecoleNom: ecoleData.nom || id, utilis
 }
 });
 } catch (e) {}
+}
 }
 allConnections.sort((a, b) => new Date(b.date) - new Date(a.date));
 updateSelectors();
@@ -1063,11 +1111,24 @@ if (allSchools.length === 0) { container.innerHTML = '<div class="empty-state">�
 let html = '';
 for (const s of allSchools) {
 const count = allMembers.filter(m => m.ecoleId === s.id).length;
+// Récupérer le statut d'inscription
+let inscriptionActive = false;
+try {
+const inscRef = doc(db, "ecoles", s.id, "settings", "inscription");
+const inscSnap = await getDoc(inscRef);
+if (inscSnap.exists()) {
+inscriptionActive = inscSnap.data().active === true;
+}
+} catch(e) {}
+const inscBadge = inscriptionActive ? 
+'<span class="badge badge-inscription-active"><i class="fas fa-check-circle"></i> Inscription active</span>' :
+'<span class="badge badge-inscription-inactive"><i class="fas fa-lock"></i> Inscription désactivée</span>';
 html += `
 <div style="border:1px solid rgba(255,255,255,0.04);border-radius:12px;margin-bottom:10px;background:rgba(255,255,255,0.02);overflow:hidden;">
 <div style="padding:12px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
 <div><span style="font-weight:700;font-size:16px;">${escapeHtml(s.nom)}</span><span style="font-size:12px;color:rgba(255,255,255,0.3);margin-left:8px;">🆔 ${escapeHtml(s.id)}</span></div>
 <div style="display:flex;gap:4px;flex-wrap:wrap;">
+${inscBadge}
 <span class="badge badge-primary">👥 ${count} élèves</span>
 <span class="badge ${s.actif !== false ? 'badge-success' : 'badge-danger'}">${s.actif !== false ? '✅ Actif' : '⛔ Inactif'}</span>
 </div>
@@ -1079,12 +1140,36 @@ html += `
 <div>💰 ${formatNumber(s.tarifParEleve || 0)} FC</div>
 </div>
 <div style="padding:8px 16px;border-top:1px solid rgba(255,255,255,0.02);display:flex;gap:4px;flex-wrap:wrap;">
+<button class="btn btn-sm btn-inscription toggle-inscription-btn ${inscriptionActive ? 'active' : ''}" data-id="${s.id}" data-active="${inscriptionActive}">
+${inscriptionActive ? '🔓 Activer inscription' : '🔒 Désactiver inscription'}
+</button>
 <button class="btn btn-sm btn-warning toggle-school-btn" data-id="${s.id}">${s.actif !== false ? '⛔ Désactiver' : '✅ Activer'}</button>
 <button class="btn btn-sm btn-danger delete-school-btn" data-id="${s.id}">🗑️ Supprimer</button>
 </div>
 </div>`;
 }
 container.innerHTML = html;
+container.querySelectorAll('.toggle-inscription-btn').forEach(btn => {
+btn.addEventListener('click', async function() {
+const id = this.dataset.id;
+const currentStatus = this.dataset.active === 'true';
+const newStatus = !currentStatus;
+const action = newStatus ? 'activer' : 'désactiver';
+if (!await showConfirm(`🔑 ${action === 'activer' ? 'Activer' : 'Désactiver'} l'inscription`, 
+`Voulez-vous ${action} l'inscription des élèves pour cette école ?\n\nÉtat actuel : ${currentStatus ? '✅ Activée' : '❌ Désactivée'}\nNouvel état : ${newStatus ? '✅ Activée' : '❌ Désactivée'}`)) return;
+try {
+const ref = doc(db, "ecoles", id, "settings", "inscription");
+await setDoc(ref, {
+active: newStatus,
+dateModification: new Date().toISOString(),
+modifiePar: "DSI"
+}, { merge: true });
+toast(`✅ Inscription ${newStatus ? 'activée' : 'désactivée'} avec succès`, "success");
+loadSchools();
+loadAllData();
+} catch (e) { toast("❌ Erreur: " + e.message, "error"); }
+});
+});
 container.querySelectorAll('.toggle-school-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 const id = this.dataset.id;
@@ -1106,7 +1191,7 @@ btn.addEventListener('click', async function() {
 const id = this.dataset.id;
 if (!await showConfirm("Supprimer définitivement cette école ?")) return;
 try {
-const subs = ['professeurs','fiches','compta_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings'];
+const subs = ['professeurs','fiches','compta_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings','prima_eleves','mater_eleves'];
 for (const sub of subs) {
 try { const snap = await getDocs(collection(db, "ecoles", id, sub)); for (const d of snap.docs) { await deleteDoc(d.ref); } } catch(e) {}
 }
@@ -1193,7 +1278,7 @@ html += `
 <div class="paiement-item paye">
 <div><span class="mois">${mois}</span> <span class="montant">${formatNumber(pay.montant)} FC</span></div>
 <div class="actions">
-<button class="btn btn-sm btn-annuler annuler-paiement-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}">🔄 Annuler</button>
+<button class="btn btn-sm btn-annuler annuler-paiement-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}" style="background:linear-gradient(135deg,#e67e22,#d35400);color:#fff;border:none;padding:4px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">🔄 Annuler</button>
 </div>
 </div>`;
 }
@@ -1210,7 +1295,7 @@ html += `
 <div class="paiement-item blanc">
 <div><span class="mois">${mois}</span> <span class="statut blanc">❄️ BLANC</span></div>
 <div class="actions">
-<button class="btn btn-sm btn-restaurer restaurer-blanc-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}">🔄 Restaurer</button>
+<button class="btn btn-sm btn-restaurer restaurer-blanc-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}" style="background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff;border:none;padding:4px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">🔄 Restaurer</button>
 </div>
 </div>`;
 }
@@ -1223,7 +1308,7 @@ html += `<div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0;">`;
 const alreadyBlanc = new Set(moisBlancs);
 for (const mois of moisListe) {
 if (!alreadyBlanc.has(mois)) {
-html += `<button class="btn btn-sm btn-blanc marquer-blanc-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}">${mois}</button>`;
+html += `<button class="btn btn-sm btn-blanc marquer-blanc-btn" data-mois="${mois}" data-id="${id}" data-ecole="${ecole}" style="background:linear-gradient(135deg,#3498db,#1a5276);color:#fff;border:none;padding:4px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;">${mois}</button>`;
 }
 }
 html += `</div>`;
@@ -1233,10 +1318,8 @@ html += `</div>
 document.getElementById("modalInfo").innerHTML = html;
 modal.classList.add('show');
 
-// Fermeture
 document.getElementById("closePaymentModal2")?.addEventListener("click", () => modal.classList.remove('show'));
 
-// Annuler paiement
 document.querySelectorAll('.annuler-paiement-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 const mois = this.dataset.mois;
@@ -1262,7 +1345,6 @@ modal.classList.remove('show');
 });
 });
 
-// Restaurer mois blanc
 document.querySelectorAll('.restaurer-blanc-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 const mois = this.dataset.mois;
@@ -1284,7 +1366,6 @@ modal.classList.remove('show');
 });
 });
 
-// Marquer mois blanc
 document.querySelectorAll('.marquer-blanc-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 const mois = this.dataset.mois;
@@ -1478,7 +1559,7 @@ let schools = allSchools;
 if (filter !== "all") schools = schools.filter(s => s.id === filter);
 const collections = {};
 let totalDocs = 0, processed = 0;
-const subCols = ['professeurs','fiches','compta_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings'];
+const subCols = ['professeurs','fiches','compta_eleves','prima_eleves','mater_eleves','eleves','punitions','presences','horaires','corbeille','compteur','config','alertes_admin','communiques','settings'];
 const totalOps = schools.length * subCols.length;
 for (const school of schools) {
 const id = school.id;
