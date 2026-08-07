@@ -1276,68 +1276,88 @@ return indexMois > indexActuel;
 }
 
 async function chercherInfosFinancieresParCode(code) {
-try {
-let q = query(collection(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
-let snap = await getDocs(q);
-if (snap.empty) {
-q = query(collection(db, "ecoles", ECOLET_ID, SC.COMPTA_ELEVES), where("parentCode", "==", code), where("_type", "==", "compta_eleve"));
-snap = await getDocs(q);
-}
-if (snap.empty) return null;
-const eleves = [];
-const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
-const moisActuel = getMoisActuel();
-snap.forEach(doc => {
-const data = doc.data();
-const paiements = data.paiements || {};
-const minerval = data.minerval || 45000;
-const moisBlancs = data.moisBlancs || [];
-const nbMoisPayants = 10 - moisBlancs.length;
-const totalMinervalEffectif = minerval * nbMoisPayants;
-let totalPaye = 0;
-for (let i = 0; i < moisListe.length; i++) {
-const mois = moisListe[i];
-totalPaye += paiements[mois]?.montant || 0;
-}
-const reste = totalMinervalEffectif - totalPaye;
-let moisImpayes = [];
-const dateInscription = data.dateInscription || new Date().toISOString();
-const moisInscription = getMoisFromDate(dateInscription);
-const indexInscription = moisListe.indexOf(moisInscription);
-const indexActuel = moisListe.indexOf(moisActuel);
-for (let i = indexInscription; i < indexActuel; i++) {
-const mois = moisListe[i];
-if (!estMoisDansAnnee(mois)) continue;
-if (moisBlancs.includes(mois)) continue;
-const montant = paiements[mois]?.montant || 0;
-if (montant < minerval && !data.exonere) moisImpayes.push(mois);
-}
-let statut = "En ordre";
-if (data.exonere) statut = "Exonéré";
-else if (moisImpayes.length >= 3) statut = "Liste noire";
-else if (moisImpayes.length > 0) statut = "Paiement partiel";
-eleves.push({
-id: data.eleveId,
-nom: data.nom,
-prenom: data.prenom || "",
-sexe: data.sexe || "M",
-classe: data.classe,
-option: data.option || "",
-exonere: data.exonere || false,
-minerval: minerval,
-nbMoisPayants: nbMoisPayants,
-totalMinervalEffectif: totalMinervalEffectif,
-totalPaye: totalPaye,
-reste: reste,
-moisImpayes: moisImpayes,
-statut: statut,
-parentCode: data.parentCode,
-dateInscription: dateInscription,
-moisBlancs: moisBlancs
-});
-});
-return eleves;
-} catch (e) { console.error("Erreur chercherInfosFinancieresParCode:", e); return null; }
+  try {
+    const eleves = [];
+    const moisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
+    const moisActuel = getMoisActuel();
+    
+    const collections = ['compta_eleves', 'prima_eleves', 'mater_eleves'];
+    
+    for (const coll of collections) {
+      const q = query(collection(db, "ecoles", ECOLET_ID, coll), where("parentCode", "==", code));
+      const snap = await getDocs(q);
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (data.nom) {
+          let espace = 'secondaire';
+          if (coll === 'prima_eleves') espace = 'primaire';
+          else if (coll === 'mater_eleves') espace = 'maternelle';
+          eleves.push({ id: doc.id, espace: espace, ...data });
+        }
+      });
+    }
+    
+    if (eleves.length === 0) return null;
+    
+    const resultats = [];
+    for (const e of eleves) {
+      const paiements = e.paiements || {};
+      const minerval = e.minerval || 25000;
+      const moisBlancs = e.moisBlancs || [];
+      
+      let totalPaye = 0;
+      for (let i = 0; i < moisListe.length; i++) {
+        const mois = moisListe[i];
+        totalPaye += paiements[mois]?.montant || 0;
+      }
+      
+      const nbMoisPayants = 10 - moisBlancs.length;
+      const totalMinervalEffectif = minerval * nbMoisPayants;
+      const reste = totalMinervalEffectif - totalPaye;
+      
+      let moisImpayes = [];
+      const dateInscription = e.dateInscription || new Date().toISOString();
+      const moisInscription = getMoisFromDate(dateInscription);
+      const indexInscription = moisListe.indexOf(moisInscription);
+      const indexActuel = moisListe.indexOf(moisActuel);
+      
+      for (let i = indexInscription; i < indexActuel; i++) {
+        const mois = moisListe[i];
+        if (!estMoisDansAnnee(mois)) continue;
+        if (moisBlancs.includes(mois)) continue;
+        const montant = paiements[mois]?.montant || 0;
+        if (montant < minerval && !e.exonere) moisImpayes.push(mois);
+      }
+      
+      let statut = "En ordre";
+      if (e.exonere) statut = "Exonéré";
+      else if (moisImpayes.length >= 3) statut = "Liste noire";
+      else if (moisImpayes.length > 0) statut = "Paiement partiel";
+      
+      resultats.push({
+        id: e.id,
+        nom: e.nom,
+        prenom: e.prenom || "",
+        sexe: e.sexe || "M",
+        classe: e.classe,
+        option: e.option || "",
+        exonere: e.exonere || false,
+        minerval: minerval,
+        totalPaye: totalPaye,
+        reste: reste,
+        moisImpayes: moisImpayes,
+        statut: statut,
+        parentCode: e.parentCode,
+        dateInscription: dateInscription,
+        moisBlancs: moisBlancs,
+        espace: e.espace
+      });
+    }
+    return resultats;
+  } catch (e) {
+    console.error("Erreur chercherInfosFinancieresParCode:", e);
+    return null;
+  }
 }
 
 async function chercherNotesParNom(nom) { const fiches = await getAllFiches(); const resultats = []; const searchTerm = nom.toLowerCase().trim(); for (const fiche of fiches) { for (const eleve of (fiche.eleves || [])) { const nomEleve = (eleve.nom || '').toLowerCase(); if (nomEleve.includes(searchTerm) || searchTerm.includes(nomEleve)) { const punitions = await chercherPunitionsParNom(eleve.nom); const presences = await chercherPresencesParNom(eleve.nom); const epreuvesList = []; if (eleve.notes) { for (let periode = 1; periode <= 4; periode++) { const epreuves = fiche.epreuvesParPeriode?.[periode] || []; const notesPeriode = eleve.notes[`p${periode}`] || []; for (let i = 0; i < epreuves.length; i++) { const nomEpreuve = epreuves[i].nom || "Epreuve"; if (!nomEpreuve.toLowerCase().includes("examen")) { let note = notesPeriode[i] || 0; let max = epreuves[i].max || 1; if (note > 0) epreuvesList.push({ matiere: fiche.cours, epreuve: nomEpreuve, note: note, max: max, periode: periode, titulaire: fiche.titulaire || null, classe: fiche.classe, option: fiche.option || '' }); } } } } resultats.push({ eleveNom: eleve.nom, sexe: eleve.sexe || 'M', classe: fiche.classe, option: fiche.option || '', titulaire: fiche.titulaire || null, epreuves: epreuvesList, nombreElevesClasse: fiche.eleves ? fiche.eleves.length : 0, punitions: punitions, presences: presences }); } } } return resultats; }
