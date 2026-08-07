@@ -185,7 +185,6 @@ body{background:linear-gradient(135deg,#0a0a1a,#1a1a3e,#0d0d2b);color:#fff;paddi
 .school-selector{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .school-selector select{padding:8px 16px;border-radius:12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#fff;font-size:14px;font-weight:600;outline:none;cursor:pointer;min-width:200px}
 .school-selector select option{background:#1a1a3e;color:#fff}
-body.light{background:linear-gradient(135deg,#f0f4f8,#e2e8f0)}
 body.light .header{background:rgba(255,255,255,0.8);border-bottom:1px solid rgba(0,0,0,0.08)}
 body.light .header h1{color:#1a202c}
 body.light .header h1 .sub{background:rgba(0,0,0,0.05);color:#2d3748}
@@ -233,6 +232,30 @@ body.light .pagination-btn:hover{background:rgba(0,0,0,0.04);color:#1a202c}
 body.light .pagination-info{color:rgba(0,0,0,0.3)}
 body.light .school-selector select{background:rgba(255,255,255,0.8);color:#1a202c;border-color:rgba(0,0,0,0.1)}
 body.light .school-selector select option{background:#fff;color:#1a202c}
+body.light .tabs{background:rgba(255,255,255,0.5)}
+body.light .tab-btn{color:rgba(0,0,0,0.4)}
+body.light .tab-btn.active{color:#1a202c;background:rgba(255,255,255,0.6)}
+body.light .tab-btn[data-tab="tab13"]{background:rgba(52,152,219,0.05);border-color:rgba(52,152,219,0.1);color:rgba(0,0,0,0.4)}
+body.light .tab-btn[data-tab="tab13"].active{background:rgba(52,152,219,0.12);color:#1a5276;border-color:rgba(52,152,219,0.2)}
+body.light .btn{color:#1a1a2e}
+body.light .btn-outline{color:#4a6fa5}
+body.light .btn-danger{color:#fff}
+body.light .btn-success{color:#fff}
+body.light .btn-primary{color:#fff}
+body.light .btn-warning{color:#fff}
+body.light .btn-refresh{color:#fff}
+body.light .btn-add{color:#fff}
+body.light .btn-danger-sm{color:#fff}
+body.light .btn-warning-sm{color:#fff}
+body.light .btn{box-shadow:0 4px 0 #b36b00,0 6px 12px rgba(247,151,30,0.15)}
+body.light .btn-danger{box-shadow:0 4px 0 #78281f,0 6px 12px rgba(231,76,60,0.15)}
+body.light .btn-success{box-shadow:0 4px 0 #0e4b2a,0 6px 12px rgba(39,174,96,0.15)}
+body.light .btn-primary{box-shadow:0 4px 0 #0e3a5a,0 6px 12px rgba(52,152,219,0.15)}
+body.light .btn-warning{box-shadow:0 4px 0 #7e5100,0 6px 12px rgba(243,156,18,0.15)}
+body.light .btn-refresh{box-shadow:0 4px 0 #0a5c4a,0 6px 12px rgba(26,188,156,0.15)}
+body.light .btn-add{box-shadow:0 4px 0 #4a235a,0 6px 12px rgba(155,89,182,0.15)}
+body.light .btn-danger-sm{box-shadow:0 3px 0 #78281f,0 4px 8px rgba(231,76,60,0.12)}
+body.light .btn-warning-sm{box-shadow:0 3px 0 #7e5100,0 4px 8px rgba(243,156,18,0.12)}
 </style>
 </head>
 <body>
@@ -278,8 +301,7 @@ body.light .school-selector select option{background:#fff;color:#1a202c}
 <button class="tab-btn" data-tab="tab13" style="background:linear-gradient(135deg,rgba(52,152,219,0.08),rgba(46,204,113,0.08));border:1px solid rgba(52,152,219,0.12);color:rgba(255,255,255,0.5);">🎯 PRIMAIRE & MATERNELLE</button>
 </div>
 <div id="tab1" class="tab-panel active">
-<div class="card">
-<div class="card-header">📊 DASHBOARD <span class="count">Vue d'ensemble</span></div>
+<div class="card"><div class="card-header">📊 DASHBOARD <span class="count">Vue d'ensemble</span></div>
 <div class="card-body">
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.03);text-align:center;">
@@ -635,6 +657,8 @@ let espaceActif = 'all';
 let connPage = 1;
 const connPageSize = 10;
 const SC = { PROFESSEURS: "professeurs", FICHES: "fiches", COMPTA_ELEVES: "compta_eleves" };
+let toastTimeout = null;
+let toastActive = false;
 
 // ============================================================
 // VARIABLES PRIMAIRE & MATERNELLE
@@ -649,19 +673,53 @@ const pmClassesMaternelle = ["Niveau 1", "Niveau 2", "Niveau 3"];
 const pmMoisListe = ["Septembre", "Octobre", "Novembre", "Decembre", "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin"];
 
 // ============================================================
-// UTILITAIRES EXISTANTS
+// TOAST AMÉLIORÉ - UN SEUL À LA FOIS
 // ============================================================
 function toast(msg, type = "success") {
-const container = document.getElementById('toastContainer');
-if (!container) return;
-const titles = { success: "✅ Succès", error: "❌ Erreur", warning: "⚠️ Attention", info: "ℹ️ Info" };
-const el = document.createElement("div");
-el.className = 'toast ' + (type || 'success');
-el.innerHTML = '<div class="toast-title">' + titles[type] + '</div><div class="toast-msg">' + msg + '</div>';
-container.appendChild(el);
-setTimeout(() => { el.classList.add('removing'); setTimeout(() => { if (el.parentNode) el.remove(); }, 500); }, 3500);
+    if (toastActive) {
+        // Si un toast est déjà affiché, on le remplace
+        const existing = document.querySelector('.toast');
+        if (existing) {
+            existing.classList.add('removing');
+            setTimeout(() => {
+                if (existing.parentNode) existing.remove();
+                showToast(msg, type);
+            }, 300);
+            return;
+        }
+    }
+    showToast(msg, type);
 }
 
+function showToast(msg, type) {
+    toastActive = true;
+    const container = document.getElementById('toastContainer');
+    if (!container) { toastActive = false; return; }
+    const titles = { success: "✅ Succès", error: "❌ Erreur", warning: "⚠️ Attention", info: "ℹ️ Info" };
+    const el = document.createElement("div");
+    el.className = 'toast ' + (type || 'success');
+    el.innerHTML = '<div class="toast-title">' + titles[type] + '</div><div class="toast-msg">' + msg + '</div>';
+    container.appendChild(el);
+    
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        if (el.parentNode) {
+            el.classList.add('removing');
+            setTimeout(() => {
+                if (el.parentNode) el.remove();
+                toastActive = false;
+                toastTimeout = null;
+            }, 500);
+        } else {
+            toastActive = false;
+            toastTimeout = null;
+        }
+    }, 3500);
+}
+
+// ============================================================
+// UTILITAIRES
+// ============================================================
 function showConfirm(msg) {
 return new Promise((resolve) => {
 const modal = document.getElementById('confirmModal');
@@ -775,7 +833,7 @@ document.getElementById('pmCount').textContent = total + ' élèves';
 }
 
 // ============================================================
-// AFFICHAGE ÉLÈVES PRIMAIRE & MATERNELLE
+// AFFICHAGE ÉLÈVES PRIMAIRE & MATERNELLE AVEC BOUTON SUPPRIMER
 // ============================================================
 async function pmAfficherEleves() {
 const container = document.getElementById('pmElevesContainer');
@@ -834,6 +892,7 @@ ${codeDisplay}
 </div>
 <div style="display:flex;gap:4px;flex-wrap:wrap;">
 <button class="btn btn-sm btn-primary pm-voir-paiements" data-id="${e.id}">💰 Paiements</button>
+<button class="btn btn-sm btn-danger pm-supprimer-eleve" data-id="${e.id}" data-nom="${e.nom} ${e.prenom || ''}">🗑️ Supprimer</button>
 </div>
 </div>
 <div style="font-size:12px;color:rgba(255,255,255,0.2);margin-top:4px;">
@@ -855,10 +914,34 @@ pmAfficherReleve(eleve);
 }
 });
 });
+
+// Événement supprimer
+container.querySelectorAll('.pm-supprimer-eleve').forEach(btn => {
+btn.addEventListener('click', async function() {
+const id = this.dataset.id;
+const nom = this.dataset.nom;
+if (await showConfirmPM(`Supprimer définitivement <strong>${nom}</strong> ?<br><small>Cette action est irréversible.</small>`)) {
+try {
+const ref = pmGetEleveRef(id);
+await deleteDoc(ref);
+toast(`✅ ${nom} supprimé`, 'success');
+await pmLoadEleves();
+await pmAfficherEleves();
+if (pmCurrentEleve && pmCurrentEleve.id === id) {
+pmCurrentEleve = null;
+document.getElementById('pmReleveContainer').innerHTML = '<div class="empty-state">👆 Cliquez sur "💰 Paiements" pour voir le détail</div>';
+}
+await pmUpdateStats();
+} catch (e) {
+toast('Erreur: ' + e.message, 'error');
+}
+}
+});
+});
 }
 
 // ============================================================
-// AFFICHAGE RELEVÉ PRIMAIRE & MATERNELLE AVEC ANNULATION ET MOIS BLANC
+// AFFICHAGE RELEVÉ AVEC TOUS LES BOUTONS FONCTIONNELS
 // ============================================================
 async function pmAfficherReleve(eleve) {
 const container = document.getElementById('pmReleveContainer');
@@ -924,8 +1007,8 @@ html += `
 <div class="statut ${statutClasse}">${labelStatut}</div>
 <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
 <span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ${formatNbSimple(montantPaye)} FC</span>
-${showPayer ? `<button class="btn btn-sm btn-primary pm-payer-btn" data-id="${eleve.id}" data-mois="${mois}" data-reste="${montantDu - montantPaye}">PAYER</button>` : ''}
-${showAnnuler ? `<button class="btn btn-sm btn-danger-sm pm-annuler-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}">ANNULER</button>` : ''}
+${showPayer ? `<button class="btn btn-sm btn-primary pm-payer-btn" data-id="${eleve.id}" data-mois="${mois}" data-reste="${montantDu - montantPaye}">💰 PAYER</button>` : ''}
+${showAnnuler ? `<button class="btn btn-sm btn-danger-sm pm-annuler-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}">🔄 ANNULER</button>` : ''}
 ${showBlanc ? `<button class="btn btn-sm btn-warning-sm pm-blanc-btn" data-id="${eleve.id}" data-mois="${mois}">❄️ BLANC</button>` : ''}
 ${showRestaurerBlanc ? `<button class="btn btn-sm btn-success pm-restaurer-btn" data-id="${eleve.id}" data-mois="${mois}">🔄 RESTAURER</button>` : ''}
 ${montantPaye > 0 ? `<button class="btn btn-sm btn-success pm-recu-btn" data-id="${eleve.id}" data-mois="${mois}" data-montant="${montantPaye}" data-date="${pay.date || new Date().toISOString()}">🧾 REÇU</button>` : ''}
@@ -1143,7 +1226,7 @@ window._pmPaiementData = null;
 };
 
 // ============================================================
-// GÉNÉRATION REÇU PDF PRIMAIRE & MATERNELLE
+// GÉNÉRATION REÇU PDF
 // ============================================================
 function pmGenererReçuPDF(eleve, mois, montant, date) {
 try {
@@ -1299,7 +1382,6 @@ if (tabMap[this.dataset.tab]) tabMap[this.dataset.tab]();
 // ============================================================
 // GESTIONNAIRES D'ÉVÉNEMENTS PRIMAIRE & MATERNELLE
 // ============================================================
-// Sélecteur d'école PM
 document.getElementById('pmSchoolSelector')?.addEventListener('change', function() {
 pmSelectedSchoolId = this.value;
 if (pmSelectedSchoolId) {
@@ -1312,7 +1394,6 @@ pmUpdateStats();
 }
 });
 
-// Sélecteur espace PM (Primaire/Maternelle)
 document.querySelectorAll('.pm-space-btn').forEach(btn => {
 btn.addEventListener('click', function() {
 document.querySelectorAll('.pm-space-btn').forEach(b => {
@@ -1329,12 +1410,10 @@ if (pmSelectedSchoolId) pmLoadEspace();
 });
 });
 
-// Filtres PM
 document.getElementById('pmSearch')?.addEventListener('input', pmAfficherEleves);
 document.getElementById('pmClasseFilter')?.addEventListener('change', pmAfficherEleves);
 document.getElementById('pmStatutFilter')?.addEventListener('change', pmAfficherEleves);
 
-// Rafraîchir PM
 document.getElementById('btnRefreshPM')?.addEventListener('click', async function() {
 if (!pmSelectedSchoolId) { toast('Sélectionnez une école', 'warning'); return; }
 await pmLoadEleves();
@@ -2220,7 +2299,6 @@ setTimeout(() => {
 loadSchools(); loadMembers(); loadTeachers(); loadSheets();
 loadConnections(); loadParentCodes(); loadCodesEmails(); loadExplorer();
 loadWhiteMonths();
-// Charger l'onglet PM si une école est sélectionnée par défaut
 const pmSelector = document.getElementById('pmSchoolSelector');
 if (pmSelector && pmSelector.value) {
 pmLoadEspace();
