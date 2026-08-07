@@ -1175,15 +1175,14 @@ function afficherTableFraisInscriptionOptions(){const container=document.getElem
 
 async function getFraisInscriptionEleve(classe,option){if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe][option])return fraisInscriptionConfig[classe][option];if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe]["default"])return fraisInscriptionConfig[classe]["default"];return 45000;}
 
-// CORRECTION 1: getAllComptaEleves avec gestion des doublons
+// getAllComptaEleves avec gestion des doublons
 async function getAllComptaEleves(forceRefresh=false){
 if(!forceRefresh&&isCacheValid()&&cacheData.eleves){
 console.log('📦 Utilisation du cache des élèves');
 return cacheData.eleves;
 }
-try{const q=query(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));const snap=await getDocs(q);let eleves=[];const idsVus=new Set(); // ← CORRECTION: Set pour éviter les doublons
+try{const q=query(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));const snap=await getDocs(q);let eleves=[];const idsVus=new Set();
 for(const ds of snap.docs){const d=ds.data();if(d._type==='config'||d._type==='settings')continue;if(!estEleveValide(d))continue;const eleveId=d.eleveId||d.id||ds.id;
-// ← CORRECTION: Vérifier si l'ID existe déjà
 if(idsVus.has(eleveId)){console.warn('⚠️ Doublon détecté pour l\'élève:',eleveId);continue;}
 idsVus.add(eleveId);
 let optionValue=d.option||"";if((d.classe==='7ème EB'||d.classe==='8ème EB')&&!optionValue){optionValue="";}if(d.option&&optionsParClasse[d.classe]&&!optionsParClasse[d.classe].includes(d.option)&&d.option!=='TOUTES'&&d.classe!=='7ème EB'&&d.classe!=='8ème EB'){optionValue="TOUTES";}if((d.classe==='7ème EB'||d.classe==='8ème EB')&&d.option&&d.option!==''){optionValue="";}
@@ -1342,7 +1341,7 @@ document.getElementById('confirmInscriptionPayment').onclick=window.confirmInscr
 
 function updatePreview(){const nom=document.getElementById('newEleveNom').value.trim();const postnom=document.getElementById('newElevePostnom').value.trim();const prenom=document.getElementById('newElevePrenom').value.trim();const classe=document.getElementById('newEleveClasse').value;const option=document.getElementById('newEleveOption').value;const exonere=document.getElementById('newEleveExonere').value==='oui';const phone=document.getElementById('newElevePhone').value.trim();const lieuNaiss=document.getElementById('newEleveLieuNaiss').value.trim();const dateNaiss=document.getElementById('newEleveDateNaiss').value;const nomPere=document.getElementById('newEleveNomPere').value.trim();const nomMere=document.getElementById('newEleveNomMere').value.trim();const montantInscription=document.getElementById('newEleveMontantInscription').value||0;let approbateur=document.getElementById('newEleveApprobateur').value;if(approbateur==='Autre'){approbateur=document.getElementById('newEleveApprobateurAutre').value.trim();}if(!nom&&!prenom&&!classe){document.getElementById('previewInscription').style.display='none';return;}const preview=document.getElementById('previewInscription');const content=document.getElementById('previewContent');let html='<p>👤 <strong>'+(nom||'?')+'</strong> '+(postnom||'')+' <strong>'+(prenom||'')+'</strong></p>';if(dateNaiss||lieuNaiss)html+='<p>📅 Né(e) le <strong>'+(dateNaiss||'?')+'</strong> à <strong>'+(lieuNaiss||'?')+'</strong></p>';if(nomPere)html+='<p>👨 Père: <strong>'+nomPere+'</strong></p>';if(nomMere)html+='<p>👩 Mère: <strong>'+nomMere+'</strong></p>';html+='<p>📚 Classe: <strong>'+classe+'</strong>'+(option?' - '+option:'')+'</p>';html+='<p>'+(exonere?'🌟 <strong>EXONÉRATION TOTALE</strong>':'💰 Minerval standard')+'</p>';if(exonere&&approbateur)html+='<p>📝 Approbateur: <strong>'+approbateur+'</strong></p>';if(phone)html+='<p>📞 '+phone+'</p>';if(montantInscription>0)html+='<p>💰 Montant versé: <strong>'+parseInt(montantInscription).toLocaleString()+' FC</strong></p>';content.innerHTML=html;preview.style.display='block';}
 
-// CORRECTION 2: ajouterEleveCompta avec vérification anti-doublon
+// ajouterEleveCompta avec vérification anti-doublon
 async function ajouterEleveCompta(nom,postnom,prenom,dateNaiss,lieuNaiss,nomPere,nomMere,adresse,sexe,phone,classe,option,exonere,motifExon,approbateur,parentCode=null,montantInscription=0){
 // Vérifier si l'élève existe déjà (même nom + prénom + classe)
 const tous=await getAllComptaEleves(true);
@@ -1515,7 +1514,49 @@ function ajouterPiedPage(doc,pageNumber,totalPages){const y=doc.internal.pageSiz
 
 function genererTableauPleinEcran(doc,head,body,startY,options={}){const pageWidth=doc.internal.pageSize.width;const marginX=10;const nbColonnes=head[0].length;const largeurDisponible=pageWidth-(marginX*2);const largeurColonne=largeurDisponible/nbColonnes;let columnStyles={};head[0].forEach((col,index)=>{columnStyles[index]={cellWidth:largeurColonne};});const headNettoye=head.map(row=>row.map(col=>sansAccent(col)));const bodyNettoye=body.map(row=>row.map(cell=>typeof cell==='string'?sansAccent(cell):cell));return doc.autoTable({startY:startY,head:headNettoye,body:bodyNettoye,theme:"striped",styles:{fontSize:8,cellPadding:3,textColor:[30,30,30],lineColor:[200,200,200],lineWidth:0.1,overflow:'linebreak',valign:'middle'},headStyles:{fillColor:[40,80,130],textColor:[255,255,255],fontSize:9,fontStyle:"bold",halign:"center",valign:"middle"},alternateRowStyles:{fillColor:[245,247,250]},columnStyles:columnStyles,margin:{left:marginX,right:marginX},tableWidth:'auto',showHead:'everyPage',pageBreak:'auto',...options});}
 
-async function initApp(){document.getElementById('btnAddOption').disabled=false;document.getElementById('newOptionName').disabled=false;document.getElementById('btnAddOption').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('configClasseOptions').value;const option=document.getElementById('newOptionName').value.trim();if(!option){toast("Veuillez entrer un nom d'option","error");return;}if(!optionsParClasse[classe])optionsParClasse[classe]=[];if(optionsParClasse[classe].includes(option)){toast("Cette option existe déjà","warning");return;}optionsParClasse[classe].push(option);document.getElementById('newOptionName').value='';mettreAJourSelectsOptions();afficherOptionsConfig();mettreAJourSelectsFiltre();await synchroniserOptionsAvecCompta();toast('Option "'+option+'" ajoutée à '+classe,"success");};await chargerLogoEcole();await mettreAJourSelectsOptions();await mettreAJourSelectsFiltre();await afficherOptionsConfig();await chargerConfigEcole();await chargerTarifs();await chargerFraisInscription();await synchroniserOptionsAvecCompta();await afficherListeEleves();await mettreAJourStatsDetaillees();await setupStatCards();await afficherCartesIdentite();await afficherParentCodes();await window.afficherFraisInscription();initTabsEvents();initFilterEvents();document.getElementById('loadingOverlay').classList.add('hidden');if(unsubscribeFirebase){unsubscribeFirebase();}const q=query(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));unsubscribeFirebase=onSnapshot(q,(snapshot)=>{let modifie=false;const idsVus=new Set();snapshot.docChanges().forEach((change)=>{const data=change.doc.data();if(!estEleveValide(data))return;const eleveId=data.eleveId||data.id||change.doc.id;if(idsVus.has(eleveId)){console.warn('⚠️ Doublon détecté dans onSnapshot:',eleveId);return;}idsVus.add(eleveId);if(change.type==="added"||change.type==="modified"){const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves[idx]={...localEleves[idx],...data};}else{localEleves.push({...data});}modifie=true;}else if(change.type==="removed"){const idx=localEleves.findIndex(e=>e.id===eleveId);if(idx!==-1){localEleves.splice(idx,1);modifie=true;}}});if(modifie){afficherListeEleves();mettreAJourStatsDetaillees();afficherCartesIdentite();afficherParentCodes();if(currentEleve){const updated=localEleves.find(e=>e.id===currentEleve.id);if(updated){currentEleve=updated;afficherReleve(currentEleve);}}}},(error)=>{console.error('Erreur synchronisation Firebase:',error);});}
+async function initApp(){document.getElementById('btnAddOption').disabled=false;document.getElementById('newOptionName').disabled=false;document.getElementById('btnAddOption').onclick=async function(){applyClickEffect(this);const classe=document.getElementById('configClasseOptions').value;const option=document.getElementById('newOptionName').value.trim();if(!option){toast("Veuillez entrer un nom d'option","error");return;}if(!optionsParClasse[classe])optionsParClasse[classe]=[];if(optionsParClasse[classe].includes(option)){toast("Cette option existe déjà","warning");return;}optionsParClasse[classe].push(option);document.getElementById('newOptionName').value='';mettreAJourSelectsOptions();afficherOptionsConfig();mettreAJourSelectsFiltre();await synchroniserOptionsAvecCompta();toast('Option "'+option+'" ajoutée à '+classe,"success");};await chargerLogoEcole();await mettreAJourSelectsOptions();await mettreAJourSelectsFiltre();await afficherOptionsConfig();await chargerConfigEcole();await chargerTarifs();await chargerFraisInscription();await synchroniserOptionsAvecCompta();await afficherListeEleves();await mettreAJourStatsDetaillees();await setupStatCards();await afficherCartesIdentite();await afficherParentCodes();await window.afficherFraisInscription();initTabsEvents();initFilterEvents();document.getElementById('loadingOverlay').classList.add('hidden');if(unsubscribeFirebase){unsubscribeFirebase();}const q=query(collection(db,"ecoles",ECOLET_ID,"compta_eleves"));
+unsubscribeFirebase=onSnapshot(q,(snapshot)=>{
+let modifie=false;
+const idsVus=new Set();
+snapshot.docChanges().forEach((change)=>{
+const data=change.doc.data();
+if(!estEleveValide(data))return;
+const eleveId=data.eleveId||data.id||change.doc.id;
+if(idsVus.has(eleveId)){return;}
+idsVus.add(eleveId);
+if(change.type==="added"||change.type==="modified"){
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){
+localEleves[idx]={...localEleves[idx],...data};
+}else{
+localEleves.push({...data});
+}
+modifie=true;
+}else if(change.type==="removed"){
+const idx=localEleves.findIndex(e=>e.id===eleveId);
+if(idx!==-1){
+localEleves.splice(idx,1);
+modifie=true;
+}
+}
+});
+if(modifie){
+afficherListeEleves();
+mettreAJourStatsDetaillees();
+afficherCartesIdentite();
+afficherParentCodes();
+if(currentEleve){
+const updated=localEleves.find(e=>e.id===currentEleve.id);
+if(updated){
+currentEleve=updated;
+afficherReleve(currentEleve);
+}
+}
+}
+},(error)=>{
+console.error('Erreur synchronisation Firebase:',error);
+});
+}
 await initApp();
 console.log('✅ ESPACE COMPTABILITÉ - Sécurisé avec Cache + Firebase');
 </script>
