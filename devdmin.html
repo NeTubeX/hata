@@ -34,11 +34,10 @@ body{background:linear-gradient(135deg,#0a0a1a,#1a1a3e,#0d0d2b);color:#fff;paddi
 .space-btn{background:transparent;border:none;padding:8px 20px;border-radius:24px;font-size:14px;font-weight:800;color:rgba(255,255,255,0.4);cursor:pointer;transition:all .3s ease;text-transform:uppercase;letter-spacing:0.5px}
 .space-btn:hover{color:rgba(255,255,255,0.7);transform:scale(1.02)}
 .space-btn.active{background:rgba(255,255,255,0.08);color:#fff;box-shadow:0 2px 12px rgba(0,0,0,0.2)}
-.space-btn[data-space="primaire"].active{background:rgba(52,152,219,0.35);color:#5dade2;box-shadow:0 2px 16px rgba(52,152,219,0.3)}
-.space-btn[data-space="maternelle"].active{background:rgba(52,152,219,0.35);color:#5dade2;box-shadow:0 2px 16px rgba(52,152,219,0.3)}
+.space-btn[data-space="all"].active{background:rgba(255,255,255,0.10);color:#fff}
 .space-btn[data-space="secondaire"].active{background:rgba(155,89,182,0.35);color:#bb8fce;box-shadow:0 2px 16px rgba(155,89,182,0.3)}
-.btn-secondary-nav{background:linear-gradient(135deg,#8e44ad,#6c3483);border:none;padding:8px 20px;border-radius:24px;font-size:14px;font-weight:800;color:#fff;cursor:pointer;transition:all .3s ease;text-transform:uppercase;letter-spacing:0.5px;box-shadow:0 2px 12px rgba(142,68,173,0.3)}
-.btn-secondary-nav:hover{transform:scale(1.04);box-shadow:0 4px 20px rgba(142,68,173,0.4)}
+.space-btn[data-space="primaire"].active{background:rgba(52,152,219,0.35);color:#5dade2;box-shadow:0 2px 16px rgba(52,152,219,0.3)}
+.space-btn[data-space="maternelle"].active{background:rgba(46,204,113,0.35);color:#2ecc71;box-shadow:0 2px 16px rgba(46,204,113,0.3)}
 .header-stats{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:2px}
 .header-stat{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:rgba(255,255,255,0.8);background:rgba(255,255,255,0.06);padding:4px 14px;border-radius:24px}
 .header-stat .num{color:#ffd200;font-size:18px;font-weight:900}
@@ -81,12 +80,6 @@ body{background:linear-gradient(135deg,#0a0a1a,#1a1a3e,#0d0d2b);color:#fff;paddi
 .btn-add{background:linear-gradient(135deg,#9b59b6,#7d3c98);color:#fff;box-shadow:0 5px 0 #4a235a,0 8px 16px rgba(155,89,182,0.2)}
 .btn-add:hover{transform:translateY(-5px);box-shadow:0 7px 0 #4a235a,0 12px 24px rgba(155,89,182,0.25)}
 .btn-add:active{transform:translateY(2px);box-shadow:0 2px 0 #4a235a,0 4px 8px rgba(155,89,182,0.15)}
-.btn-export{background:linear-gradient(135deg,#2ecc71,#1e8449);color:#fff;box-shadow:0 5px 0 #0e4b2a,0 8px 16px rgba(46,204,113,0.2)}
-.btn-export:hover{transform:translateY(-5px);box-shadow:0 7px 0 #0e4b2a,0 12px 24px rgba(46,204,113,0.25)}
-.btn-export:active{transform:translateY(2px);box-shadow:0 2px 0 #0e4b2a,0 4px 8px rgba(46,204,113,0.15)}
-.btn-pdf{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;box-shadow:0 5px 0 #78281f,0 8px 16px rgba(231,76,60,0.2)}
-.btn-pdf:hover{transform:translateY(-5px);box-shadow:0 7px 0 #78281f,0 12px 24px rgba(231,76,60,0.25)}
-.btn-pdf:active{transform:translateY(2px);box-shadow:0 2px 0 #78281f,0 4px 8px rgba(231,76,60,0.15)}
 .w-100{width:100%}
 .mt-8{margin-top:8px}
 .mb-12{margin-bottom:12px}
@@ -496,10 +489,9 @@ body.light .pagination-info{color:rgba(0,0,0,0.3)}
 
 <div class="modal-overlay" id="paymentModal">
 <div class="modal-card">
-<h3>💰 PAIEMENT</h3>
+<h3>💰 PAIEMENTS</h3>
 <div id="modalInfo"></div>
-<div class="form-group"><label>Montant (FC)</label><input type="number" id="paymentAmount"></div>
-<div class="modal-buttons"><button class="btn" id="confirmPayment">VALIDER</button><button class="btn btn-outline" id="cancelPayment">ANNULER</button></div>
+<div class="modal-buttons"><button class="btn btn-outline" id="closePaymentModal">FERMER</button></div>
 </div>
 </div>
 
@@ -515,7 +507,7 @@ body.light .pagination-info{color:rgba(0,0,0,0.3)}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -531,30 +523,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let allSchools = [], allMembers = [], allTeachers = [], allSheets = [], allCodes = [], allConnections = [], allStudents = [];
-let explorerData = {};
-let chartInstances = {};
+let allSchools = [], allMembers = [], allTeachers = [], allSheets = [], allCodes = [], allConnections = [];
+let espaceActif = 'all';
 let connPage = 1;
 const connPageSize = 10;
-let espaceActif = 'all';
-let currentEleve = null;
-let isLoading = false;
-
-const SC = {
-PROFESSEURS: "professeurs",
-FICHES: "fiches",
-COMPTA_ELEVES: "compta_eleves",
-ELEVES: "eleves",
-PUNITIONS: "punitions",
-PRESENCES: "presences",
-HORAIRES: "horaires",
-CORBEILLE: "corbeille",
-COMPTEUR: "compteur",
-CONFIG: "config",
-ALERTES_ADMIN: "alertes_admin",
-COMMUNIQUES: "communiques",
-SETTINGS: "settings"
-};
+const SC = { PROFESSEURS: "professeurs", FICHES: "fiches", COMPTA_ELEVES: "compta_eleves" };
 
 function toast(msg, type = "success") {
 const container = document.getElementById('toastContainer');
@@ -692,7 +665,7 @@ updatedAt: new Date().toISOString()
 });
 toast("✅ École ajoutée", "success");
 document.getElementById("addSchoolForm").style.display = "none";
-loadAllData(); loadSchools(); loadCodesEmails();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 
@@ -716,11 +689,12 @@ classe: document.getElementById("memberClasse").value.trim(),
 sexe: document.getElementById("memberSexe").value,
 section: section,
 exonere: false, abandon: false, _type: "compta_eleve",
-dateInscription: new Date().toISOString()
+dateInscription: new Date().toISOString(),
+paiements: {}
 });
 toast("✅ Membre ajouté", "success");
 document.getElementById("addMemberForm").style.display = "none";
-loadAllData(); loadMembers();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 
@@ -756,7 +730,7 @@ school: ecole, createdAt: new Date().toISOString()
 });
 toast("✅ Enseignant créé", "success");
 document.getElementById("addTeacherForm").style.display = "none";
-loadAllData(); loadTeachers();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 finally { btn.disabled = false; btn.textContent = "💾 Créer"; }
 });
@@ -781,7 +755,7 @@ createdBy: "DSI", eleves: []
 });
 toast("✅ Fiche ajoutée", "success");
 document.getElementById("addSheetForm").style.display = "none";
-loadAllData(); loadSheets();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 
@@ -893,12 +867,34 @@ toast("✅ Export réussi", "success");
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 
+document.getElementById("exportFullDbBtn")?.addEventListener("click", function() {
+const id = document.getElementById("explorerEcoleFilter")?.value;
+if (!id || id === 'all') { toast("Sélectionnez une école", "warning"); return; }
+toast("Export en cours...", "info");
+try {
+const data = [['Collection', 'ID', 'Données']];
+for (const [key, val] of Object.entries(explorerData)) {
+if (val.ecoleId !== id) continue;
+val.docs.forEach(d => {
+data.push([key, d.id, JSON.stringify(d.data)]);
+});
+}
+const wb = XLSX.utils.book_new();
+const ws = XLSX.utils.aoa_to_sheet(data);
+XLSX.utils.book_append_sheet(wb, ws, 'Export');
+XLSX.writeFile(wb, `export_${id}_${new Date().toISOString().split('T')[0]}.xlsx`);
+toast("✅ Export réussi", "success");
+} catch(e) { toast("Erreur: " + e.message, "error"); }
+});
+
+document.getElementById("closePaymentModal")?.addEventListener("click", function() {
+document.getElementById("paymentModal").classList.remove('show');
+});
+
 async function loadAllData() {
-if (isLoading) return;
-isLoading = true;
 try {
 const snap = await getDocs(collection(db, "ecoles"));
-allSchools = []; allMembers = []; allTeachers = []; allSheets = []; allCodes = []; allConnections = []; allStudents = [];
+allSchools = []; allMembers = []; allTeachers = []; allSheets = []; allCodes = []; allConnections = [];
 for (const ds of snap.docs) {
 const id = ds.id;
 const ecoleData = ds.data();
@@ -910,9 +906,8 @@ mSnap.forEach(d => {
 const data = d.data();
 if (data._type === "compta_eleve") {
 const section = data.section || getSectionFromClasse(data.classe);
-allStudents.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Inconnu", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", section: section, statut: data.abandon ? "abandon" : data.exonere ? "exempted" : "regular" });
 if (!data.abandon && data.nom) {
-allMembers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Inconnu", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", section: section, statut: data.exonere ? "exempted" : "regular" });
+allMembers.push({ id: d.id, ecoleId: id, ecoleNom: ecoleData.nom || id, nom: data.nom || "Inconnu", prenom: data.prenom || "", sexe: data.sexe || "M", classe: data.classe || "", section: section, statut: data.exonere ? "exempted" : "regular", paiements: data.paiements || {} });
 }
 if (data.parentCode) {
 allCodes.push({ id: d.id, ecole: id, nom: data.nom || "", prenom: data.prenom || "", parentCode: data.parentCode, classe: data.classe || "", section: section });
@@ -960,7 +955,6 @@ document.getElementById("codesCount").textContent = allCodes.length;
 document.getElementById("connCount").textContent = allConnections.length;
 document.getElementById("codesEmailsCount").textContent = allSchools.length;
 } catch (e) { console.error("Error:", e); }
-finally { isLoading = false; }
 }
 
 function updateCounters() {
@@ -989,12 +983,12 @@ const sections = { secondaire: 0, primaire: 0, maternelle: 0 };
 members.forEach(m => { if (sections[m.section] !== undefined) sections[m.section]++; });
 const container = document.getElementById('dashChartSection');
 if (container) {
-const total = members.length;
+const total = members.length || 1;
 container.innerHTML = `
 <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding:8px 0;">
-<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#bb8fce;">${sections.secondaire}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">SECONDAIRE</div><div style="width:100%;height:4px;background:rgba(155,89,182,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#bb8fce;border-radius:2px;width:${total > 0 ? (sections.secondaire/total*100) : 0}%;"></div></div></div>
-<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#5dade2;">${sections.primaire}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">PRIMAIRE</div><div style="width:100%;height:4px;background:rgba(52,152,219,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#5dade2;border-radius:2px;width:${total > 0 ? (sections.primaire/total*100) : 0}%;"></div></div></div>
-<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#2ecc71;">${sections.maternelle}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">MATERNELLE</div><div style="width:100%;height:4px;background:rgba(46,204,113,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#2ecc71;border-radius:2px;width:${total > 0 ? (sections.maternelle/total*100) : 0}%;"></div></div></div>
+<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#bb8fce;">${sections.secondaire}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">SECONDAIRE</div><div style="width:100%;height:4px;background:rgba(155,89,182,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#bb8fce;border-radius:2px;width:${(sections.secondaire/total*100)}%;"></div></div></div>
+<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#5dade2;">${sections.primaire}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">PRIMAIRE</div><div style="width:100%;height:4px;background:rgba(52,152,219,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#5dade2;border-radius:2px;width:${(sections.primaire/total*100)}%;"></div></div></div>
+<div style="text-align:center;flex:1;min-width:80px;"><div style="font-size:24px;font-weight:900;color:#2ecc71;">${sections.maternelle}</div><div style="font-size:11px;color:rgba(255,255,255,0.3);">MATERNELLE</div><div style="width:100%;height:4px;background:rgba(46,204,113,0.3);border-radius:2px;margin-top:4px;"><div style="height:100%;background:#2ecc71;border-radius:2px;width:${(sections.maternelle/total*100)}%;"></div></div></div>
 </div>`;
 }
 const topContainer = document.getElementById('dashTopEcoles');
@@ -1017,7 +1011,6 @@ return `<div style="display:flex;justify-content:space-between;padding:6px 4px;b
 async function loadSchools() {
 const container = document.getElementById("ecolesContainer");
 if (!container) return;
-if (allSchools.length === 0) await loadAllData();
 if (allSchools.length === 0) { container.innerHTML = '<div class="empty-state">🏫 Aucune école</div>'; return; }
 let html = '';
 for (const s of allSchools) {
@@ -1055,7 +1048,7 @@ if (snap.exists()) {
 const data = snap.data();
 await updateDoc(ref, { actif: data.actif !== false ? false : true });
 toast("Statut modifié", "success");
-loadAllData(); loadSchools();
+loadAllData();
 }
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
@@ -1071,7 +1064,7 @@ try { const snap = await getDocs(collection(db, "ecoles", id, sub)); for (const 
 }
 await deleteDoc(doc(db, "ecoles", id));
 toast("École supprimée", "success");
-loadAllData(); loadSchools(); loadCodesEmails();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 });
@@ -1098,7 +1091,7 @@ grouped[key].sections[m.section].push(m);
 });
 let html = '';
 for (const [ecoleId, ecoleData] of Object.entries(grouped)) {
-html += `<div class="eleve-group"><div class="eleve-group-header">🏫 ${escapeHtml(ecoleData.school)} <span class="badge badge-primary">${ecoleData.sections.secondaire?.length || 0 + ecoleData.sections.primaire?.length || 0 + ecoleData.sections.maternelle?.length || 0} élèves</span></div><div class="eleve-group-body">`;
+html += `<div class="eleve-group"><div class="eleve-group-header">🏫 ${escapeHtml(ecoleData.school)} <span class="badge badge-primary">${(ecoleData.sections.secondaire?.length||0) + (ecoleData.sections.primaire?.length||0) + (ecoleData.sections.maternelle?.length||0)} élèves</span></div><div class="eleve-group-body">`;
 const order = ['secondaire','primaire','maternelle'];
 for (const section of order) {
 if (!ecoleData.sections[section]) continue;
@@ -1125,8 +1118,7 @@ container.querySelectorAll('.voir-paiements-btn').forEach(btn => {
 btn.addEventListener('click', function() {
 const id = this.dataset.id;
 const ecole = this.dataset.ecole;
-const eleve = allMembers.find(m => m.id === id && m.ecoleId === ecole);
-if (eleve) { currentEleve = eleve; voirPaiements(id, ecole); }
+voirPaiements(id, ecole);
 });
 });
 container.querySelectorAll('.delete-member-btn').forEach(btn => {
@@ -1138,7 +1130,7 @@ if (!await showConfirm(`Supprimer ${eleve ? eleve.nom : 'cet élève'} ?`)) retu
 try {
 await deleteDoc(doc(db, "ecoles", ecole, SC.COMPTA_ELEVES, id));
 toast("✅ Élève supprimé", "success");
-loadAllData(); loadMembers();
+loadAllData();
 } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 });
@@ -1147,7 +1139,6 @@ loadAllData(); loadMembers();
 async function voirPaiements(id, ecole) {
 const eleve = allMembers.find(m => m.id === id && m.ecoleId === ecole);
 if (!eleve) { toast("Élève non trouvé", "error"); return; }
-currentEleve = eleve;
 const modal = document.getElementById('paymentModal');
 const paiements = eleve.paiements || {};
 const moisListe = ["Septembre","Octobre","Novembre","Decembre","Janvier","Fevrier","Mars","Avril","Mai","Juin"];
@@ -1176,17 +1167,17 @@ html += `
 <div class="paiement-recap">
 <div class="row"><span>Total payé</span><span class="val-green">${formatNumber(totalPaye)} FC</span></div>
 </div>
-<div class="modal-buttons"><button class="btn btn-outline" id="closePaymentModal">FERMER</button></div>`;
+<div class="modal-buttons"><button class="btn btn-outline" id="closePaymentModal2">FERMER</button></div>`;
 document.getElementById("modalInfo").innerHTML = html;
 modal.classList.add('show');
-document.getElementById("closePaymentModal")?.addEventListener("click", () => modal.classList.remove('show'));
+document.getElementById("closePaymentModal2")?.addEventListener("click", () => modal.classList.remove('show'));
 document.querySelectorAll('.annuler-paiement-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 const mois = this.dataset.mois;
 const id = this.dataset.id;
 const ecole = this.dataset.ecole;
 const montant = parseInt(this.dataset.montant);
-if (!await showConfirm(`Annuler le paiement de ${montant} FC pour ${mois} ?`)) return;
+if (!await showConfirm(`Annuler le paiement de ${formatNumber(montant)} FC pour ${mois} ?`)) return;
 try {
 const ref = doc(db, "ecoles", ecole, SC.COMPTA_ELEVES, id);
 const snap = await getDoc(ref);
@@ -1198,7 +1189,7 @@ paiements[mois].montant = 0;
 paiements[mois].date = null;
 await updateDoc(ref, { paiements: paiements });
 toast(`✅ Paiement de ${mois} annulé`, "success");
-loadAllData(); loadMembers();
+loadAllData();
 modal.classList.remove('show');
 }
 }
@@ -1219,14 +1210,14 @@ document.getElementById("teachersCount").textContent = teachers.length;
 if (teachers.length === 0) { container.innerHTML = '<div class="empty-state">👨‍🏫 Aucun enseignant</div>'; return; }
 let html = '<div class="table-wrapper"><table><thead><tr><th>#</th><th>Nom</th><th>Email</th><th>Code</th><th>École</th><th>Actions</th></tr></thead><tbody>';
 teachers.forEach((t, i) => {
-html += `<tr><td>${i+1}</td><td><strong>${escapeHtml(t.nom)}</strong></td><td style="font-size:12px;color:${t.email ? 'var(--green)' : 'var(--orange)'};">${t.email || '❌'}</td><td style="font-family:monospace;color:#f1c40f;font-weight:700;">${t.code || '---'}</td><td>${escapeHtml(t.ecoleNom)}</td><td><button class="btn btn-sm btn-danger delete-teacher-btn" data-id="${t.id}" data-ecole="${t.ecoleId}">🗑️</button></td></tr>`;
+html += `<tr><td>${i+1}</td><td><strong>${escapeHtml(t.nom)}</strong></td><td style="font-size:12px;color:${t.email ? '#2ecc71' : '#e74c3c'};">${t.email || '❌'}</td><td style="font-family:monospace;color:#f1c40f;font-weight:700;">${t.code || '---'}</td><td>${escapeHtml(t.ecoleNom)}</td><td><button class="btn btn-sm btn-danger delete-teacher-btn" data-id="${t.id}" data-ecole="${t.ecoleId}">🗑️</button></td></tr>`;
 });
 html += '</tbody></table></div>';
 container.innerHTML = html;
 container.querySelectorAll('.delete-teacher-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 if (!await showConfirm("Supprimer cet enseignant ?")) return;
-try { await deleteDoc(doc(db, "ecoles", this.dataset.ecole, SC.PROFESSEURS, this.dataset.id)); toast("Enseignant supprimé", "success"); loadAllData(); loadTeachers(); } catch (e) { toast("Erreur: " + e.message, "error"); }
+try { await deleteDoc(doc(db, "ecoles", this.dataset.ecole, SC.PROFESSEURS, this.dataset.id)); toast("Enseignant supprimé", "success"); loadAllData(); } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 });
 }
@@ -1249,7 +1240,7 @@ container.innerHTML = html;
 container.querySelectorAll('.delete-sheet-btn').forEach(btn => {
 btn.addEventListener('click', async function() {
 if (!await showConfirm("Supprimer cette fiche ?")) return;
-try { await deleteDoc(doc(db, "ecoles", this.dataset.ecole, SC.FICHES, this.dataset.id)); toast("Fiche supprimée", "success"); loadAllData(); loadSheets(); } catch (e) { toast("Erreur: " + e.message, "error"); }
+try { await deleteDoc(doc(db, "ecoles", this.dataset.ecole, SC.FICHES, this.dataset.id)); toast("Fiche supprimée", "success"); loadAllData(); } catch (e) { toast("Erreur: " + e.message, "error"); }
 });
 });
 }
@@ -1260,9 +1251,6 @@ if (!container) return;
 const total = allConnections.length;
 const success = allConnections.filter(c => c.statut === "success").length;
 const failed = allConnections.filter(c => c.statut === "failed").length;
-document.getElementById("connTotal")?.textContent = total;
-document.getElementById("connSuccess")?.textContent = success;
-document.getElementById("connFailed")?.textContent = failed;
 document.getElementById("connCount").textContent = total;
 const schoolFilter = document.getElementById("connEcoleFilter")?.value || "all";
 const userFilter = document.getElementById("connUserFilter")?.value.toLowerCase() || "";
@@ -1378,50 +1366,7 @@ html += `
 container.innerHTML = html;
 }
 
-async function loadWhiteMonths() {
-const container = document.getElementById("wmBody");
-if (!container) return;
-const filter = document.getElementById("wmEcoleFilter")?.value || "all";
-let wm = [];
-for (const e of allSchools) {
-if (filter !== "all" && e.id !== filter) continue;
-try {
-const snap = await getDocs(collection(db, "ecoles", e.id, SC.COMPTA_ELEVES));
-snap.forEach(d => {
-const data = d.data();
-const blancs = data.moisBlancs || [];
-blancs.forEach(m => {
-wm.push({ docId: d.id, ecoleId: e.id, nom: data.nom || "Inconnu", classe: data.classe || "", section: data.section || getSectionFromClasse(data.classe), ecoleNom: e.nom || e.id, mois: m });
-});
-});
-} catch(e) {}
-}
-document.getElementById("wmCount").textContent = wm.length;
-if (wm.length === 0) { container.innerHTML = '<tr><td colspan="6" class="empty-state">❄️ Aucun mois blanc</td></tr>'; return; }
-let html = '';
-wm.slice(0, 100).forEach((w, i) => {
-const sectionBadge = getSectionBadge(w.section);
-html += `<tr><td><strong>${escapeHtml(w.nom)}</strong></td><td>${escapeHtml(w.classe)}</td><td><span class="badge ${sectionBadge}">${getSectionLabel(w.section)}</span></td><td>${escapeHtml(w.ecoleNom)}</td><td><span class="badge badge-warning">❄️ ${escapeHtml(w.mois)}</span></td><td><button class="btn btn-sm btn-success restaurer-wm-btn" data-doc="${w.docId}" data-ecole="${w.ecoleId}" data-mois="${w.mois}">🔄 Restaurer</button></td></tr>`;
-});
-container.innerHTML = html;
-container.querySelectorAll('.restaurer-wm-btn').forEach(btn => {
-btn.addEventListener('click', async function() {
-const docId = this.dataset.doc, ecole = this.dataset.ecole, mois = this.dataset.mois;
-if (!await showConfirm(`Restaurer ${mois} ?`)) return;
-try {
-const ref = doc(db, "ecoles", ecole, SC.COMPTA_ELEVES, docId);
-const snap = await getDoc(ref);
-if (snap.exists()) {
-const data = snap.data();
-const blancs = data.moisBlancs || [];
-await updateDoc(ref, { moisBlancs: blancs.filter(m => m !== mois) });
-toast("Mois blanc restauré", "success");
-loadAllData(); loadWhiteMonths();
-}
-} catch (e) { toast("Erreur: " + e.message, "error"); }
-});
-});
-}
+let explorerData = {};
 
 async function loadExplorer() {
 const container = document.getElementById("explorerContent");
@@ -1493,26 +1438,50 @@ container.innerHTML = html;
 } catch(e) { container.innerHTML = '<div class="empty-state">❌ Erreur de chargement</div>'; progress.style.display = "none"; }
 }
 
-document.getElementById("exportFullDbBtn")?.addEventListener("click", function() {
-const id = document.getElementById("explorerEcoleFilter")?.value;
-if (!id || id === 'all') { toast("Sélectionnez une école dans le filtre", "warning"); return; }
-const school = allSchools.find(s => s.id === id);
-if (!school) { toast("École non trouvée", "error"); return; }
+async function loadWhiteMonths() {
+const container = document.getElementById("wmBody");
+if (!container) return;
+const filter = document.getElementById("wmEcoleFilter")?.value || "all";
+let wm = [];
+for (const e of allSchools) {
+if (filter !== "all" && e.id !== filter) continue;
 try {
-const data = [['Collection', 'ID', 'Données']];
-for (const [key, val] of Object.entries(explorerData)) {
-if (val.ecoleId !== id) continue;
-val.docs.forEach(d => {
-data.push([key, d.id, JSON.stringify(d.data)]);
+const snap = await getDocs(collection(db, "ecoles", e.id, SC.COMPTA_ELEVES));
+snap.forEach(d => {
+const data = d.data();
+const blancs = data.moisBlancs || [];
+blancs.forEach(m => {
+wm.push({ docId: d.id, ecoleId: e.id, nom: data.nom || "Inconnu", classe: data.classe || "", section: data.section || getSectionFromClasse(data.classe), ecoleNom: e.nom || e.id, mois: m });
+});
+});
+} catch(e) {}
+}
+document.getElementById("wmCount").textContent = wm.length;
+if (wm.length === 0) { container.innerHTML = '<tr><td colspan="6" class="empty-state">❄️ Aucun mois blanc</td></tr>'; return; }
+let html = '';
+wm.slice(0, 100).forEach((w, i) => {
+const sectionBadge = getSectionBadge(w.section);
+html += `<tr><td><strong>${escapeHtml(w.nom)}</strong></td><td>${escapeHtml(w.classe)}</td><td><span class="badge ${sectionBadge}">${getSectionLabel(w.section)}</span></td><td>${escapeHtml(w.ecoleNom)}</td><td><span class="badge badge-warning">❄️ ${escapeHtml(w.mois)}</span></td><td><button class="btn btn-sm btn-success restaurer-wm-btn" data-doc="${w.docId}" data-ecole="${w.ecoleId}" data-mois="${w.mois}">🔄 Restaurer</button></td></tr>`;
+});
+container.innerHTML = html;
+container.querySelectorAll('.restaurer-wm-btn').forEach(btn => {
+btn.addEventListener('click', async function() {
+const docId = this.dataset.doc, ecole = this.dataset.ecole, mois = this.dataset.mois;
+if (!await showConfirm(`Restaurer ${mois} ?`)) return;
+try {
+const ref = doc(db, "ecoles", ecole, SC.COMPTA_ELEVES, docId);
+const snap = await getDoc(ref);
+if (snap.exists()) {
+const data = snap.data();
+const blancs = data.moisBlancs || [];
+await updateDoc(ref, { moisBlancs: blancs.filter(m => m !== mois) });
+toast("Mois blanc restauré", "success");
+loadAllData();
+}
+} catch (e) { toast("Erreur: " + e.message, "error"); }
+});
 });
 }
-const wb = XLSX.utils.book_new();
-const ws = XLSX.utils.aoa_to_sheet(data);
-XLSX.utils.book_append_sheet(wb, ws, 'Export');
-XLSX.writeFile(wb, `export_${id}_${new Date().toISOString().split('T')[0]}.xlsx`);
-toast("✅ Export réussi", "success");
-} catch(e) { toast("Erreur: " + e.message, "error"); }
-});
 
 document.addEventListener('DOMContentLoaded', function() {
 loadAllData();
