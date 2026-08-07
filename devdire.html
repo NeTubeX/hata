@@ -103,7 +103,6 @@
         body.light .badge-fille{background:rgba(231,76,60,0.08);color:#a93226;border-color:rgba(231,76,60,0.08)}
         body.light .badge-garcon{background:rgba(52,152,219,0.08);color:#1a5276;border-color:rgba(52,152,219,0.08)}
         body.light .badge-exonere{background:rgba(39,174,96,0.12);color:#1e8449;border-color:rgba(39,174,96,0.12)}
-        body.light .badge-listenoire{background:rgba(231,76,60,0.12);color:#a93226;border-color:rgba(231,76,60,0.12)}
         body.light .badge-en-ordre{background:rgba(39,174,96,0.10);color:#1e8449;border-color:rgba(39,174,96,0.10)}
         body.light .toast{background:rgba(255,255,255,0.92);color:#1a1a2e}
         body.light .empty-state{color:rgba(0,0,0,0.3)}
@@ -216,7 +215,6 @@
         .eleve-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
         .badge{display:inline-block;padding:2px 12px;border-radius:20px;font-size:10px;font-weight:700}
         .badge-exonere{background:rgba(46,204,113,0.12);color:#2ecc71;border:1px solid rgba(46,204,113,0.12)}
-        .badge-listenoire{background:rgba(231,76,60,0.12);color:#e74c3c;border:1px solid rgba(231,76,60,0.12)}
         .badge-en-ordre{background:rgba(46,204,113,0.10);color:#2ecc71;border:1px solid rgba(46,204,113,0.10)}
         .badge-code{background:rgba(247,151,30,0.10);color:#ffd200;border:1px solid rgba(247,151,30,0.10);font-family:monospace;font-size:11px}
         .badge-fille{background:rgba(231,76,60,0.08);color:#e74c3c;border:1px solid rgba(231,76,60,0.06)}
@@ -329,6 +327,11 @@
         .btn-rapport{background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;box-shadow:0 5px 0 #78281f,0 8px 16px rgba(231,76,60,0.2);transform:translateY(-2px)}
         .btn-rapport:hover{transform:translateY(-5px);box-shadow:0 7px 0 #78281f,0 12px 24px rgba(231,76,60,0.25)}
         .btn-rapport:active{transform:translateY(2px);box-shadow:0 2px 0 #78281f,0 4px 8px rgba(231,76,60,0.15)}
+        /* Style pour le bouton Appliquer les tarifs */
+        .btn-apply-tarifs {background:linear-gradient(135deg,#2ecc71,#27ae60);color:#fff;box-shadow:0 5px 0 #1a7a3a,0 8px 16px rgba(46,204,113,0.2);transform:translateY(-2px)}
+        .btn-apply-tarifs:hover{transform:translateY(-5px);box-shadow:0 7px 0 #1a7a3a,0 12px 24px rgba(46,204,113,0.25)}
+        .btn-apply-tarifs:active{transform:translateY(2px);box-shadow:0 2px 0 #1a7a3a,0 4px 8px rgba(46,204,113,0.15)}
+        .badge-impaye{background:rgba(230,126,34,0.10);color:#f1c40f;border-color:rgba(230,126,34,0.10)}
     </style>
 </head>
 <body>
@@ -389,7 +392,6 @@
                         <button class="filter-btn active" data-filter="all">Tous</button>
                         <button class="filter-btn" data-filter="normal">Réguliers</button>
                         <button class="filter-btn" data-filter="exonere">Exonérés</button>
-                        <button class="filter-btn" data-filter="listenoir">Liste noire</button>
                     </div>
                     <div id="elevesContainer"></div>
                 </div>
@@ -446,8 +448,11 @@
                         <p style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;">Définissez les périodes de paiement pour la maternelle. Chaque période aura son propre montant.</p>
                     </div>
                     <div class="config-panel" id="sub4">
-                        <h4 style="color:#f7971e;">🔄 METTRE À JOUR</h4>
-                        <button class="btn btn-orange w-100" id="btnApplyTarifs">APPLIQUER LES TARIFS</button>
+                        <h4 style="color:#f7971e;">🔄 MISE À JOUR</h4>
+                        <button class="btn btn-apply-tarifs w-100" id="btnApplyTarifsEleves">📊 APPLIQUER LES TARIFS AUX ÉLÈVES</button>
+                        <p style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;">Met à jour le minerval et les frais d'inscription de tous les élèves selon leur classe</p>
+                        <hr>
+                        <button class="btn btn-orange w-100" id="btnApplyTarifs">🔄 APPLIQUER LES TARIFS</button>
                         <p style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:6px;">Met à jour minerval et frais de tous les élèves</p>
                     </div>
                 </div>
@@ -627,6 +632,9 @@
             anneeScolaireCourante = (anneeActuelle - 1) + "-" + anneeActuelle; } else { moisCourant = "Septembre";
             anneeScolaireCourante = anneeActuelle + "-" + (anneeActuelle + 1); }
 
+        // Index du mois courant dans la liste
+        const moisCourantIndex = moisListe.indexOf(moisCourant);
+
         const ECOLET_ID = schoolId ? schoolId.replace(/[^a-zA-Z0-9]/g, '_') : 'default';
 
         let espaceActif = 'primaire';
@@ -770,6 +778,15 @@
             if (m >= 8) return moisListe[m - 8];
             else if (m >= 0 && m <= 5) return moisListe[m + 4];
             else return "Septembre";
+        }
+
+        // Fonction pour vérifier si un mois est passé (par rapport au mois courant)
+        function estMoisPasse(mois) {
+            const idx = moisListe.indexOf(mois);
+            if (idx === -1) return false;
+            // Septembre est le début de l'année scolaire (index 0)
+            // On considère qu'on est en septembre au début de l'année
+            return idx <= moisCourantIndex;
         }
 
         function afficherErreur(titre, message, lien, lienTexte) {
@@ -995,7 +1012,8 @@
                         const mvAffiche = estBlanc ? 0 : mv;
                         totalPaye += Math.min(mt, mvAffiche);
                         totalPeriodes++;
-                        if (mt < mvAffiche && !estBlanc) imp++;
+                        // On ne compte comme impayé que si le mois est passé
+                        if (estMoisPasse(mois) && mt < mvAffiche && !estBlanc) imp++;
                     }
                 }
 
@@ -1058,7 +1076,6 @@
 
             if (currentFilter === "normal") return res.filter(e => !e.exonere && e.moisImpayes < 3);
             if (currentFilter === "exonere") return res.filter(e => e.exonere === true);
-            if (currentFilter === "listenoir") return res.filter(e => !e.exonere && e.moisImpayes >= 3);
             return res;
         }
 
@@ -1069,18 +1086,18 @@
 
             let html = '<div class="eleve-list">';
             for (let e of eleves) {
-                const estLN = (!e.exonere && e.moisImpayes >= 3);
+                const estEnRetard = (!e.exonere && e.moisImpayes > 0);
                 const estOrdre = (e.exonere || e.estEnOrdre);
                 let badge = '',
                     cls = '';
                 const sexeBadge = e.sexe === 'F' ? '<span class="badge badge-fille">Fille</span>' :
                     '<span class="badge badge-garcon">Garçon</span>';
 
-                if (e.exonere) { badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; } else if (estLN) { badge =
-                        '<span class="badge badge-listenoire">LISTE NOIRE</span>';
-                    cls = 'liste-noire'; } else if (estOrdre) { badge = '<span class="badge badge-en-ordre">EN ORDRE</span>';
-                    cls = 'en-ordre'; } else if (e.moisImpayes > 0) { badge =
-                        '<span class="badge badge-listenoire" style="background:rgba(230,126,34,0.10);color:#f1c40f;border-color:rgba(230,126,34,0.10);">IMPAYÉ</span>'; }
+                if (e.exonere) { badge = '<span class="badge badge-exonere">EXONÉRÉ</span>'; } else if (estOrdre) { badge =
+                        '<span class="badge badge-en-ordre">EN ORDRE</span>';
+                    cls = 'en-ordre'; } else if (estEnRetard) { badge =
+                        '<span class="badge badge-impaye" style="background:rgba(230,126,34,0.10);color:#f1c40f;border-color:rgba(230,126,34,0.10);">⚠️ IMPAYÉ (' +
+                        e.moisImpayes + ')</span>'; }
 
                 const codeDisplay = e.parentCode ? '<span class="badge badge-code">' + e.parentCode + '</span>' : '';
                 const espaceBadge = e.estMaternelle ?
@@ -1224,9 +1241,9 @@
                     const mt = paiements[mois]?.montant || 0;
                     const estBlanc = blancs.includes(mois);
                     const mvAffiche = estBlanc ? 0 : mv;
-                    if (mt < mvAffiche && !estBlanc) impayes++;
+                    // On ne compte comme impayé que si le mois est passé
+                    if (estMoisPasse(mois) && mt < mvAffiche && !estBlanc) impayes++;
                 }
-                const estListeNoire = impayes >= 3;
 
                 for (let i = debut; i <= fin; i++) {
                     const mois = moisListe[i];
@@ -1254,12 +1271,16 @@
                         statut = "impaye";
                         labelStatut = "❌ IMPAYÉ"; }
 
-                    if (estListeNoire && !estPaye && !e.exonere) {
-                        labelStatut += ' ⚠️';
+                    // Ajouter une indication si le mois est futur
+                    const estFutur = !estMoisPasse(mois);
+                    if (estFutur && !estPaye && !e.exonere && !estBlanc) {
+                        labelStatut = '🔮 FUTUR';
+                        statut = 'futur';
+                        classeCard = '';
                     }
 
-                    const showPay = (!estBlanc && !e.exonere && !estPaye);
-                    const showBlanc = (!estBlanc && !e.exonere && !e.abandon);
+                    const showPay = (!estBlanc && !e.exonere && !estPaye && estMoisPasse(mois));
+                    const showBlanc = (!estBlanc && !e.exonere && !e.abandon && estMoisPasse(mois));
                     const showReçu = (payeReel > 0 && !estBlanc);
 
                     html += '<div class="paiement-month ' + classeCard + '"><div class="mois">' + mois.toUpperCase() +
@@ -1283,10 +1304,10 @@
                     formatNbSimple(totalPaye) + ' FC</span></div><div class="row total"><span>Reste à payer</span><span class="val-red">' +
                     formatNbSimple(resteTotal) + ' FC</span></div>';
 
-                if (estListeNoire) {
+                if (impayes > 0) {
                     html +=
-                        '<div style="margin-top:8px;padding:8px;background:rgba(231,76,60,0.1);border-radius:8px;text-align:center;color:#e74c3c;font-weight:700;font-size:13px;">⚠️ LISTE NOIRE - ' +
-                        impayes + ' mois impayés</div>';
+                        '<div style="margin-top:8px;padding:8px;background:rgba(230,126,34,0.1);border-radius:8px;text-align:center;color:#f1c40f;font-weight:700;font-size:13px;">⚠️ ' +
+                        impayes + ' mois impayés (passés)</div>';
                 }
 
                 html += '</div>';
@@ -2006,6 +2027,48 @@
 
             window._periodesData = periodes;
             afficherPeriodesMaternelle();
+        };
+
+        // NOUVEAU BOUTON : Appliquer les tarifs aux élèves
+        document.getElementById('btnApplyTarifsEleves').onclick = async function() {
+            if (!await showConfirm('Appliquer les tarifs à tous les élèves de l\'espace ' + (espaceActif === 'primaire' ?
+                    'PRIMAIRE' : 'MATERNELLE') + ' ?\n\nCela mettra à jour le minerval et les frais d\'inscription de chaque élève selon sa classe.')) return;
+            
+            try {
+                const eleves = await getAllEleves();
+                let cMin = 0,
+                    cFrais = 0,
+                    total = eleves.length;
+                
+                for (const e of eleves) {
+                    if (e.abandon) continue;
+                    const nv = await getMinerval(e.classe);
+                    const nf = await getFraisEleve(e.classe);
+                    const updates = {};
+                    if (e.minerval !== nv) { updates.minerval = nv;
+                        cMin++; }
+                    if (e.fraisInscriptionTotal !== nf) { updates.fraisInscriptionTotal = nf;
+                        cFrais++; }
+                    if (Object.keys(updates).length > 0) {
+                        const ref = getEleveRef(e.id);
+                        await updateDoc(ref, updates);
+                        const idx = localEleves.findIndex(x => x.id === e.id);
+                        if (idx !== -1) { 
+                            if (updates.minerval !== undefined) localEleves[idx].minerval = updates.minerval; 
+                            if (updates.fraisInscriptionTotal !== undefined) localEleves[idx].fraisInscriptionTotal = updates.fraisInscriptionTotal; 
+                        }
+                    }
+                }
+                toast('✅ ' + cMin + ' minervaux et ' + cFrais + ' frais d\'inscription mis à jour sur ' + total + ' élèves', 'success');
+                await afficherEleves();
+                await window.afficherInscriptions();
+                if (currentEleve) {
+                    await afficherReleve(currentEleve);
+                }
+            } catch (e) { 
+                toast('Erreur lors de la mise à jour: ' + e.message, 'error'); 
+                console.error(e);
+            }
         };
 
         document.getElementById('btnApplyTarifs').onclick = async function() {
