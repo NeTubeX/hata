@@ -1901,7 +1901,7 @@
             const data = await getPeriodesMaternelle();
             const periodes = data.periodes || [];
             if (periodes.length === 0) {
-                cont.innerHTML = '<div class="empty-state">Aucune période définie. Ajoutez-en une.</div>';
+                cont.innerHTML = '<div class="empty-state">Aucune période définie.</div>';
                 return;
             }
             let html = '<table class="periode-config"><thead><tr><th>Nom</th><th style="text-align:right;">Montant (FC)</th></tr></thead><tbody>';
@@ -2069,43 +2069,53 @@
                 const moisFiltre = document.getElementById('rapportMois').value;
                 const classeFiltre = document.getElementById('rapportClasse').value;
                 const statutFiltre = document.getElementById('rapportStatut').value;
-                const eleves = await getElevesAvecInfos();
-                let elevesFiltres = eleves.filter(e => {
-                    if (espaceActif === 'primaire' && e.estMaternelle) return false;
-                    if (espaceActif === 'maternelle' && !e.estMaternelle) return false;
-                    if (classeFiltre && e.classe !== classeFiltre) return false;
-                    return true;
-                });
-                if (espaceActif === 'primaire') {
-                    elevesFiltres = elevesFiltres.filter(e => {
-                        const paiements = e.paiements || {};
-                        const pay = paiements[moisFiltre] || { montant: 0 };
-                        const mv = e.exonere ? 0 : (e.minerval || 25000);
-                        const estPaye = e.exonere || pay.montant >= mv;
-                        const blancs = e.moisBlancs || [];
-                        if (statutFiltre === 'paye') return estPaye || blancs.includes(moisFiltre);
-                        if (statutFiltre === 'nonpaye') return !estPaye && !blancs.includes(moisFiltre) && !e.exonere;
-                        return true;
-                    });
-                } else {
-                    if (statutFiltre === 'paye') {
-                        elevesFiltres = elevesFiltres.filter(e => {
-                            const paiements = e.paiements || {};
-                            const pData = periodesMaternelle;
-                            let totalPaye = 0;
-                            for (const p of pData) { totalPaye += paiements[p.id]?.montant || 0; }
-                            return totalPaye > 0;
-                        });
-                    } else if (statutFiltre === 'nonpaye') {
-                        elevesFiltres = elevesFiltres.filter(e => {
-                            const paiements = e.paiements || {};
-                            const pData = periodesMaternelle;
-                            let totalPaye = 0;
-                            for (const p of pData) { totalPaye += paiements[p.id]?.montant || 0; }
-                            return totalPaye === 0 && !e.exonere;
-                        });
-                    }
+
+                // Récupérer tous les élèves de l'espace actif UNIQUEMENT
+                const eleves = await getElevesAvecInfos(espaceActif);
+
+                // Filtrer par classe si spécifiée
+                let elevesFiltres = eleves;
+                if (classeFiltre) {
+                    elevesFiltres = elevesFiltres.filter(e => e.classe === classeFiltre);
                 }
+
+                // Filtrer par statut de paiement
+                if (statutFiltre === 'paye') {
+                    elevesFiltres = elevesFiltres.filter(e => {
+                        if (e.exonere) return true;
+                        if (espaceActif === 'primaire') {
+                            const paiements = e.paiements || {};
+                            const pay = paiements[moisFiltre] || { montant: 0 };
+                            const mv = e.minerval || 25000;
+                            return pay.montant >= mv;
+                        } else {
+                            const paiements = e.paiements || {};
+                            let totalPaye = 0;
+                            for (const p of periodesMaternelle) {
+                                totalPaye += paiements[p.id]?.montant || 0;
+                            }
+                            return totalPaye > 0;
+                        }
+                    });
+                } else if (statutFiltre === 'nonpaye') {
+                    elevesFiltres = elevesFiltres.filter(e => {
+                        if (e.exonere) return false;
+                        if (espaceActif === 'primaire') {
+                            const paiements = e.paiements || {};
+                            const pay = paiements[moisFiltre] || { montant: 0 };
+                            const mv = e.minerval || 25000;
+                            return pay.montant < mv;
+                        } else {
+                            const paiements = e.paiements || {};
+                            let totalPaye = 0;
+                            for (const p of periodesMaternelle) {
+                                totalPaye += paiements[p.id]?.montant || 0;
+                            }
+                            return totalPaye === 0;
+                        }
+                    });
+                }
+
                 doc.setFontSize(18);
                 doc.setFont("helvetica", "bold");
                 doc.text('COMPLEXE SCOLAIRE ' + nomEcole, pageWidth / 2, 20, { align: 'center' });
@@ -2123,6 +2133,7 @@
                 doc.setFontSize(10);
                 doc.text(sousTitre, pageWidth / 2, 37, { align: 'center' });
                 doc.text('Généré le ' + formatDateFr(new Date()), pageWidth / 2, 43, { align: 'center' });
+
                 if (elevesFiltres.length === 0) {
                     doc.setFontSize(12);
                     doc.text('Aucun élève ne correspond aux critères sélectionnés.', pageWidth / 2, 60, { align: 'center' });
@@ -2131,31 +2142,51 @@
                     isGeneratingPDF = false;
                     return;
                 }
+
                 const tableData = elevesFiltres.map(e => {
                     let totalPaye = 0;
                     if (espaceActif === 'maternelle') {
                         const paiements = e.paiements || {};
-                        for (const p of periodesMaternelle) { totalPaye += paiements[p.id]?.montant || 0; }
+                        for (const p of periodesMaternelle) {
+                            totalPaye += paiements[p.id]?.montant || 0;
+                        }
                     } else {
                         const paiements = e.paiements || {};
                         const pay = paiements[moisFiltre] || { montant: 0 };
                         totalPaye = pay.montant || 0;
                     }
-                    const statut = e.exonere ? 'EXONÉRÉ' : (espaceActif === 'primaire' ? (e.paiements?.[moisFiltre]?.montant >= (e.minerval || 25000) ? 'PAYÉ' : 'NON PAYÉ') : (totalPaye > 0 ? 'PAYÉ' : 'NON PAYÉ'));
+                    const statut = e.exonere ? 'EXONÉRÉ' : (espaceActif === 'primaire' ? (totalPaye >= (e.minerval || 25000) ? 'PAYÉ' : 'NON PAYÉ') : (totalPaye > 0 ? 'PAYÉ' : 'NON PAYÉ'));
                     return [(e.nom + ' ' + (e.prenom || '')).toUpperCase(), e.classe, e.sexe === 'F' ? 'F' : 'M', e.dateInscription ? formatDateFr(e.dateInscription) : '-', formatNbSimple(totalPaye) + ' FC', statut];
                 });
+
                 const totalEleves = elevesFiltres.length;
                 const totalFilles = elevesFiltres.filter(e => e.sexe === 'F').length;
                 const totalGarcons = elevesFiltres.filter(e => e.sexe === 'M').length;
                 const statsText = 'Total élèves: ' + totalEleves + ' | Filles: ' + totalFilles + ' | Garçons: ' + totalGarcons;
-                doc.autoTable({ head: [['ÉLÈVE', 'CLASSE/NIVEAU', 'SEXE', 'DATE INSCRIPTION', 'TOTAL PAYÉ', 'STATUT']], body: tableData, startY: 50, styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontSize: 10, fontStyle: 'bold' }, alternateRowStyles: { fillColor: [240, 244, 248] }, didDrawPage: function(data) { const pageCount = doc.internal.getNumberOfPages();
+
+                doc.autoTable({
+                    head: [['ÉLÈVE', 'CLASSE/NIVEAU', 'SEXE', 'DATE INSCRIPTION', 'TOTAL PAYÉ', 'STATUT']],
+                    body: tableData,
+                    startY: 50,
+                    styles: { fontSize: 9, cellPadding: 2 },
+                    headStyles: { fillColor: [41, 128, 185], textColor: [255, 255, 255], fontSize: 10, fontStyle: 'bold' },
+                    alternateRowStyles: { fillColor: [240, 244, 248] },
+                    didDrawPage: function(data) {
+                        const pageCount = doc.internal.getNumberOfPages();
                         doc.setFontSize(8);
                         doc.text(statsText, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-                        doc.text('Page ' + data.pageNumber + ' / ' + pageCount, pageWidth - 20, doc.internal.pageSize.getHeight() - 10); } });
+                        doc.text('Page ' + data.pageNumber + ' / ' + pageCount, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
+                    }
+                });
+
                 doc.save('Rapport_' + espaceLabel + '_' + formatDateYMD() + '.pdf');
                 toast('📄 Rapport généré avec ' + totalEleves + ' élèves', 'success');
-            } catch (e) { toast('Erreur lors de la génération: ' + e.message, 'error');
-                console.error(e); } finally { isGeneratingPDF = false; }
+            } catch (e) {
+                toast('Erreur lors de la génération: ' + e.message, 'error');
+                console.error(e);
+            } finally {
+                isGeneratingPDF = false;
+            }
         };
 
         let currentStep = 1;
