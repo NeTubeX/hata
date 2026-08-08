@@ -580,8 +580,8 @@ body.light-mode .periode-section .annee-label{color:#1a2332}
 .float-btn{position:fixed;bottom:30px;right:30px;width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#1a2332,#2d3b4f);color:#fff;border:none;font-size:28px;cursor:pointer;box-shadow:0 8px 30px rgba(26,35,50,0.3),0 4px 16px rgba(0,0,0,0.3);z-index:999;transition:all 0.3s;display:flex;align-items:center;justify-content:center}
 .float-btn:hover{transform:scale(1.1);box-shadow:0 12px 40px rgba(26,35,50,0.5)}
 .float-btn:active{transform:scale(0.9)}
-.float-btn-dark{background:linear-gradient(135deg,#ffd700,#f59e0b);color:#0f172a;box-shadow:0 8px 30px rgba(255,215,0,0.4),0 4px 16px rgba(0,0,0,0.3)}
-.float-btn-dark:hover{box-shadow:0 12px 40px rgba(255,215,0,0.6)}
+.float-btn-dark{background:linear-gradient(135deg,#ffd700,#f59e0b);color:#0f172a;box-shadow:0 8px 30px rgba(255,215,0,0.4),0 4px 16px rgba(0,0,0,0.3);border:1px solid rgba(255,215,0,0.2)}
+.float-btn-dark:hover{transform:scale(1.1);box-shadow:0 12px 40px rgba(255,215,0,0.6)}
 
 .paiement-click-anim{animation:paymentPop 0.3s ease-out forwards !important}
 @keyframes paymentPop{0%{transform:scale(1)}30%{transform:scale(1.15);box-shadow:0 0 30px rgba(255,215,0,0.6)}70%{transform:scale(0.95)}100%{transform:scale(1)}}
@@ -707,7 +707,10 @@ body.light-mode .periode-section .annee-label{color:#1a2332}
 <div class="pdf-btn-card" onclick="genererPDFExoneres()"><div class="pdf-icon">🌟</div><div class="pdf-title">EXONÉRÉS</div></div>
 <div class="pdf-btn-card" onclick="genererPDFInscription()"><div class="pdf-icon">💰</div><div class="pdf-title">FRAIS INSCRIPTION</div></div>
 <div class="pdf-btn-card" onclick="ouvrirPopupSituationFinanciere()"><div class="pdf-icon">📈</div><div class="pdf-title">SITUATION FINANCIÈRE</div></div>
-<button class="btn btn-pdf w-100 mt-8" id="btnPDFExoneresDetail">📄 PDF EXONÉRÉS DÉTAILLÉ</button>
+<div class="pdf-btn-card" onclick="genererPDFExoneresDetail()" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.05);">
+<div class="pdf-icon">📄</div>
+<div class="pdf-title" style="color:#10b981;">EXONÉRÉS DÉTAILLÉ</div>
+</div>
 </div></div></div></div>
 <div id="tab7" class="tab-panel"><div class="card"><div class="card-header">⚙️ CONFIGURATION</div><div class="p-16">
 <h4 style="color:#ffd700;margin-bottom:12px;">🏫 INFORMATIONS DE L'ÉCOLE</h4>
@@ -1148,13 +1151,11 @@ isLightMode=!isLightMode;
 if(isLightMode){
 document.body.classList.add('light-mode');
 this.textContent='🌙';
-this.classList.remove('float-btn');
 this.classList.add('float-btn-dark');
 }else{
 document.body.classList.remove('light-mode');
 this.textContent='☀️';
 this.classList.remove('float-btn-dark');
-this.classList.add('float-btn');
 }
 });
 
@@ -1228,13 +1229,13 @@ function afficherTableTarifsOptions(){const container=document.getElementById("t
 
 async function getMinervalEleve(classe,option){if(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe][option])return tarifsOptionsConfig[classe][option];if(tarifsOptionsConfig[classe]&&tarifsOptionsConfig[classe]["default"])return tarifsOptionsConfig[classe]["default"];return 45000;}
 
-async function chargerFraisInscription(){try{const refOpt=doc(db,"ecoles",ECOLET_ID,SC.CONFIG,SC.FRAIS_INSCRIPTION);const snapOpt=await getDoc(refOpt);if(snapOpt.exists()){fraisInscriptionConfig=snapOpt.data();}else{fraisInscriptionConfig={};for(let classe of classesListe){fraisInscriptionConfig[classe]={};for(let opt of(optionsParClasse[classe]||[])){fraisInscriptionConfig[classe][opt]=45000;}fraisInscriptionConfig[classe]["default"]=45000;}await setDoc(refOpt,fraisInscriptionConfig);}afficherTableFraisInscriptionOptions();}catch(error){for(let classe of classesListe){if(!fraisInscriptionConfig[classe])fraisInscriptionConfig[classe]={};fraisInscriptionConfig[classe]["default"]=45000;}afficherTableFraisInscriptionOptions();}}
+async function chargerFraisInscription(){try{const refOpt=doc(db,"ecoles",ECOLET_ID,SC.CONFIG,SC.FRAIS_INSCRIPTION);const snapOpt=await getDoc(refOpt);if(snapOpt.exists()){fraisInscriptionConfig=snapOpt.data();}else{fraisInscriptionConfig={};for(let classe of classesListe){fraisInscriptionConfig[classe]={};for(let opt of(optionsParClasse[classe]||[])){fraisInscriptionConfig[classe][opt]=0;}fraisInscriptionConfig[classe]["default"]=0;}await setDoc(refOpt,fraisInscriptionConfig);}afficherTableFraisInscriptionOptions();}catch(error){for(let classe of classesListe){if(!fraisInscriptionConfig[classe])fraisInscriptionConfig[classe]={};fraisInscriptionConfig[classe]["default"]=0;}afficherTableFraisInscriptionOptions();}}
 
 async function sauverFraisInscription(){try{const refOpt=doc(db,"ecoles",ECOLET_ID,SC.CONFIG,SC.FRAIS_INSCRIPTION);await setDoc(refOpt,fraisInscriptionConfig);toast("Frais d'inscription enregistrés avec succès","success");}catch(error){toast("Erreur lors de l'enregistrement","error");}}
 
-function afficherTableFraisInscriptionOptions(){const container=document.getElementById("fraisInscriptionOptionsContainer");if(!container)return;let html='<table class="config-table"><thead><tr><th>Classe</th><th>Option</th><th>Frais Inscription (FC)</th></tr></thead><tbody>';for(let classe of classesListe){const opts=optionsParClasse[classe]||[];if(opts.length===0){let val=(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe]["default"])||45000;html+='<tr><td>'+classe+'</td><td>Sans option</td><td><input type="number" class="frais-inscription-input" data-classe="'+classe+'" data-option="default" value="'+val+'" step="500"></td></tr>';}else{for(let opt of opts){let val=(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe][opt])||45000;html+='<tr><td>'+classe+'</td><td>'+opt+'</td><td><input type="number" class="frais-inscription-input" data-classe="'+classe+'" data-option="'+opt+'" value="'+val+'" step="500"></td></tr>';}}}html+='</tbody></table>';container.innerHTML=html;document.querySelectorAll(".frais-inscription-input").forEach(inp=>{inp.onchange=()=>{const classe=inp.dataset.classe;const option=inp.dataset.option;if(!fraisInscriptionConfig[classe])fraisInscriptionConfig[classe]={};fraisInscriptionConfig[classe][option]=parseInt(inp.value)||45000;};});}
+function afficherTableFraisInscriptionOptions(){const container=document.getElementById("fraisInscriptionOptionsContainer");if(!container)return;let html='<table class="config-table"><thead><tr><th>Classe</th><th>Option</th><th>Frais Inscription (FC)</th></tr></thead><tbody>';for(let classe of classesListe){const opts=optionsParClasse[classe]||[];if(opts.length===0){let val=(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe]["default"])||0;html+='<tr><td>'+classe+'</td><td>Sans option</td><td><input type="number" class="frais-inscription-input" data-classe="'+classe+'" data-option="default" value="'+val+'" step="500"></td></tr>';}else{for(let opt of opts){let val=(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe][opt])||0;html+='<tr><td>'+classe+'</td><td>'+opt+'</td><td><input type="number" class="frais-inscription-input" data-classe="'+classe+'" data-option="'+opt+'" value="'+val+'" step="500"></td></tr>';}}}html+='</tbody></table>';container.innerHTML=html;document.querySelectorAll(".frais-inscription-input").forEach(inp=>{inp.onchange=()=>{const classe=inp.dataset.classe;const option=inp.dataset.option;if(!fraisInscriptionConfig[classe])fraisInscriptionConfig[classe]={};fraisInscriptionConfig[classe][option]=parseInt(inp.value)||0;};});}
 
-async function getFraisInscriptionEleve(classe,option){if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe][option])return fraisInscriptionConfig[classe][option];if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe]["default"])return fraisInscriptionConfig[classe]["default"];return 45000;}
+async function getFraisInscriptionEleve(classe,option){if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe][option])return fraisInscriptionConfig[classe][option];if(fraisInscriptionConfig[classe]&&fraisInscriptionConfig[classe]["default"])return fraisInscriptionConfig[classe]["default"];return 0;}
 
 async function getAllComptaEleves(forceRefresh=false){
 if(!forceRefresh&&isCacheValid()&&cacheData.eleves){
@@ -1261,7 +1262,7 @@ phone:d.phone||"",
 classe:d.classe,
 option:optionValue,
 minerval:d.minerval,
-fraisInscriptionTotal:d.fraisInscriptionTotal||45000,
+fraisInscriptionTotal:d.fraisInscriptionTotal||0,
 exonere:d.exonere||false,
 motifExon:d.motifExon||"",
 approbateur:d.approbateur||"",
@@ -1456,12 +1457,12 @@ async function modifierApprobateur(eleveId,nouvelApprobateur){try{const docId='c
 
 document.getElementById('cancelEditOption').onclick=function(){applyClickEffect(this);document.getElementById('editOptionModal').classList.remove('show');document.getElementById('editOptionModal').querySelector('h3').textContent='📚 MODIFIER L\'OPTION';};
 
-window.getElevesAvecFraisInscription=async function(){const tous=await getAllComptaEleves();const resultat=[];for(const eleve of tous){if(eleve.abandon)continue;const fraisTotal=eleve.fraisInscriptionTotal||45000;const montantPaye=eleve.fraisInscriptionPaye||0;const reste=fraisTotal-montantPaye;let statut='NON PAYÉ';if(montantPaye>=fraisTotal)statut='COMPLET';else if(montantPaye>0)statut='PARTIEL';resultat.push({id:eleve.id,nom:eleve.nom+' '+(eleve.postnom||'')+' '+(eleve.prenom||''),classe:eleve.classe,option:eleve.option||'',sexe:eleve.sexe||'M',fraisTotal:fraisTotal,montantPaye:montantPaye,reste:reste,statut:statut,codeParent:eleve.parentCode||'-',phone:eleve.phone||'-',exonere:eleve.exonere,dateInscription:eleve.dateInscription||formatDateYMD(new Date())});}resultat.sort((a,b)=>{if(a.statut==='PARTIEL'&&b.statut==='COMPLET')return -1;if(a.statut==='COMPLET'&&b.statut==='PARTIEL')return 1;if(a.statut==='NON PAYÉ'&&b.statut==='PARTIEL')return 1;if(a.statut==='PARTIEL'&&b.statut==='NON PAYÉ')return -1;return 0;});return resultat;};
+window.getElevesAvecFraisInscription=async function(){const tous=await getAllComptaEleves();const resultat=[];for(const eleve of tous){if(eleve.abandon)continue;const fraisTotal=eleve.fraisInscriptionTotal||0;const montantPaye=eleve.fraisInscriptionPaye||0;const reste=fraisTotal-montantPaye;let statut='NON PAYÉ';if(montantPaye>=fraisTotal)statut='COMPLET';else if(montantPaye>0)statut='PARTIEL';resultat.push({id:eleve.id,nom:eleve.nom+' '+(eleve.postnom||'')+' '+(eleve.prenom||''),classe:eleve.classe,option:eleve.option||'',sexe:eleve.sexe||'M',fraisTotal:fraisTotal,montantPaye:montantPaye,reste:reste,statut:statut,codeParent:eleve.parentCode||'-',phone:eleve.phone||'-',exonere:eleve.exonere,dateInscription:eleve.dateInscription||formatDateYMD(new Date())});}resultat.sort((a,b)=>{if(a.statut==='PARTIEL'&&b.statut==='COMPLET')return -1;if(a.statut==='COMPLET'&&b.statut==='PARTIEL')return 1;if(a.statut==='NON PAYÉ'&&b.statut==='PARTIEL')return 1;if(a.statut==='PARTIEL'&&b.statut==='NON PAYÉ')return -1;return 0;});return resultat;};
 
 window.afficherFraisInscription=async function(){const container=document.getElementById('inscriptionsContainer');const liste=await window.getElevesAvecFraisInscription();if(liste.length===0){container.innerHTML='<div class="empty-state">📭 Aucun élève inscrit</div>';return;}const complets=liste.filter(e=>e.statut==='COMPLET').length;const partiels=liste.filter(e=>e.statut==='PARTIEL').length;const nonPayes=liste.filter(e=>e.statut==='NON PAYÉ').length;const totalPaye=liste.reduce((s,e)=>s+e.montantPaye,0);const totalFrais=liste.reduce((s,e)=>s+e.fraisTotal,0);let html='<div class="inscription-stats"><div class="inscription-stat-card total"><div class="number">'+liste.length+'</div><div class="label">Total élèves</div></div><div class="inscription-stat-card complet"><div class="number">'+complets+'</div><div class="label">Payé intégralement</div></div><div class="inscription-stat-card partiel"><div class="number">'+partiels+'</div><div class="label">Payé partiellement</div></div><div class="inscription-stat-card nonpaye"><div class="number">'+nonPayes+'</div><div class="label">Non payé</div></div><div class="inscription-stat-card reste"><div class="number">'+formatNbSimple(totalFrais-totalPaye)+' FC</div><div class="label">Reste total</div></div></div><div style="overflow-x:auto;"><table class="inscription-table"><thead><tr><th>ÉLÈVE</th><th>CLASSE</th><th style="text-align:right;">FRAIS TOTAL</th><th style="text-align:right;">PAYÉ</th><th style="text-align:right;">RESTE</th><th style="text-align:center;">STATUT</th><th style="text-align:center;">DATE INSCRIPTION</th><th style="text-align:center;">ACTION</th><th style="text-align:center;">REÇU</th></tr></thead><tbody>';for(const e of liste){const color=e.statut==='COMPLET'?'#10b981':(e.statut==='PARTIEL'?'#f59e0b':'#64748b');const reste=e.reste>0?e.reste:0;const nomComplet=e.nom.toUpperCase();const statutClass=e.statut==='COMPLET'?'complet':(e.statut==='PARTIEL'?'partiel':'nonpaye');const statutLabel=e.statut==='NON PAYÉ'?'NON PAYÉ':e.statut;const sexeIcon=e.sexe==='F'?'👩':'👨';const dateInscription=e.dateInscription||'-';const aPaye=e.montantPaye>0;html+='<tr class="'+statutClass+'"><td style="font-weight:500;color:white;white-space:nowrap;">'+sexeIcon+' '+nomComplet+'</td><td style="color:#94a3b8;white-space:nowrap;">'+e.classe+(e.option?' - '+e.option:'')+'</td><td style="text-align:right;color:white;white-space:nowrap;">'+formatNbSimple(e.fraisTotal)+' FC</td><td style="text-align:right;color:'+color+';font-weight:bold;white-space:nowrap;">'+formatNbSimple(e.montantPaye)+' FC</td><td style="text-align:right;color:'+(reste>0?'#ef4444':'#10b981')+';font-weight:bold;white-space:nowrap;">'+(reste>0?formatNbSimple(reste)+' FC':'✓')+'</td><td style="text-align:center;white-space:nowrap;"><span class="status-badge '+statutClass+'">'+statutLabel+'</span></td><td style="text-align:center;color:#94a3b8;font-size:12px;white-space:nowrap;">'+dateInscription+'</td><td style="text-align:center;white-space:nowrap;">'+(reste>0?'<button class="btn btn-sm btn-inscription-pay" onclick="window.ouvrirPaiementInscription(\''+e.id+'\',\''+e.nom+'\','+e.reste+','+e.fraisTotal+','+e.montantPaye+')">PAYER</button>':'<span style="color:#10b981;">✓</span>')+'</td><td style="text-align:center;white-space:nowrap;">'+(aPaye?'<button class="btn btn-sm btn-pdf" onclick="genererReçuInscriptionPDF(\''+e.id+'\',\''+e.nom+'\','+e.montantPaye+',\''+e.dateInscription+'\')">🧾 REÇU</button>':'<span style="color:#64748b;font-size:10px;">-</span>')+'</td></tr>';}html+='</tbody></table></div>';container.innerHTML=html;};
 
 // PDF EXONÉRÉS DÉTAILLÉ
-document.getElementById('btnPDFExoneresDetail').onclick=async function(){
+window.genererPDFExoneresDetail=async function(){
 if(isGeneratingPDF){toast('Génération en cours...','warning');return;}
 isGeneratingPDF=true;
 try{
