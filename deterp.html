@@ -854,8 +854,8 @@
             anneeScolaireCourante = anneeActuelle + "-" + (anneeActuelle + 1); }
         const ECOLET_ID = schoolId ? schoolId.replace(/[^a-zA-Z0-9]/g, '_') : 'default';
         let espaceActif = 'primaire';
-        let isGeneratingPDF = false,
-            currentSchoolConfig = null,
+        // PAS DE VERROUILLAGE POUR LES PDF - comme le bouton REÇU
+        let currentSchoolConfig = null,
             currentEleve = null,
             currentFilter = "all",
             localEleves = [];
@@ -911,7 +911,6 @@
         }
 
         function toast(msg, type = "success") {
-            if (isGeneratingPDF) return;
             toastQueue.push({ msg, type });
             processToastQueue();
         }
@@ -1132,17 +1131,9 @@
             if (snap.exists()) return snap.data();
             const classes = s === 'primaire' ? classesPrimaire : classesMaternelle;
             const f = {};
-            if (s === 'primaire') {
-                classes.forEach(c => { const n = parseInt(c.split(" ")[0]); if (n <= 2) f[c] = 35000;
-                    else if (n <= 4) f[c] = 40000;
-                    else f[c] = 45000; });
-                f["default"] = 35000;
-            } else {
-                classes.forEach(c => { if (c === "Niveau 1") f[c] = 20000;
-                    else if (c === "Niveau 2") f[c] = 25000;
-                    else f[c] = 30000; });
-                f["default"] = 20000;
-            }
+            // 0 FC par défaut pour le primaire ET la maternelle
+            classes.forEach(c => { f[c] = 0; });
+            f["default"] = 0;
             await setDoc(ref, f);
             return f;
         }
@@ -1154,7 +1145,10 @@
 
         async function getFraisEleve(classe, space = null) {
             const f = await getFrais(space);
-            return f[classe] || f["default"] || (space === 'primaire' ? 35000 : 20000);
+            if (f[classe] !== undefined && f[classe] !== null) {
+                return f[classe];
+            }
+            return f["default"] ?? 0;
         }
 
         async function getPeriodesMaternelle() {
@@ -1865,18 +1859,14 @@
         };
 
         // ============================================================
-        // GÉNÉRATION REÇU PDF
+        // GÉNÉRATION REÇU PDF - comme le bouton REÇU (pas de verrouillage)
         // ============================================================
 
         window.genererReçuPDF = async function(id, periodeId, montant, datePaiement, type) {
-            if (isGeneratingReceipt) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingReceipt = true;
-            isGeneratingPDF = true;
+            // Pas de verrouillage - comportement identique au bouton REÇU original
             try {
                 const eleve = localEleves.find(e => e.id === id);
-                if (!eleve) { toast('Élève non trouvé', 'error');
-                    isGeneratingReceipt = false;
-                    isGeneratingPDF = false; return; }
+                if (!eleve) { toast('Élève non trouvé', 'error'); return; }
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a5');
                 const pageWidth = doc.internal.pageSize.getWidth();
@@ -2001,22 +1991,13 @@
                 doc.text('Reçu valant paiement', pageWidth / 2, y, { align: 'center' });
                 doc.save('Reçu_Paiement_' + eleve.nom + '_' + formatDateYMD() + '.pdf');
                 toast('🧾 Reçu généré', 'success');
-            } catch (e) { toast('Erreur reçu: ' + e.message, 'error'); } finally {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                isGeneratingReceipt = false;
-                isGeneratingPDF = false;
-            }
+            } catch (e) { toast('Erreur reçu: ' + e.message, 'error'); }
         };
 
         window.genererReçuInscriptionPDF = async function(id) {
-            if (isGeneratingReceipt) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingReceipt = true;
-            isGeneratingPDF = true;
             try {
                 const eleve = localEleves.find(e => e.id === id);
-                if (!eleve) { toast('Élève non trouvé', 'error');
-                    isGeneratingReceipt = false;
-                    isGeneratingPDF = false; return; }
+                if (!eleve) { toast('Élève non trouvé', 'error'); return; }
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a5');
                 const pageWidth = doc.internal.pageSize.getWidth();
@@ -2141,11 +2122,7 @@
                 doc.text('Reçu valant paiement d\'inscription', pageWidth / 2, y, { align: 'center' });
                 doc.save('Reçu_Inscription_' + eleve.nom + '_' + formatDateYMD() + '.pdf');
                 toast('🧾 Reçu généré', 'success');
-            } catch (e) { toast('Erreur reçu: ' + e.message, 'error'); } finally {
-                await new Promise(resolve => setTimeout(resolve, 300));
-                isGeneratingReceipt = false;
-                isGeneratingPDF = false;
-            }
+            } catch (e) { toast('Erreur reçu: ' + e.message, 'error'); }
         };
 
         // ============================================================
@@ -2158,7 +2135,7 @@
             const r = [];
             for (const e of tous) {
                 if (e.abandon) continue;
-                const total = e.fraisInscriptionTotal || (s === 'primaire' ? 35000 : 20000);
+                const total = e.fraisInscriptionTotal || (s === 'primaire' ? 0 : 0);
                 const paye = e.fraisInscriptionPaye || 0;
                 const reste = total - paye;
                 let statut = 'NON PAYÉ';
@@ -2258,13 +2235,18 @@
             const classes = getClasses();
             let html = '<table class="config-table"><thead><tr><th>Classe / Niveau</th><th style="text-align:right;">Frais (FC)</th></tr></thead><tbody>';
             classes.forEach(c => {
-                const val = f[c] || f["default"] || (espaceActif === 'primaire' ? 35000 : 20000);
+                const val = f[c] !== undefined ? f[c] : (f["default"] || 0);
                 html += '<tr><td style="font-size:14px;color:rgba(255,255,255,0.6);">' + c + '</td><td style="text-align:right;"><input type="number" class="frais-input" data-classe="' + c + '" value="' + val + '" step="500" style="font-size:14px;"></td></tr>';
             });
             html += '</tbody></table>';
             cont.innerHTML = html;
-            document.querySelectorAll(".frais-input").forEach(inp => { inp.onchange = function() { const c = this.dataset.classe;
-                    f[c] = parseInt(this.value) || (espaceActif === 'primaire' ? 35000 : 20000); }; });
+            document.querySelectorAll(".frais-input").forEach(inp => {
+                inp.onchange = function() {
+                    const c = this.dataset.classe;
+                    const val = parseInt(this.value) || 0;
+                    f[c] = val;
+                };
+            });
             window._fraisData = f;
         }
 
@@ -2432,12 +2414,10 @@
         }
 
         // ============================================================
-        // RAPPORTS PDF
+        // RAPPORTS PDF - SANS VERROUILLAGE (comme le bouton REÇU)
         // ============================================================
 
         document.getElementById('btnGenererRapportPrimaire').onclick = async function() {
-            if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingPDF = true;
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4');
@@ -2510,7 +2490,6 @@
                     doc.text('Aucun élève du primaire ne correspond aux critères.', pageWidth / 2, 90, { align: 'center' });
                     doc.save('Rapport_Primaire_' + formatDateYMD() + '.pdf');
                     toast('📄 Rapport Primaire généré (vide)', 'success');
-                    isGeneratingPDF = false;
                     return;
                 }
                 const tableData = elevesFiltres.map(e => {
@@ -2544,14 +2523,10 @@
             } catch (e) {
                 toast('Erreur: ' + e.message, 'error');
                 console.error(e);
-            } finally {
-                isGeneratingPDF = false;
             }
         };
 
         document.getElementById('btnGenererRapportMaternelle').onclick = async function() {
-            if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingPDF = true;
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4');
@@ -2626,7 +2601,6 @@
                     doc.text('Aucun élève de la maternelle ne correspond aux critères.', pageWidth / 2, 90, { align: 'center' });
                     doc.save('Rapport_Maternelle_' + formatDateYMD() + '.pdf');
                     toast('📄 Rapport Maternelle généré (vide)', 'success');
-                    isGeneratingPDF = false;
                     return;
                 }
                 const tableData = elevesFiltres.map(e => {
@@ -2662,18 +2636,14 @@
             } catch (e) {
                 toast('Erreur: ' + e.message, 'error');
                 console.error(e);
-            } finally {
-                isGeneratingPDF = false;
             }
         };
 
         // ============================================================
-        // PDF EXONÉRÉS - FONCTION GLOBALE
+        // PDF EXONÉRÉS - SANS VERROUILLAGE (comme le bouton REÇU)
         // ============================================================
 
         window.genererPDFExoneres = async function(espace) {
-            if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingPDF = true;
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4');
@@ -2703,7 +2673,6 @@
 
                 if (elevesExoneres.length === 0) {
                     toast('Aucun élève exonéré trouvé', 'warning');
-                    isGeneratingPDF = false;
                     return;
                 }
 
@@ -2777,8 +2746,6 @@
             } catch (e) {
                 toast('Erreur: ' + e.message, 'error');
                 console.error(e);
-            } finally {
-                isGeneratingPDF = false;
             }
         };
 
