@@ -126,6 +126,7 @@ const isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navi
 if(isPWA){const savedSchool=localStorage.getItem('pwa_school_id');if(savedSchool&&!window.location.search.includes('ecole')){const targetUrl=new URL('/',window.location.origin);targetUrl.searchParams.set('ecole',savedSchool);targetUrl.searchParams.set('from','pwa');targetUrl.searchParams.set('t',Date.now());window.location.href=targetUrl.toString();throw new Error('Redirection PWA')}}
 const placeholders=['⌘','✦','◈','◆','▣','◉','◎','●','◐','◑','◒','◓','◔','◕','⬤','⏣','⚬','◌','⊚','⊛'];
 async function chargerEcoles(){const container=document.getElementById('schoolsList');try{const snapshot=await getDocs(collection(db,"ecoles"));if(snapshot.empty){container.innerHTML='<div class="error">Aucune école trouvée</div>';return}const cardsData=[];let index=0;for(const docSnap of snapshot.docs){const ecole=docSnap.data();const prefixe=docSnap.id;const estActif=ecole.actif!==false;if(!estActif){continue}index++;const nomSafe=(ecole.nom||prefixe||'').replace(/[&<>]/g,function(m){if(m==='&')return'&amp;';if(m==='<')return'&lt;';if(m==='>')return'&gt;';return m});const villeSafe=(ecole.ville||'').replace(/[&<>]/g,function(m){if(m==='&')return'&amp;';if(m==='<')return'&lt;';if(m==='>')return'&gt;';return m});const rating=(3.5+Math.random()*1.5).toFixed(1);const stars='★'.repeat(Math.round(parseFloat(rating)));const logoUrl=ecole.logoUrl||null;const phIndex=(index-1)%placeholders.length;const logoHtml=logoUrl?`<img class="school-logo-img" src="${logoUrl}" alt="${nomSafe}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:`<div class="logo-placeholder">${placeholders[phIndex]}</div>`;
+const nomDisplay=nomSafe;
 cardsData.push({html:`<div class="school-card" data-prefixe="${prefixe}" data-nom="${nomSafe.toLowerCase()}" data-ville="${villeSafe.toLowerCase()}">
 <div class="card-accent"></div>
 <div class="school-logo-area">
@@ -133,7 +134,7 @@ ${logoHtml}
 <div class="logo-shadow"></div>
 </div>
 <div class="school-info">
-<div class="school-name"><span class="prefix">COMPLEXE SCOLAIRE</span> ${nomSafe}</div>
+<div class="school-name"><span class="prefix">COMPLEXE SCOLAIRE</span> ${nomDisplay}</div>
 <div class="school-location">${villeSafe}</div>
 <div class="school-bottom">
 <div class="school-rating"><span class="stars">${stars}</span><span class="value">${rating}</span></div>
@@ -141,12 +142,29 @@ ${logoHtml}
 <div class="btn-access">Accéder</div>
 </div>
 </div>
-</div>`,prefixe:prefixe,nom:nomSafe.toLowerCase(),ville:villeSafe.toLowerCase(),actif:estActif})}
+</div>`,prefixe:prefixe,nom:nomSafe.toLowerCase(),ville:villeSafe.toLowerCase(),actif:estActif,nomOriginal:nomSafe})}
 const tSchools=cardsData.filter(function(c){return c.nom.startsWith('t')});
-const otherSchools=cardsData.filter(function(c){return !c.nom.startsWith('t')});
-const sortedCards=tSchools.concat(otherSchools);
+const sSchools=cardsData.filter(function(c){return c.nom.startsWith('s')&&!c.nom.startsWith('t')});
+const otherSchools=cardsData.filter(function(c){return !c.nom.startsWith('t')&&!c.nom.startsWith('s')});
+tSchools.forEach(function(c){c.nomDisplay='LE '+c.nomOriginal});
+const sortedCards=tSchools.concat(sSchools,otherSchools);
 allCards=sortedCards;renderCards(sortedCards);setupSearch();setupClicks()}catch(error){container.innerHTML='<div class="error">Erreur: '+error.message+'</div>';console.error(error)}}
-function renderCards(cards){const container=document.getElementById('schoolsList');if(cards.length===0){container.innerHTML='<div class="no-result">Aucun établissement disponible</div>';return}container.innerHTML=cards.map(function(c){return c.html}).join('')}
+function renderCards(cards){const container=document.getElementById('schoolsList');if(cards.length===0){container.innerHTML='<div class="no-result">Aucun établissement disponible</div>';return}let html='';cards.forEach(function(c,index){let nomDisplay=c.nomOriginal||c.nom;if(c.nom.startsWith('t')){nomDisplay='LE '+nomDisplay}html+=`<div class="school-card" data-prefixe="${c.prefixe}" data-nom="${c.nom}" data-ville="${c.ville}">
+<div class="card-accent"></div>
+<div class="school-logo-area">
+${c.logoHtml||'<div class="logo-placeholder">◈</div>'}
+<div class="logo-shadow"></div>
+</div>
+<div class="school-info">
+<div class="school-name"><span class="prefix">COMPLEXE SCOLAIRE</span> ${nomDisplay}</div>
+<div class="school-location">${c.ville}</div>
+<div class="school-bottom">
+<div class="school-rating"><span class="stars">${c.stars||'★★★★'}</span><span class="value">${c.rating||'4.5'}</span></div>
+<span class="school-code">${c.prefixe}</span>
+<div class="btn-access">Accéder</div>
+</div>
+</div>
+</div>`});container.innerHTML=html}
 function setupSearch(){const input=document.getElementById('searchInput');const clear=document.getElementById('searchClear');input.addEventListener('input',function(){const q=this.value.trim().toLowerCase();if(q.length>0){clear.style.display='block'}else{clear.style.display='none'}const filtered=allCards.filter(function(c){return c.nom.includes(q)||c.ville.includes(q)});renderCards(filtered);setupClicks()});clear.addEventListener('click',function(){document.getElementById('searchInput').value='';this.style.display='none';renderCards(allCards);setupClicks();document.getElementById('searchInput').focus()})}
 function setupClicks(){document.querySelectorAll('.school-card').forEach(function(card){card.addEventListener('click',function(e){e.stopPropagation();const prefixe=this.getAttribute('data-prefixe');if(prefixe&&prefixe!=='null'&&prefixe!=='undefined'){localStorage.setItem('pwa_school_id',prefixe);localStorage.setItem('lastSchoolId',prefixe);const isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;let targetUrl;if(isPWA){const baseUrl=new URL('/',window.location.origin);baseUrl.searchParams.set('ecole',prefixe);baseUrl.searchParams.set('from','pwa');baseUrl.searchParams.set('t',Date.now());targetUrl=baseUrl.toString()}else{targetUrl='/schooling?ecole='+encodeURIComponent(prefixe)}window.location.href=targetUrl}})})}
 chargerEcoles();
