@@ -428,6 +428,7 @@
         body.light .rapport-sub-tab[data-rapport="maternelle"].active{border-color:#8e44ad;color:#6c3483}
         .rapport-panel{display:none}
         .rapport-panel.active{display:block}
+        /* Style pour l'indicateur de limite d'inscription */
         .inscription-limit-info{font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px;display:flex;align-items:center;gap:6px}
         .inscription-limit-info .limit-value{color:#ffd200;font-weight:700}
         .inscription-limit-info .limit-max{color:#2ecc71;font-weight:700}
@@ -666,7 +667,7 @@
     <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="inscriptionPaymentAmount"></div><div class="modal-buttons"><button class="btn" id="confirmInscriptionPayment">PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
     <div class="modal-overlay" id="moisBlancModal"><div class="modal-card"><h3>❄️ MOIS BLANC</h3><div id="moisBlancInfo"></div><div class="modal-buttons"><button class="btn btn-outline" id="cancelMoisBlanc">ANNULER</button><button class="btn" id="confirmMoisBlanc">OUI</button></div></div></div>
     
-    <!-- Modal de vérification du code pour les modifications -->
+    <!-- NOUVEAU MODAL DE VÉRIFICATION DU CODE -->
     <div class="modal-overlay" id="codeVerificationModal">
         <div class="modal-card">
             <h3>🔐 VÉRIFICATION DE SÉCURITÉ</h3>
@@ -752,6 +753,7 @@
                     <div class="form-group"><label>FRÈRE/SŒUR</label><select id="familyMember"><option value="">-- Choisir --</option></select></div>
                     <button class="btn-apply-family" id="btnApplyFamily">APPLIQUER LE CODE</button>
                 </div>
+                <!-- Champ MONTANT PAYÉ avec limite -->
                 <div class="form-group">
                     <label>💰 MONTANT PAYÉ (FC)</label>
                     <input type="number" id="newMontantInscription" value="0" min="0">
@@ -982,6 +984,39 @@
                     resolve(true); };
                 document.getElementById('confirmSuppressionNon').onclick = () => { modal.classList.remove('show');
                     resolve(false); };
+            });
+        }
+
+        // NOUVELLE FONCTION : Vérification du code de sécurité
+        function showCodeVerificationModal() {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('codeVerificationModal');
+                const input = document.getElementById('securityCodeInput');
+                input.value = '';
+                modal.classList.add('show');
+                input.focus();
+                
+                const handleConfirm = () => {
+                    const code = input.value.trim();
+                    if (code === '2110') {
+                        modal.classList.remove('show');
+                        resolve(true);
+                    } else {
+                        toast('❌ Code incorrect. Opération annulée.', 'error');
+                        modal.classList.remove('show');
+                        resolve(false);
+                    }
+                };
+
+                document.getElementById('confirmSecurityCode').onclick = handleConfirm;
+                document.getElementById('cancelSecurityCode').onclick = () => {
+                    modal.classList.remove('show');
+                    resolve(false);
+                };
+
+                input.onkeydown = (e) => {
+                    if (e.key === 'Enter') handleConfirm();
+                };
             });
         }
 
@@ -1415,357 +1450,14 @@
             document.getElementById('editApprobateurGroup').style.display = show ? 'block' : 'none';
         };
 
-        // Fonction pour afficher le modal de vérification du code
-        function showCodeVerificationModal(action, data) {
-            return new Promise((resolve) => {
-                const modal = document.getElementById('codeVerificationModal');
-                const input = document.getElementById('securityCodeInput');
-                input.value = '';
-                modal.classList.add('show');
-                
-                const handleConfirm = () => {
-                    const code = input.value.trim();
-                    if (code === '2110') {
-                        modal.classList.remove('show');
-                        resolve(true);
-                    } else {
-                        toast('Code incorrect. Opération annulée.', 'error');
-                        modal.classList.remove('show');
-                        resolve(false);
-                    }
-                };
-
-                document.getElementById('confirmSecurityCode').onclick = handleConfirm;
-                document.getElementById('cancelSecurityCode').onclick = () => {
-                    modal.classList.remove('show');
-                    resolve(false);
-                };
-
-                // Enter key support
-                input.onkeydown = (e) => {
-                    if (e.key === 'Enter') handleConfirm();
-                };
-                setTimeout(() => input.focus(), 300);
-            });
-        }
-
-        // Fonction pour modifier le montant payé d'un mois
-        async function modifierMontantPaye(eleveId, mois, montantActuel) {
-            const eleve = localEleves.find(e => e.id === eleveId);
-            if (!eleve) return;
-            
-            const modal = document.getElementById('codeVerificationModal');
-            const input = document.getElementById('securityCodeInput');
-            input.value = '';
-            
-            // Personnaliser le modal pour la modification du montant
-            document.querySelector('#codeVerificationModal .modal-card h3').textContent = '💰 MODIFICATION DU MONTANT';
-            document.querySelector('#codeVerificationModal .modal-card p').textContent = 'Entrez le code de sécurité pour modifier le montant du mois ' + mois;
-            
-            const result = await showCodeVerificationModal();
-            if (!result) return;
-            
-            // Demander le nouveau montant
-            const nouveauMontant = prompt('Entrez le nouveau montant pour ' + mois + ' (actuel: ' + formatNbSimple(montantActuel) + ' FC) :');
-            if (nouveauMontant === null) return;
-            
-            const nvMontant = parseInt(nouveauMontant);
-            if (isNaN(nvMontant) || nvMontant < 0) {
-                toast('Montant invalide', 'error');
-                return;
-            }
-            
-            try {
-                const ref = getEleveRef(eleveId);
-                const snap = await getDoc(ref);
-                if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
-                
-                const d = snap.data();
-                const paiements = d.paiements || {};
-                if (!paiements[mois]) {
-                    paiements[mois] = { montant: 0, date: null, historique: [] };
-                }
-                
-                // Mettre à jour le montant
-                paiements[mois].montant = nvMontant;
-                paiements[mois].lastUpdate = Date.now();
-                
-                await updateDoc(ref, { paiements: paiements });
-                
-                // Mise à jour locale
-                const idx = localEleves.findIndex(e => e.id === eleveId);
-                if (idx !== -1) {
-                    localEleves[idx].paiements = paiements;
-                    if (currentEleve && currentEleve.id === eleveId) {
-                        currentEleve.paiements = paiements;
-                    }
-                }
-                
-                toast('✅ Montant modifié avec succès', 'success');
-                await afficherReleve(currentEleve);
-                await afficherEleves();
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-            }
-        }
-
-        // Fonction pour modifier le sexe d'un élève
-        async function modifierSexe(eleveId) {
-            const eleve = localEleves.find(e => e.id === eleveId);
-            if (!eleve) return;
-            
-            const result = await showCodeVerificationModal();
-            if (!result) return;
-            
-            const nouveauSexe = prompt('Entrez le nouveau sexe (M/F) :', eleve.sexe || 'M');
-            if (nouveauSexe === null) return;
-            
-            const sexe = nouveauSexe.toUpperCase();
-            if (sexe !== 'M' && sexe !== 'F') {
-                toast('Sexe invalide. Utilisez M ou F', 'error');
-                return;
-            }
-            
-            try {
-                const ref = getEleveRef(eleveId);
-                await updateDoc(ref, { sexe: sexe });
-                
-                const idx = localEleves.findIndex(e => e.id === eleveId);
-                if (idx !== -1) {
-                    localEleves[idx].sexe = sexe;
-                    if (currentEleve && currentEleve.id === eleveId) {
-                        currentEleve.sexe = sexe;
-                    }
-                }
-                
-                toast('✅ Sexe modifié avec succès', 'success');
-                await afficherReleve(currentEleve);
-                await afficherEleves();
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-            }
-        }
-
-        // Fonction pour modifier la classe d'un élève
-        async function modifierClasse(eleveId) {
-            const eleve = localEleves.find(e => e.id === eleveId);
-            if (!eleve) return;
-            
-            const result = await showCodeVerificationModal();
-            if (!result) return;
-            
-            const nouvelleClasse = prompt('Entrez la nouvelle classe :', eleve.classe || '');
-            if (nouvelleClasse === null) return;
-            
-            const classe = nouvelleClasse.trim();
-            if (!classe) {
-                toast('Classe invalide', 'error');
-                return;
-            }
-            
-            try {
-                const ref = getEleveRef(eleveId);
-                // Mettre à jour le minerval en fonction de la nouvelle classe si non exonéré
-                const mv = eleve.exonere ? 0 : await getMinerval(classe);
-                
-                await updateDoc(ref, { classe: classe, minerval: mv });
-                
-                const idx = localEleves.findIndex(e => e.id === eleveId);
-                if (idx !== -1) {
-                    localEleves[idx].classe = classe;
-                    localEleves[idx].minerval = mv;
-                    if (currentEleve && currentEleve.id === eleveId) {
-                        currentEleve.classe = classe;
-                        currentEleve.minerval = mv;
-                    }
-                }
-                
-                toast('✅ Classe modifiée avec succès', 'success');
-                await afficherReleve(currentEleve);
-                await afficherEleves();
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-            }
-        }
-
-        // Fonction pour modifier le montant payé pour une période maternelle
-        async function modifierMontantPayeMaternel(eleveId, periodeId, periodeNom, montantActuel) {
-            const eleve = localEleves.find(e => e.id === eleveId);
-            if (!eleve) return;
-            
-            const result = await showCodeVerificationModal();
-            if (!result) return;
-            
-            const nouveauMontant = prompt('Entrez le nouveau montant pour ' + periodeNom + ' (actuel: ' + formatNbSimple(montantActuel) + ' FC) :');
-            if (nouveauMontant === null) return;
-            
-            const nvMontant = parseInt(nouveauMontant);
-            if (isNaN(nvMontant) || nvMontant < 0) {
-                toast('Montant invalide', 'error');
-                return;
-            }
-            
-            try {
-                const ref = getEleveRef(eleveId);
-                const snap = await getDoc(ref);
-                if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
-                
-                const d = snap.data();
-                const paiements = d.paiements || {};
-                if (!paiements[periodeId]) {
-                    paiements[periodeId] = { montant: 0, date: null, historique: [] };
-                }
-                
-                paiements[periodeId].montant = nvMontant;
-                paiements[periodeId].lastUpdate = Date.now();
-                
-                await updateDoc(ref, { paiements: paiements });
-                
-                const idx = localEleves.findIndex(e => e.id === eleveId);
-                if (idx !== -1) {
-                    localEleves[idx].paiements = paiements;
-                    if (currentEleve && currentEleve.id === eleveId) {
-                        currentEleve.paiements = paiements;
-                    }
-                }
-                
-                toast('✅ Montant modifié avec succès', 'success');
-                await afficherReleve(currentEleve);
-                await afficherEleves();
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-            }
-        }
-
-        // Fonction pour modifier le sexe depuis le relevé
-        function modifierSexeDepuisReleve() {
-            if (currentEleve) {
-                modifierSexe(currentEleve.id);
-            }
-        }
-
-        // Fonction pour modifier la classe depuis le relevé
-        function modifierClasseDepuisReleve() {
-            if (currentEleve) {
-                modifierClasse(currentEleve.id);
-            }
-        }
-
-        // Fonction pour générer la liste des exonérés
-        async function genererListeExoneres(space = 'primaire') {
-            if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
-            isGeneratingPDF = true;
-            
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4');
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || schoolDisplayName));
-                
-                // Récupérer tous les élèves de l'espace
-                const tous = await getAllEleves(space);
-                const exoneres = tous.filter(e => e.exonere === true && !e.abandon);
-                
-                // Préparer les données
-                const tableData = exoneres.map(e => {
-                    const nomComplet = (e.nom + ' ' + (e.postnom || '') + ' ' + (e.prenom || '')).toUpperCase();
-                    const approbateur = e.approbateur || 'Non spécifié';
-                    return [nomComplet, e.classe || '-', approbateur];
-                });
-                
-                // En-tête du PDF
-                doc.setFillColor(255, 255, 255);
-                doc.rect(0, 0, pageWidth, 50, "F");
-                doc.setDrawColor(46, 204, 113);
-                doc.setLineWidth(1.5);
-                doc.line(20, 50, pageWidth - 20, 50);
-                
-                const logoX = 15;
-                const logoY = 8;
-                const logoSize = 35;
-                let logoAdded = false;
-                if (schoolLogoUrl) {
-                    try {
-                        const logoBase64 = await loadLogoBase64();
-                        if (logoBase64) {
-                            doc.addImage(logoBase64, 'JPEG', logoX, logoY, logoSize, logoSize);
-                            logoAdded = true;
-                        }
-                    } catch (e) { console.error("Erreur logo:", e); }
-                }
-                
-                const startX = logoAdded ? logoX + logoSize + 12 : 20;
-                const titleY = logoAdded ? 18 : 16;
-                doc.setFontSize(logoAdded ? 20 : 18);
-                doc.setFont("helvetica", "bold");
-                doc.setTextColor(46, 204, 113);
-                doc.text('COMPLEXE SCOLAIRE ' + nomEcole, startX, titleY);
-                doc.setFontSize(logoAdded ? 16 : 14);
-                doc.setTextColor(0, 0, 0);
-                doc.text('LISTE DES ÉLÈVES EXONÉRÉS - ' + (space === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE'), startX, titleY + (logoAdded ? 14 : 12));
-                
-                doc.setFontSize(logoAdded ? 10 : 9);
-                doc.setTextColor(100, 100, 100);
-                doc.text('Année scolaire ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 24 : 20));
-                doc.text('Total: ' + exoneres.length + ' élèves exonérés', startX, titleY + (logoAdded ? 30 : 26));
-                doc.setFontSize(8);
-                doc.text('Généré le ' + formatDateFr(new Date()), pageWidth - 20, 48, { align: "right" });
-                
-                if (exoneres.length === 0) {
-                    doc.setFontSize(12);
-                    doc.setTextColor(200, 0, 0);
-                    doc.text('Aucun élève exonéré dans cet espace.', pageWidth / 2, 80, { align: 'center' });
-                    doc.save('Liste_Exoneres_' + (space === 'primaire' ? 'Primaire' : 'Maternelle') + '_' + formatDateYMD() + '.pdf');
-                    toast('📄 Liste des exonérés générée (vide)', 'success');
-                    isGeneratingPDF = false;
-                    return;
-                }
-                
-                // Trier par classe
-                tableData.sort((a, b) => a[1].localeCompare(b[1]));
-                
-                doc.autoTable({
-                    head: [['NOM COMPLET', 'CLASSE / NIVEAU', 'APPROBATEUR']],
-                    body: tableData,
-                    startY: 60,
-                    styles: { fontSize: 9, cellPadding: 4 },
-                    headStyles: { fillColor: [46, 204, 113], textColor: [255, 255, 255], fontSize: 10, fontStyle: 'bold' },
-                    alternateRowStyles: { fillColor: [235, 248, 240] },
-                    didDrawPage: function(data) {
-                        const pageCount = doc.internal.getNumberOfPages();
-                        doc.setFontSize(8);
-                        doc.setTextColor(100, 100, 100);
-                        doc.text('Page ' + data.pageNumber + ' / ' + pageCount, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
-                    }
-                });
-                
-                doc.save('Liste_Exoneres_' + (space === 'primaire' ? 'Primaire' : 'Maternelle') + '_' + formatDateYMD() + '.pdf');
-                toast('📄 Liste des exonérés générée (' + exoneres.length + ' élèves)', 'success');
-            } catch (e) {
-                toast('Erreur: ' + e.message, 'error');
-                console.error(e);
-            } finally {
-                isGeneratingPDF = false;
-            }
-        }
-
-        // Ajouter les gestionnaires d'événements pour les boutons de liste des exonérés
-        document.getElementById('btnGenererListeExoneres').addEventListener('click', function() {
-            genererListeExoneres('primaire');
-        });
-
-        document.getElementById('btnGenererListeExoneresMater').addEventListener('click', function() {
-            genererListeExoneres('maternelle');
-        });
-
-        // Modifier l'affichage du relevé pour ajouter les boutons de modification
+        // MODIFICATION : Vérification du code avant de modifier l'élève
         document.getElementById('confirmEditEleve').onclick = async function() {
             const id = window._editEleveId;
             if (!id) { toast('Erreur: ID manquant', 'error'); return; }
             
-            // Vérifier le code avant de modifier
-            const result = await showCodeVerificationModal();
-            if (!result) return;
+            // Vérification du code de sécurité
+            const codeOk = await showCodeVerificationModal();
+            if (!codeOk) return;
             
             const sexe = document.getElementById('editSexe').value;
             const classe = document.getElementById('editClasse').value;
@@ -1828,6 +1520,7 @@
             const statusDisplay = document.getElementById('limitStatus');
 
             if (exonere) {
+                // Si exonéré, le montant maximum est 0
                 montantInput.max = 0;
                 montantInput.value = 0;
                 maxDisplay.textContent = '0';
@@ -1880,6 +1573,184 @@
         // FIN FONCTION LIMITE D'INSCRIPTION
         // ============================================================
 
+        // ============================================================
+        // FONCTIONS DE MODIFICATION AVEC CODE DE SÉCURITÉ
+        // ============================================================
+
+        // Modifier le montant payé pour un mois (Primaire)
+        async function modifierMontantPaye(eleveId, mois, montantActuel) {
+            const eleve = localEleves.find(e => e.id === eleveId);
+            if (!eleve) return;
+            
+            const codeOk = await showCodeVerificationModal();
+            if (!codeOk) return;
+            
+            const nouveauMontant = prompt('Entrez le nouveau montant pour ' + mois + ' (actuel: ' + formatNbSimple(montantActuel) + ' FC) :');
+            if (nouveauMontant === null) return;
+            
+            const nvMontant = parseInt(nouveauMontant);
+            if (isNaN(nvMontant) || nvMontant < 0) {
+                toast('Montant invalide', 'error');
+                return;
+            }
+            
+            try {
+                const ref = getEleveRef(eleveId);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
+                
+                const d = snap.data();
+                const paiements = d.paiements || {};
+                if (!paiements[mois]) {
+                    paiements[mois] = { montant: 0, date: null, historique: [] };
+                }
+                
+                paiements[mois].montant = nvMontant;
+                paiements[mois].lastUpdate = Date.now();
+                
+                await updateDoc(ref, { paiements: paiements });
+                
+                const idx = localEleves.findIndex(e => e.id === eleveId);
+                if (idx !== -1) {
+                    localEleves[idx].paiements = paiements;
+                    if (currentEleve && currentEleve.id === eleveId) {
+                        currentEleve.paiements = paiements;
+                    }
+                }
+                
+                toast('✅ Montant modifié avec succès', 'success');
+                await afficherReleve(currentEleve);
+                await afficherEleves();
+            } catch (e) {
+                toast('Erreur: ' + e.message, 'error');
+            }
+        }
+
+        // Modifier le montant payé pour une période (Maternelle)
+        async function modifierMontantPayeMaternel(eleveId, periodeId, periodeNom, montantActuel) {
+            const eleve = localEleves.find(e => e.id === eleveId);
+            if (!eleve) return;
+            
+            const codeOk = await showCodeVerificationModal();
+            if (!codeOk) return;
+            
+            const nouveauMontant = prompt('Entrez le nouveau montant pour ' + periodeNom + ' (actuel: ' + formatNbSimple(montantActuel) + ' FC) :');
+            if (nouveauMontant === null) return;
+            
+            const nvMontant = parseInt(nouveauMontant);
+            if (isNaN(nvMontant) || nvMontant < 0) {
+                toast('Montant invalide', 'error');
+                return;
+            }
+            
+            try {
+                const ref = getEleveRef(eleveId);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) { toast('Élève non trouvé', 'error'); return; }
+                
+                const d = snap.data();
+                const paiements = d.paiements || {};
+                if (!paiements[periodeId]) {
+                    paiements[periodeId] = { montant: 0, date: null, historique: [] };
+                }
+                
+                paiements[periodeId].montant = nvMontant;
+                paiements[periodeId].lastUpdate = Date.now();
+                
+                await updateDoc(ref, { paiements: paiements });
+                
+                const idx = localEleves.findIndex(e => e.id === eleveId);
+                if (idx !== -1) {
+                    localEleves[idx].paiements = paiements;
+                    if (currentEleve && currentEleve.id === eleveId) {
+                        currentEleve.paiements = paiements;
+                    }
+                }
+                
+                toast('✅ Montant modifié avec succès', 'success');
+                await afficherReleve(currentEleve);
+                await afficherEleves();
+            } catch (e) {
+                toast('Erreur: ' + e.message, 'error');
+            }
+        }
+
+        // Modifier le sexe depuis le relevé
+        async function modifierSexeDepuisReleve() {
+            if (!currentEleve) return;
+            
+            const codeOk = await showCodeVerificationModal();
+            if (!codeOk) return;
+            
+            const nouveauSexe = prompt('Entrez le nouveau sexe (M/F) :', currentEleve.sexe || 'M');
+            if (nouveauSexe === null) return;
+            
+            const sexe = nouveauSexe.toUpperCase();
+            if (sexe !== 'M' && sexe !== 'F') {
+                toast('Sexe invalide. Utilisez M ou F', 'error');
+                return;
+            }
+            
+            try {
+                const ref = getEleveRef(currentEleve.id);
+                await updateDoc(ref, { sexe: sexe });
+                
+                const idx = localEleves.findIndex(e => e.id === currentEleve.id);
+                if (idx !== -1) {
+                    localEleves[idx].sexe = sexe;
+                    currentEleve.sexe = sexe;
+                }
+                
+                toast('✅ Sexe modifié avec succès', 'success');
+                await afficherReleve(currentEleve);
+                await afficherEleves();
+            } catch (e) {
+                toast('Erreur: ' + e.message, 'error');
+            }
+        }
+
+        // Modifier la classe depuis le relevé
+        async function modifierClasseDepuisReleve() {
+            if (!currentEleve) return;
+            
+            const codeOk = await showCodeVerificationModal();
+            if (!codeOk) return;
+            
+            const nouvelleClasse = prompt('Entrez la nouvelle classe :', currentEleve.classe || '');
+            if (nouvelleClasse === null) return;
+            
+            const classe = nouvelleClasse.trim();
+            if (!classe) {
+                toast('Classe invalide', 'error');
+                return;
+            }
+            
+            try {
+                const ref = getEleveRef(currentEleve.id);
+                const mv = currentEleve.exonere ? 0 : await getMinerval(classe);
+                
+                await updateDoc(ref, { classe: classe, minerval: mv });
+                
+                const idx = localEleves.findIndex(e => e.id === currentEleve.id);
+                if (idx !== -1) {
+                    localEleves[idx].classe = classe;
+                    localEleves[idx].minerval = mv;
+                    currentEleve.classe = classe;
+                    currentEleve.minerval = mv;
+                }
+                
+                toast('✅ Classe modifiée avec succès', 'success');
+                await afficherReleve(currentEleve);
+                await afficherEleves();
+            } catch (e) {
+                toast('Erreur: ' + e.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // FIN FONCTIONS DE MODIFICATION
+        // ============================================================
+
         async function afficherReleve(eleve) {
             if (!eleve || eleve.abandon) {
                 document.getElementById("releveContainer").innerHTML = '<div class="empty-state">⚠️ Cet élève a abandonné</div>';
@@ -1902,13 +1773,12 @@
             }
             let html = '<div class="paiement-header"><div><div class="eleve">' + e.nom + ' ' + (e.prenom || '') + '</div><div class="classe">' + e.classe + (e.exonere ? ' <span class="badge badge-exonere" style="font-size:10px;">EXONÉRÉ</span>' : '') + '</div><div class="code">🔑 ' + (e.parentCode || 'Non attribué') + '</div>';
             if (e.lienFamille) { html += '<div style="font-size:12px;color:rgba(255,255,255,0.3);margin-top:2px;">🔗 Lié à ' + e.lienFamille.nom + ' (' + e.lienFamille.espace + ')</div>'; }
-            html += '</div>';
-            // Ajouter les boutons de modification du sexe et de la classe
+            // NOUVEAUX BOUTONS : Modifier Sexe et Modifier Classe
             html += '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">';
-            html += '<button class="btn btn-sm btn-outline" onclick="modifierSexeDepuisReleve()">✏️ Modifier Sexe</button>';
-            html += '<button class="btn btn-sm btn-outline" onclick="modifierClasseDepuisReleve()">✏️ Modifier Classe</button>';
+            html += '<button class="btn btn-sm btn-outline" onclick="modifierSexeDepuisReleve()">✏️ Sexe</button>';
+            html += '<button class="btn btn-sm btn-outline" onclick="modifierClasseDepuisReleve()">✏️ Classe</button>';
             html += '</div>';
-            html += '</div>';
+            html += '</div></div>';
             let totalMin = 0,
                 totalPaye = 0;
             if (estMaternelle) {
@@ -1928,7 +1798,10 @@
                     const statut = e.exonere ? 'exonere' : (estPaye ? 'paye' : 'impaye');
                     const labelStatut = e.exonere ? 'EXONÉRÉ' : (estPaye ? '✅ PAYÉ' : '❌ IMPAYÉ');
                     const classeCard = estPaye ? '' : 'impaye';
-                    html += '<div class="paiement-month ' + classeCard + '"><div class="mois">' + p.nom + '</div><div class="montant">' + formatNbSimple(p.montant) + ' FC</div><div class="statut ' + statut + '">' + labelStatut + '</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ' + formatNbSimple(montant) + ' FC</span>' + (!estPaye && !e.exonere ? '<button class="btn btn-sm" onclick="openPaiementMaternelle(\'' + e.id + '\',\'' + p.id + '\',\'' + p.nom + '\',' + p.montant + ',' + montant + ')">PAYER</button>' : '') + (montant > 0 ? '<button class="btn btn-sm btn-pdf" onclick="genererReçuPDF(\'' + e.id + '\',\'' + p.id + '\',' + montant + ',\'' + (pay.date || new Date().toISOString()) + '\',\'maternelle\')">🧾 REÇU</button>' : '') + (montant > 0 && !e.exonere ? '<button class="btn btn-sm btn-orange" onclick="modifierMontantPayeMaternel(\'' + e.id + '\',\'' + p.id + '\',\'' + p.nom + '\',' + montant + ')">✏️ Modifier</button>' : '') + '</div></div>';
+                    html += '<div class="paiement-month ' + classeCard + '"><div class="mois">' + p.nom + '</div><div class="montant">' + formatNbSimple(p.montant) + ' FC</div><div class="statut ' + statut + '">' + labelStatut + '</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ' + formatNbSimple(montant) + ' FC</span>' + (!estPaye && !e.exonere ? '<button class="btn btn-sm" onclick="openPaiementMaternelle(\'' + e.id + '\',\'' + p.id + '\',\'' + p.nom + '\',' + p.montant + ',' + montant + ')">PAYER</button>' : '') + (montant > 0 ? '<button class="btn btn-sm btn-pdf" onclick="genererReçuPDF(\'' + e.id + '\',\'' + p.id + '\',' + montant + ',\'' + (pay.date || new Date().toISOString()) + '\',\'maternelle\')">🧾 REÇU</button>' : '') + 
+                    // NOUVEAU BOUTON : Modifier le montant
+                    (montant > 0 && !e.exonere ? '<button class="btn btn-sm btn-orange" onclick="modifierMontantPayeMaternel(\'' + e.id + '\',\'' + p.id + '\',\'' + p.nom + '\',' + montant + ')">✏️ Modifier</button>' : '') +
+                    '</div></div>';
                 }
                 const resteTotal = Math.max(0, totalMin - totalPaye);
                 html += '<div class="paiement-recap"><div class="row"><span>Total à payer</span><span>' + formatNbSimple(totalMin) + ' FC</span></div><div class="row"><span>Total payé</span><span class="val-green">' + formatNbSimple(totalPaye) + ' FC</span></div><div class="row total"><span>Reste à payer</span><span class="val-red">' + formatNbSimple(resteTotal) + ' FC</span></div></div>';
@@ -1959,7 +1832,10 @@
                     const showPay = (!estBlanc && !e.exonere && !estPaye);
                     const showBlanc = (!estBlanc && !e.exonere && !e.abandon);
                     const showReçu = (payeReel > 0 && !estBlanc);
-                    html += '<div class="paiement-month ' + classeCard + '"><div class="mois">' + mois.toUpperCase() + '</div><div class="montant">' + formatNbSimple(mvAffiche) + ' FC</div><div class="statut ' + statut + '">' + labelStatut + '</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ' + formatNbSimple(payeReel) + ' FC</span>' + (showPay ? '<button class="btn btn-sm" onclick="openPaiement(\'' + mois + '\',' + mvAffiche + ',' + payeReel + ')">PAYER</button>' : '') + (showBlanc ? '<button class="btn btn-sm btn-outline" onclick="demanderBlanc(\'' + e.id + '\',\'' + mois + '\')">❄️</button>' : '') + (showReçu ? '<button class="btn btn-sm btn-pdf" onclick="genererReçuPDF(\'' + e.id + '\',\'' + mois + '\',' + payeReel + ',\'' + (pay.date || new Date().toISOString()) + '\',\'primaire\')">🧾 REÇU</button>' : '') + (montant > 0 && !e.exonere && !estBlanc ? '<button class="btn btn-sm btn-orange" onclick="modifierMontantPaye(\'' + e.id + '\',\'' + mois + '\',' + montant + ')">✏️ Modifier</button>' : '') + '</div></div>';
+                    html += '<div class="paiement-month ' + classeCard + '"><div class="mois">' + mois.toUpperCase() + '</div><div class="montant">' + formatNbSimple(mvAffiche) + ' FC</div><div class="statut ' + statut + '">' + labelStatut + '</div><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;color:rgba(255,255,255,0.25);">Payé: ' + formatNbSimple(payeReel) + ' FC</span>' + (showPay ? '<button class="btn btn-sm" onclick="openPaiement(\'' + mois + '\',' + mvAffiche + ',' + payeReel + ')">PAYER</button>' : '') + (showBlanc ? '<button class="btn btn-sm btn-outline" onclick="demanderBlanc(\'' + e.id + '\',\'' + mois + '\')">❄️</button>' : '') + (showReçu ? '<button class="btn btn-sm btn-pdf" onclick="genererReçuPDF(\'' + e.id + '\',\'' + mois + '\',' + payeReel + ',\'' + (pay.date || new Date().toISOString()) + '\',\'primaire\')">🧾 REÇU</button>' : '') + 
+                    // NOUVEAU BOUTON : Modifier le montant
+                    (montant > 0 && !e.exonere && !estBlanc ? '<button class="btn btn-sm btn-orange" onclick="modifierMontantPaye(\'' + e.id + '\',\'' + mois + '\',' + montant + ')">✏️ Modifier</button>' : '') +
+                    '</div></div>';
                 }
                 const resteTotal = Math.max(0, totalMin - totalPaye);
                 html += '<div class="paiement-recap"><div class="row"><span>Total minerval</span><span>' + formatNbSimple(totalMin) + ' FC</span></div><div class="row"><span>Total payé</span><span class="val-green">' + formatNbSimple(totalPaye) + ' FC</span></div><div class="row total"><span>Reste à payer</span><span class="val-red">' + formatNbSimple(resteTotal) + ' FC</span></div></div>';
@@ -2817,6 +2693,106 @@
         };
 
         // ============================================================
+        // NOUVELLE FONCTION : GÉNÉRER LA LISTE DES EXONÉRÉS
+        // ============================================================
+        async function genererListeExoneres(space = 'primaire') {
+            if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
+            isGeneratingPDF = true;
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const nomEcole = mettreEnMajuscules(sansAccent(currentSchoolConfig?.nom || schoolDisplayName));
+                
+                // Récupérer tous les élèves de l'espace
+                const tous = await getAllEleves(space);
+                const exoneres = tous.filter(e => e.exonere === true && !e.abandon);
+                
+                // Préparer les données
+                const tableData = exoneres.map(e => {
+                    const nomComplet = (e.nom + ' ' + (e.postnom || '') + ' ' + (e.prenom || '')).toUpperCase();
+                    const approbateur = e.approbateur || 'Non spécifié';
+                    return [nomComplet, e.classe || '-', approbateur];
+                });
+                
+                // En-tête du PDF
+                doc.setFillColor(255, 255, 255);
+                doc.rect(0, 0, pageWidth, 50, "F");
+                doc.setDrawColor(46, 204, 113);
+                doc.setLineWidth(1.5);
+                doc.line(20, 50, pageWidth - 20, 50);
+                
+                const logoX = 15;
+                const logoY = 8;
+                const logoSize = 35;
+                let logoAdded = false;
+                if (schoolLogoUrl) {
+                    try {
+                        const logoBase64 = await loadLogoBase64();
+                        if (logoBase64) {
+                            doc.addImage(logoBase64, 'JPEG', logoX, logoY, logoSize, logoSize);
+                            logoAdded = true;
+                        }
+                    } catch (e) { console.error("Erreur logo:", e); }
+                }
+                
+                const startX = logoAdded ? logoX + logoSize + 12 : 20;
+                const titleY = logoAdded ? 18 : 16;
+                doc.setFontSize(logoAdded ? 20 : 18);
+                doc.setFont("helvetica", "bold");
+                doc.setTextColor(46, 204, 113);
+                doc.text('COMPLEXE SCOLAIRE ' + nomEcole, startX, titleY);
+                doc.setFontSize(logoAdded ? 16 : 14);
+                doc.setTextColor(0, 0, 0);
+                doc.text('LISTE DES ÉLÈVES EXONÉRÉS - ' + (space === 'primaire' ? 'PRIMAIRE' : 'MATERNELLE'), startX, titleY + (logoAdded ? 14 : 12));
+                
+                doc.setFontSize(logoAdded ? 10 : 9);
+                doc.setTextColor(100, 100, 100);
+                doc.text('Année scolaire ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 24 : 20));
+                doc.text('Total: ' + exoneres.length + ' élèves exonérés', startX, titleY + (logoAdded ? 30 : 26));
+                doc.setFontSize(8);
+                doc.text('Généré le ' + formatDateFr(new Date()), pageWidth - 20, 48, { align: "right" });
+                
+                if (exoneres.length === 0) {
+                    doc.setFontSize(12);
+                    doc.setTextColor(200, 0, 0);
+                    doc.text('Aucun élève exonéré dans cet espace.', pageWidth / 2, 80, { align: 'center' });
+                    doc.save('Liste_Exoneres_' + (space === 'primaire' ? 'Primaire' : 'Maternelle') + '_' + formatDateYMD() + '.pdf');
+                    toast('📄 Liste des exonérés générée (vide)', 'success');
+                    isGeneratingPDF = false;
+                    return;
+                }
+                
+                // Trier par classe
+                tableData.sort((a, b) => a[1].localeCompare(b[1]));
+                
+                doc.autoTable({
+                    head: [['NOM COMPLET', 'CLASSE / NIVEAU', 'APPROBATEUR']],
+                    body: tableData,
+                    startY: 60,
+                    styles: { fontSize: 9, cellPadding: 4 },
+                    headStyles: { fillColor: [46, 204, 113], textColor: [255, 255, 255], fontSize: 10, fontStyle: 'bold' },
+                    alternateRowStyles: { fillColor: [235, 248, 240] },
+                    didDrawPage: function(data) {
+                        const pageCount = doc.internal.getNumberOfPages();
+                        doc.setFontSize(8);
+                        doc.setTextColor(100, 100, 100);
+                        doc.text('Page ' + data.pageNumber + ' / ' + pageCount, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
+                    }
+                });
+                
+                doc.save('Liste_Exoneres_' + (space === 'primaire' ? 'Primaire' : 'Maternelle') + '_' + formatDateYMD() + '.pdf');
+                toast('📄 Liste des exonérés générée (' + exoneres.length + ' élèves)', 'success');
+            } catch (e) {
+                toast('Erreur: ' + e.message, 'error');
+                console.error(e);
+            } finally {
+                isGeneratingPDF = false;
+            }
+        }
+
+        // ============================================================
         // GÉNÉRATION RAPPORT MATERNELLE AVEC LOGO
         // ============================================================
         document.getElementById('btnGenererRapportMaternelle').onclick = async function() {
@@ -2960,6 +2936,15 @@
             document.querySelectorAll('.rapport-panel').forEach(p => p.classList.remove('active'));
             const target = btn.dataset.rapport === 'primaire' ? 'rapportPrimaire' : 'rapportMaternelle';
             document.getElementById(target).classList.add('active');
+        });
+
+        // NOUVEAUX ÉCOUTEURS : Boutons de génération des listes d'exonérés
+        document.getElementById('btnGenererListeExoneres').addEventListener('click', function() {
+            genererListeExoneres('primaire');
+        });
+
+        document.getElementById('btnGenererListeExoneresMater').addEventListener('click', function() {
+            genererListeExoneres('maternelle');
         });
 
         // ============================================================
@@ -3278,8 +3263,6 @@
         // Exposer les fonctions de modification
         window.modifierMontantPaye = modifierMontantPaye;
         window.modifierMontantPayeMaternel = modifierMontantPayeMaternel;
-        window.modifierSexe = modifierSexe;
-        window.modifierClasse = modifierClasse;
         window.modifierSexeDepuisReleve = modifierSexeDepuisReleve;
         window.modifierClasseDepuisReleve = modifierClasseDepuisReleve;
 
@@ -3291,6 +3274,7 @@
             await getPeriodesMaternelle();
             applyTheme(espaceActif);
             await chargerEspace();
+            // Initialiser la limite d'inscription
             await updateInscriptionLimit();
             
             if (unsubscribeFirebase) { unsubscribeFirebase(); }
