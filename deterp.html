@@ -132,32 +132,6 @@
         body.light .btn-exoneres-primaire{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff}
         body.light .btn-exoneres-maternelle{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff}
         body.light .btn-exoneres-tous{background:linear-gradient(135deg,#27ae60,#1e8449);color:#fff}
-        body.light .periode-config td{color:#1a202c}
-        body.light .periode-config th{color:rgba(0,0,0,0.4)}
-        body.light .periode-config input{background:rgba(255,255,255,0.6);color:#1a202c;border:1px solid rgba(0,0,0,0.1)}
-        body.light .periode-config input:focus{border-color:#4a6fa5;background:rgba(255,255,255,0.8)}
-        body.light .modal-card{background:rgba(255,255,255,0.95)}
-        body.light .modal-card h3{color:#1a202c}
-        body.light .modal-card h3::after{background:linear-gradient(90deg,#4a6fa5,#6b8fc9)}
-        body.light .modal-info-line{color:rgba(0,0,0,0.5);border-bottom:1px solid rgba(0,0,0,0.06)}
-        body.light .modal-info-line span:last-child{color:#1a202c}
-        body.light .btn{color:#1a202c}
-        body.light .btn-outline{color:#4a6fa5;border-color:rgba(74,111,165,0.3)}
-        body.light .btn-danger{color:#fff}
-        body.light .btn-pdf{color:#fff}
-        body.light .btn-success{color:#fff}
-        body.light .btn-orange{color:#fff}
-        body.light .btn-rapport{color:#fff}
-        body.light .btn-rapport-primaire{color:#fff}
-        body.light .btn-rapport-maternelle{color:#fff}
-        body.light .btn-secondary-nav{color:#fff}
-        body.light .btn-apply-family{color:#fff}
-        body.light .btn-supprimer{color:#fff}
-        body.light .btn-modifier{color:#fff}
-        body.light .btn-exoneres{color:#fff}
-        body.light .btn-exoneres-primaire{color:#fff}
-        body.light .btn-exoneres-maternelle{color:#fff}
-        body.light .btn-exoneres-tous{color:#fff}
         .container{max-width:100%;margin:0 auto;padding:0}
         .header{background:rgba(255,255,255,0.06);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.06);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:8px}
         .header-left{display:flex;flex-direction:column;gap:4px;flex:1}
@@ -628,9 +602,9 @@
                     <hr>
                     <h4 style="color:#2ecc71;margin-top:12px;">🌟 EXONÉRÉS</h4>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-                        <button class="btn btn-exoneres-primaire w-100" id="btnExoneresPrimaire" style="flex:1;min-width:120px;">📄 PRIMAIRE</button>
-                        <button class="btn btn-exoneres-maternelle w-100" id="btnExoneresMaternelle" style="flex:1;min-width:120px;">📄 MATERNELLE</button>
-                        <button class="btn btn-exoneres-tous w-100" id="btnExoneresTous" style="flex:1;min-width:120px;">📄 TOUS</button>
+                        <button class="btn btn-exoneres-primaire w-100" id="btnExoneresPrimaire" style="flex:1;min-width:120px;" onclick="genererPDFExoneres('primaire')">📄 PRIMAIRE</button>
+                        <button class="btn btn-exoneres-maternelle w-100" id="btnExoneresMaternelle" style="flex:1;min-width:120px;" onclick="genererPDFExoneres('maternelle')">📄 MATERNELLE</button>
+                        <button class="btn btn-exoneres-tous w-100" id="btnExoneresTous" style="flex:1;min-width:120px;" onclick="genererPDFExoneres('tous')">📄 TOUS</button>
                     </div>
                     <p style="font-size:12px;color:rgba(255,255,255,0.3);text-align:center;">Génère un PDF listant tous les élèves exonérés</p>
                 </div>
@@ -646,6 +620,7 @@
         </div>
     </div>
 
+    <!-- Modals -->
     <div class="modal-overlay" id="paymentModal"><div class="modal-card"><h3>💰 CONFIRMATION</h3><div id="modalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="paymentAmount"></div><div class="modal-buttons"><button class="btn" id="confirmPayment">VALIDER</button><button class="btn btn-outline" id="cancelPayment">ANNULER</button></div></div></div>
     <div class="modal-overlay" id="inscriptionPaymentModal"><div class="modal-card"><h3>💰 PAIEMENT</h3><div id="inscriptionModalInfo"></div><div class="form-group"><label>MONTANT (FC)</label><input type="number" id="inscriptionPaymentAmount"></div><div class="modal-buttons"><button class="btn" id="confirmInscriptionPayment">PAYER</button><button class="btn btn-outline" id="cancelInscriptionPayment">ANNULER</button></div></div></div>
     <div class="modal-overlay" id="moisBlancModal"><div class="modal-card"><h3>❄️ MOIS BLANC</h3><div id="moisBlancInfo"></div><div class="modal-buttons"><button class="btn btn-outline" id="cancelMoisBlanc">ANNULER</button><button class="btn" id="confirmMoisBlanc">OUI</button></div></div></div>
@@ -826,6 +801,7 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
+        // Protection contre les raccourcis clavier
         document.addEventListener('contextmenu', e => { e.preventDefault(); return false; });
         document.addEventListener('selectstart', e => { e.preventDefault(); return false; });
         document.addEventListener('keydown', function(e) {
@@ -894,6 +870,10 @@
         let logoBase64Cache = null;
         let isGeneratingReceipt = false;
         let codeValidationResolve = null;
+
+        // ============================================================
+        // FONCTIONS UTILITAIRES
+        // ============================================================
 
         function getElevesCollection() {
             if (espaceActif === 'primaire') return collection(db, "ecoles", ECOLET_ID, "prima_eleves");
@@ -1047,6 +1027,10 @@
             document.body.appendChild(div);
         }
 
+        // ============================================================
+        // FONCTIONS LOGO
+        // ============================================================
+
         async function chargerLogoEcole() {
             try {
                 const docRef = doc(db, "ecoles", ECOLET_ID);
@@ -1081,6 +1065,10 @@
             }
         }
 
+        // ============================================================
+        // AUTHENTIFICATION
+        // ============================================================
+
         async function verifierAcces() {
             if (!schoolId) { window.location.href = 'https://www.netubex.com/schoolchoice'; return false; }
             try {
@@ -1110,6 +1098,10 @@
                 });
             } catch (e) { afficherErreur("Erreur", "Détails : " + e.message, "https://www.netubex.com/login?ecole=" + schoolId, "Retourner"); return false; }
         }
+
+        // ============================================================
+        // CONFIGURATION - TARIFS
+        // ============================================================
 
         async function getTarifs(space = null) {
             const s = space || espaceActif;
@@ -1200,6 +1192,10 @@
                 return currentSchoolConfig;
             } catch (e) { return null; }
         }
+
+        // ============================================================
+        // GESTION DES ÉLÈVES
+        // ============================================================
 
         async function getAllEleves(space = null) {
             const s = space || espaceActif;
@@ -1330,6 +1326,10 @@
             await updateStats();
         }
 
+        // ============================================================
+        // SUPPRESSION D'ÉLÈVE
+        // ============================================================
+
         window.supprimerEleve = async function(id, nom) {
             const ok = await showCodeValidation('🔐 Pour supprimer <strong>' + nom + '</strong>, veuillez entrer le code de validation.');
             if (ok) {
@@ -1359,6 +1359,10 @@
                 toast('❌ Suppression annulée', 'warning');
             }
         };
+
+        // ============================================================
+        // ABANDONS
+        // ============================================================
 
         async function afficherAbandons() {
             const s = espaceActif;
@@ -1419,6 +1423,10 @@
             await afficherEleves();
             await afficherAbandons();
         }
+
+        // ============================================================
+        // MODIFICATION D'ÉLÈVE
+        // ============================================================
 
         window.ouvrirEditEleve = async function(id) {
             let eleve = localEleves.find(e => e.id === id);
@@ -1492,6 +1500,10 @@
             window._editEleveId = null;
         };
 
+        // ============================================================
+        // CODE PARENT
+        // ============================================================
+
         async function genererCodeUnique(space = null) {
             const s = space || espaceActif;
             const eleves = await getAllEleves(s);
@@ -1505,6 +1517,10 @@
             } while (codes.has(code) && t < 100);
             return code;
         }
+
+        // ============================================================
+        // LIMITE D'INSCRIPTION
+        // ============================================================
 
         async function updateInscriptionLimit() {
             const espace = document.getElementById('newEspace').value;
@@ -1557,6 +1573,10 @@
                 statusDisplay.style.color = '#e74c3c';
             }
         }
+
+        // ============================================================
+        // AFFICHAGE RELEVE
+        // ============================================================
 
         async function afficherReleve(eleve) {
             if (!eleve || eleve.abandon) {
@@ -1641,6 +1661,10 @@
             document.getElementById("releveContainer").innerHTML = html;
         }
 
+        // ============================================================
+        // MODIFICATION DU MONTANT PAYÉ
+        // ============================================================
+
         window.ouvrirEditMontant = async function(eleveId, periodeId, montantActuel, libelle, type) {
             const ok = await showCodeValidation('🔐 Pour modifier le montant payé pour <strong>' + libelle + '</strong>, veuillez entrer le code de validation.');
             if (ok) {
@@ -1697,6 +1721,10 @@
             document.getElementById('editMontantModal').classList.remove('show');
             window.editMontantData = null;
         };
+
+        // ============================================================
+        // PAIEMENTS
+        // ============================================================
 
         window.openPaiement = async function(mois, mv, deja) {
             if (deja >= mv) { toast('Déjà payé', 'warning'); return; }
@@ -1835,6 +1863,10 @@
             window._blancData = null;
             window._blancAction = null;
         };
+
+        // ============================================================
+        // GÉNÉRATION REÇU PDF
+        // ============================================================
 
         window.genererReçuPDF = async function(id, periodeId, montant, datePaiement, type) {
             if (isGeneratingReceipt) { toast('Génération en cours...', 'warning'); return; }
@@ -2116,6 +2148,10 @@
             }
         };
 
+        // ============================================================
+        // INSCRIPTIONS
+        // ============================================================
+
         async function getElevesAvecFrais(space = null) {
             const s = space || espaceActif;
             const tous = await getAllEleves(s);
@@ -2195,6 +2231,10 @@
         };
 
         document.getElementById('cancelInscriptionPayment').onclick = function() { document.getElementById('inscriptionPaymentModal').classList.remove('show'); };
+
+        // ============================================================
+        // CONFIGURATION - AFFICHAGE DES TARIFS
+        // ============================================================
 
         async function afficherTarifs() {
             const cont = document.getElementById("tarifsContainer");
@@ -2306,6 +2346,10 @@
         document.getElementById('btnApplyTarifsSub2').onclick = appliquerTarifsAuxEleves;
         document.getElementById('btnApplyTarifsSub3').onclick = appliquerTarifsAuxEleves;
 
+        // ============================================================
+        // THÈME / ESPACE
+        // ============================================================
+
         function applyTheme(space) {
             document.body.classList.remove('maternelle-theme');
             if (space === 'maternelle') { document.body.classList.add('maternelle-theme'); }
@@ -2386,6 +2430,10 @@
                     await afficherReleve(currentEleve); }
             }
         }
+
+        // ============================================================
+        // RAPPORTS PDF
+        // ============================================================
 
         document.getElementById('btnGenererRapportPrimaire').onclick = async function() {
             if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
@@ -2619,7 +2667,11 @@
             }
         };
 
-        async function genererPDFExoneres(espace) {
+        // ============================================================
+        // PDF EXONÉRÉS - FONCTION GLOBALE
+        // ============================================================
+
+        window.genererPDFExoneres = async function(espace) {
             if (isGeneratingPDF) { toast('Génération en cours...', 'warning'); return; }
             isGeneratingPDF = true;
             try {
@@ -2630,6 +2682,7 @@
                 let elevesExoneres = [];
                 let titre = '';
                 let couleur = '';
+
                 if (espace === 'primaire') {
                     const e = await getAllEleves('primaire');
                     elevesExoneres = e.filter(el => el.exonere === true && !el.abandon);
@@ -2647,11 +2700,13 @@
                     titre = 'LISTE DES EXONÉRÉS - TOUS';
                     couleur = '#27ae60';
                 }
+
                 if (elevesExoneres.length === 0) {
                     toast('Aucun élève exonéré trouvé', 'warning');
                     isGeneratingPDF = false;
                     return;
                 }
+
                 doc.setFillColor(255, 255, 255);
                 doc.rect(0, 0, pageWidth, 65, "F");
                 const colorHex = couleur.replace('#', '');
@@ -2661,6 +2716,7 @@
                 doc.setDrawColor(r, g, b);
                 doc.setLineWidth(1.5);
                 doc.line(20, 65, pageWidth - 20, 65);
+
                 const logoX = 15;
                 const logoY = 8;
                 const logoSize = 45;
@@ -2688,14 +2744,17 @@
                 doc.text('Année scolaire ' + anneeScolaireCourante, startX, titleY + (logoAdded ? 26 : 22));
                 doc.setFontSize(8);
                 doc.text('Généré le ' + formatDateFr(new Date()), pageWidth - 20, 60, { align: "right" });
+
                 const tableData = elevesExoneres.map(e => {
                     const espaceLabel = e.classe && (e.classe.startsWith('Niveau') || classesMaternelle.includes(e.classe)) ? 'MAT' : 'PRI';
                     return [(e.nom + ' ' + (e.prenom || '')).toUpperCase(), e.classe, e.sexe === 'F' ? 'F' : 'M', e.motifExon || '-', e.approbateur || '-', e.parentCode || '-', espaceLabel];
                 });
+
                 const totalEleves = elevesExoneres.length;
                 const totalFilles = elevesExoneres.filter(e => e.sexe === 'F').length;
                 const totalGarcons = elevesExoneres.filter(e => e.sexe === 'M').length;
                 const statsText = 'Total: ' + totalEleves + ' | Filles: ' + totalFilles + ' | Garçons: ' + totalGarcons;
+
                 doc.autoTable({
                     head: [['ÉLÈVE', 'CLASSE/NIVEAU', 'SEXE', 'MOTIF', 'APPROBATEUR', 'CODE PARENT', 'ESPACE']],
                     body: tableData,
@@ -2711,6 +2770,7 @@
                         doc.text('Page ' + data.pageNumber + ' / ' + pageCount, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
                     }
                 });
+
                 const suffixe = espace === 'primaire' ? 'Primaire' : espace === 'maternelle' ? 'Maternelle' : 'Tous';
                 doc.save('Exoneres_' + suffixe + '_' + formatDateYMD() + '.pdf');
                 toast('📄 PDF Exonérés (' + suffixe + ') généré avec ' + totalEleves + ' élèves', 'success');
@@ -2720,11 +2780,11 @@
             } finally {
                 isGeneratingPDF = false;
             }
-        }
+        };
 
-        document.getElementById('btnExoneresPrimaire').onclick = function() { genererPDFExoneres('primaire'); };
-        document.getElementById('btnExoneresMaternelle').onclick = function() { genererPDFExoneres('maternelle'); };
-        document.getElementById('btnExoneresTous').onclick = function() { genererPDFExoneres('tous'); };
+        // ============================================================
+        // RAPPORT - SOUS-ONGLETS
+        // ============================================================
 
         document.getElementById('rapportSubTabs').addEventListener('click', function(e) {
             const btn = e.target.closest('.rapport-sub-tab');
@@ -2735,6 +2795,10 @@
             const target = btn.dataset.rapport === 'primaire' ? 'rapportPrimaire' : 'rapportMaternelle';
             document.getElementById(target).classList.add('active');
         });
+
+        // ============================================================
+        // FORMULAIRE D'INSCRIPTION
+        // ============================================================
 
         let currentStep = 1;
         document.getElementById('btnInscrire').onclick = function() {
@@ -3037,6 +3101,10 @@
                 await setDoc(ref, f);
                 toast('Frais d\'inscription enregistrés avec succès', 'success'); } catch (e) { toast('Erreur lors de l\'enregistrement', 'error'); }
         };
+
+        // ============================================================
+        // INITIALISATION
+        // ============================================================
 
         async function initApp() {
             const ok = await verifierAcces();
